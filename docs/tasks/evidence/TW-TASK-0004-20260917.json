@@ -1,0 +1,507 @@
+{
+  "task": "TW-TASK-0004",
+  "verified_at": "2026-09-17T15:31:45.224510+00:00",
+  "scope": "SMN Dev only, September 17 2026 edition",
+  "release": {
+    "id": "20260917-1d366e70a3",
+    "source_commit": "1d366e70a3e6e01b58212a5a841814e013a21ac2",
+    "edition_date": "2026-09-17",
+    "previous_web": "/var/www/smn-dev-recovery/20260910-b2d82a9795",
+    "candidate_web": "/var/www/smn-dev-recovery/20260917-1d366e70a3",
+    "previous_code": "/var/lib/tradewave/smn-editorial/releases/b2d82a979566c0e236503913c862ae54fa4ca1a6",
+    "candidate_code": "/var/lib/tradewave/smn-editorial/releases/1d366e70a3e6e01b58212a5a841814e013a21ac2",
+    "package": "/var/tmp/smn-michael-edition-1d366e70-20260917/publication-package",
+    "urls": [
+      "https://smn-dev.trxstat.com/editions/2026-09-17/DJI/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-17/JNJ/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-17/OMC/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-17/LEN/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-17/COO/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-17/MO/article.html"
+    ],
+    "status": "live_verified",
+    "production_written": false,
+    "primary_smn_dev_restored": false,
+    "verified_source_files": 16,
+    "verified_public_files": 121
+  },
+  "tests": {
+    "command": "python -m pytest blog/tests/test_chartkit.py blog/tests/test_engine_seasonal.py blog/tests/test_engine_editorial_copy.py blog/tests/test_seasonal_edition.py blog/tests/test_subscription_publication.py -q",
+    "passed": 48,
+    "subtests_passed": 11,
+    "browser": "Chrome via Playwright; 1440x1050 and 390x844 viewports",
+    "live_article_layouts": 12,
+    "public_files_verified": 121,
+    "source_files_verified": 16,
+    "pixel_inspection": "Session agent viewed final article and chart captures for every subject plus live landing in both layouts; not an independent human review"
+  },
+  "articles": [
+    {
+      "symbol": "MO",
+      "title": "Fewer cigarettes, higher tobacco profits: Altria’s autumn test",
+      "dev_url": "https://smn-dev.trxstat.com/editions/2026-09-17/MO/article.html",
+      "production_url": "https://seasonalmarketnews.com/articles/US/2026/09/27/10-for-10-midterm-run-altria-mo-has-gained-every-sep-27-oct-26-window-averaging-7-05.html",
+      "identity": {
+        "resource_id": "2",
+        "symbol": "MO",
+        "anchor_date": "2026-09-27",
+        "days": 30,
+        "years": "pe2-10",
+        "direction": "long"
+      },
+      "engine_cohort": {
+        "label": "10 selected midterm-election years (1986–2022)",
+        "n": 10,
+        "years": [
+          1986,
+          1990,
+          1994,
+          1998,
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ]
+      },
+      "review_stage": "copy-review",
+      "review_passed": true,
+      "article_html_sha256": "1b7b21d6c9059fc0013775e4d7897fa1fb33b72cd0fb3b7d4f7f5d6fee30cc65",
+      "engine_card_sha256": "a7cb3bc90e97782a84693fc386b04737eb95f271d4760a912e6d69ba884ac276",
+      "source_caps": {
+        "altria": {
+          "prose": 88,
+          "chart": 82,
+          "headings_and_citation": 6,
+          "maximum": 200,
+          "total": 176,
+          "passed": true
+        },
+        "altria-calendar": {
+          "prose": 45,
+          "chart": 0,
+          "headings_and_citation": 6,
+          "maximum": 200,
+          "total": 51,
+          "passed": true
+        }
+      },
+      "csv_integrity": {
+        "unchanged_engine_card": true,
+        "unchanged_primary_csv": "20d331d02a5255cb724e3c1c57e1210eeaf2a97a9d2ab2f92f86f46d614b9bf2",
+        "unchanged_projection_csv": "e3938e8459ec77631851ab760d83a143d7e1f00ea54e189aa5381b8e71bf18d9"
+      }
+    },
+    {
+      "symbol": "COO",
+      "title": "Can Cooper rebuild lens growth in a favorable seasonal window?",
+      "dev_url": "https://smn-dev.trxstat.com/editions/2026-09-17/COO/article.html",
+      "production_url": "https://seasonalmarketnews.com/articles/US/2026/10/10/cooper-companies-the-coo-has-risen-in-9-of-9-midterm-windows-averaging-30-53-gains.html",
+      "identity": {
+        "resource_id": "2",
+        "symbol": "COO",
+        "anchor_date": "2026-10-10",
+        "days": 302,
+        "years": "pe2-9",
+        "direction": "long"
+      },
+      "engine_cohort": {
+        "label": "9 selected midterm-election years (1990–2022)",
+        "n": 9,
+        "years": [
+          1990,
+          1994,
+          1998,
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ]
+      },
+      "review_stage": "review",
+      "review_passed": true,
+      "article_html_sha256": "ca9c5e99a7ea9e0cc70be5ff47108820aa9b51aa33dd7d71608cafce96cbe621",
+      "engine_card_sha256": "458e893b69ce5ea8f55c4ddb4e3d8d71bc73bed64a58c2b162f0f7816a916883",
+      "source_caps": {
+        "cooper": {
+          "prose": 82,
+          "chart": 75,
+          "headings_and_citation": 11,
+          "maximum": 200,
+          "total": 168,
+          "passed": true
+        }
+      },
+      "csv_integrity": {
+        "unchanged_engine_card": true,
+        "unchanged_primary_csv": "0ddf5c38e20b8d72c940085e8aff505619715c13c4410f49909ad106273a0b40",
+        "unchanged_projection_csv": "b34908db396986002e02139155d01ae2fe5f80c7116fd75c85890c3678fcbc64"
+      }
+    },
+    {
+      "symbol": "LEN",
+      "title": "Lennar cuts its outlook before a historically strong autumn window",
+      "dev_url": "https://smn-dev.trxstat.com/editions/2026-09-17/LEN/article.html",
+      "production_url": "https://seasonalmarketnews.com/articles/US/2026/10/05/lennar-len-has-rallied-in-9-of-10-midterm-fall-windows-averaging-18-35-gains.html",
+      "identity": {
+        "resource_id": "2",
+        "symbol": "LEN",
+        "anchor_date": "2026-10-05",
+        "days": 96,
+        "years": "pe2-10",
+        "direction": "long"
+      },
+      "engine_cohort": {
+        "label": "10 selected midterm-election years (1986–2022)",
+        "n": 10,
+        "years": [
+          1986,
+          1990,
+          1994,
+          1998,
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ]
+      },
+      "review_stage": "copy-review",
+      "review_passed": true,
+      "article_html_sha256": "66e1d2b7561b60578c6d7c98225c6376ad13ac6cfdfcfd062f9d154944227ab7",
+      "engine_card_sha256": "49a9c3ba1b08193d833578b71eaed642d8a371abc20f4f2f331a2cb0dcd49524",
+      "source_caps": {
+        "lennar": {
+          "prose": 88,
+          "chart": 80,
+          "headings_and_citation": 6,
+          "maximum": 200,
+          "total": 174,
+          "passed": true
+        }
+      },
+      "csv_integrity": {
+        "unchanged_engine_card": true,
+        "unchanged_primary_csv": "c9be0e15c28696cdd2070b7c15b5153dd29c4e2b739035f370f7d51418220ea1",
+        "unchanged_projection_csv": "af6f06c6a68cfc5a7baee070589aaa7655a11de4e92739354c826861d827e2a4"
+      }
+    },
+    {
+      "symbol": "OMC",
+      "title": "Omnicom’s autumn window: can organic growth last after IPG?",
+      "dev_url": "https://smn-dev.trxstat.com/editions/2026-09-17/OMC/article.html",
+      "production_url": "https://seasonalmarketnews.com/articles/US/2026/09/22/omnicom-group-omc-has-risen-in-10-straight-midterm-fall-windows-averaging-11-14-gains.html",
+      "identity": {
+        "resource_id": "2",
+        "symbol": "OMC",
+        "anchor_date": "2026-09-22",
+        "days": 56,
+        "years": "pe2-10",
+        "direction": "long"
+      },
+      "engine_cohort": {
+        "label": "10 selected midterm-election years (1986–2022)",
+        "n": 10,
+        "years": [
+          1986,
+          1990,
+          1994,
+          1998,
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ]
+      },
+      "review_stage": "review",
+      "review_passed": true,
+      "article_html_sha256": "76033fe8b2e4fc25858fd51ef5a2e0ae4d6628386d704ccbf636155a8d3c573e",
+      "engine_card_sha256": "9fad480e77612a67fa34f740e7513886d03a41b308ebb1555fdd3236e5a0047a",
+      "source_caps": {
+        "omnicom": {
+          "prose": 79,
+          "chart": 94,
+          "headings_and_citation": 6,
+          "maximum": 200,
+          "total": 179,
+          "passed": true
+        }
+      },
+      "csv_integrity": {
+        "unchanged_engine_card": true,
+        "unchanged_primary_csv": "9f010f2fe277b8f1d3b3d2342a3df9e2a51f164aeac71cc326864584ef6a851f",
+        "unchanged_projection_csv": "aa9c7727df879ded5559c9c958fe8525446176695da41a74d5b1fbfd948a7d96"
+      }
+    },
+    {
+      "symbol": "JNJ",
+      "title": "What J&J’s autumn record adds before earnings",
+      "dev_url": "https://smn-dev.trxstat.com/editions/2026-09-17/JNJ/article.html",
+      "production_url": "https://seasonalmarketnews.com/articles/US/2026/09/23/johnson-johnson-jnj-has-risen-in-10-of-10-late-midterm-windows-averaging-6-6-gains.html",
+      "identity": {
+        "resource_id": "2",
+        "symbol": "JNJ",
+        "anchor_date": "2026-09-23",
+        "days": 57,
+        "years": "pe2-10",
+        "direction": "long"
+      },
+      "engine_cohort": {
+        "label": "10 selected midterm-election years (1986–2022)",
+        "n": 10,
+        "years": [
+          1986,
+          1990,
+          1994,
+          1998,
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ]
+      },
+      "review_stage": "copy-review",
+      "review_passed": true,
+      "article_html_sha256": "c2c33241c91dc5466b6a16e1f3e7ffb4c831b77c4685630b06e4fd6d3680c44a",
+      "engine_card_sha256": "8dbe56c3d80396fdfbe4587e6f042153b73fb585df0f4f986f04d84962edb2cd",
+      "source_caps": {
+        "jnj": {
+          "prose": 82,
+          "chart": 79,
+          "headings_and_citation": 7,
+          "maximum": 200,
+          "total": 168,
+          "passed": true
+        },
+        "jnj-calendar": {
+          "prose": 102,
+          "chart": 0,
+          "headings_and_citation": 9,
+          "maximum": 200,
+          "total": 111,
+          "passed": true
+        }
+      },
+      "csv_integrity": {
+        "unchanged_engine_card": true,
+        "unchanged_primary_csv": "12c3f9c02bed883668ea5f6375d9529f5154ce938ed7fbcd77f0929388f8d60d",
+        "unchanged_projection_csv": "4808acf31e29a1c748912f6c4b66be022c1cfad2c8104c3ee94f5daab579c0ef"
+      }
+    },
+    {
+      "symbol": "DJI",
+      "title": "What the Dow’s seasonal strength means after the Fed hike",
+      "dev_url": "https://smn-dev.trxstat.com/editions/2026-09-17/DJI/article.html",
+      "production_url": "https://seasonalmarketnews.com/articles/INDX/2026/10/10/dow-jones-industrial-average-dji-has-risen-in-10-of-10-midterm-oct-jul-windows-averaging-21-06-gains.html",
+      "identity": {
+        "resource_id": "5",
+        "symbol": "DJI",
+        "anchor_date": "2026-10-10",
+        "days": 284,
+        "years": "pe2-10",
+        "direction": "long"
+      },
+      "engine_cohort": {
+        "label": "10 selected midterm-election years (1986–2022)",
+        "n": 10,
+        "years": [
+          1986,
+          1990,
+          1994,
+          1998,
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ]
+      },
+      "review_stage": "review",
+      "review_passed": true,
+      "article_html_sha256": "cc671f6fb0df682ad2c925f39dc4e618828e6b18ac542330cfb2b5143accbaf9",
+      "engine_card_sha256": "7ea753d7d1089c60a49527f29b21ac71cf45cc125f2445bbd944f7329d179ddb",
+      "source_caps": {
+        "fed-september": {
+          "prose": 73,
+          "chart": 90,
+          "headings_and_citation": 8,
+          "maximum": 200,
+          "total": 171,
+          "passed": true
+        },
+        "fed-july": {
+          "prose": 22,
+          "chart": 90,
+          "headings_and_citation": 8,
+          "maximum": 200,
+          "total": 120,
+          "passed": true
+        }
+      },
+      "csv_integrity": {
+        "unchanged_engine_card": true,
+        "unchanged_primary_csv": "b25be581c3f4be11d38bd60ac069faef73a3292cc49603adeefe9025cb61d92c",
+        "unchanged_projection_csv": "c456da9804eb61c52b634a286e1808ad9b0bd6787bef0a4a32a8ef1cdccf3a8c"
+      }
+    }
+  ],
+  "engine_export": {
+    "captured_at": "2026-09-17T14:51:44.160485+00:00",
+    "owner": {
+      "path": "/home/flask/site/lib/svg_wave_chart.py",
+      "sha256": "870b216e3b3b3b44050069a2b3336e195e44f7879ad6c40810af1d4e763a1953",
+      "commit": "05ae209ecaba231e5816f835dc133f7c0cdf00e8"
+    },
+    "sha256": "9b4cd97818eee423260e44caef9d690c64f5f34cfa989ea389da7b9bdc2e7853"
+  },
+  "subscription": {
+    "model": "gpt-6-astra",
+    "effort": "xhigh",
+    "auth_type": "chatgpt",
+    "api_fallback": false,
+    "heroes": "Reused production illustrations; no image API calls",
+    "jobs": [
+      {
+        "job": "COO-20260917-review",
+        "model_requested": "gpt-6-astra",
+        "effort_requested": "xhigh",
+        "auth_type": "chatgpt",
+        "api_fallback": false,
+        "output_sha256": "cd3de4a1cd7866190595c8b59d3ac65945142ce98ce6b315c1148edff60792ff"
+      },
+      {
+        "job": "COO-20260917-write",
+        "model_requested": "gpt-6-astra",
+        "effort_requested": "xhigh",
+        "auth_type": "chatgpt",
+        "api_fallback": false,
+        "output_sha256": "47ad55fbe5c36fe6480f5345785d173bd0810ff3550017013f6d363cfdb2968a"
+      },
+      {
+        "job": "DJI-20260917-review",
+        "model_requested": "gpt-6-astra",
+        "effort_requested": "xhigh",
+        "auth_type": "chatgpt",
+        "api_fallback": false,
+        "output_sha256": "d41f7de5b0dcbe523f1799bca7265ba3138b1e08fd67789062338736f5b547e4"
+      },
+      {
+        "job": "DJI-20260917-write",
+        "model_requested": "gpt-6-astra",
+        "effort_requested": "xhigh",
+        "auth_type": "chatgpt",
+        "api_fallback": false,
+        "output_sha256": "e6a9ef8d2d8b43c292704a2107efce05f77299b10fa44ae5756ea94e5a8d76cb"
+      },
+      {
+        "job": "JNJ-20260917-copy-review",
+        "model_requested": "gpt-6-astra",
+        "effort_requested": "xhigh",
+        "auth_type": "chatgpt",
+        "api_fallback": false,
+        "output_sha256": "fe2c60dd91eeb22e3181bba631a54402404e1a9f47fd43548db1d66151b83c73"
+      },
+      {
+        "job": "JNJ-20260917-review",
+        "model_requested": "gpt-6-astra",
+        "effort_requested": "xhigh",
+        "auth_type": "chatgpt",
+        "api_fallback": false,
+        "output_sha256": "0af2a6e9d33908b6e90b37215fe6d4c5127b6ead83fdebe81eeca265a74c857f"
+      },
+      {
+        "job": "JNJ-20260917-write",
+        "model_requested": "gpt-6-astra",
+        "effort_requested": "xhigh",
+        "auth_type": "chatgpt",
+        "api_fallback": false,
+        "output_sha256": "eac521b6027d2c58272c6e84e615a2443ae63207115e56439427e24fa5bf05ba"
+      },
+      {
+        "job": "LEN-20260917-copy-review",
+        "model_requested": "gpt-6-astra",
+        "effort_requested": "xhigh",
+        "auth_type": "chatgpt",
+        "api_fallback": false,
+        "output_sha256": "17176d9157d6cdc5b75e372265e65298247a12c8e84affbc3ef4ee2eaf20deda"
+      },
+      {
+        "job": "LEN-20260917-review",
+        "model_requested": "gpt-6-astra",
+        "effort_requested": "xhigh",
+        "auth_type": "chatgpt",
+        "api_fallback": false,
+        "output_sha256": "48a2325a834245e1a23f5a5afa82adb58149287cfa1a21cf21f958a50da56799"
+      },
+      {
+        "job": "LEN-20260917-write",
+        "model_requested": "gpt-6-astra",
+        "effort_requested": "xhigh",
+        "auth_type": "chatgpt",
+        "api_fallback": false,
+        "output_sha256": "dcdf11caef553c63da4bfdbb542a89121ecf1d6b74b68fc78c22ca57bbe3929e"
+      },
+      {
+        "job": "MO-20260917-copy-review",
+        "model_requested": "gpt-6-astra",
+        "effort_requested": "xhigh",
+        "auth_type": "chatgpt",
+        "api_fallback": false,
+        "output_sha256": "358ea6297e901800e09811e1e1a2753240f93f1ddb678e4d3e943260cbd4a927"
+      },
+      {
+        "job": "MO-20260917-review",
+        "model_requested": "gpt-6-astra",
+        "effort_requested": "xhigh",
+        "auth_type": "chatgpt",
+        "api_fallback": false,
+        "output_sha256": "df388d9dfcfb343e4b214ab088fe882627bf396320ce3ec8e2363e78c6f638ba"
+      },
+      {
+        "job": "MO-20260917-write",
+        "model_requested": "gpt-6-astra",
+        "effort_requested": "xhigh",
+        "auth_type": "chatgpt",
+        "api_fallback": false,
+        "output_sha256": "0111d46ee13d41880f7c2fad4d0e04a7a85106653c591defc823cfa2f8cba775"
+      },
+      {
+        "job": "OMC-20260917-review",
+        "model_requested": "gpt-6-astra",
+        "effort_requested": "xhigh",
+        "auth_type": "chatgpt",
+        "api_fallback": false,
+        "output_sha256": "637439a428369dde73f9b7a2182dece3150d1616954573b8965375eaa82b5fd6"
+      },
+      {
+        "job": "OMC-20260917-write",
+        "model_requested": "gpt-6-astra",
+        "effort_requested": "xhigh",
+        "auth_type": "chatgpt",
+        "api_fallback": false,
+        "output_sha256": "33eaa1556d00f56910763a263455f882a22797ccb63a6f7809594da78bba3096"
+      }
+    ]
+  },
+  "shared_audit": {
+    "host": "tradewave-vm (192.168.1.176)",
+    "path": "/var/lib/tradewave/smn-editorial/audits/20260917/editorial-audit.tar.gz",
+    "sha256": "82179d14169a1a030d185367462780ab923010aa23e1176f7820c4766fad3505",
+    "access": "SSH, sudo/root; private audit outside nginx root; contains source packets, job prompts/outputs/receipts, no account credentials"
+  },
+  "limits": [
+    "Dev uses the existing .176 recovery host; primary .180 not restored.",
+    "Production and schedulers were not changed. Staging qualification not run.",
+    "DJI review retained two minor suggestions: smoother second opening sentence and unsigned policy-rate levels; caption identifies rate upper bounds. No major or blocker issues remain.",
+    "Initial test collection lacked blog/tests in PYTHONPATH; corrected test harness and all 48 tests passed."
+  ]
+}

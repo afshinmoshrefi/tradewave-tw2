@@ -949,6 +949,23 @@ the original TradeWave exports, correct the reader-facing method descriptions,
 renew affected reviews and finish Dev-only publication. No production,
 scheduler, distribution or paid-API fallback is authorized by this continuation.
 
+
+**SMN editorial refinement, September 17, 2026.** The six current production
+subjects (MO, COO, LEN, OMC, JNJ, DJI) are recreated on SMN Dev with Michael's
+plain-language editorial rules, concrete takeaways, clearer comparison/risk
+captions and useful study invitations. Existing native charts and normalized
+TradeWave projection remain intact, alongside business-context visuals. Exact
+production-selected studies are retained; comparison responses cannot replace
+their cohorts. Subscription writer/reviewer uses Astra xhigh via ChatGPT login;
+no paid API fallback or scheduler is enabled. All source IDs contributing to a
+context chart reserve its displayed text against their individual word budgets.
+`blog/chartkit.py` keeps mobile axis labels within the image with fewer ticks.
+No TradeWave mathematics changed. SMN main/live source is
+`1d366e70a3e6e01b58212a5a841814e013a21ac2`; the existing .176 recovery vhost serves
+`/editions/2026-09-17/`. Primary .180 restoration and production promotion are
+separate. See [TW-TASK-0004](tasks/TW-TASK-0004.md) for exact validation, private
+audit access and rollback pointers; its dated receipts own environment status.
+
 **Toggles + hiding.**  `showProjection` and `showMaxProjection` persist via
 `Common.js:lsGet/lsSet` (localStorage keys `showProjection` /
 `showMaxProjection`); both default TRUE. The secondary pill and the secondary
