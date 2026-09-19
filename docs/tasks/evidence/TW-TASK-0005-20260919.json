@@ -1,0 +1,110 @@
+{
+  "task": "TW-TASK-0005",
+  "verified_at": "2026-09-19T14:32:34.531267+00:00",
+  "source_commit": "ee9e7f4af913519c8649d4e68608fa7cf9bd91da",
+  "release": {
+    "id": "20260917-ee9e7f4af9",
+    "source_commit": "ee9e7f4af913519c8649d4e68608fa7cf9bd91da",
+    "edition_date": "2026-09-17",
+    "previous_web": "/var/www/smn-dev-recovery/20260917-1d366e70a3",
+    "candidate_web": "/var/www/smn-dev-recovery/20260917-ee9e7f4af9",
+    "previous_code": "/var/lib/tradewave/smn-editorial/releases/1d366e70a3e6e01b58212a5a841814e013a21ac2",
+    "candidate_code": "/var/lib/tradewave/smn-editorial/releases/ee9e7f4af913519c8649d4e68608fa7cf9bd91da",
+    "package": "/var/tmp/smn-edition-2026-09-17-ee9e7f4af9/publication-package",
+    "urls": [
+      "https://smn-dev.trxstat.com/editions/2026-09-17/DJI/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-17/JNJ/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-17/OMC/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-17/LEN/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-17/COO/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-17/MO/article.html"
+    ],
+    "status": "live_verified",
+    "production_written": false,
+    "primary_smn_dev_restored": false
+  },
+  "scope": "Subscription daily SMN Dev worker; production unchanged",
+  "tests": {
+    "local_passed": 31,
+    "local_linux_skip": 1,
+    "linux_installer_passed": 5,
+    "coverage": [
+      "capture waits, immutable repeat, mutation/traversal hold",
+      "six/date/source guards",
+      "zero-call repeats and completed-receipt recovery",
+      "bounded new model calls and failed job hold",
+      "lock-before-main acknowledgement",
+      "archive/source/public hash checks and rollback"
+    ],
+    "live_article_layouts": 12,
+    "public_files": 121,
+    "source_files": 22
+  },
+  "capture_fidelity": {
+    "passed": true,
+    "date": "2026-09-18",
+    "studies": [
+      {
+        "symbol": "AMD",
+        "lookback_years": "pe2-10",
+        "passed": true
+      },
+      {
+        "symbol": "XLK",
+        "lookback_years": "pe2-6",
+        "passed": true
+      },
+      {
+        "symbol": "SPX",
+        "lookback_years": "pe2-10",
+        "passed": true
+      },
+      {
+        "symbol": "GC",
+        "lookback_years": "pe2-6",
+        "passed": true
+      },
+      {
+        "symbol": "QQQ",
+        "lookback_years": "pe2-6",
+        "passed": true
+      },
+      {
+        "symbol": "HRL",
+        "lookback_years": "pe2-10",
+        "passed": true
+      }
+    ],
+    "production_writes": false
+  },
+  "current_date_capture": {
+    "date": "2026-09-19",
+    "status": "waiting_for_production",
+    "reason": "No complete same-date production batch; no previous-date substitution"
+  },
+  "subscription": {
+    "auth_type": "chatgpt",
+    "model": "gpt-6-astra",
+    "effort": "xhigh",
+    "api_fallback": false,
+    "new_model_jobs_this_verification": 0
+  },
+  "schedule": {
+    "id": "smn-daily-dev-subscription-edition",
+    "status": "ACTIVE",
+    "time": "07:00 America/New_York daily",
+    "kind": "Codex local thread heartbeat",
+    "local_host_required": true
+  },
+  "limitations": [
+    "First naturally scheduled fresh six-article edition remains to be observed. This test republished unchanged, previously approved September17 articles, not new writing.",
+    "The prior subscription writer/reviewer remains unchanged; controller was exercised through receipt-backed fixtures and read-only live source capture.",
+    "Dev is the .176 recovery vhost; primary .180 remains offline.",
+    "No production or TradeWave mathematics changes."
+  ],
+  "recovery": {
+    "runbook": "SMN blog/SUBSCRIPTION_DAILY_RUNBOOK.md",
+    "local_profile": "C:\\Users\\afshin\\Documents\\TradeWave Main Orchestrator\\smn-review-20260919\\daily-worker\\worker-profile.json",
+    "archive": "/var/lib/tradewave/smn-editorial/audits/20260919/daily-worker-audit.tar.gz"
+  }
+}

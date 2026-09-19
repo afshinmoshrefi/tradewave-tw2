@@ -966,6 +966,9 @@ No TradeWave mathematics changed. SMN main/live source is
 separate. See [TW-TASK-0004](tasks/TW-TASK-0004.md) for exact validation, private
 audit access and rollback pointers; its dated receipts own environment status.
 
+
+**SMN daily Dev worker, September 19, 2026.** The local Codex heartbeat now coordinates the subscription pipeline at 07:00 America/New_York. Saved ChatGPT authentication runs Astra xhigh; no API fallback. Six exact same-date production subjects and unchanged TradeWave engine responses feed fresh source-backed commissions. Immutable state/receipts, failure holds, editorial and actual visual checks precede Dev-only publication. Windows must remain awake with Codex available. Dev remains the .176 recovery vhost; production and primary .180 are unchanged. Source main/live `ee9e7f4af913519c8649d4e68608fa7cf9bd91da`. Existing approved September17 articles were replayed for deployment verification; the first naturally scheduled fresh edition is still to be observed. [TW-TASK-0005](tasks/TW-TASK-0005.md) owns run history, evidence and recovery.
+
 **Toggles + hiding.**  `showProjection` and `showMaxProjection` persist via
 `Common.js:lsGet/lsSet` (localStorage keys `showProjection` /
 `showMaxProjection`); both default TRUE. The secondary pill and the secondary
