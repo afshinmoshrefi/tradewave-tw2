@@ -1,0 +1,10 @@
+{
+  "source_commit": "ee9e7f4af913519c8649d4e68608fa7cf9bd91da",
+  "production_writes": false,
+  "new_model_jobs": 0,
+  "reason": "The same-date production batch is not complete; no earlier date substituted.",
+  "dev_publication": false,
+  "status": "waiting_for_production",
+  "checked_at": "2026-09-20T11:01:49.6541975Z",
+  "date": "2026-09-20"
+}

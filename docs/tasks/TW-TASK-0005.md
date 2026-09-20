@@ -36,3 +36,6 @@ Private audit archive at `/var/lib/tradewave/smn-editorial/audits/20260919/daily
 - Claim commit 112d0244; budget checkpoint b60dbfbc held NON-DEPLOYABLE WIP 54dd53b. The owner lifted the usage constraint; repair resumed.
 - Resolved the apparent production capture error: September19 had no six-article batch. Transport works with September18 and exact engine fidelity passes.
 - Final implementation `ee9e7f4af913519c8649d4e68608fa7cf9bd91da` supersedes WIP. Dev verified, daily schedule enabled, shared handoff complete. Production promotion remains a separately authorized project; natural-run evidence will be appended here.
+
+## Scheduled run - September 20, 2026
+At 2026-09-20T11:01:49.6541975Z, the clean current SMN main ee9e7f4af913519c8649d4e68608fa7cf9bd91da returned waiting_for_production for September 20. No complete same-date batch was available. No writer/reviewer jobs or publication ran; production and Dev were unchanged. No previous-date substitution. Wait for the next scheduled check. [Run evidence](evidence/TW-TASK-0005-run-20260920.json).
