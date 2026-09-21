@@ -1,0 +1,229 @@
+{
+  "bug": "TW-BUG-0010",
+  "status": "verified_on_dev",
+  "verified_at": "2026-09-21T11:20:57.251654+00:00",
+  "source_commit": "be2a8103d723c78707c3ee83a03ee61fdc43802b",
+  "tests_passed": 9,
+  "local": {
+    "passed": true,
+    "studies": [
+      {
+        "symbol": "LEN",
+        "n": 10,
+        "years": [
+          1986,
+          1990,
+          1994,
+          1998,
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ],
+        "passed": true
+      },
+      {
+        "symbol": "VIX",
+        "n": 8,
+        "years": [
+          1994,
+          1998,
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ],
+        "passed": true
+      },
+      {
+        "symbol": "CPRT",
+        "n": 7,
+        "years": [
+          1998,
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ],
+        "passed": true
+      },
+      {
+        "symbol": "XLF",
+        "n": 6,
+        "years": [
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ],
+        "passed": true
+      },
+      {
+        "symbol": "APH",
+        "n": 8,
+        "years": [
+          1994,
+          1998,
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ],
+        "passed": true
+      },
+      {
+        "symbol": "GIS",
+        "n": 10,
+        "years": [
+          1986,
+          1990,
+          1994,
+          1998,
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ],
+        "passed": true
+      }
+    ],
+    "statistics_and_projection_unchanged": true
+  },
+  "live": {
+    "passed": true,
+    "studies": [
+      {
+        "symbol": "LEN",
+        "n": 10,
+        "years": [
+          1986,
+          1990,
+          1994,
+          1998,
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ],
+        "passed": true
+      },
+      {
+        "symbol": "VIX",
+        "n": 8,
+        "years": [
+          1994,
+          1998,
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ],
+        "passed": true
+      },
+      {
+        "symbol": "CPRT",
+        "n": 7,
+        "years": [
+          1998,
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ],
+        "passed": true
+      },
+      {
+        "symbol": "XLF",
+        "n": 6,
+        "years": [
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ],
+        "passed": true
+      },
+      {
+        "symbol": "APH",
+        "n": 8,
+        "years": [
+          1994,
+          1998,
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ],
+        "passed": true
+      },
+      {
+        "symbol": "GIS",
+        "n": 10,
+        "years": [
+          1986,
+          1990,
+          1994,
+          1998,
+          2002,
+          2006,
+          2010,
+          2014,
+          2018,
+          2022
+        ],
+        "passed": true
+      }
+    ],
+    "statistics_and_projection_unchanged": true
+  },
+  "release": {
+    "id": "20260917-be2a8103d7",
+    "source_commit": "be2a8103d723c78707c3ee83a03ee61fdc43802b",
+    "edition_date": "2026-09-17",
+    "previous_web": "/var/www/smn-dev-recovery/20260917-ee9e7f4af9",
+    "candidate_web": "/var/www/smn-dev-recovery/20260917-be2a8103d7",
+    "previous_code": "/var/lib/tradewave/smn-editorial/releases/ee9e7f4af913519c8649d4e68608fa7cf9bd91da",
+    "candidate_code": "/var/lib/tradewave/smn-editorial/releases/be2a8103d723c78707c3ee83a03ee61fdc43802b",
+    "package": "/var/tmp/smn-edition-2026-09-17-be2a8103d7/publication-package",
+    "urls": [
+      "https://smn-dev.trxstat.com/editions/2026-09-17/DJI/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-17/JNJ/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-17/OMC/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-17/LEN/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-17/COO/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-17/MO/article.html"
+    ],
+    "status": "live_verified",
+    "production_written": false,
+    "primary_smn_dev_restored": false
+  },
+  "article_layouts": 12,
+  "public_files_verified": 121,
+  "production_written": false,
+  "engine_changed": false,
+  "new_articles_generated": false,
+  "archive_path": "/var/lib/tradewave/smn-editorial/audits/20260921/completion-fix-audit.tar.gz",
+  "archive_sha256": "8687e74dba16a772e75fbe4f44b5298c8eda0ce9f7c3ca7687eaf2d9d32fe13b"
+}

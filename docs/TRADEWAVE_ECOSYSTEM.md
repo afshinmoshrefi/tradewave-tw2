@@ -967,6 +967,9 @@ separate. See [TW-TASK-0004](tasks/TW-TASK-0004.md) for exact validation, privat
 audit access and rollback pointers; its dated receipts own environment status.
 
 
+
+**SMN engine completion flags, September 21, 2026.** SMN `engine_seasonal.decode_rows` consumes the engine's explicit boolean `completed` marker. A started unfinished window can contain a nonzero price pair; it must not enter completed historical evidence. Older responses without the flag retain their established zero-price future-placeholder convention. Completed flat windows are preserved. No engine mathematics changed. SMN main/live `be2a8103d723c78707c3ee83a03ee61fdc43802b`; [TW-BUG-0010](bugs/TW-BUG-0010.md) owns verification and recovery.
+
 **SMN daily Dev worker, September 19, 2026.** The local Codex heartbeat now coordinates the subscription pipeline at 07:00 America/New_York. Saved ChatGPT authentication runs Astra xhigh; no API fallback. Six exact same-date production subjects and unchanged TradeWave engine responses feed fresh source-backed commissions. Immutable state/receipts, failure holds, editorial and actual visual checks precede Dev-only publication. Windows must remain awake with Codex available. Dev remains the .176 recovery vhost; production and primary .180 are unchanged. Source main/live `ee9e7f4af913519c8649d4e68608fa7cf9bd91da`. Existing approved September17 articles were replayed for deployment verification; the first naturally scheduled fresh edition is still to be observed. [TW-TASK-0005](tasks/TW-TASK-0005.md) owns run history, evidence and recovery.
 
 **Toggles + hiding.**  `showProjection` and `showMaxProjection` persist via

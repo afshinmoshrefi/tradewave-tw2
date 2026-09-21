@@ -1,6 +1,6 @@
 # TW-BUG-0010: SMN counts an unfinished TradeWave row as historical evidence
 
-- Status: in-progress
+- Status: verified
 - Confidence: reproduced
 - Priority: P2 - first fresh scheduled Dev edition is held; no affected new content published
 - First observed / last updated: 2026-09-21T11:06:11.427963+00:00
@@ -29,3 +29,10 @@ Local worker: reproduced using captured production input and production engine o
 
 ## Authorized repair claim
 2026-09-21T11:16:12.588858+00:00: Afshin explicitly requested fix it. Correct SMN completion-flag consumption only, preserve engine results, run captured APH/six-study regression, activate and verify Dev. SMN branch codex/smn-completed-observations-20260921, fresh worktree of that name. No production or engine changes.
+
+## Repair verified on Dev
+2026-09-21T11:20:57.251654+00:00: Explicit owner-authorized repair is committed and pushed as SMN `be2a8103d723c78707c3ee83a03ee61fdc43802b`. `decode_rows` now uses TradeWave's boolean completion field for primary and comparison observations, rejects malformed completion metadata, and retains the existing zero-price future-placeholder convention only for older exports without that field. Completed flat years remain intact. No return, cohort metric, date, or projection is recomputed. Nine focused tests pass, including the captured APH response and older fixtures. Local and active Dev generator checks pass all six September21 studies; supplied statistics and projection objects remain identical. APH has the exact original eight completed years. [Repair evidence](evidence/TW-BUG-0010-fixed-20260921.json).
+
+Clean integration `smn-completion-integrated-20260921`; task branch `codex/smn-completed-observations-20260921`. Dev code pointer and current main agree; scheduled local worker checkout was fast-forwarded to the correction. Release `20260917-be2a8103d7` preserves the approved September17 article content. 12 live desktop/mobile checks and 121 public file hashes pass. Source/provenance hashes verified; Dev lock released. Previous pointers and nginx bytes retained in the release record; later rollback requires a new controlled lock. Production and TradeWave engine unchanged.
+
+The original preflight hold is retained with a separate explicit resolution record. The bug is fixed; September21 article generation was not performed by this repair and remains pending fresh commissions plus ordinary editorial/visual gates. Future daily runs use the repaired code. Private replayable capture/audit location and hash are in the evidence.

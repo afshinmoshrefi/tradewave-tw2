@@ -42,3 +42,6 @@ At 2026-09-20T11:01:49.6541975Z, the clean current SMN main ee9e7f4af913519c8649
 
 ## Scheduled run - September 21, 2026
 At 2026-09-21T11:06:11.427963+00:00, all six production picks were captured read-only: LEN, VIX, CPRT, XLF, APH and GIS. Source-fidelity checks passed five; APH was held because the client counts an explicitly unfinished 2026 row alongside the eight completed production observations. See [TW-BUG-0010](../bugs/TW-BUG-0010.md) and [run evidence](evidence/TW-TASK-0005-run-20260921.json). No writer/reviewer calls, Dev publication, production writes or engine changes. Research was stopped. The immutable date directory has a preflight hold and requires explicit recovery; the first fresh scheduled edition remains pending. This is an SMN response-interpretation issue, not evidence that TradeWave mathematics or production articles are wrong.
+
+## September21 parser repair
+TW-BUG-0010 fixed and verified on Dev at be2a8103d723c78707c3ee83a03ee61fdc43802b. All six captured studies pass. Scheduled worker uses the new source; approved existing articles remain. Fresh September21 writing is still pending and was not performed by the repair. See [bug verification](../bugs/TW-BUG-0010.md).
