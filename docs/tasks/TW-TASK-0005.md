@@ -58,3 +58,6 @@ TW-BUG-0010 fixed and verified on Dev at be2a8103d723c78707c3ee83a03ee61fdc43802
 
 ## Production-style review environment and September21 edition
 2026-09-21T11:24:11.506476+00:00: Owner requests production-style presentation on existing Dev, the September21 six articles, then daily scheduling. Claim Codex smn-production-presentation-20260921; SMN base be2a8103d723c78707c3ee83a03ee61fdc43802b. Preserve noindex, exact Dev host guards and improved TradeWave articles. Explicit fresh attempt from resolved source capture. No production writes.
+
+## Cumulative homepage correction
+2026-09-21T14:26:36.979857+00:00: Owner requests retained coverage and production homepage template. TW-BUG-0011 owns the repair. Prior six-article generation remains verified; the latest-edition-only home was insufficient.
