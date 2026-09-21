@@ -39,3 +39,6 @@ Private audit archive at `/var/lib/tradewave/smn-editorial/audits/20260919/daily
 
 ## Scheduled run - September 20, 2026
 At 2026-09-20T11:01:49.6541975Z, the clean current SMN main ee9e7f4af913519c8649d4e68608fa7cf9bd91da returned waiting_for_production for September 20. No complete same-date batch was available. No writer/reviewer jobs or publication ran; production and Dev were unchanged. No previous-date substitution. Wait for the next scheduled check. [Run evidence](evidence/TW-TASK-0005-run-20260920.json).
+
+## Scheduled run - September 21, 2026
+At 2026-09-21T11:06:11.427963+00:00, all six production picks were captured read-only: LEN, VIX, CPRT, XLF, APH and GIS. Source-fidelity checks passed five; APH was held because the client counts an explicitly unfinished 2026 row alongside the eight completed production observations. See [TW-BUG-0010](../bugs/TW-BUG-0010.md) and [run evidence](evidence/TW-TASK-0005-run-20260921.json). No writer/reviewer calls, Dev publication, production writes or engine changes. Research was stopped. The immutable date directory has a preflight hold and requires explicit recovery; the first fresh scheduled edition remains pending. This is an SMN response-interpretation issue, not evidence that TradeWave mathematics or production articles are wrong.

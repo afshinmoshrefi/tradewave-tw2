@@ -15,5 +15,6 @@ As recorded September 15, 2026: **5 open bug groups, 4 fixes verified on dev.** 
 | [TW-BUG-0007](TW-BUG-0007.md) | P2 | open | A Failed Trend Request Leaves an Empty Placeholder |
 | [TW-BUG-0008](TW-BUG-0008.md) | P1 | verified on dev | Retained category labels garble a replaced trend curve |
 | [TW-BUG-0009](TW-BUG-0009.md) | P2 | verified on dev | In-range start changes recenter the rolling chart |
+| [TW-BUG-0010](TW-BUG-0010.md) | P2 | open | SMN daily edition counts an unfinished engine observation; publication held |
 
 Status belongs in each record and this index; update both together. Preserve resolved records and reopen recurrences. Verification is environment-specific. See the evidence setup for limitations; the audit was not an exhaustive guarantee and production was not tested.
