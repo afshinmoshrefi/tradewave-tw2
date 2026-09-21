@@ -1,6 +1,6 @@
 # TW-TASK-0005: Subscription daily SMN Dev workflow
 
-- Status: verified
+- Status: in-progress
 - Confidence: reproduced
 - Executor: Codex smn-daily-worker-20260919
 - Claim: 2026-09-19T13:38:22.346282+00:00
@@ -45,3 +45,6 @@ At 2026-09-21T11:06:11.427963+00:00, all six production picks were captured read
 
 ## September21 parser repair
 TW-BUG-0010 fixed and verified on Dev at be2a8103d723c78707c3ee83a03ee61fdc43802b. All six captured studies pass. Scheduled worker uses the new source; approved existing articles remain. Fresh September21 writing is still pending and was not performed by the repair. See [bug verification](../bugs/TW-BUG-0010.md).
+
+## Production-style review environment and September21 edition
+2026-09-21T11:24:11.506476+00:00: Owner requests production-style presentation on existing Dev, the September21 six articles, then daily scheduling. Claim Codex smn-production-presentation-20260921; SMN base be2a8103d723c78707c3ee83a03ee61fdc43802b. Preserve noindex, exact Dev host guards and improved TradeWave articles. Explicit fresh attempt from resolved source capture. No production writes.
