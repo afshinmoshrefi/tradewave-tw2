@@ -1,0 +1,19 @@
+{
+  "completed_at": "2026-09-21T14:43:54.662799+00:00",
+  "task": "TW-BUG-0011 / TW-TASK-0005",
+  "source_commit": "82fedc6c23585b733b26d7e770ca42a970b1c3a6",
+  "home": "https://smn-dev.trxstat.com/",
+  "retained_articles": 24,
+  "live_article_layouts": 12,
+  "public_files_verified": 144,
+  "linux_tests": 13,
+  "archive_search_verified": true,
+  "article_regeneration": false,
+  "paid_api_calls": 0,
+  "tradewave_calculations_changed": false,
+  "production_written": false,
+  "automation": "smn-daily-dev-subscription-edition active daily 07:00 America/New_York",
+  "worker_repository": "smn-home-integrated-20260921",
+  "canonical_edition_root_unchanged": "smn-review-20260921/production-style",
+  "status": "live_verified"
+}

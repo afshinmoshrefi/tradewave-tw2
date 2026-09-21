@@ -61,3 +61,6 @@ TW-BUG-0010 fixed and verified on Dev at be2a8103d723c78707c3ee83a03ee61fdc43802
 
 ## Cumulative homepage correction
 2026-09-21T14:26:36.979857+00:00: Owner requests retained coverage and production homepage template. TW-BUG-0011 owns the repair. Prior six-article generation remains verified; the latest-edition-only home was insufficient.
+
+
+September 21 verified cumulative homepage: SMN main/live 82fedc6c23585b733b26d7e770ca42a970b1c3a6. Root serves the production wire template with 24 retained articles from September 8, 10, 17 and 21. Daily publication merges by URL without deleting prior files; homepage displays 14 days/up to 50 items, with full archive search. Linux retention/idempotency/rollback tests: 13 passed. Live: 12 article layouts, 144 public hashes, older article search, desktop/mobile pixels verified. No new model calls, article rewrites, math or production changes. Record /var/lib/tradewave/release-state/smn-edition-20260921-82fedc6c23 is live_verified. Previous web 20260921-6557b93bf9 and code 6557b93bf98dc4cf7c13e59e256a3b0897a80dec retained for rollback. ACTIVE daily 07:00 America/New_York automation uses smn-home-integrated-20260921; immutable edition root remains smn-review-20260921/production-style. Evidence: docs/tasks/evidence/TW-TASK-0005-home-archive-20260921.json; local smn-review-20260921/home-archive/replay/2026-09-21.

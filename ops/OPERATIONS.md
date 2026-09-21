@@ -44,11 +44,14 @@ VM startup after host boot must be configured and tested on the actual VirtualBo
 host; enabling a guest service cannot start a powered-off VM. Never enable content
 publishing/email schedulers as part of a static-site availability repair.
 
+
+
+September 21 verified cumulative homepage: SMN main/live 82fedc6c23585b733b26d7e770ca42a970b1c3a6. Root serves the production wire template with 24 retained articles from September 8, 10, 17 and 21. Daily publication merges by URL without deleting prior files; homepage displays 14 days/up to 50 items, with full archive search. Linux retention/idempotency/rollback tests: 13 passed. Live: 12 article layouts, 144 public hashes, older article search, desktop/mobile pixels verified. No new model calls, article rewrites, math or production changes. Record /var/lib/tradewave/release-state/smn-edition-20260921-82fedc6c23 is live_verified. Previous web 20260921-6557b93bf9 and code 6557b93bf98dc4cf7c13e59e256a3b0897a80dec retained for rollback. ACTIVE daily 07:00 America/New_York automation uses smn-home-integrated-20260921; immutable edition root remains smn-review-20260921/production-style. Evidence: docs/tasks/evidence/TW-TASK-0005-home-archive-20260921.json; local smn-review-20260921/home-archive/replay/2026-09-21.
 September 9 emergency recovery: `ops/nginx/smn-dev-failover.conf` can serve only
 the already approved September 8 edition from
 `/var/www/smn-dev-recovery/current` on TW2. All 97 public artifact files were
 hash-checked through nginx; the public edition, QQQ article, hero and seasonal
-charts were checked in a browser. The home route temporarily redirects to that
+charts were checked in a browser. The initial home route temporarily redirected to that
 edition. Other SMN archives/services are not part of this fallback.
 
 The actual loaded TW2 vhost is `/etc/nginx/sites-enabled/smn-dev`, a regular file,

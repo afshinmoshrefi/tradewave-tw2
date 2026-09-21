@@ -307,7 +307,7 @@ underlying reason the VM stopped requires its host/guest shutdown evidence.
 An emergency, static-only fallback was prepared on TW2 from the exact approved
 September 8 publication artifact (SMN source `651fbb75e4fd04699ab46f6b2e2bbcc900ec760c`):
 97 public files under `/var/www/smn-dev-recovery/20260909`, served through the
-`current` symlink by `ops/nginx/smn-dev-failover.conf`. It redirects the site root
+`current` symlink by `ops/nginx/smn-dev-failover.conf`. The initial recovery redirected the site root
 to the six-article edition; it does not restore the full SMN archive, generation,
 queues or other application services. Activation state and original DNS/nginx
 backups are under `/var/lib/tradewave/release-state/smn-dev-outage-20260909` on
@@ -968,7 +968,7 @@ audit access and rollback pointers; its dated receipts own environment status.
 
 
 
-**SMN fresh subscription edition, September 21, 2026.** Six same-day production selections are now published to the existing .176 Dev review site through saved ChatGPT subscription Astra xhigh, with fresh primary-source context and unchanged TradeWave mathematics. Normal SMN presentation is restored. Main/live source 6557b93bf98dc4cf7c13e59e256a3b0897a80dec. The existing daily 07:00 America/New_York heartbeat uses the clean local smn-production-integrated-20260921 checkout and immutable smn-review-20260921/production-style edition roots. Windows awake/Codex availability required; no paid API fallback or production writes. [TW-TASK-0005](tasks/TW-TASK-0005.md) records the live proof, schedule and private replay evidence.
+**SMN fresh subscription edition, September 21, 2026.** Six same-day production selections are now published to the existing .176 Dev review site through saved ChatGPT subscription Astra xhigh, with fresh primary-source context and unchanged TradeWave mathematics. Normal SMN presentation is restored. Main/live source 82fedc6c23585b733b26d7e770ca42a970b1c3a6. Root now serves cumulative production wire home with 24 retained articles and full archive search; see TW-BUG-0011. The existing daily 07:00 America/New_York heartbeat uses the clean local smn-home-integrated-20260921 checkout and immutable smn-review-20260921/production-style edition roots. Windows awake/Codex availability required; no paid API fallback or production writes. [TW-TASK-0005](tasks/TW-TASK-0005.md) records the live proof, schedule and private replay evidence.
 
 **SMN engine completion flags, September 21, 2026.** SMN `engine_seasonal.decode_rows` consumes the engine's explicit boolean `completed` marker. A started unfinished window can contain a nonzero price pair; it must not enter completed historical evidence. Older responses without the flag retain their established zero-price future-placeholder convention. Completed flat windows are preserved. No engine mathematics changed. SMN main/live `be2a8103d723c78707c3ee83a03ee61fdc43802b`; [TW-BUG-0010](bugs/TW-BUG-0010.md) owns verification and recovery.
 

@@ -1,6 +1,6 @@
 # TW-BUG-0011: SMN review homepage hides retained prior articles
 
-- Status: in-progress
+- Status: verified
 - Confidence: reproduced
 - Priority: P2 - readers cannot discover prior editions from the home page.
 - First observed / last updated: 2026-09-21T14:26:36.979857+00:00
@@ -17,10 +17,13 @@ Confirmed in blog/install_smn_recovery_edition.py::prepare: copytree preserves p
 Retained Dev articles appear in a cumulative production-style homepage, newest first, with working older-article discovery. Subsequent publication merges catalog entries without duplicating or losing old editions. Dated edition/article URLs and existing article bytes remain intact. Browser checks cover desktop/mobile, older article navigation and accumulation; tests exercise sequential publication and repeat. No new model generation or TradeWave calculation is needed.
 
 ## Implementation and Handoff
-SMN branch codex/smn-home-archive-20260921; local clean worktree smn-home-archive-20260921, base 6557b93bf98dc4cf7c13e59e256a3b0897a80dec. Implementation/tests/deployment pending. Related workflow TW-TASK-0005. Short Dev lock and pointer rollback, no production changes.
+SMN branch codex/smn-home-archive-20260921; local clean worktree smn-home-archive-20260921, base 6557b93bf98dc4cf7c13e59e256a3b0897a80dec. Implementation and Dev deployment verified. Related workflow TW-TASK-0005. Short Dev lock and pointer rollback, no production changes.
 
 ## Environment Verification
-Dev: reproduced; repair pending. Staging: not checked. Production: read-only template reference, unchanged.
+Dev: verified. Staging: not checked. Production: read-only template reference, unchanged.
 
 ## History
 - 2026-09-21T14:26:36.979857+00:00: Owner report reproduced and repair claimed. Next: reuse production template, recover retained catalog, implement cumulative install, test and activate Dev.
+
+
+September 21 verified cumulative homepage: SMN main/live 82fedc6c23585b733b26d7e770ca42a970b1c3a6. Root serves the production wire template with 24 retained articles from September 8, 10, 17 and 21. Daily publication merges by URL without deleting prior files; homepage displays 14 days/up to 50 items, with full archive search. Linux retention/idempotency/rollback tests: 13 passed. Live: 12 article layouts, 144 public hashes, older article search, desktop/mobile pixels verified. No new model calls, article rewrites, math or production changes. Record /var/lib/tradewave/release-state/smn-edition-20260921-82fedc6c23 is live_verified. Previous web 20260921-6557b93bf9 and code 6557b93bf98dc4cf7c13e59e256a3b0897a80dec retained for rollback. ACTIVE daily 07:00 America/New_York automation uses smn-home-integrated-20260921; immutable edition root remains smn-review-20260921/production-style. Evidence: docs/tasks/evidence/TW-TASK-0005-home-archive-20260921.json; local smn-review-20260921/home-archive/replay/2026-09-21.
