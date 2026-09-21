@@ -1,10 +1,10 @@
 # TW-BUG-0010: SMN counts an unfinished TradeWave row as historical evidence
 
-- Status: open
+- Status: in-progress
 - Confidence: reproduced
 - Priority: P2 - first fresh scheduled Dev edition is held; no affected new content published
 - First observed / last updated: 2026-09-21T11:06:11.427963+00:00
-- Executor/session: Codex SMN daily heartbeat 2026-09-21; implementation unassigned
+- Executor/session: Codex SMN daily heartbeat 2026-09-21; implementation claimed by Codex smn-completed-observations-20260921
 - Authorization: scheduled Dev workflow, read-only diagnosis and documentation. Held edition is not automatically retried. No engine-calculation change authorized.
 
 ## User Impact and Reproduction
@@ -26,3 +26,6 @@ Local worker: reproduced using captured production input and production engine o
 
 ## History
 - 2026-09-21T11:06:11.427963+00:00: First scheduled complete batch held by source-fidelity gate before writer/reviewer calls. Recorded under TW-TASK-0005. No automatic retry or correction.
+
+## Authorized repair claim
+2026-09-21T11:16:12.588858+00:00: Afshin explicitly requested fix it. Correct SMN completion-flag consumption only, preserve engine results, run captured APH/six-study regression, activate and verify Dev. SMN branch codex/smn-completed-observations-20260921, fresh worktree of that name. No production or engine changes.
