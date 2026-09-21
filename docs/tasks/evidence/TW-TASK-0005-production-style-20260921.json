@@ -1,0 +1,69 @@
+{
+  "task": "TW-TASK-0005",
+  "verified_at": "2026-09-21T12:14:23.016297+00:00",
+  "source_commit": "6557b93bf98dc4cf7c13e59e256a3b0897a80dec",
+  "date": "2026-09-21",
+  "symbols": [
+    "LEN",
+    "VIX",
+    "CPRT",
+    "XLF",
+    "APH",
+    "GIS"
+  ],
+  "release": {
+    "id": "20260921-6557b93bf9",
+    "source_commit": "6557b93bf98dc4cf7c13e59e256a3b0897a80dec",
+    "edition_date": "2026-09-21",
+    "previous_web": "/var/www/smn-dev-recovery/20260917-be2a8103d7",
+    "candidate_web": "/var/www/smn-dev-recovery/20260921-6557b93bf9",
+    "previous_code": "/var/lib/tradewave/smn-editorial/releases/be2a8103d723c78707c3ee83a03ee61fdc43802b",
+    "candidate_code": "/var/lib/tradewave/smn-editorial/releases/6557b93bf98dc4cf7c13e59e256a3b0897a80dec",
+    "package": "/var/tmp/smn-edition-2026-09-21-6557b93bf9/publication-package",
+    "urls": [
+      "https://smn-dev.trxstat.com/editions/2026-09-21/GIS/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-21/APH/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-21/XLF/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-21/CPRT/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-21/VIX/article.html",
+      "https://smn-dev.trxstat.com/editions/2026-09-21/LEN/article.html"
+    ],
+    "status": "live_verified",
+    "production_written": false,
+    "primary_smn_dev_restored": false
+  },
+  "source_transition": {
+    "writing_source_commit": "77369c1beb34c1754ed33ddd3bbb58896b0fb931",
+    "publication_source_commit": "6557b93bf98dc4cf7c13e59e256a3b0897a80dec",
+    "changed_files": [
+      "blog/subscription_live.cjs"
+    ],
+    "reason": "Normalize whitespace in browser branding assertion; article generation, renderer, evidence and calculations are byte-identical. Original controller source binding is preserved.",
+    "article_generation_changed": false
+  },
+  "model_jobs": 12,
+  "authentication": "saved ChatGPT subscription",
+  "model": "gpt-6-astra",
+  "effort": "xhigh",
+  "paid_api_fallback": false,
+  "production_written": false,
+  "engine_changed": false,
+  "layout_count": 12,
+  "public_file_count": 121,
+  "automation": {
+    "id": "smn-daily-dev-subscription-edition",
+    "active": true,
+    "name": "SMN daily subscription edition",
+    "schedule": "Daily at 07:00 America/New_York",
+    "kind": "heartbeat",
+    "target_thread_id": "01a072f5-3b8a-7952-9454-0cc38b369c81",
+    "verified_at": "2026-09-21T12:14:22.860091+00:00",
+    "configuration_sha256": "f3d33db60199f578bc3aa80352508140046d0f52532788d6e4f00ffe9ae36cbe",
+    "worker_profile_sha256": "d4ef004a60c83ef16474b2a6032b42a80519707933ca5d89a3f9140220b570e3",
+    "host_requirement": "Windows awake and Codex available",
+    "no_paid_api_fallback": true,
+    "production_writes": false
+  },
+  "archive_path": "/var/lib/tradewave/smn-editorial/audits/20260921/production-style-audit.tar.gz",
+  "archive_sha256": "08545d8c023488ed96cbbc315d995b6a91dac5fffe57271a6230a7d2ca257df4"
+}
