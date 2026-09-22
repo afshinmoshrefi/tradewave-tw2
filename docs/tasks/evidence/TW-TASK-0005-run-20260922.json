@@ -1,0 +1,66 @@
+{
+  "date": "2026-09-22",
+  "at": "2026-09-22T11:46:52.140057+00:00",
+  "status": "failed_needs_review",
+  "stage": "publication_package",
+  "automatic_retry": false,
+  "source_commit": "82fedc6c23585b733b26d7e770ca42a970b1c3a6",
+  "symbols": [
+    "MRK",
+    "XLK",
+    "AZO",
+    "SPY",
+    "QQQ",
+    "GC"
+  ],
+  "editorial_reviews_passed": 6,
+  "visual_reviews_passed": 6,
+  "model_jobs": 12,
+  "subscription_auth_verified": true,
+  "api_fallback": false,
+  "production_written": false,
+  "dev_published": false,
+  "reason": "Uppercase hexadecimal in MRK/AZO/XLK/QQQ visual review records fails exact lowercase hash comparison. Actual bytes match case-insensitively. Package directory was created and is preserved empty; no activation occurred.",
+  "hash_checks": [
+    {
+      "symbol": "AZO",
+      "exact_hash_match": false,
+      "case_insensitive_match": true,
+      "inspected_images_match": true
+    },
+    {
+      "symbol": "GC",
+      "exact_hash_match": true,
+      "case_insensitive_match": true,
+      "inspected_images_match": true
+    },
+    {
+      "symbol": "MRK",
+      "exact_hash_match": false,
+      "case_insensitive_match": true,
+      "inspected_images_match": true
+    },
+    {
+      "symbol": "QQQ",
+      "exact_hash_match": false,
+      "case_insensitive_match": true,
+      "inspected_images_match": true
+    },
+    {
+      "symbol": "SPY",
+      "exact_hash_match": true,
+      "case_insensitive_match": true,
+      "inspected_images_match": true
+    },
+    {
+      "symbol": "XLK",
+      "exact_hash_match": false,
+      "case_insensitive_match": true,
+      "inspected_images_match": true
+    }
+  ],
+  "next_action": "Explicit recovery authorization required. Verify all reviewed bytes, normalize hash representation in new visual-proof revisions, preserve original failed records and use a new publication-only attempt/package. Reuse the 12 successful immutable jobs; do not regenerate articles.",
+  "private_audit": "/var/lib/tradewave/smn-editorial/audits/20260922/held-run-audit.tar.gz",
+  "private_audit_sha256": "1fa746abc77c590e1dbf7ffbe4be62e9f98d47d82c33e47ee1be7239cc3b90a1",
+  "private_audit_access": "SSH tradewave-vm, root/sudo; outside public nginx. Contains approved article evidence and sanitized job receipts, no credential/account snapshots."
+}
