@@ -46,6 +46,8 @@ publishing/email schedulers as part of a static-site availability repair.
 
 
 
+September22 current state: SMN source c2beec6778c89592a8e12d3ac4266d8aea9e0ac0, recovery web /var/www/smn-dev-recovery/20260922-c2beec6778,30 retained articles. Routine failures use the committed SUBSCRIPTION_DAILY_RUNBOOK autonomous recovery policy; original attempts remain intact and canonical completion receipts prevent duplicates. TW-TASK-0005 records live proof and prior-pointer rollback. Production and primary .180 unchanged.
+
 September 21 verified cumulative homepage: SMN main/live 82fedc6c23585b733b26d7e770ca42a970b1c3a6. Root serves the production wire template with 24 retained articles from September 8, 10, 17 and 21. Daily publication merges by URL without deleting prior files; homepage displays 14 days/up to 50 items, with full archive search. Linux retention/idempotency/rollback tests: 13 passed. Live: 12 article layouts, 144 public hashes, older article search, desktop/mobile pixels verified. No new model calls, article rewrites, math or production changes. Record /var/lib/tradewave/release-state/smn-edition-20260921-82fedc6c23 is live_verified. Previous web 20260921-6557b93bf9 and code 6557b93bf98dc4cf7c13e59e256a3b0897a80dec retained for rollback. ACTIVE daily 07:00 America/New_York automation uses smn-home-integrated-20260921; immutable edition root remains smn-review-20260921/production-style. Evidence: docs/tasks/evidence/TW-TASK-0005-home-archive-20260921.json; local smn-review-20260921/home-archive/replay/2026-09-21.
 September 9 emergency recovery: `ops/nginx/smn-dev-failover.conf` can serve only
 the already approved September 8 edition from

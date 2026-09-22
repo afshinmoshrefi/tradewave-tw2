@@ -1,0 +1,19 @@
+{
+  "status": "resolved_live_verified",
+  "at": "2026-09-22T15:26:42.392381+00:00",
+  "recovery_root": "C:\\Users\\afshin\\Documents\\TradeWave Main Orchestrator\\smn-review-20260922\\resilience\\publication\\2026-09-22",
+  "source_commit": "c2beec6778c89592a8e12d3ac4266d8aea9e0ac0",
+  "article_files_unchanged": true,
+  "new_article_model_jobs": 0,
+  "focused_tests_passed": 21,
+  "live_article_layouts": 12,
+  "public_files_verified": 150,
+  "archive_count": 30,
+  "publication_receipt_sha256": "4812de6e8309c3f45ee0141c1fb89aa1d22dd9f58825e33af5f93429348157fc",
+  "original_hold_preserved": true,
+  "production_written": false,
+  "audit_path": "/var/lib/tradewave/smn-editorial/audits/20260922/recovery-audit.tar.gz",
+  "audit_sha256": "4415379b6b404b5f3e322fbf265e34e4344374b70d96aeb4767d7c5687e0dc7c",
+  "audit_access": "SSH tradewave-vm root/sudo, outside nginx",
+  "automation": "Same ACTIVE daily07:00 America/New_York heartbeat; autonomous bounded recovery, no paid API fallback."
+}
