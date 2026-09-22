@@ -2001,6 +2001,12 @@ contract, complete scorer provenance, and recalculated duration comparisons. Fea
 remains entirely inside the scorer. In `auto` mode TradeWave detects the contract from `/health`;
 operators can pin either version with `TW2_ML_SCORER_MODE=v2|v3`.
 
+Checkpoint profile validation compares the qualifying historical combination set as well
+as model inputs. A break-even observation must not become an extra winning combination:
+TW-BUG-0013 records a confirmed scorer `>= 0` discrepancy against stored TradeWave
+qualification for LRCX. The integrity guard correctly withholds the inconsistent score;
+repair must align qualification rather than bypass that guard.
+
 For a window longer than 90 calendar days, Tara requests bounded 30-, 60-, and 90-calendar-day
 readings from the same entry date and direction and presents them as an `AI-calibrated outlook`.
 The copy leads with the available probabilities and predicted returns, identifies which horizon has
