@@ -21,4 +21,6 @@ As recorded September 15, 2026: **5 open bug groups, 4 fixes verified on dev.** 
 
 | [TW-BUG-0012](TW-BUG-0012.md) | P3 | verified on dev | AI future-entry message incorrectly blames time length |
 
+| [TW-BUG-0013](TW-BUG-0013.md) | P2 | open | LRCX 60-day AI checkpoint fails profile validation |
+
 Status belongs in each record and this index; update both together. Preserve resolved records and reopen recurrences. Verification is environment-specific. See the evidence setup for limitations; the audit was not an exhaustive guarantee and production was not tested.
