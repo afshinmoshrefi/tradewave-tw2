@@ -1,11 +1,11 @@
 # TW-BUG-0012: AI Future-Entry Message Incorrectly Blames Time Length
 
-- Status: in-progress
+- Status: verified on dev
 - Confidence: reproduced
 - Priority: P3, misleading explanation; expected score timing gate is working
 - First observed / last updated: 2026-09-22T14:48:05.102725+00:00
 - Executor/session: Codex, klac-ai-score-investigation-20260922
-- Authorization: investigate missing score and record findings only; no application repair or deployment
+- Authorization: initial investigation, followed by owner-authorized timing explanations and explanation-only empty AI panels, including dev activation. No staging/production authorization.
 
 ## User Impact and Reproduction
 
@@ -48,3 +48,11 @@ Dev: observed UI and checked active-source gate on 2026-09-22T14:48:05.102725+00
 - Owner additionally requested explanation-only panels when all scores are unavailable, replacing misleading tables of dashes. Implemented for desktop and compact views; partially available/loading checkpoints remain visible.
 
 - Implementation validation: 44 existing/updated focused AI panel and score tests pass, including explanation-only desktop/compact states and preserved available checkpoints. First run caught an unescaped apostrophe (corrected before build); next behavior run exposed the obsolete expectation of empty history tables (updated to match the requested explanation-only state). Build and live dev verification pending.
+
+## Completion Receipt
+
+- Verified on dev at 2026-09-22T15:00:07.333772+00:00. Application commit 4a0c34355f98bc44dc61b7cc12cfebba2e65848d is pushed to main and the task branch. React release is /home/flask/web-react/releases/build-4a0c34355f98bc44dc61b7cc12cfebba2e65848d; every built file matches the active artifact by SHA-256. Active backend remains 05ae209ecaba231e5816f835dc133f7c0cdf00e8; comparison confirms all backend application files are unchanged. No backend restart required.
+- 44 focused Jest tests passed. npm run build via ops/build_react_release.sh passed (existing warnings). Live user's Chrome tab reloaded, AI navigation dot clicked, and screenshot confirmed a centered readable explanation with zero score tables for the original KLAC link. Message: "AI Scores open five days before this pattern starts", followed by the historical/current-data explanation. No empty checkpoint cards or dash grids remain.
+- Compact future-entry and partial-availability behavior tested in Jest; no physical-phone browser check. Existing after-entry and history/provider-failure tests pass with explanation-only expectations. Actual post-entry browser flow was not separately exercised.
+- Updated files: AIScorePanel.js, opportunityAIScores.js, AIScorePanel.test.js, AIScorePanel.css, ecosystem knowledge and this record/index. No engine calculation or eligibility change. All-unavailable states show explanation only; available/loading neighboring checkpoints retain their existing presentation.
+- Previous frontend retained at /home/flask/web-react/releases/build-05ae209ecaba231e5816f835dc133f7c0cdf00e8 and build-previous. Activation lock released after main/provenance checks. Staging/production were not changed. Next action: ordinary staging promotion only if requested; no remaining dev work.
