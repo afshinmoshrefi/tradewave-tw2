@@ -2013,6 +2013,12 @@ Current-condition scores are suppressed more than five calendar days before entr
 not presented stale, and a new entry-time score is not calculated after entry because post-entry
 data would contaminate the pre-entry comparison. Missing/provider-failed results remain unavailable,
 never numeric zero. The historical brief remains available if enrichment fails.
+The AI panel explains that estimates combine historical patterns with current market
+data. Future-entry and after-entry notices explain why current inputs cannot represent
+a distant future or past entry; the future notice states the five-calendar-day window.
+When all checkpoints are unavailable, desktop and compact panels show only the reason
+instead of empty tables. Partially available/loading checkpoints stay visible. Buy & Hold uses the same after-entry
+explanation. This is presentation only; see TW-BUG-0012 for implementation status.
 
 AI-horizon why-questions are also deterministic. `tara_answer_planner.py` recognizes variants such
 as "why does AI only do the first 90 days?" and explains that the models are trained and calibrated

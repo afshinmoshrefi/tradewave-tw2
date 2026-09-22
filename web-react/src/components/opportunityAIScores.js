@@ -415,7 +415,7 @@ export const formatOpportunityAIMetric = (metric, value) => {
 }
 
 const AI_REASON_COPY = Object.freeze({
-  after_entry: 'This pattern has already started, so a new AI reading is not available.',
+  after_entry: 'AI Scores combine historical patterns with current market data. Current data includes information from after this pattern started, so it cannot provide a new estimate of conditions at entry. Historical results remain available.',
   context_scoring_failed: 'AI scoring is temporarily unavailable. Try again shortly.',
   incomplete_feature_vector: 'TradeWave does not have all the data needed to score this time length.',
   invalid_checkpoint_context: 'TradeWave could not verify the data for this time length.',
@@ -430,8 +430,8 @@ const AI_REASON_COPY = Object.freeze({
   target_entry_unavailable: 'A starting price is not available for this date.',
   target_price_unavailable: 'TradeWave does not have enough price history for this ticker.',
   tier_unavailable: 'The AI model for this time length is temporarily unavailable.',
-  too_early: 'This score will appear closer to the pattern start date.',
-  too_far_ahead: 'This score will appear closer to the pattern start date.',
+  too_early: 'AI Scores combine historical patterns with current market data, and current conditions may change before entry. Check back within five calendar days of the pattern start.',
+  too_far_ahead: 'AI Scores combine historical patterns with current market data, and current conditions may change before entry. Check back within five calendar days of the pattern start.',
   unavailable: 'No AI score is available for this time length.',
   unsupported_duration: 'AI models cover time lengths from 10 through 90 calendar days.',
   unsupported_market: 'AI Scores are available only for U.S. stocks and ETFs.',

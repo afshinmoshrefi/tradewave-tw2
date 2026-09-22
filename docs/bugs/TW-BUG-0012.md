@@ -44,3 +44,7 @@ Dev: observed UI and checked active-source gate on 2026-09-22T14:48:05.102725+00
 - 2026-09-22T14:48:05.102725+00:00: Codex confirmed expected future-entry suppression and recorded separate misleading headline defect. Application remains unchanged.
 
 - 2026-09-22T14:49:52.000231+00:00: Owner authorized clear user-facing explanations of historical/current inputs and future/past score availability. Codex claims implementation on codex/klac-ai-score-investigation-20260922 in the same clean worktree; scope is UI wording, focused checks and dev activation. Scoring rules stay unchanged.
+
+- Owner additionally requested explanation-only panels when all scores are unavailable, replacing misleading tables of dashes. Implemented for desktop and compact views; partially available/loading checkpoints remain visible.
+
+- Implementation validation: 44 existing/updated focused AI panel and score tests pass, including explanation-only desktop/compact states and preserved available checkpoints. First run caught an unescaped apostrophe (corrected before build); next behavior run exposed the obsolete expectation of empty history tables (updated to match the requested explanation-only state). Build and live dev verification pending.

@@ -15,6 +15,7 @@ const renderPanel = (viewModel, options = {}) => render(
       onOpenPortfolio={options.onOpenPortfolio}
       onExportSnapshot={options.onExportSnapshot}
       tooltipsEnabled={options.tooltipsEnabled}
+      compact={options.compact}
       active={options.active}
       onNavigate={options.onNavigate}
     />
@@ -81,7 +82,7 @@ test('presents a long selected pattern as compact stats-style decision tables', 
   expect(panel).toHaveTextContent(/AI Scores for MSFT.*Data through Aug 4, 2026/i)
   const summary = within(panel).getByLabelText('What AI Scores show')
   expect(summary).toHaveTextContent('AI estimates for this pattern at 30, 60, and 90 days.')
-  expect(summary).toHaveTextContent('Shows whether current conditions support its historical record.')
+  expect(summary).toHaveTextContent('Historical patterns and current market data inform AI probability estimates.')
   expect(panel).not.toHaveTextContent(/Quick read|Shortened 90-day history|latest completed stock and market conditions/i)
 
   const views = within(panel).getAllByRole('table')
@@ -187,7 +188,7 @@ test('plainly identifies the remaining period used for an active pattern', () =>
   expect(summary).toHaveTextContent(
     'Uses the remaining Aug 11, 2026 to Apr 15, 2027 period and current market conditions.'
   )
-  expect(summary).not.toHaveTextContent('Shows whether current conditions support its historical record.')
+  expect(summary).not.toHaveTextContent('Historical patterns and current market data inform AI probability estimates.')
 })
 
 test('replaces empty Buy & Hold checkpoints with a prominent after-entry explanation', () => {
@@ -232,7 +233,7 @@ test('replaces empty Buy & Hold checkpoints with a prominent after-entry explana
   expect(notice).toHaveClass('ai-score-panel__state--warning')
   expect(notice).toHaveTextContent(/AI Scores Not Available/i)
   expect(notice).toHaveTextContent(/Buy & Hold period started on Jan 1, 2026/i)
-  expect(notice).toHaveTextContent(/AI Scores are calculated before a pattern starts/i)
+  expect(notice).toHaveTextContent(/cannot provide a new estimate of conditions at entry/i)
   expect(within(panel).queryByLabelText('What AI Scores show')).not.toBeInTheDocument()
   expect(within(panel).queryAllByRole('table')).toHaveLength(0)
   expect(panel).not.toHaveTextContent(/Pattern already started/i)
@@ -260,7 +261,7 @@ test('keeps the standard after-entry explanation for a non-Buy & Hold pattern', 
 
   const panel = screen.getByRole('region', { name: 'AI Scores' })
   expect(panel).toHaveTextContent(/This pattern has already started/i)
-  expect(within(panel).getAllByRole('table')).toHaveLength(1)
+  expect(within(panel).queryAllByRole('table')).toHaveLength(0)
   expect(within(panel).queryByRole('alert')).not.toBeInTheDocument()
 })
 
@@ -512,8 +513,28 @@ test('distinguishes a service failure from a failed history filter', () => {
   )
 
   expect(screen.getByText('This time length did not pass your history filter')).toBeInTheDocument()
-  expect(screen.getByText(/7 of 10 years profitable/i)).toBeInTheDocument()
-  expect(screen.getByText(/Below filter: needs 9 of 10/i)).toBeInTheDocument()
+  expect(within(screen.getByRole('region', { name: 'AI Scores' })).queryAllByRole('table')).toHaveLength(0)
+  expect(screen.getByText(/Historical results remain available in Wave Stats/i)).toBeInTheDocument()
   expect(screen.getByRole('region', { name: 'AI Scores' })).toHaveAttribute('data-theme', 'dark')
   expect(screen.getByRole('region', { name: 'AI Scores' })).toHaveStyle({ '--ai-negative': '#f87171' })
+})
+
+
+test.each([false, true])('explains a future entry without empty score tables (compact=%s)', compact => {
+  const unavailable = { ...longBundle.display, status: 'unavailable', reason: 'too_far_ahead', metrics: {} }
+  renderPanel({
+    selected: { symbol: 'KLAC', date: '2026-10-01', daysOut: 197 },
+    bundle: { ...longBundle, display: unavailable, horizons: [30, 60, 90].map(calendarDays => ({ ...unavailable, calendarDays })) },
+  }, { compact })
+  const panel = screen.getByRole('region', { name: 'AI Scores' })
+  expect(panel).toHaveTextContent('AI Scores open five days before this pattern starts')
+  expect(panel).toHaveTextContent('current conditions may change before entry')
+  expect(within(panel).queryAllByRole('table')).toHaveLength(0)
+  expect(panel).not.toHaveTextContent(/Not provided|Not available yet/)
+})
+
+test('keeps a usable checkpoint when the selected horizon is unavailable', () => {
+  const unavailable = { ...longBundle.display, status: 'unavailable', reason: 'provider_unavailable', metrics: {} }
+  renderPanel({ selected: { symbol: 'KLAC' }, bundle: { ...longBundle, display: unavailable, horizons: [longBundle.horizons[0], unavailable] } })
+  expect(screen.getByRole('table', { name: '30-day AI scores' })).toHaveTextContent('52%')
 })

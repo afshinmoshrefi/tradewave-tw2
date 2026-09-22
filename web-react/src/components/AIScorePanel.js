@@ -135,6 +135,13 @@ const statusDetails = (display, fallbackReason) => {
     reason.includes('failed') ||
     reason.includes('error')
 
+  if (reason === 'too_early' || reason === 'too_far_ahead') {
+    return {
+      kind: 'neutral',
+      title: 'AI Scores open five days before this pattern starts',
+      copy: opportunityAIReasonCopy(reason),
+    }
+  }
   if (reason === 'after_entry') {
     return {
       kind: 'neutral',
@@ -146,7 +153,7 @@ const statusDetails = (display, fallbackReason) => {
     return {
       kind: 'history',
       title: 'This time length did not pass your history filter',
-      copy: 'The historical record remains visible, but no AI reading was assigned for this time length.',
+      copy: 'Historical results remain available in Wave Stats, but no AI reading was assigned for this time length.',
     }
   }
   if (serviceFailure) {
@@ -558,8 +565,28 @@ const AIScorePanel = ({
         />
         <div className="ai-score-panel__simple-body ai-score-panel__simple-body--warning">
           <StateMessage kind="warning" title="AI Scores Not Available">
-            This Buy &amp; Hold period started on {startDate}. AI Scores are calculated before a pattern starts, so a new reading is not available.
+            This Buy &amp; Hold period started on {startDate}. {opportunityAIReasonCopy('after_entry')}
           </StateMessage>
+        </div>
+      </section>
+    )
+  }
+
+  if (unavailable && !views.some(view => view.status === 'available' || view.status === 'loading')) {
+    return (
+      <section className="ai-score-panel" data-theme={UITheme === 'dark' ? 'dark' : 'light'} style={themeStyle} aria-label="AI Scores">
+        <PanelToolbar
+          title={toolbarTitle}
+          onOpenGuide={onOpenGuide}
+          onOpenPortfolio={onOpenPortfolio}
+          onExportSnapshot={onExportSnapshot}
+          showSnapshot
+          tooltipsEnabled={tooltipsEnabled}
+          infoTextSize={infoTextSize}
+          onNavigate={onNavigate}
+        />
+        <div className="ai-score-panel__simple-body ai-score-panel__explanation">
+          <StateMessage kind={unavailable.kind} title={unavailable.title}>{unavailable.copy}</StateMessage>
         </div>
       </section>
     )
@@ -578,7 +605,7 @@ const AIScorePanel = ({
           {dataAsOf && <small>Through {formatDate(dataAsOf)}</small>}
         </div>
         {unavailable && (
-          <div className="ai-compact__notice">{unavailable.title}</div>
+          <div className="ai-compact__notice"><strong>{unavailable.title}</strong><span>{` ${unavailable.copy}`}</span></div>
         )}
         <div className="ai-compact__rows">
           {views.map(view => (
@@ -610,7 +637,7 @@ const AIScorePanel = ({
       <div className="ai-score-panel__content">
         <div className="ai-score-panel__summary" aria-label="What AI Scores show">
           <div>{checkpointSummary(views)}</div>
-          <div>{activeWindowCopy || 'Shows whether current conditions support its historical record.'}</div>
+          <div>{activeWindowCopy || 'Historical patterns and current market data inform AI probability estimates.'}</div>
         </div>
 
         {unavailable && (
