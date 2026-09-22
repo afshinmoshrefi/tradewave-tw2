@@ -1,6 +1,6 @@
 # TW-BUG-0012: AI Future-Entry Message Incorrectly Blames Time Length
 
-- Status: open
+- Status: in-progress
 - Confidence: reproduced
 - Priority: P3, misleading explanation; expected score timing gate is working
 - First observed / last updated: 2026-09-22T14:48:05.102725+00:00
@@ -42,3 +42,5 @@ Dev: observed UI and checked active-source gate on 2026-09-22T14:48:05.102725+00
 ## History
 
 - 2026-09-22T14:48:05.102725+00:00: Codex confirmed expected future-entry suppression and recorded separate misleading headline defect. Application remains unchanged.
+
+- 2026-09-22T14:49:52.000231+00:00: Owner authorized clear user-facing explanations of historical/current inputs and future/past score availability. Codex claims implementation on codex/klac-ai-score-investigation-20260922 in the same clean worktree; scope is UI wording, focused checks and dev activation. Scoring rules stay unchanged.
