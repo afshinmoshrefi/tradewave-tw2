@@ -2002,10 +2002,11 @@ remains entirely inside the scorer. In `auto` mode TradeWave detects the contrac
 operators can pin either version with `TW2_ML_SCORER_MODE=v2|v3`.
 
 Checkpoint profile validation compares the qualifying historical combination set as well
-as model inputs. A break-even observation must not become an extra winning combination:
-TW-BUG-0013 records a confirmed scorer `>= 0` discrepancy against stored TradeWave
-qualification for LRCX. The integrity guard correctly withholds the inconsistent score;
-repair must align qualification rather than bypass that guard.
+as model inputs. Owner clarification on September 22: an exact break-even is a long win
+and a short loss. Preserve the original unrounded sign; rounded display zero is not proof
+of an exact break-even. TW-BUG-0013 records a stored-versus-recalculated LRCX discrepancy;
+the earlier interpretation that long-side `>= 0` was wrong is retracted. Keep the integrity
+guard while tracing the stored observation and data lineage.
 
 For a window longer than 90 calendar days, Tara requests bounded 30-, 60-, and 90-calendar-day
 readings from the same entry date and direction and presents them as an `AI-calibrated outlook`.

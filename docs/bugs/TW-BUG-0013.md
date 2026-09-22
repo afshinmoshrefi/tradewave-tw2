@@ -26,7 +26,7 @@ Retained exact diagnostic fields from the 60-day scorer response:
 
 Scorer identity: model_release=v3-22sage-20260802-03, feature_schema_version=v3-62, context_schema_version=duration-comparison-context-v5, pattern_profile_schema_version=all-qualifying-combos-v2, data_as_of=2026-09-21, context_data_complete=true, missing_context_data_sources=[]. Data generation hash: 823566e1891059af980791f71ff6e760d864b50d369060341f606acfd1bff6ee. Fresh 30-day win_prob=0.7968, ml_score=87.5. The browser displays 30-day AI Win Chance 80% and 70-day 72%; the 70-day raw response was not captured.
 
-Confirmed immediate cause: scorer rejects inconsistent prebuilt versus dynamically recalculated historical model inputs for the 60-day checkpoint. Both select best combo 9_7_PE2, but counts and two model fields differ. Follow-up root cause is confirmed below: scorer qualifies break-even observations as wins. No evidence supports bypassing validation or substituting a score. The 30/60/70 windows are separately evaluated, so one can fail while its neighbors remain available. This predates and is independent of TW-BUG-0012's presentation change. Current UI generic temporary wording understates the structured non-retryable profile failure.
+Confirmed immediate cause: scorer rejects inconsistent prebuilt versus dynamically recalculated historical model inputs for the 60-day checkpoint. Both select best combo 9_7_PE2, but counts and two model fields differ. Follow-up localized the discrepancy to a break-even observation; the proposed strict-positive fix was retracted after owner clarification below. No evidence supports bypassing validation or substituting a score. The 30/60/70 windows are separately evaluated, so one can fail while its neighbors remain available. This predates and is independent of TW-BUG-0012's presentation change. Current UI generic temporary wording understates the structured non-retryable profile failure.
 
 ## Acceptance and Regression Checks
 
@@ -44,7 +44,7 @@ Dev reproduced 2026-09-22T15:06:17.676397+00:00 via Chrome, Redis and direct sco
 
 - 2026-09-22T15:06:17.676397+00:00: Codex documented independent current-condition checkpoint failure and its exact provider reason.
 
-## Confirmed Root Cause - September 22 Follow-Up
+## Localized Discrepancy - Earlier Interpretation Retracted
 
 Owner requested tracing the actual bug rather than stopping at an input-mismatch description. Read-only inspection of standalone dev scorer 192.168.1.215 shows active release /home/flask/.ml-scorer-releases/4d6470dff5dde891154542f16b68d05d92414003.
 
@@ -61,3 +61,9 @@ Diagnostic method: ran the existing FeatureEngine.compute_recalculated_pattern_p
 Proposed repair: align the scorer's win qualification with the authoritative generator (strictly favorable raw return, before presentation rounding); retain the profile-integrity guard. Audit the similar `>= 0.0` in compute_selected_recurrence_summary at line 905 and small-return rounding semantics. Do not silently broaden this into an engine methodology change. Owner agreement is required by calculation-authority policy before changing mathematical behavior. Current request was to identify the bug; no scoring code was changed. Regression should include this exact 1986 flat case, short-direction break-even, and small nonzero returns that round to zero. Verify all 30/60/70-day provider outputs after any approved repair.
 
 - 2026-09-22T15:12:49.142386+00:00: Confirmed root cause and isolated counterfactual using existing scorer methods; no runtime writes. Next action is agreement on aligning scorer qualification, then a dedicated scorer worktree and focused repair/release workflow.
+
+## Owner Correction - Break-Even Semantics
+
+Afshin clarified that a break-even observation IS a long win and IS a short loss. This overrides the historical notebook inference. The earlier claim that long-side `>= 0` was incorrect and the proposed strict-positive long fix are RETRACTED. The diagnostic proved only that the extra `10_9_PE2` row causes the validation failure; it did not establish which source violated intended methodology.
+
+Continue tracing the stored profile and original observation precision/data lineage. The scorer currently negates short returns then uses `>= 0` for both directions, which conflicts with the clarified short break-even rule and needs a separately scoped evaluation. No mathematical code was changed. Canonical win rule: original signed price return >= 0 is a long win, original signed price return < 0 is a short win; a displayed rounded zero does not establish an exact break-even.
