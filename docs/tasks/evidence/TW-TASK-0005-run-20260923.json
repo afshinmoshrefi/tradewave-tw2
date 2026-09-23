@@ -1,0 +1,60 @@
+{
+  "task": "TW-TASK-0005",
+  "bug": "TW-BUG-0014",
+  "recorded_at": "2026-09-23T11:47:18.762086+00:00",
+  "date": "2026-09-23",
+  "source_commit": "7240b1a992d18340b312feea4d1735d8e2e111c4",
+  "status": "held_job_cap_after_disclosure_repair",
+  "automatic_retry": false,
+  "original_attempt": "C:\\Users\\afshin\\Documents\\TradeWave Main Orchestrator\\smn-review-20260921\\production-style\\2026-09-23",
+  "completed_symbols": [
+    "PAYX",
+    "WMT",
+    "HPQ",
+    "CTAS",
+    "NDX"
+  ],
+  "pending_symbol": "SHOP",
+  "new_jobs_used": 12,
+  "requested_additional_review_jobs": 1,
+  "extra_job_authorized": false,
+  "production_written": false,
+  "symbols": [
+    "SHOP",
+    "PAYX",
+    "WMT",
+    "HPQ",
+    "CTAS",
+    "NDX"
+  ],
+  "fix_tests": {
+    "suite": "blog.tests.test_engine_seasonal",
+    "passed": 10
+  },
+  "fix_branch": "codex/smn-comparison-disclosure-20260923",
+  "smn_main": "277ba7ddb45d2148186d52d4d5f3761b8ca9c3e3",
+  "dev_source": "c2beec6778c89592a8e12d3ac4266d8aea9e0ac0",
+  "dev_web": "/var/www/smn-dev-recovery/20260922-c2beec6778",
+  "dev_unchanged": true,
+  "new_edition_published": false,
+  "engine_changed": false,
+  "model": "gpt-6-astra",
+  "effort": "xhigh",
+  "paid_api_fallback": false,
+  "successful_cli_jobs": 12,
+  "five_editorial_reviews_passed": true,
+  "five_visual_reviews_passed": true,
+  "layout_count": 10,
+  "shop_article_unchanged": true,
+  "usage_totals": {
+    "input_tokens": 255631,
+    "cached_input_tokens": 0,
+    "output_tokens": 61594,
+    "reasoning_output_tokens": 48175
+  },
+  "recovery_root": "C:\\Users\\afshin\\Documents\\TradeWave Main Orchestrator\\smn-review-20260921\\production-style\\2026-09-23\\recovery-disclosure",
+  "next_action": "Owner decision for one extra reviewer job. If allowed before expiry, prepare/run/finalize SHOP review-disclosure using saved original writer, corrected rendered evidence and source7240b1a. Then inspect SHOP desktop/mobile, integrate exact tested source under Dev policy, stage/activate/inspect/finish six-article recovery package, bind canonical date completion. Do not rerun any writer or five approved reviews.",
+  "review_expiry_note": "Original SHOP evidence expires 2026-09-24T07:07:43Z; do not extend immutable receipt expiry. Inspect freshness/recovery requirements if approval is later.",
+  "archive_path": "/var/lib/tradewave/smn-editorial/audits/20260923/daily-run-audit.tar.gz",
+  "archive_sha256": "bb6c95d949f215b18a02918422823b75672938fbbce445e446992078be77832b"
+}
