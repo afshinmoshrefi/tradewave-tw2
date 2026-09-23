@@ -8,6 +8,6 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0002](TW-TASK-0002.md) | verified | Independent review of two fixes and repair of missing documentation evidence |
 | [TW-TASK-0003](TW-TASK-0003.md) | in-progress | Reusable dev MCP release authentication and complete staging promotion |
 | [TW-TASK-0004](TW-TASK-0004.md) | verified | Michael editorial refinements and September 17 SMN Dev edition |
-| [TW-TASK-0005](TW-TASK-0005.md) | verified on dev | September22 live; September23 six drafts prepared, one extra review authorization pending |
+| [TW-TASK-0005](TW-TASK-0005.md) | verified on dev | September23 six subscription articles live;36-article retained archive and daily07:00 schedule |
 | [TW-TASK-0006](TW-TASK-0006.md) | verified | SMN shared Codex/Claude coordination and model-effort review |
 | [TW-TASK-0007](TW-TASK-0007.md) | verified | Controlled six-subject Astra/Sol/Luna quality and usage comparison |
