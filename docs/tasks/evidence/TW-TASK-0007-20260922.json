@@ -1,0 +1,79 @@
+{
+  "utc": "2026-09-23T02:47:07.793752+00:00",
+  "status": "benchmark_complete_not_deployed",
+  "experimental_branch": "codex/smn-model-benchmark-20260922",
+  "experimental_source": "9b3937362093bdb9afe3108f4692b951fa064c2f",
+  "base_source": "277ba7ddb45d2148186d52d4d5f3761b8ca9c3e3",
+  "initial_execution_source": "2138964",
+  "date": "2026-09-22",
+  "subjects": [
+    "MRK",
+    "XLK",
+    "AZO",
+    "SPY",
+    "QQQ",
+    "GC"
+  ],
+  "effort": "xhigh",
+  "new_writer_jobs": 12,
+  "new_reviewer_jobs": 12,
+  "draft_repairs": 0,
+  "paid_api_fallback": false,
+  "writer_schema_prompt_hashes_match": true,
+  "unchanged_asset_evidence_checks": 264,
+  "asset_mismatches": 0,
+  "layout_views_passed": 24,
+  "actual_top_full_images_inspected": 48,
+  "blind_comparison_agents": 2,
+  "blind_editorial_model": "gpt-6-astra",
+  "blind_editorial_effort": "high",
+  "blind_factual_model": "gpt-6-sol",
+  "blind_factual_effort": "high",
+  "visual_review_model": "gpt-6-luna",
+  "visual_review_effort": "low",
+  "adapter_tests_passed": 13,
+  "source_compile_check": true,
+  "report_links_verified": 18,
+  "costs": {
+    "astra": {
+      "mean_api_equivalent_usd": 0.9559933333333334,
+      "total_api_equivalent_usd": 5.73596,
+      "mechanical_passed": 6,
+      "pipeline_passed": 6
+    },
+    "sol": {
+      "mean_api_equivalent_usd": 0.21032399999999998,
+      "total_api_equivalent_usd": 1.261944,
+      "mechanical_passed": 4,
+      "pipeline_passed": 2
+    },
+    "luna": {
+      "mean_api_equivalent_usd": 0.014268983333333332,
+      "total_api_equivalent_usd": 0.08561389999999999,
+      "mechanical_passed": 3,
+      "pipeline_passed": 2
+    }
+  },
+  "cost_basis": "Standard API equivalent of writer/reviewer tokens, not billed subscription usage or total workflow cost.",
+  "production_written": false,
+  "dev_site_written": false,
+  "daily_profile_changed": false,
+  "claude_consensus": "pending actual acknowledgement; findings shared, not a model switch",
+  "limits": [
+    "Six subjects, one sample each",
+    "Baseline uses earlier CLI; exact user prompts unchanged, system context may differ",
+    "Same-model reviewer per pipeline arm; blind common reviewers provide separate quality comparison",
+    "Research, image generation, orchestration, one-off judges and repairs excluded from measured text cost",
+    "SPY concurrent prefetch ownership resolved using its one existing writer receipt; no duplicate generation"
+  ],
+  "key_artifact_hashes": {
+    "findings.html": "0af0a9f4efee759fb0b88cea2af5a19baf02bf5cbd1bf74e62cb18deb90f966a",
+    "findings.md": "d125944c188c3eaf60eabd138435663a83aa7ca3d4073d02c2a7869b97c08cae",
+    "index.html": "6ebdc2cb2860004f43452e782a876b0af30c9c87b310b1c220fd9614794639a8",
+    "label-key.json": "55aaf970060d44ac0029a91f36633e33ea0fb7c99c481e7d4efa6eeeed697826",
+    "measured-costs.json": "1a053c2a45ee34fe7c58ffb439a33a3ff3ddf0515c580f6926ff7b6921d22c0c",
+    "report-verification.json": "c81dca9fddbd49d886409a5ffbd30940c8d76a0aae0927319ef56e5d41a7f481",
+    "visual-review-batch1.json": "834454017712ba93b937082eed88be8034602a1f48eacb40861b10c87b193b50",
+    "visual-review-batch2.json": "8aba19db2dff9dcd31c6c84e5b5fdfec023626c3ac0974e4abf45542692beeb4"
+  }
+}

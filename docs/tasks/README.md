@@ -10,4 +10,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0004](TW-TASK-0004.md) | verified | Michael editorial refinements and September 17 SMN Dev edition |
 | [TW-TASK-0005](TW-TASK-0005.md) | verified on dev | September21 six subscription articles live; production-style presentation and daily 07:00 schedule |
 | [TW-TASK-0006](TW-TASK-0006.md) | verified | SMN shared Codex/Claude coordination and model-effort review |
-| [TW-TASK-0007](TW-TASK-0007.md) | in-progress | Controlled six-subject Astra/Sol/Luna quality and usage comparison |
+| [TW-TASK-0007](TW-TASK-0007.md) | verified | Controlled six-subject Astra/Sol/Luna quality and usage comparison |
