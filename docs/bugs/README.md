@@ -26,3 +26,5 @@ As recorded September 15, 2026: **5 open bug groups, 4 fixes verified on dev.** 
 Status belongs in each record and this index; update both together. Preserve resolved records and reopen recurrences. Verification is environment-specific. See the evidence setup for limitations; the audit was not an exhaustive guarantee and production was not tested.
 
 | [TW-BUG-0014](TW-BUG-0014.md) | P2 | verified on dev | SMN comparison disclosure assumes twenty observed years |
+
+| [TW-BUG-0015](TW-BUG-0015.md) | P2 | in-progress | Median labels overlap seasonal bars |
