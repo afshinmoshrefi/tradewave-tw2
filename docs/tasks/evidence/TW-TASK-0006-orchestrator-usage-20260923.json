@@ -1,0 +1,125 @@
+{
+  "method": "Difference of cumulative root-session token_count totals immediately before and at last usage event in each completed turn. Repeated snapshots do not accumulate. UTC. Excludes child agents and CLI jobs. Cached input is a subset of input; reasoning output is a subset of output. No quota weighting inferred.",
+  "turns": [
+    {
+      "start": "2026-09-22T11:00:23.707Z",
+      "end": "2026-09-22T11:48:29.624Z",
+      "turn_id": "01a0c8c6-2181-7d01-b620-08c70cbdf29d",
+      "heartbeat": true,
+      "before": {
+        "input_tokens": 56496132,
+        "cached_input_tokens": 53665920,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 153889,
+        "reasoning_output_tokens": 38446,
+        "total_tokens": 56650021
+      },
+      "last_total": {
+        "input_tokens": 76121088,
+        "cached_input_tokens": 72913536,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 172706,
+        "reasoning_output_tokens": 41878,
+        "total_tokens": 76293794
+      },
+      "delta": {
+        "input_tokens": 19624956,
+        "cached_input_tokens": 19247616,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 18817,
+        "reasoning_output_tokens": 3432,
+        "total_tokens": 19643773
+      }
+    },
+    {
+      "start": "2026-09-22T15:18:15.341Z",
+      "end": "2026-09-22T15:29:25.959Z",
+      "turn_id": "01a0c9b2-37c9-7cd1-a84e-e563ef8dc7a9",
+      "heartbeat": false,
+      "before": {
+        "input_tokens": 76516156,
+        "cached_input_tokens": 73110784,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 173116,
+        "reasoning_output_tokens": 42062,
+        "total_tokens": 76689272
+      },
+      "last_total": {
+        "input_tokens": 83571304,
+        "cached_input_tokens": 80107392,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 182881,
+        "reasoning_output_tokens": 44410,
+        "total_tokens": 83754185
+      },
+      "delta": {
+        "input_tokens": 7055148,
+        "cached_input_tokens": 6996608,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 9765,
+        "reasoning_output_tokens": 2348,
+        "total_tokens": 7064913
+      }
+    },
+    {
+      "start": "2026-09-23T11:02:10.464Z",
+      "end": "2026-09-23T11:47:55.222Z",
+      "turn_id": "01a0cdee-20cb-7363-8113-75e8b544d684",
+      "heartbeat": true,
+      "before": {
+        "input_tokens": 101052645,
+        "cached_input_tokens": 97203072,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 236914,
+        "reasoning_output_tokens": 61744,
+        "total_tokens": 101289559
+      },
+      "last_total": {
+        "input_tokens": 114564483,
+        "cached_input_tokens": 110491904,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 256649,
+        "reasoning_output_tokens": 68126,
+        "total_tokens": 114821132
+      },
+      "delta": {
+        "input_tokens": 13511838,
+        "cached_input_tokens": 13288832,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 19735,
+        "reasoning_output_tokens": 6382,
+        "total_tokens": 13531573
+      }
+    },
+    {
+      "start": "2026-09-23T11:49:20.516Z",
+      "end": "2026-09-23T11:56:36.864Z",
+      "turn_id": "01a0ce19-4f8b-7ad1-8510-18f4db6dacae",
+      "heartbeat": false,
+      "before": {
+        "input_tokens": 114564483,
+        "cached_input_tokens": 110491904,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 256649,
+        "reasoning_output_tokens": 68126,
+        "total_tokens": 114821132
+      },
+      "last_total": {
+        "input_tokens": 117785205,
+        "cached_input_tokens": 113666048,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 265036,
+        "reasoning_output_tokens": 69503,
+        "total_tokens": 118050241
+      },
+      "delta": {
+        "input_tokens": 3220722,
+        "cached_input_tokens": 3174144,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 8387,
+        "reasoning_output_tokens": 1377,
+        "total_tokens": 3229109
+      }
+    }
+  ]
+}
