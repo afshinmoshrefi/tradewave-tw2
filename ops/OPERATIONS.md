@@ -30,6 +30,9 @@ To sync staging+prod with the latest code: (React build if `web-react/src` chang
 
 ## SMN Dev Outage and Temporary Static Recovery
 
+September23 chart-label repair: SMN sourcec7e56157acf097b8a47bc47abcf6b3cfb8dbcea4, web `/var/www/smn-dev-recovery/chart-labels-20260923-c7e56157ac`,36 retained articles. A scoped presentation-only package repairs48 September22/23 desktop chart assets while preserving653 other existing files and original article provenance. `chart-repair-provenance.json` binds old/new hashes to the renderer source. Guarded installer activate/rollback/finalize manages the lock and pointers; state is `/var/lib/tradewave/release-state/smn-chart-labels-20260923-c7e56157ac`. TW-BUG-0015 owns verification and rollback. Daily receipts stay completed; no writing replay.
+
+
 SMN Dev runs on its own VirtualBox VM `SMN` at `192.168.1.180`, not on TW2
 `192.168.1.176`. Its normal hostname is `smn-dev.trxstat.com`, application root
 `/home/flask/blog`, and static root `/var/www/smn`. The old SMN vhost/files left

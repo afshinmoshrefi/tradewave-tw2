@@ -27,4 +27,4 @@ Status belongs in each record and this index; update both together. Preserve res
 
 | [TW-BUG-0014](TW-BUG-0014.md) | P2 | verified on dev | SMN comparison disclosure assumes twenty observed years |
 
-| [TW-BUG-0015](TW-BUG-0015.md) | P2 | in-progress | Median labels overlap seasonal bars |
+| [TW-BUG-0015](TW-BUG-0015.md) | P2 | verified on Dev | Median labels overlap seasonal bars |

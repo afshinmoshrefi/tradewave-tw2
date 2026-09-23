@@ -2966,3 +2966,7 @@ historical files. This doc supersedes the collective memory content.
   gunicorn-reload), `reference_tw_level_gating`, `reference_tw1_*`, `user_profile`.
 - **Going forward:** memories should be short pointers/deltas; this doc carries the
   full picture.
+
+### SMN median-label rendering (September23, TW-BUG-0015)
+
+SMN `chartkit.record_bars` measures the 11-point median label in display pixels. It reserves a right gutter clear of the final bar and verifies the rendered bounds; excessive width falls back to a dashed-line key below the subtitle. This is presentation geometry only. Existing TradeWave medians and study values pass through unchanged. For retained static-asset repairs, preserve original article receipts/provenance, overlay only hash-bound chart assets on an immutable copy of the current Dev web tree, and record renderer source plus old/new hashes in `chart-repair-provenance.json`. Use the existing guarded installer activation, rollback and finalization; do not regenerate approved articles or reset their immutable daily receipts. See the bug record for exact tested/live evidence.
