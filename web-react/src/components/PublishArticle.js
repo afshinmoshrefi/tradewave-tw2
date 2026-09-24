@@ -91,7 +91,9 @@ const PublishArticle = (props) => {
     const [articleMode, SetArticleMode] = useState('2');  // default Mode 1
 
 
-    const [articlePublishState, SetArticlePublishState] = useState(false);
+    // true = live on the site, false = unpublished (kept, off the site), null = not known yet
+    const [articlePublishState, SetArticlePublishState] = useState(null);
+    const [publishStateBusy, SetPublishStateBusy] = useState(false);
 
 
     var DialogH = '80%';
@@ -286,6 +288,7 @@ const PublishArticle = (props) => {
     useEffect(() => {
         // when dialog opens / selected pattern changes, try to load HTML
         load_article_html();
+        load_publish_state();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     //-------------------------------------------------------------------------------------------------------------------------------------
@@ -616,8 +619,49 @@ const PublishArticle = (props) => {
     }
 
 
-    const toggle_publish_state = () => {
-        SetArticlePublishState(!articlePublishState);
+    // Real publish state of the SMN article for this pattern (via appserver ->
+    // blog_queue -> SMN publishing dashboard).
+    const publish_state_url = (extra = '') => {
+        const r = props.selectedPortfolioRec;
+        return `${appserverURL()}/article_publish_state/${r['resourceID']}/${r['symbol']}/${r['date']}/${r['days_hold']}/${r['years']}/${loggedinUser}?token=${token}${extra}`;
+    }
+
+    const load_publish_state = () => {
+        fetch(publish_state_url())
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.state === 'published') SetArticlePublishState(true);
+                else if (data.state === 'unpublished') SetArticlePublishState(false);
+                else SetArticlePublishState(null);
+            })
+            .catch((err) => {
+                console.log('Failed to load publish state:', err.message);
+                SetArticlePublishState(null);
+            });
+    }
+
+    const toggle_publish_state = async () => {
+        if (publishStateBusy || articlePublishState === null) return;
+        const wanted = articlePublishState ? 'unpublished' : 'published';
+        SetPublishStateBusy(true);
+        SetMsgColor('blue');
+        SetMessage(wanted === 'published' ? 'Publishing article ...' : 'Unpublishing article ...');
+        try {
+            const resp = await fetch(publish_state_url(`&state=${wanted}`), { method: 'POST' });
+            const data = await resp.json();
+            if (!resp.ok || data.message !== 'success') {
+                throw new Error(data.reason || `Server error ${resp.status}`);
+            }
+            SetArticlePublishState(wanted === 'published');
+            SetMsgColor('darkgreen');
+            SetMessage(wanted === 'published'
+                ? 'Article published.'
+                : 'Article unpublished. It stays off the site until it is published again.');
+        } catch (err) {
+            SetMsgColor('red');
+            SetMessage(err.message);
+        }
+        SetPublishStateBusy(false);
     }
 
     //-------------------------------------------------------------------------------------------------------------------------------------
@@ -712,10 +756,13 @@ const PublishArticle = (props) => {
 
 
                         {/* when article doesn't exist the publish button doesn't show  */}
-                        {r.article_exists && (
+                        {/* real state from the SMN dashboard; hidden until it is known */}
+                        {r.article_exists && articlePublishState !== null && (
                             articlePublishState
-                                ? <MdOutlinePublishedWithChanges size={icon_size} style={{ fill: "darkgreen", cursor: "pointer" }} onClick={toggle_publish_state} />
-                                : <MdUnpublished size={icon_size} style={{ fill: "red", cursor: "pointer" }} onClick={toggle_publish_state} />
+                                ? <MdOutlinePublishedWithChanges size={icon_size} title="Published - click to unpublish"
+                                    style={{ fill: "darkgreen", cursor: publishStateBusy ? "wait" : "pointer" }} onClick={toggle_publish_state} />
+                                : <MdUnpublished size={icon_size} title="Unpublished - click to publish"
+                                    style={{ fill: "red", cursor: publishStateBusy ? "wait" : "pointer" }} onClick={toggle_publish_state} />
                         )}
 
 

@@ -5982,6 +5982,45 @@ def article_delete(resourceID, symbol, date, days, years, userid):
     # No extra smart logic here: blog_queue owns semantics ("deleted_from_queue", "deleted_article", etc.)
     return jsonify(pdata), resp.status_code
 #---------------------------------------------------------------------------------------------------
+@app.route('/article_publish_state/<string:resourceID>/<string:symbol>/<string:date>/<string:days>/<string:years>/<string:userid>', methods=['GET', 'POST'])
+@check_for_token
+def article_publish_state(resourceID, symbol, date, days, years, userid):
+    """
+    Read (GET) or change (POST ?state=published|unpublished) whether the SMN
+    article for this pattern is live.  Proxy to blog_queue, which forwards to
+    the SMN publishing dashboard; all real logic lives there.  An unpublished
+    article stays off the site until it is published again.
+    """
+    token = request.args.get("token")
+    data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'],
+                      audience='tw2-appserver', issuer='tw2-web')
+    userid = data['user']   # override any URL userid with JWT userid
+
+    try:
+        if request.method == 'GET':
+            url = (f"{config.blog_queue_server}article_publish_state_bq/"
+                   f"{resourceID}/{symbol}/{date}/{days}/{years}")
+            resp = requests.get(url, timeout=20)
+        else:
+            state = request.args.get("state", "")
+            if state not in ("published", "unpublished"):
+                return jsonify({"message": "failed",
+                                "reason": "state must be published or unpublished"}), 400
+            resp = requests.post(f"{config.blog_queue_server}article_publish_state_bq", json={
+                "resource_id": resourceID, "symbol": symbol, "date": date,
+                "days": days, "years": years, "userid": userid, "state": state,
+            }, timeout=300)
+    except Exception:
+        logging.exception("article_publish_state: blog_queue unreachable")
+        return jsonify({"message": "failed", "reason": "blog_queue unreachable"}), 503
+
+    try:
+        pdata = resp.json()
+    except Exception:
+        return jsonify({"message": "failed",
+                        "reason": f"Invalid response from blog_queue: HTTP {resp.status_code}"}), 502
+    return jsonify(pdata), resp.status_code
+#---------------------------------------------------------------------------------------------------
 @app.route('/article_load/<string:resourceID>/<string:symbol>/<string:date>/<string:days>/<string:years>/<string:userid>', methods=['GET'])
 @check_for_token
 def article_load(resourceID, symbol, date, days, years, userid):
