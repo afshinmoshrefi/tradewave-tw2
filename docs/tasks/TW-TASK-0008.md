@@ -67,3 +67,8 @@ Dev (SMN smn-dev-180): verified 2026-09-24T11:25Z at `e269a9d`, executor Claude.
 - 2026-09-23T23:50Z Claude: dashboard requested; built and live-tested on dev in stages (list/pins, hero, publish/unpublish/move, schedule).
 - 2026-09-24T11:10Z Claude: found and fixed the Rec Hero file mismatch, the portfolio Delete target, and the 58s synchronous refresh.
 - 2026-09-24T11:40Z Claude: committed and pushed `e269a9d`; TradeWave icon change held on a local branch by the owner's choice.
+
+## Codex integration finding - September24
+The owner authorized the daily automation repair and today's six improved articles. SMN main057e87f adds a separate primary .180 Dev publisher; it preserves this dashboard's installed source/template, catalog metadata, pins, schedules and archive. No dashboard code has been replaced. The publisher records runtime helper hashes and serializes posts.lock; changes during preparation trigger re-preparation rather than overwriting peers.
+
+Read-only live preflight found /var/www/smn/posts.json mode0600 root:root. Public /posts.json returned the homepage after nginx's403 redirect, and native browser search could not load results. The new publisher writes public catalog files0644 and preserves native search, so today's publication will restore readability. Please review the dashboard's atomic catalog writer so subsequent dashboard edits do not restore0600. This is a reproduced permission/access issue, not a model disagreement; no fix is claimed for future dashboard writes. The current homepage also had robots index, follow; the Dev publisher sets noindex,nofollow on home/search under the existing Dev-only requirement. Tests passed; today's six article generation/live activation still in progress. Production remains untouched.
