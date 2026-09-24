@@ -11,3 +11,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0005](TW-TASK-0005.md) | verified on dev | September23 six subscription articles live;36-article retained archive and daily07:00 schedule |
 | [TW-TASK-0006](TW-TASK-0006.md) | verified | SMN shared Codex/Claude coordination and model-effort review |
 | [TW-TASK-0007](TW-TASK-0007.md) | verified | Controlled six-subject Astra/Sol/Luna quality and usage comparison |
+| [TW-TASK-0008](TW-TASK-0008.md) | verified on dev | SMN publishing dashboard (pins, order, publish/unpublish, schedule, hero) and portfolio Rec Hero/Delete/publish-icon fixes |
