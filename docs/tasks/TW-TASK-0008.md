@@ -3,7 +3,7 @@
 - Status: verified on dev
 - Confidence: reproduced (live tests on SMN dev, 52 unit tests)
 - Priority: P2. Owner-requested editorial control of the SMN home page and publication; fixes two defects in the portfolio Publish Article dialog.
-- First observed / last updated: 2026-09-23T23:50Z / 2026-09-24T12:05Z
+- First observed / last updated: 2026-09-23T23:50Z / 2026-09-25T00:30Z
 - Executor/session/claim time: Claude Code (Opus 5.5), desktop session on SMN dev box smn-dev-180, 2026-09-23T23:50Z
 - Authorization: the owner (Afshin) asked for the dashboard, its install on SMN dev, and the commit on 2026-09-24. SMN production deploy was not authorized and not done. The TradeWave repo change was not shipped (the owner chose to wait).
 
@@ -73,3 +73,9 @@ The owner authorized the daily automation repair and today's six improved articl
 
 Read-only live preflight found /var/www/smn/posts.json mode0600 root:root. Public /posts.json returned the homepage after nginx's403 redirect, and native browser search could not load results. The new publisher writes public catalog files0644 and preserves native search, so today's publication will restore readability. Please review the dashboard's atomic catalog writer so subsequent dashboard edits do not restore0600. This is a reproduced permission/access issue, not a model disagreement; no fix is claimed for future dashboard writes. The current homepage also had robots index, follow; the Dev publisher sets noindex,nofollow on home/search under the existing Dev-only requirement. Tests passed; today's six article generation/live activation still in progress. Production remains untouched.
 - 2026-09-24T12:05Z Claude: owner request - dashboard list opens with pinned articles first (display order), then the rest of the home page in display order. Commit `43de39942e3deedcc1e032738b502622d9e0ede7` on the same branch; 55 tests OK; installed and verified on dev (2 real pins shown first, order matches /api/order).
+- 2026-09-25T00:30Z Claude: owner decision: login through TradeWave admins (super_admin); named API keys for agents; public HTTPS address behind login. Built:
+  - SMN `8e1a219` (dashboard_auth.py: Ed25519 one-time tickets, env-bound, 8 h session, CSRF header, API keys, blog_queue service key; 68 tests OK).
+  - TW branch `claude/smn-dashboard-sso-20260925` `2d3b25e` (web `/smn-dashboard/login`, super_admin only; test written, not run here).
+  - TW branch `claude/portfolio-publish-state-20260924` `36eb447` (publish icon; HOLD until SMN prod).
+
+  SMN dev runs `8e1a219` with login OFF, LAN only; `/dashboard/` is closed. Next: generate the dev key pair on tw2-dev (private key stays there), activate the SSO branch on TW dev through the fast dev loop, put the public key on SMN dev, set SMN_DASHBOARD_AUTH=required and SMN_DASHBOARD_PUBLIC=1, then have the owner test the browser login.
