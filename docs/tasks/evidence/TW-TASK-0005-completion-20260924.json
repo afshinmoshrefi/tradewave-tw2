@@ -1,0 +1,62 @@
+{
+  "date": "2026-09-24",
+  "status": "live_verified",
+  "completed_at": "2026-09-24T12:03:36.477189+00:00",
+  "source_commit": "2d1d9e5454026a292ff2d31a0503eaf1e0029880",
+  "writer_source_commit": "c7e56157acf097b8a47bc47abcf6b3cfb8dbcea4",
+  "target": "192.168.1.180",
+  "edition_url": "https://smn-dev.trxstat.com/editions/2026-09-24/",
+  "symbols": [
+    "MO",
+    "IWM",
+    "BAC",
+    "IBM",
+    "SPX",
+    "COST"
+  ],
+  "new_writer_reviewer_jobs": 12,
+  "model": "gpt-6-astra",
+  "effort": "xhigh",
+  "auth": "saved ChatGPT",
+  "api_fallback": false,
+  "archive_count": 686,
+  "public_files_checked": 1449,
+  "article_layouts": 12,
+  "expected_pins": [
+    {
+      "pin_id": "pin_13ccfdf4",
+      "slug": "s-p-500-spx-dip-of-0-62-comes-just-before-a-historically-powerful-midterm-rally-window",
+      "position": 1,
+      "expires_at": "2026-10-08T02:53:59Z",
+      "on_expiry": "natural",
+      "note": "",
+      "created_at": "2026-09-24T02:53:59Z",
+      "created_by": "dashboard"
+    },
+    {
+      "pin_id": "pin_6b27849e",
+      "slug": "spx-subscription-2026-09-08",
+      "position": 3,
+      "expires_at": "2026-10-01T02:54:49Z",
+      "on_expiry": "natural",
+      "note": "",
+      "created_at": "2026-09-24T02:54:49Z",
+      "created_by": "dashboard"
+    }
+  ],
+  "source_helpers": {
+    "rebuild_news_home.py": "084879576f3078180415fb553030c7ff27ac8b009e6cffbc7563ef92c0f5e25b",
+    "pin_store.py": "020f1883433ba9a0f7781326b508955e8e92d42ae645124efcb0f2ce65acb204",
+    "article_index.py": "d5f8dbfc6370ddaed818c9824fc6ed54e950573918530ff1604dc8473563431c"
+  },
+  "production_writes": false,
+  "local_evidence": "C:\\Users\\afshin\\Documents\\TradeWave Main Orchestrator\\smn-review-20260921\\production-style\\2026-09-24",
+  "remote_record": "/var/lib/tradewave/release-state/smn-primary-2026-09-24-2d1d9e5454",
+  "verified_receipt_sha256": "bf355835f509ad31c02469a0fcf287497707b85a793bf99a1751776dc75b483f",
+  "automation": "smn-daily-dev-subscription-edition active daily07:00 America/New_York, primary publisher",
+  "operational_recoveries": [
+    "misrecorded MO chart screenshot hash corrected after root reinspection",
+    "legacy title dash typography normalization",
+    "Cloudflare email-link transformation reversed solely for unchanged archived HTML hash checks"
+  ]
+}
