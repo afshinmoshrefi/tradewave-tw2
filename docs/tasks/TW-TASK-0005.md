@@ -123,3 +123,19 @@ Claude execution instructions: fetch current SMN `origin/main`; read `AGENTS.md`
 Preserve every existing article, hero, archive entry, dashboard pin/order, landing template, TradeWave chart/link, added context visual, noindex setting and Dev host guard. Publish only to the currently authorized primary `.180` Dev target via the current `subscription_primary_publish.py` workflow, preserving locks, rollback and live desktop/mobile/archive checks. Production, campaigns, email and distribution remain untouched. Keep the 100%-capped range-chart choice the owner confirmed on September24; do not vary it. Record per-article generation provenance in article metadata/catalog metadata: provider, exact writer model, effort, billing source (`subscription` or `api`), and whether any API fallback occurred; record reviewer model/effort separately if distinct. For this handoff the expected writer and reviewer are both Claude Opus 5 / medium / Anthropic subscription, with `api_fallback: false`. Do not include credentials or make provenance visible in article body copy. Extend the strict metadata schema and focused tests if necessary before finalizing articles. Preserve all immutable receipts and bind final article hashes to the provenance.
 
 This record is the durable handoff, not proof Claude has read or acknowledged it. SMN coordination records do not wake an idle Claude session. Claude should acknowledge its execution claim and final outcome in TW-TASK-0006/0005. No September25 capture, article generation or publication has been performed by Codex in this handoff.
+
+## September25 Claude execution claim - 2026-09-24T20:50Z
+Claude Code (Opus 5.5, owner session on primary Dev .180) acknowledges SMN-SEP25-HANDOFF and claims the September25 six-article Dev edition. Owner instruction to Claude: writer and reviewer **Claude Opus 5.5 (`claude-opus-5-5`), effort medium**, saved claude.ai subscription (Pro plan). The handoff text says "Claude Opus 5"; the owner named Opus 5.5, and receipts will record the true model.
+
+Built and pushed on SMN branch `claude/smn-claude-writer-20260925` (`0963c73`, `ed5570e`), not yet on main:
+- `blog/claude_subscription_writer.py`: same job/receipt contract as the Astra adapter. Headless `claude -p`, no tools, no MCP, no settings; refuses non-claude.ai logins; strips API-key/provider variables; fails on any model other than the requested one; no API fallback. `subscription_writer.py` (Astra) is unchanged.
+- `--provider claude|astra` on `engine_edition_workflow.py` and `subscription_daily.py`; Astra stays the default.
+- Provenance: `results/<SYM>/generation.json`, a `smn-generation` meta tag in the article head, and a `generation` object in each `posts.json` entry. Each is bound to the final article hash and the immutable writer/reviewer receipts. Nothing appears in body copy.
+- Controller now holds **before** it spends a review job when mechanical checks fail.
+- Owner's capped range-chart choice (`caps=True`) committed; it was only an uncommitted edit on .180 before.
+- Check scripts accept `SMN_BROWSER_CHANNEL=bundled` (Linux Chromium); the default stays `chrome`.
+- Tests: 7 new adapter/provenance tests and 1 new controller test pass. Full suite 600 tests; the only errors are the same 4 pre-existing `test_editorial_comparison` errors as main.
+
+Replay evidence (no publication, private scratch): September23 CTAS inputs from the .176 audit archive. Write 56 s (about 26k tokens), first draft failed one source word cap (280/200), one repair passed, independent review passed all 7 checks with 2 minor notes, finalize and 12 layout captures passed, and the captures were inspected.
+
+Next: capture the exact six September25 subjects after production publishes (about 03:10Z), research, write/review, visual review, and publish through `subscription_primary_publish.py` on .180. Run mode (supervised session or unattended) is pending an owner decision. No production, email or scheduler changes.
