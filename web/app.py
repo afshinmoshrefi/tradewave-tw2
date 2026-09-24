@@ -774,6 +774,50 @@ def auth_callback():
     return resp
 
 
+# ---------------------------------------------------------------------------
+# SMN publishing dashboard login (admins only).
+# The SMN dashboard sends a logged-out visitor here.  We check the TradeWave
+# session and the super_admin role, then send the admin back with a one-time
+# ticket signed by an Ed25519 PRIVATE key.  SMN holds only the public key, so
+# it can check tickets but never make them.  Each environment has its own key
+# pair and the ticket names the environment, so a dev login cannot open prod.
+#   TW2_SMN_DASHBOARD_SSO_KEY  path to the private key (PEM), root-only
+#   TW2_SMN_DASHBOARD_URL      e.g. https://smn-dev.trxstat.com/dashboard
+# ---------------------------------------------------------------------------
+@app.route("/smn-dashboard/login", methods=["GET"])
+def smn_dashboard_login():
+    import uuid as _uuid
+    u = get_current_user()
+    if u is None:
+        return redirect(_get_authorization_url(state=request.url))
+    if "super_admin" not in (u.roles or []):
+        logging.warning("smn_dashboard_login: refused non-admin user=%s", u.email)
+        abort(403)
+    key_path = os.environ.get("TW2_SMN_DASHBOARD_SSO_KEY", "").strip()
+    target = os.environ.get("TW2_SMN_DASHBOARD_URL", "").strip().rstrip("/")
+    if not key_path or not target:
+        return ("SMN dashboard login is not configured on this server "
+                "(TW2_SMN_DASHBOARD_SSO_KEY / TW2_SMN_DASHBOARD_URL).", 503)
+    try:
+        with open(key_path, "rb") as fh:
+            private_key = fh.read()
+    except OSError:
+        logging.exception("smn_dashboard_login: cannot read the signing key")
+        return ("SMN dashboard login key is missing on this server.", 503)
+    now = int(time.time())
+    name = " ".join(x for x in (u.first_name, u.last_name) if x) or u.email
+    ticket = jwt.encode({
+        "iss": "tw2-web", "aud": "smn-dashboard", "sub": str(u.id),
+        "name": name, "email": u.email, "env": config.tw2_env,
+        "is_admin": True, "iat": now, "exp": now + 60, "jti": _uuid.uuid4().hex,
+    }, private_key, algorithm="EdDSA")
+    logging.info("smn_dashboard_login: ticket issued user=%s env=%s", u.email, config.tw2_env)
+    resp = redirect(f"{target}/auth?ticket={ticket}")
+    resp.headers["Cache-Control"] = "no-store"
+    resp.headers["Referrer-Policy"] = "no-referrer"
+    return resp
+
+
 @app.route("/logout", methods=["POST"])
 @csrf.exempt
 def logout():
