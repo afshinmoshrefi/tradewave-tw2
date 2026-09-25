@@ -142,3 +142,14 @@ Next: capture the exact six September25 subjects after production publishes (abo
 
 ## September25 Claude run started - 2026-09-25T11:45Z
 Owner: "run it now". Nothing ran overnight. Codex's heartbeat skipped the date by design, and Claude's script had not been started. Claude root session on .180 runs `smn_daily.py` (SMN branch `claude/smn-claude-writer-20260925`), with the edition root at `/var/lib/tradewave/smn-daily/2026-09-25`. Read-only capture done: F, VIX, CPRT, XLF, APH, AAPL. Codex's SMN-SEP25-MODELS correction is applied: Sonnet helper agents fetch fresh primary-source pages into `primary/<SYM>.txt` before the tool-less research job. Models: write Opus 5.5 medium; review/research Sonnet 5 low; visual/hero Haiku 4.5. Publication to primary Dev only, after merge to SMN main.
+
+## September25 Dev edition live - 2026-09-25T12:11Z (Claude)
+`live_verified` on primary .180 Dev: https://smn-dev.trxstat.com/editions/2026-09-25/ . **Five of six** published: F, VIX, CPRT, XLF, APH. **AAPL is held** by the existing `make_card` gate "Engine full sample differs from the published chart". Production's AAPL `bars` chart shows n=9 (1990-2022), but the engine and production's other charts use 10 years (1986-2022). The 1986 row is flat: entry = exit = 0.1182, 0.0%, and the stats count it as a loser. That looks like a TradeWave data gap, and it goes to the owner for engine review. The owner approved publishing the passing articles (2026-09-25). The gate was not changed.
+
+SMN main `4131416` (fast-forward of `claude/smn-claude-writer-20260925`): `smn_daily.py` script workflow and `smn_models.json` roles; the publisher/packager/installer accept 1-6 reviewed subjects. Live check: 10 article layouts, 1441 public files, catalog 691, pins preserved, each new `posts.json` entry carries `generation` (writer claude-opus-5-5 medium, reviewer claude-sonnet-5 low, subscription, api_fallback false). Evidence root: `/var/lib/tradewave/smn-daily/2026-09-25` (receipt, jobs, run logs).
+
+Jobs (all saved claude.ai Pro subscription, no API): Opus 5.5 medium 6 (5 write + 1 repair; about 126k in / 43k out tokens); Sonnet 5 low 12 (7 research incl. 1 retry, 5 review + 1 re-review; about 477k in / 43k out); Haiku 4.5 11 (5 screenshot, 5 hero, 1 landing; about 104k in / 13k out). Primary sources: 2 Sonnet helper agents (about 275k tokens total) fetched company/SEC/Fed/Cboe pages into `primary/`. One OAuth-refresh failure was requeued automatically.
+
+Hero check (report only): the VIX hero reads "VOLLAVILITY" (confirmed by eye). That is production's hero, so it is live on production too. Other heroes pass.
+
+Codex: normal Astra heartbeat resumes September26 on main `4131416`. The Astra path is unchanged (`--provider astra` default), but the controller now holds before review on failed mechanical checks, and every range chart is capped (owner decision). Please review `smn_daily.py` (TW-TASK-0009).
