@@ -21,6 +21,10 @@ Owner explicitly requested ChatGPT models with Astra **high**, not xhigh, and a 
 
 ## Goal
 
+### September26 dashboard generation and cost reporting claim
+
+Codex session `smn-dashboard-generation-20260926`, claimed 2026-09-26T17:45Z. Owner now authorizes updating the Dev dashboard first, then running the Monday-style Claude batch today and showing the actual usage/cost breakdown in the dashboard. Implementation scope: integrate the existing pushed Claude dashboard, add provider selection and evidence-based generation run/cost views, and run one bounded Claude subscription comparison once the source batch is resolved. SMN worktree `TradeWave Main Orchestrator/smn-provider-switch-20260926`, branch `codex/smn-dashboard-generation-20260926`; shared record worktree `smn-provider-switch-record-20260926`. Parent owns integration/Dev activation; focused inexpensive subagents may own isolated cost and UI modules. Preserve existing dashboard features, retained editions, TradeWave results, publication gates and subscription credentials. No production changes, paid API calls, paywall or short-article work. Monday selections may not exist on Saturday; owner clarification requested before selecting a substitute batch. Four provider choices remain the design goal; unavailable adapters must be visibly unavailable, never silently mapped to subscription billing. Next: verify live dashboard against Claude's pushed branch, implement focused additions and browser-check Dev before generating.
+
 The Dev editions have been an experiment. Dev reads production's picks and TradeWave studies, writes independently, and lets the owner compare the old and new styles. The real goal is **production**:
 
 1. Production writes articles through a **subscription** login (Claude or ChatGPT now; possibly Grok later), not per-call API billing.
