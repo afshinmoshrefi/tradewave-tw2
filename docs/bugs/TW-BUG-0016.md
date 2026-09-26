@@ -4,7 +4,7 @@
 - Confidence: reproduced in the September 25 AAPL capture; candidate verified in an isolated Dev-host render, not in the active service
 - Priority: P2 - a published chart can silently misstate the historical sample and win count
 - First observed: 2026-09-25; recorded: 2026-09-26 UTC
-- Executor/session/claim time: Codex `/root/fix_flat_bar`, 2026-09-26 UTC; update: 2026-09-26 UTC
+- Executor/session/claim time: Codex `/root/fix_flat_bar`, 2026-09-26 19:10 UTC; update: 2026-09-26 19:17 UTC
 - Authorization: Afshin requested this SMN fix; implementation, focused tests and Dev verification authorized. Production writes remain unauthorized.
 
 ## User Impact and Reproduction
