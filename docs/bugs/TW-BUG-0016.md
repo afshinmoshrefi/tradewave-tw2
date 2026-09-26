@@ -18,6 +18,7 @@ For the September 25 AAPL study, TradeWave returns ten completed observations (1
 - In the affected SMN renderer, `blog/article_images.py` filters placeholder rows using MFE/MAE, then invokes `chartkit.record_bars` for plain bars without those values. `chartkit._drop_zeroed` treats the completed flat row as a placeholder and removes it. The TradeWave engine values are correct; this defect is in SMN chart rendering.
 - A proposed, unmerged SMN fix is on `origin/claude/smn-flat-year-bars` at `0971c287546bf65a756f8d7545936c8b9c04ad3f`. It passes `verified_completed=True` for the plain chart and adds a focused test. Inspect and retest it against current SMN `main`; its existence does not establish Dev or production verification.
 - The separately retained 2026-09-26 TradeWave response for request `resource_id=2`, `symbol=AAPL`, `anchor_date=2026-10-11`, `days_out=20`, `years=pe2-10` has a completed 1986 row (`pct=0.0,1.85,-6.89`, `price=0.1182,0.1182`) and reports 9 winners/1 loser/90.0%. Current TradeWave `appserver/appserver/appserver.py` classifies long-window values with `x > 0` as winners and `x <= 0` as losers. This confirms a conflict with Afshin's stated tie-as-win convention. The renderer must consume the supplied engine count; an engine correction requires its own agreement and verification.
+- The distinct TradeWave engine statistic defect is tracked as [TW-BUG-0017](TW-BUG-0017.md). This SMN record owns the missing bar and renderer fidelity only.
 
 ## Acceptance and Regression Checks
 

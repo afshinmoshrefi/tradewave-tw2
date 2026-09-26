@@ -29,3 +29,4 @@ Status belongs in each record and this index; update both together. Preserve res
 
 | [TW-BUG-0015](TW-BUG-0015.md) | P2 | verified on Dev | Median labels overlap seasonal bars |
 | [TW-BUG-0016](TW-BUG-0016.md) | P2 | blocked | SMN drops a flat year; TradeWave tie convention conflicts with current output |
+| [TW-BUG-0017](TW-BUG-0017.md) | P2 | open | TradeWave counts a flat long return as a loss |
