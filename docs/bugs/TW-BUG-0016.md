@@ -1,6 +1,6 @@
 # TW-BUG-0016: SMN plain bars chart omits a genuine flat year
 
-- Status: blocked (renderer candidate pushed; TradeWave tie convention and live Dev integration pending)
+- Status: in-progress (renderer candidate tested; safe Dev integration in progress)
 - Confidence: reproduced in the September 25 AAPL capture; candidate verified in an isolated Dev-host render, not in the active service
 - Priority: P2 - a published chart can silently misstate the historical sample and win count
 - First observed: 2026-09-25; recorded: 2026-09-26 UTC
@@ -39,6 +39,8 @@ The normal Dev activation remains pending. Active services execute `/home/flask/
 - Production: affected plain bars chart observed; fix not deployed or verified. Production remains read-only.
 
 ## History
+
+- 2026-09-26: Owner explicitly requested fixing both 0016 and 0017. Codex `flat-return-engine-20260926` coordinates shared records; delegated `/root/smn_flat_bar` claims SMN candidate integration and safe Dev renderer verification. Preserve all dirty `/home/flask` peer changes, existing publication gates and production. Long zero is an engine win; short zero is an engine loss. Exact live source path must be proven before declaring Dev activation.
 
 - 2026-09-26: Afshin clarified that ties should count as wins. Codex found the same-study TradeWave response reports 9 winners/1 loser and current engine code classifies a zero long return as non-winning. Retracted the prior "correct 9 of 10" assertion. Pushed revised SMN renderer `5a500cb5927599fb7d4d36b2d0fef074b51c5b46`, verified engine-count pass-through and neutral flat-row title in isolated Dev, without changing engine math or active services. The intended engine tie convention still needs resolution.
 - 2026-09-26: Codex `/root/fix_flat_bar` pushed SMN fix `db29369e4efad1b6188b9e19b48af15318f19828`, passed 36 focused tests and private Dev-host six-subject render, and visually verified the corrected AAPL chart. Active Dev integration remains pending due to unrelated checkout drift and the still-defective production capture.
