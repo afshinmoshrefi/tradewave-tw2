@@ -1,6 +1,6 @@
 # TW-BUG-0016: SMN plain bars chart omits a genuine flat year
 
-- Status: in-progress (renderer candidate tested; safe Dev integration in progress)
+- Status: blocked (fix integrated and tested; active Dev renderer source drift prevents safe activation)
 - Confidence: reproduced in the September 25 AAPL capture; candidate verified in an isolated Dev-host render, not in the active service
 - Priority: P2 - a published chart can silently misstate the historical sample and win count
 - First observed: 2026-09-25; recorded: 2026-09-26 UTC
@@ -22,9 +22,19 @@ For the September 25 AAPL study, TradeWave returns ten completed observations (1
 
 ## Acceptance and Regression Checks
 
-Render the captured AAPL study with the candidate fix. The plain bars chart must retain 1986 and show ten years, matching the range charts and engine sample. Its count must come from the same-study TradeWave response; with a flat row, the title must not call that row "higher." Resolve the tie-as-win convention in TradeWave before claiming that a 9/10 or 10/10 winning count is correct. Keep genuine completed flat years, while excluding unfinished/future zero placeholders. Verify an ordinary non-flat study and the other five September 25 articles are unaffected. Preserve TradeWave-supplied values exactly and keep the `make_card` mismatch hold active. After a safe renderer activation and separately authorized production correction, regenerate the affected chart and take a fresh AAPL capture through the normal review gate.
+Render the captured AAPL study with the candidate fix. The plain bars chart must retain 1986 and show ten years, matching the range charts and engine sample. Its count must come from the same-study TradeWave response; with a flat row, the title must not call that row "higher." Consume the repaired TradeWave convention: long ties win and short ties lose; never calculate a replacement count in SMN. Keep genuine completed flat years, while excluding unfinished/future zero placeholders. Verify an ordinary non-flat study and the other five September 25 articles are unaffected. Preserve TradeWave-supplied values exactly and keep the `make_card` mismatch hold active. After a safe renderer activation and separately authorized production correction, regenerate the affected chart and take a fresh AAPL capture through the normal review gate.
 
 ## Implementation and Handoff
+
+**2026-09-26 final repair update:** exact tested renderer commit `5a500cb5927599fb7d4d36b2d0fef074b51c5b46` is now SMN `origin/main`. The same 36 focused tests pass; compilation and diff checks pass. TradeWave engine tie classification is repaired and live on `.176` at `585b668ed701a10853542785d94a7f09d11413d1` (see TW-BUG-0017). Correct study identity is **21 inclusive days**, URL path segment `20`; earlier 20-day labels were ambiguous.
+
+Fresh corrected live engine response was rendered through the committed SMN renderer: all ten completed years retained, 1986 at 0% visible on baseline, future 2026 placeholder excluded, title `TradeWave reports 10 winning years among 10 completed years`. Input SHA-256 `8090bd60e24369a817de8b1523e29a48a159c79eb32ffd3f0d0d1efd51dcc4ab`; [render](evidence/TW-BUG-0016/fresh-aapl-bars.jpg) SHA-256 `49a18ea88a3f24c8fa7b44001462d0cbffb2d821774c5d79994e7a524d6565b5`; [semantics](evidence/TW-BUG-0016/fresh-aapl-bars-semantics.json). This verifies the integrated code with a fresh engine response, not the active legacy service.
+
+**Remaining activation blocker:** `.180` `blog_queue.service` still executes `/home/flask/blog` (base `57055c2`) through `/home/flask/blog/blog_queue.sock`. Its modified `chartkit.py` and test file materially differ from clean committed source, mixing older layout changes and missing later safeguards. Other queue/publisher files match clean dashboard release `77bf346`, but that does not establish full runtime parity. `/opt/smn-daily/current` serves only `pub_dashboard.service`; swapping that pointer would not activate the affected renderer. A wholesale queue source swap could change unrelated live presentation; a module overlay would violate exact-main source parity. No dirty peer files or runtime pointers were changed.
+
+Next executor: reconcile the legacy chartkit/test changes with their owner and classify each remaining service dependency, then activate a clean exact-main source for `blog_queue.service` while preserving its socket contract. Verify an actual Dev-served render. Keep the AAPL `make_card` hold until a fresh valid capture goes through normal review; never bypass it or run writer/model jobs just to demonstrate this code fix. Production remains separately authorized and human-executed.
+
+### Earlier candidate evidence
 
 The revised renderer candidate is pushed to SMN branch `codex/smn-flat-year-bars-20260926`, commit `5a500cb5927599fb7d4d36b2d0fef074b51c5b46` (based on Claude's `0971c28` via `db29369`). Worktree: `C:\Users\afshin\Documents\TradeWave Main Orchestrator\smn-flat-year-bars-20260926`, clean. `blog/article_images.py` marks its already-filtered plain bar input as `verified_completed` and passes TradeWave's `Num Winners`/`Num Losers`; `blog/chartkit.py` uses that count for article charts, checks its total against completed rows, and uses neutral wording when a flat row exists. `blog/tests/test_chartkit.py` checks both retained flat years and consumption of a supplied count. TradeWave values, engine logic and `engine_seasonal.make_card` were not changed. No config, migration or frontend build is needed.
 
@@ -34,7 +44,7 @@ The normal Dev activation remains pending. Active services execute `/home/flask/
 
 ## Environment Verification
 
-- Dev: revised isolated candidate render verified on `.180` against all six retained payloads; active service not changed and AAPL remains held by the normal gate. TradeWave's tie classification is unresolved against the stated convention.
+- Dev: revised isolated candidate render verified on `.180` against all six retained payloads; active service not changed and AAPL remains held by the normal gate. TradeWave's tie classification is now verified on `.176`; SMN legacy activation remains pending.
 - Staging: no SMN staging environment established.
 - Production: affected plain bars chart observed; fix not deployed or verified. Production remains read-only.
 

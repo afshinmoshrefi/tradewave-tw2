@@ -1,0 +1,12 @@
+{
+  "alt": "AAPL: TradeWave reports 10 winning years among 10 completed years (Oct 11 \u2013 Oct 31). Net % change between first and last session closes inside Oct 11 - Oct 31, each year. Source: TradeWave seasonal database \u00b7 n=10 completed years (1986\u20132022) \u00b7 long convention: positive = price rose",
+  "caption": "AAPL: TradeWave reports 10 winning years among 10 completed years (Oct 11 \u2013 Oct 31)",
+  "direction": "long",
+  "n": 10,
+  "source": "Source: TradeWave seasonal database \u00b7 n=10 completed years (1986\u20132022) \u00b7 long convention: positive = price rose",
+  "spec": "Net % change between first and last session closes inside Oct 11 - Oct 31, each year",
+  "title": "AAPL: TradeWave reports 10 winning years among 10 completed years (Oct 11 \u2013 Oct 31)",
+  "variant": "bars",
+  "window_end": "2026-10-31",
+  "window_start": "2026-10-11"
+}
