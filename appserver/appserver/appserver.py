@@ -3962,7 +3962,7 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
     # ----------------------------------------------
     # Redis cache key
     # ----------------------------------------------
-    redis_key_chartdata = f'chartdata_v2_{resourceID}_{symbol}_{date}_{daysOut}_{yrs}_{cut_off_year}'
+    redis_key_chartdata = f'chartdata_v3_{resourceID}_{symbol}_{date}_{daysOut}_{yrs}_{cut_off_year}'
     if _comparison_direction:
         redis_key_chartdata += f'_comparison_{_comparison_direction}'
     if _report_completed_years:
@@ -4287,8 +4287,8 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         avgProfit2 = statistics.mean(pctArray_low)
         profit_stdev2 = statistics.stdev(pctArray_low) if len(pctArray_low) > 1 else 0
     else:
-        pctArray_winners = [x for x in pctArray if x > 0]
-        pctArray_losers = [x for x in pctArray if x <= 0]
+        pctArray_winners = [x for x in pctArray if x >= 0]
+        pctArray_losers = [x for x in pctArray if x < 0]
         
         avgProfit = statistics.mean(pctArray)
         avgProfitW = 0 if len(pctArray_winners) == 0 else statistics.mean(pctArray_winners)

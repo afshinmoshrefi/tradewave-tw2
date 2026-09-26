@@ -64,16 +64,40 @@ def engine():
     return df, run
 
 
-@pytest.mark.parametrize('direction', ['long', 'short'])
-def test_flat_completed_years_are_non_wins_and_partial_is_labelled(engine, direction):
+@pytest.mark.parametrize('direction, winners, losers', [('long', '6', '0'), ('short', '0', '6')])
+def test_flat_completed_years_follow_direction_and_partial_is_excluded(engine, direction, winners, losers):
     _, run = engine
     data = run(direction=direction)
     complete = [row for row in data['ChartData4'] if row['completed']]
     assert [row['year'] for row in complete] == list(range(2020,2026))
     assert data['ChartData4'][-1]['completed'] is False
-    assert data['stats']['Num Winners'] == '0'
-    assert data['stats']['Num Losers'] == str(len(complete))
+    assert data['stats']['Num Winners'] == winners
+    assert data['stats']['Num Losers'] == losers
+    assert data['stats']['Percent Profitable'] == ('100.0%' if direction == 'long' else '0.0%')
     assert data['stats']['Avg Profit - All'] == '0.0%'
+
+
+@pytest.mark.parametrize('direction, winners, losers', [('long', '5', '1'), ('short', '1', '5')])
+def test_positive_negative_and_flat_years_keep_the_same_sample(engine, direction, winners, losers):
+    df, run = engine
+    df.loc[df.date == '2023-10-02', ['close', 'low']] = [90, 88]
+    df.loc[df.date == '2024-09-30', ['close', 'high']] = [110, 112]
+    data = run(direction=direction)
+    complete = [row for row in data['ChartData4'] if row['completed']]
+    assert len(complete) == 6
+    assert next(row for row in complete if row['year'] == 2023)['pct'].split(',')[0] == '-10.0'
+    assert next(row for row in complete if row['year'] == 2024)['pct'].split(',')[0] == '10.0'
+    assert data['stats']['Num Winners'] == winners
+    assert data['stats']['Num Losers'] == losers
+    assert int(winners) + int(losers) == len(complete)
+
+
+def test_future_placeholder_is_not_a_completed_long_tie(engine):
+    _, run = engine
+    data = run(date='2026-10-11', days=20)
+    assert data['ChartData4'][-1] == {'year': 2026, 'pct': '0,0,0', 'price': '0,0', 'completed': False}
+    assert data['stats']['Num Winners'] == '6'
+    assert data['stats']['Num Losers'] == '0'
 
 
 def test_lookback_beyond_listing_does_not_fabricate_prior_years(engine):
