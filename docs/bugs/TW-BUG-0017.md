@@ -1,11 +1,11 @@
 # TW-BUG-0017: TradeWave counts a flat long return as a loss
 
-- Status: open
+- Status: in-progress
 - Confidence: reproduced in a retained same-study TradeWave response and traced to current engine code; the `.176` website has not been rechecked
 - Priority: P2 — winner/loser and win-rate statistics can contradict the intended tie convention
 - First observed: 2026-09-25; recorded: 2026-09-26 19:42 UTC
 - Executor/session/claim time: unassigned for implementation; Codex `/root/fix_flat_bar` recorded the bug 2026-09-26 UTC
-- Authorization: documentation only; no calculation change or deployment authorized
+- Authorization: Afshin explicitly requested fixing TW-BUG-0016 and TW-BUG-0017 on 2026-09-26 after confirming that zero is a long win and a short loss. Engine repair and dev completion authorized; staging/production excluded.
 
 ## User Impact and Reproduction
 
@@ -35,5 +35,7 @@ Canonical repository: `tradewave-tw2`, branch `codex/tw-bug-0017-tie-20260926`, 
 - Production: not checked; no writes authorized.
 
 ## History
+
+- 2026-09-26: Codex `flat-return-engine-20260926` claims the TradeWave engine repair in branch `codex/flat-return-engine-20260926`, Windows worktree `TradeWave Main Orchestrator/flat-return-engine-20260926`, with remote test/activation worktree to match. Scope: ChartData4 long winner/loser partition, focused regressions and exact-study dev/API verification. Preserve row/sample membership, short tie-loss behavior and existing return precision. Related SMN renderer integration is coordinated separately under TW-BUG-0016; no model/generator-methodology change.
 
 - 2026-09-26: Afshin clarified the intended long-tie win convention while reviewing [TW-BUG-0016](TW-BUG-0016.md) and requested a discoverable `.176` bug record. Codex recorded the separate engine issue with retained response and source evidence; repair remains unclaimed.
