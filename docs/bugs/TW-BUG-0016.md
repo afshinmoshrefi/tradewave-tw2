@@ -1,11 +1,11 @@
 # TW-BUG-0016: SMN plain bars chart omits a genuine flat year
 
-- Status: open
+- Status: in-progress
 - Confidence: reproduced in the September 25 AAPL capture and traced to the SMN chart path; candidate fix not verified live
 - Priority: P2 - a published chart can silently misstate the historical sample and win count
 - First observed: 2026-09-25; recorded: 2026-09-26 UTC
-- Executor/session/claim time: unassigned for implementation
-- Authorization: record and hand off the bug only; no repair, Dev activation or production deployment authorized by this record
+- Executor/session/claim time: Codex `/root/fix_flat_bar`, 2026-09-26 UTC
+- Authorization: Afshin requested this SMN fix; implementation, focused tests and Dev verification authorized. Production writes remain unauthorized.
 
 ## User Impact and Reproduction
 
@@ -34,4 +34,5 @@ Implement in SMN, not the TradeWave engine. Start by comparing the candidate com
 
 ## History
 
+- 2026-09-26: Codex `/root/fix_flat_bar` claimed the SMN renderer repair in `codex/smn-flat-year-bars-20260926`, worktree `C:\Users\afshin\Documents\TradeWave Main Orchestrator\smn-flat-year-bars-20260926`. Scope: `blog/article_images.py` and focused chart regression tests. Next: inspect/reuse candidate `0971c28`, test with retained AAPL evidence, activate and verify on Dev. No engine calculation or production change.
 - 2026-09-26: Codex documentation session created this canonical bug record from the preserved September 25 investigation. Implementation remains unclaimed.
