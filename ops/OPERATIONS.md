@@ -39,6 +39,23 @@ SMN Dev runs on its own VirtualBox VM `SMN` at `192.168.1.180`, not on TW2
 on TW2 are not the current development site. Check the public SMN hostname
 independently of TradeWave health, especially after a host restart.
 
+September26 generation dashboard on primary Dev: SMN main/live source
+`3f78e502ab00f90a06c78707e29a24f45e316472`; `/opt/smn-daily/current` points
+to `/opt/smn-daily/releases/3f78e502ab00f90a06c78707e29a24f45e316472`
+(previous pointer `b559a86483cb89adcc452b69cd4703626132b1ac`). The original
+`/etc/systemd/system/pub_dashboard.service` remains; drop-in
+`/etc/systemd/system/pub_dashboard.service.d/20-generation.conf` sets the working
+directory to `/opt/smn-daily/current/blog`, `SMN_DAILY_STATE_ROOT` to
+`/var/lib/tradewave/smn-daily`, and `PYTHONDONTWRITEBYTECODE=1`. The dashboard
+remains private LAN on `http://192.168.1.180:7172/` with its existing auth mode;
+no public route/SSO activation occurred. The Generation panel stores a profile
+for new editions, and read-only run details come from saved usage receipts.
+The API choices are disabled until adapters exist; selecting a profile does not
+prove that provider's server login. Claude subscription auth is verified and
+selected; server ChatGPT sign-in and daily timer cutover remain pending. The
+cost display is a CLI-reported API-equivalent estimate, not a subscription
+invoice. TW-TASK-0009 holds exact tests and comparison-run state.
+
 For Cloudflare 1033, inspect the exact DNS CNAME and that tunnel's connections,
 then check SSH/LAN reachability of its owning VM. A healthy TW2 tunnel does not
 imply the separate SMN tunnel is connected. Check the VirtualBox guest is running,
