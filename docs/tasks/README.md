@@ -12,4 +12,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0006](TW-TASK-0006.md) | verified | SMN shared Codex/Claude coordination and model-effort review |
 | [TW-TASK-0007](TW-TASK-0007.md) | verified | Controlled six-subject Astra/Sol/Luna quality and usage comparison |
 | [TW-TASK-0008](TW-TASK-0008.md) | verified on dev | SMN publishing dashboard (pins, order, publish/unpublish, schedule, hero) and portfolio Rec Hero/Delete/publish-icon fixes |
-| [TW-TASK-0009](TW-TASK-0009.md) | in-progress | Dev generation dashboard live with Claude selected; comparison running; server ChatGPT sign-in and scheduler cutover pending |
+| [TW-TASK-0009](TW-TASK-0009.md) | in-progress | Dev generation dashboard live; private Claude comparison produced five reviewed previews and one held article; ChatGPT server sign-in pending |
