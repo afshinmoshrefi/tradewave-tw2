@@ -3277,7 +3277,7 @@ const SeasonalBarChart = (props) => {
           <div ref={bwWrapRef} className="tw-toolbar-control tw-toolbar-best-waves" style={{ paddingLeft: '2px', paddingRight: '6px', flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'center' }}>
           {toolbarTitle('Best waves')}
           <SelectBox
-            optionList={bwWide ? [{ ...oppBySymbolOptions[0], label: '── Best Waves ──' }, ...oppBySymbolOptions.slice(1)] : oppBySymbolOptions}
+            optionList={bwWide && !props.showToolbarTitles ? [{ ...oppBySymbolOptions[0], label: '── Best Waves ──' }, ...oppBySymbolOptions.slice(1)] : oppBySymbolOptions}
             value={selectedOppBySymbol}
             name="oppBySymbol"
             suffix=""

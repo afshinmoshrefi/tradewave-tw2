@@ -68,11 +68,8 @@
 }
 
 .barchart-controls--titles.barchart-controls--desktop .tw-toolbar-control {
-    display: grid !important;
-    grid-template-rows: 14px 29px;
-    align-items: center;
-    justify-items: center;
-    row-gap: 3px;
+    justify-content: space-between;
+    gap: 3px;
     height: 46px;
 }
 
@@ -108,7 +105,7 @@
     font-size: 13px !important;
 }
 
-.barchart-controls--titles.barchart-controls--desktop #oppBySymbol { min-width: 120px; }
+.barchart-controls--titles.barchart-controls--desktop #oppBySymbol { width: 120px !important; min-width: 120px !important; max-width: 120px !important; }
 .barchart-controls--titles.barchart-controls--desktop #daysout { min-width: 78px; }
 .barchart-controls--titles.barchart-controls--desktop #years { min-width: 75px; }
 .barchart-controls--titles.barchart-controls--desktop #PEselection { min-width: 91px; }
