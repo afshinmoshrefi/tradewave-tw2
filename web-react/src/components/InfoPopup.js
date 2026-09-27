@@ -648,7 +648,7 @@ Includes:
                                     return (
                                         <div key={idx} onClick={() => pickMarket(m)}
                                             style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2% 4%', marginBottom: '2%', border: '1px solid ' + tc.border, backgroundColor: tc.inputBg, cursor: 'pointer' }}>
-                                            <span><b>{m.label}</b>{m.name ? '-' + m.name : ''}</span>
+                                            <span><b>{m.label}</b>{m.name ? ' - ' + m.name : ''}</span>
                                             {locked && <span title="Upgrade required">🔒</span>}
                                         </div>
                                     );
