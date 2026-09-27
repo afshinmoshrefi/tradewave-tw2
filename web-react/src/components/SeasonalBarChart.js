@@ -2332,18 +2332,22 @@ const SeasonalBarChart = (props) => {
   //---------------------------------------
   let barchartHeight = "92%"
   let barchartControlsHeight = '8%'
+  if (props.showToolbarTitles) {
+    barchartHeight = '86%'
+    barchartControlsHeight = '14%'
+  }
   var navArrowSize = 30
 
   if (rdd.isMobile) {
     if (rdd.isTablet) {
       if (browserH > browserW) {
-        barchartHeight = "88%"
-        barchartControlsHeight = '12%'
+        barchartHeight = props.showToolbarTitles ? '80%' : '88%'
+        barchartControlsHeight = props.showToolbarTitles ? '20%' : '12%'
       }
     }
     else {
-      barchartHeight = "88%"
-      barchartControlsHeight = '12%'
+      barchartHeight = props.showToolbarTitles ? '80%' : '88%'
+      barchartControlsHeight = props.showToolbarTitles ? '20%' : '12%'
     }
   }
 
@@ -3158,6 +3162,7 @@ const SeasonalBarChart = (props) => {
   // "Reminder set" = Google Calendar events actually exist for this pattern (a save
   // via the Plus icon alone does NOT flip it - gc_events is stamped only on insert).
   const reminderSet = !!(reminderInfo?.saved && reminderInfo?.gcEvents)
+  const toolbarTitle = (title) => props.showToolbarTitles && <span className="tw-toolbar-title">{title}</span>
   // Best Waves keeps its "── Best Waves ──" decoration until the wide box, centered in the
   // measured slack, would have under 3px of air per side - only then drop to the compact
   // undecorated variant (owner-specified threshold). 0.07 = the 7vw wide-variant width.
@@ -3179,7 +3184,7 @@ const SeasonalBarChart = (props) => {
 
       {/* _______________________________________________container_________________________________________________________ */}
 
-      <div className="barchart-controls" style={barchartControlsStyle} >
+      <div className={'barchart-controls' + (props.showToolbarTitles ? ' barchart-controls--titles' : '')} style={barchartControlsStyle} >
 
         <div className="barchart-controls-div" style={StyleNavDiv} >
 
@@ -3201,7 +3206,8 @@ const SeasonalBarChart = (props) => {
               {props.tooltipSW ? 'Click the Plus icon to save the Date-Range-Opportunity to your portfolio.  All saved opportunities also generate a comprehensive Web Report that can be viewed and shared.  Your portfolio can be accessed by Clicking the Opportunities Manager icon, that looks like a clipboard with a pencil' : ''}
             </div>
           }>
-            <div style={{ backgroundColor: 'transparent' }}>
+            <div className="tw-toolbar-control" style={{ backgroundColor: 'transparent' }}>
+              {toolbarTitle('Save wave')}
               <BsPlus size={icon_size_plus} style={{ fill: "white", backgroundColor: "transparent", verticalAlign: 'bottom' }} onClick={handleAddReport} />
             </div>
 
@@ -3226,6 +3232,8 @@ const SeasonalBarChart = (props) => {
                   : 'One click adds Google Calendar reminders for this pattern’s start and end dates, and saves it to your current portfolio. Customize times later via the Portfolio Manager’s calendar icon.') : ''}
             </div>
           }>
+            <div className="tw-toolbar-control">
+            {toolbarTitle('Reminder')}
             {rdd.isMobile
               ? <button
                   type="button"
@@ -3250,6 +3258,7 @@ const SeasonalBarChart = (props) => {
                       : <><BsBellFill size={12} style={{ marginRight: '5px', verticalAlign: '-1px' }} />Remind me</>}
                 </button>
             }
+            </div>
           </Tippy>
         }
 
@@ -3260,7 +3269,8 @@ const SeasonalBarChart = (props) => {
             box stay until the measured slack leaves under 3px per side (bwWide); only then
             drop to the compact undecorated label. */}
         {!rdd.isMobile && oppBySymbolOptions.length > 0 &&
-          <div ref={bwWrapRef} style={{ paddingLeft: '2px', paddingRight: '6px', flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'center' }}>
+          <div ref={bwWrapRef} className="tw-toolbar-control" style={{ paddingLeft: '2px', paddingRight: '6px', flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'center' }}>
+          {toolbarTitle('Best waves')}
           <SelectBox
             optionList={bwWide ? [{ ...oppBySymbolOptions[0], label: '── Best Waves ──' }, ...oppBySymbolOptions.slice(1)] : oppBySymbolOptions}
             value={selectedOppBySymbol}
@@ -3285,7 +3295,8 @@ const SeasonalBarChart = (props) => {
                 Rendered even when props.symbol === '' so there's always somewhere to type a ticker
                 (on desktop the toolbar box is now hidden). */}
             {!rdd.isMobile &&
-              <span style={{ position: 'relative', display: 'flex', alignItems: 'center', marginRight: '6px' }} onFocus={handleSymbolFocus} onBlur={handleSymbolBlur}>
+              <span className="tw-toolbar-control" style={{ position: 'relative', display: 'flex', alignItems: 'center', marginRight: '6px' }} onFocus={handleSymbolFocus} onBlur={handleSymbolBlur}>
+                {toolbarTitle('Ticker')}
                 <TextBox securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} tooltipContent={props.tooltipSW ? 'b,Ticker Symbol to analyze.  Ticker must be a part of current securities group' : ''} text={props.symbol} width={barchartControlTickerWidth} tbBlur={handleBlur} tbEnter={handleEnter} name="symbol" syncNonce={symbolBoxSyncNonce} qparams={props.qparams} />
                 {watchlistDropdownOpen && props.defaultWatchlistItems && props.defaultWatchlistItems.length > 0 &&
                   <div className='watchlist-dropdown' style={{ position: 'absolute', top: '100%', left: 0, zIndex: 9000, backgroundColor: tc.panelBg, border: '1px solid ' + tc.border, maxHeight: '200px', overflowY: 'auto', minWidth: '100px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
@@ -3304,7 +3315,10 @@ const SeasonalBarChart = (props) => {
                   {props.tooltipSW ? 'Date Range for the Wave strategy' : ''}
                 </div>
               }>
-                <span className={rdd.isMobile ? 'tw-wave-date-range tw-wave-date-range--mobile' : 'tw-wave-date-range'} style={{ fontWeight: 'bold', marginTop: '1px', border: '1px solid ' + tc.border, paddingLeft: '4px', paddingRight: '4px', marginRight: '5px', whiteSpace: 'nowrap', visibility: props.symbol !== '' ? 'visible' : 'hidden', width: '16ch', textAlign: 'center', boxSizing: 'border-box', display: 'inline-block' }}>{dateStartDisp} to {dateEndDisp}</span>
+                <span className="tw-toolbar-control">
+                  {toolbarTitle('Date range')}
+                  <span className={rdd.isMobile ? 'tw-wave-date-range tw-wave-date-range--mobile' : 'tw-wave-date-range'} style={{ fontWeight: 'bold', marginTop: '1px', border: '1px solid ' + tc.border, paddingLeft: '4px', paddingRight: '4px', marginRight: '5px', whiteSpace: 'nowrap', visibility: props.symbol !== '' ? 'visible' : 'hidden', width: '16ch', textAlign: 'center', boxSizing: 'border-box', display: 'inline-block' }}>{dateStartDisp} to {dateEndDisp}</span>
+                </span>
               </Tippy>
 
           </span>
@@ -3318,23 +3332,27 @@ const SeasonalBarChart = (props) => {
         {/* this is for 2nd layer for smartphone portraits - rect that drops when down triangle clicked*/}
 
         {/* mobile seasonal chart icon jumps to seasonal chart quickly */}
-        <div style={{ width: SVDIVwidth, display: displayElement[14], justifyContent: 'center', backgroundColor: 'transparent' }} onClick={handleSCclicked} >
+        <div className="tw-toolbar-control" style={{ width: SVDIVwidth, display: displayElement[14], justifyContent: 'center', backgroundColor: 'transparent' }} onClick={handleSCclicked} >
+          {toolbarTitle('Chart')}
           <BiLineChart size={svIconSize} style={{ fill: "white" }} />
         </div>
 
 
-        <div style={{ width: '12%', height: '100%', display: displayElement[12], alignItems: 'center', justifyContent: 'center' }} onClick={handleLayer2Visible}>
+        <div className="tw-toolbar-control" style={{ width: '12%', height: '100%', display: displayElement[12], alignItems: 'center', justifyContent: 'center' }} onClick={handleLayer2Visible}>
+          {toolbarTitle('More')}
           {secondLayerControlsOpen === true
             ? <BsFillCaretUpFill size={20} style={{ fill: "white" }} />
             : <BsFillCaretDownFill size={20} style={{ fill: "white" }} />
           }
         </div>
         {/* absolute position for 2nd layer on smartphone portrait */}
-        <div className="second-layer-parent" style={{ display: secondLayerDisplay }}>
-          <div className='barchart-controls-div2' >
+        <div className={'second-layer-parent' + (props.showToolbarTitles ? ' second-layer-parent--titles' : '')} style={{ display: secondLayerDisplay, top: barchartControlsHeight }}>
+          <div className='barchart-controls-div2 tw-toolbar-control' >
+            {toolbarTitle('Start date')}
             <TextBox text={props.startDate} width="9" tbBlur={handleBlur} tbEnter={handleEnter} name="date" securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} />
           </div>
-          <div className='barchart-controls-div2' style={{ position: 'relative' }} onFocus={handleSymbolFocus} onBlur={handleSymbolBlur}>
+          <div className='barchart-controls-div2 tw-toolbar-control' style={{ position: 'relative' }} onFocus={handleSymbolFocus} onBlur={handleSymbolBlur}>
+            {toolbarTitle('Ticker')}
             <TextBox text={props.symbol} width="5" tbBlur={handleBlur} tbEnter={handleEnter} name="symbol" syncNonce={symbolBoxSyncNonce} securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} qparams={props.qparams} />
             {watchlistDropdownOpen && props.defaultWatchlistItems && props.defaultWatchlistItems.length > 0 &&
               <div className='watchlist-dropdown' style={{ position: 'absolute', top: '100%', left: 0, zIndex: 9000, backgroundColor: tc.panelBg, border: '1px solid ' + tc.border, maxHeight: '200px', overflowY: 'auto', minWidth: '80px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
@@ -3347,15 +3365,18 @@ const SeasonalBarChart = (props) => {
             }
           </div>
 
-          <div className='barchart-controls-div2' >
+          <div className='barchart-controls-div2 tw-toolbar-control' >
+            {toolbarTitle('Days hold')}
             <SelectBox optionList={daysOutList} value={props.daysOut} suffix=" days" name="daysout" sbChanged={selectboxChanged} />
           </div>
 
-          <div className='barchart-controls-div2' >
+          <div className='barchart-controls-div2 tw-toolbar-control' >
+            {toolbarTitle('Years')}
             <SelectBox optionList={includeSelectedWindowOption(seasonalYearsList, props.seasonalYears, 999)} value={props.seasonalYears} suffix=" years" name="years" sbChanged={selectboxChanged} />
           </div>
           
-          <div className='barchart-controls-div2' >
+          <div className='barchart-controls-div2 tw-toolbar-control' >
+            {toolbarTitle('Cycle filter')}
             <SelectBox optionList={PEselectionList} value={props.PEselected} suffix="" name="PEselection" sbChanged={selectboxChanged} />
           </div>
 
@@ -3367,7 +3388,8 @@ const SeasonalBarChart = (props) => {
         <div style={{ display: "flex", alignItems: "center", height: "90%", backgroundColor: 'transparent' }}>
 
           {props.seasonalBarChartData.length > 0 &&
-            <div className='barchart-controls-div' style={StyleLSSquare}>
+            <div className='barchart-controls-div tw-toolbar-control' style={StyleLSSquare}>
+              {toolbarTitle('Direction')}
               <Tippy disabled={!props.tooltipSW} placement={'bottom'} content={
                 <div theme="tw" >
                   {props.tooltipSW ? 'Color of square can be red or green.  WaveViewer determines if the current date range should be analyzed as bullish or bearish.  Bullish trade have at least 50% of years as bullish.  The only special condition is for Buy & Hold - Buy and Hold is always analyzed as bullish even if there are more losing years than winning years.' : ''}
@@ -3380,19 +3402,23 @@ const SeasonalBarChart = (props) => {
           }
 
 
-          <div className='barchart-controls-div' style={StyleMFE}>
+          <div className='barchart-controls-div tw-toolbar-control' style={StyleMFE}>
+            {toolbarTitle('MFE overlay')}
             <CheckBox tooltipContent={props.tooltipSW ? 'b,MFE: Maximum Favorable Excursion, adds the maximum level the price reached in favor of the trade as light green on bullish and light red on bearish barcharts' : ''} label="MFE" cbChanged={checkboxChanged} checked={props.showMFE} />
           </div>
 
-          <div className='barchart-controls-div' style={StyleMAE}>
+          <div className='barchart-controls-div tw-toolbar-control' style={StyleMAE}>
+            {toolbarTitle('MAE overlay')}
             <CheckBox tooltipContent={props.tooltipSW ? 'b,MAE: Maximum Adverse Excursion, adds the maximum price reached against the trade as light red on bullish and light green on bearish barchars' : ''} label="MAE" cbChanged={checkboxChanged} checked={props.showMAE} />
           </div>
 
-          <div className='barchart-controls-div' style={StyleStartDate}>
+          <div className='barchart-controls-div tw-toolbar-control' style={StyleStartDate}>
+            {toolbarTitle('Start date')}
             <TextBoxInc securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} tooltipContent={props.tooltipSW ? 'b,Start Date to analyze a Wave. Use arrows to shift start date while keeping end date fixed.' : ''} text={props.startDate} width={barchartControlDateWidth} tbBlur={handleBlur} tbEnter={handleEnter} name="date" onLeftClick={() => handleDateNudge(-1)} onRightClick={() => handleDateNudge(1)} />
           </div>
 
-          <div className='barchart-controls-div' style={{...StyleSymbol, position: 'relative'}} onFocus={handleSymbolFocus} onBlur={handleSymbolBlur}>
+          <div className='barchart-controls-div tw-toolbar-control' style={{...StyleSymbol, position: 'relative'}} onFocus={handleSymbolFocus} onBlur={handleSymbolBlur}>
+            {toolbarTitle('Ticker')}
             <TextBox securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} tooltipContent={props.tooltipSW ? 'b,Ticker Symbol to analyze.  Ticker must be a part of current securities group' : ''} text={props.symbol} width={barchartControlTickerWidth} tbBlur={handleBlur} tbEnter={handleEnter} name="symbol" syncNonce={symbolBoxSyncNonce} qparams={props.qparams} />
             {watchlistDropdownOpen && props.defaultWatchlistItems && props.defaultWatchlistItems.length > 0 &&
               <div className='watchlist-dropdown' style={{ position: 'absolute', top: '100%', left: 0, zIndex: 9000, backgroundColor: tc.panelBg, border: '1px solid ' + tc.border, maxHeight: '200px', overflowY: 'auto', minWidth: '100px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
@@ -3405,26 +3431,32 @@ const SeasonalBarChart = (props) => {
             }
           </div>
 
-          <div className='barchart-controls-div' style={StyleDaysOut}>
+          <div className='barchart-controls-div tw-toolbar-control' style={StyleDaysOut}>
+            {toolbarTitle('Days hold')}
             <SelectBox tooltipContent={props.tooltipSW ? 'b,Wave Viewer Control: Select number of days for the date range. Changes the end date while keeping the start date fixed' : ''} optionList={daysOutList} value={props.daysOut} suffix=" days" name="daysout" sbChanged={selectboxChanged} />
           </div>
 
           {/* date2 is only shown on desktop for now  */}
           {showDate2 &&
-            <div className='barchart-controls-div' style={StyleStartDate}>
+            <div className='barchart-controls-div tw-toolbar-control' style={StyleStartDate}>
+              {toolbarTitle('End date')}
               <TextBox securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} tooltipContent={props.tooltipSW ? 'b,End Date to analyze a Wave' : ''} text={dateEnd} width={barchartControlDateWidth} tbBlur={handleBlur} tbEnter={handleEnter} name="date2" />
             </div>
           }
 
 
 
-          <div className='barchart-controls-div' style={StyleSeasonalYears}>
+          <div className='barchart-controls-div tw-toolbar-control' style={StyleSeasonalYears}>
+            {toolbarTitle('Years')}
             <SelectBox tooltipContent={props.tooltipSW ? 'b,Select how many matching years to include: if Cycle Filter is Consecutive, “10 years” means the last 10 calendar years; if Cycle Filter is PE/PE+1/PE+2/PE+3, “10 years” means the most recent 10 years in that cycle category (for example, the last 10 PE+2 years).' : ''} optionList={includeSelectedWindowOption(seasonalYearsList, props.seasonalYears, 999)} value={props.seasonalYears} suffix=" years" name="years" sbChanged={selectboxChanged} />
           </div>
-          <div className='barchart-controls-div' style={StylePEselection} >
+          <div className='barchart-controls-div tw-toolbar-control' style={StylePEselection} >
+            {toolbarTitle('Cycle filter')}
             <SelectBox optionList={PEselectionList} value={props.PEselected} suffix="" name="PEselection" sbChanged={selectboxChanged} tooltipContent={props.tooltipSW ? 'b,Choose which years are included: Consecutive uses the last N years in a row, while PE/PE+1/PE+2/PE+3 uses only years matching that Presidential Election cycle phase.)' : ''} />
           </div>
           <div className='barchart-controls-div' style={{ ...StyleMQtrs, alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+            <div className="tw-toolbar-control">
+              {toolbarTitle('Analysis')}
             <SelectBox
               ariaLabel="Analysis"
               tooltipContent={props.tooltipSW ? 'b,Run an analysis using the currently loaded pattern.' : ''}
@@ -3491,6 +3523,9 @@ const SeasonalBarChart = (props) => {
                 }
               }}
             />
+            </div>
+            <div className="tw-toolbar-control">
+              {toolbarTitle('Date presets')}
             <SelectBox
               ariaLabel="Months and Quarters"
               tooltipContent={props.tooltipSW ? 'b,Choose a month, quarter, season, Year to Date, or Today to Year End. The selected shortcut replaces the current date range.' : ''}
@@ -3500,12 +3535,14 @@ const SeasonalBarChart = (props) => {
               widthOverride={!rdd.isMobile ? 'clamp(108px, 6.5vw, 116px)' : undefined}
               sbChanged={selectboxChanged}
             />
+            </div>
           </div>
 
         </div>
 
 
-        <div style={{ width: questionDivWidth, height: '100%', display: displayElement[13], alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' }}>
+        <div className="tw-toolbar-control" style={{ width: questionDivWidth, height: '100%', display: displayElement[13], alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' }}>
+          {toolbarTitle('Help')}
           <BsQuestionCircle size={questionSize} style={{ fill: "white" }} onClick={handleHelpClicked} />
         </div>
 

@@ -263,6 +263,10 @@ const App = () => {
   useEffect(() => {
     lsSet(TOOLTIP_ENABLED_KEY, tooltipSW)
   }, [tooltipSW])
+  const [showToolbarTitles, SetShowToolbarTitles] = useState(() => lsGet('tw_show_toolbar_titles') !== false)
+  useEffect(() => {
+    lsSet('tw_show_toolbar_titles', showToolbarTitles)
+  }, [showToolbarTitles])
 
 
   //4/12/2022 - 
@@ -1821,6 +1825,7 @@ const App = () => {
     dialogProp,
     // allowedSymbols,
     tooltipSW,
+    showToolbarTitles,
     yearsMetaData,
     yearsMetaDataPE,
     showPEOpps,
@@ -1984,6 +1989,7 @@ const App = () => {
     SetDialogProp,
     // SetAllowedSymbols,
     SetTooltipSW,
+    SetShowToolbarTitles,
     SetYearsMetaData,
     SetYearsMetaDataPE,
     SetShowPEOpps,
