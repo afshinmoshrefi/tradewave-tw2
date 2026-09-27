@@ -1,9 +1,9 @@
 # TW-TASK-0012: Chart Toolbar Control Titles
 
-- Status: in-progress
+- Status: verified on dev
 - Confidence: reproduced
 - Priority: P3 - improves control discoverability
-- First observed / last updated: 2026-09-27 22:35 UTC
+- First observed / last updated: 2026-09-27 22:45 UTC
 - Executor/session/claim time: Codex toolbar_titles / 2026-09-27 22:25 UTC
 - Authorization: User requested implementation and routine dev activation; staging and production excluded.
 
@@ -17,17 +17,18 @@ The toolbar renders in `SeasonalBarChart.js`; Settings > General is in `DesktopL
 
 ## Acceptance and Regression Checks
 
-React production build passed on the task source September 27 (existing project lint warnings). Final candidate build and rendered dev browser check pending.
+React production build passed on the integrated candidate (existing project lint warnings). On live dev, a capture-bot browser loaded AAPL's 15-day pattern and found all 15 visible desktop toolbar titles from Save wave to Help. Settings > General showed the switch enabled by default; turning it off removed titles, reduced toolbar height from 58.7 to 33.5 px, and persisted `false` across reload. Turning it on restored titles. Pixel 5 emulation at 390px rendered the top row and the expanded second row with Start date, Ticker, Days hold, Years and Cycle filter; document width stayed 390px. Browser used the documented dev-only internal capture shell and real nginx/API routes. Staging and production not tested.
 
 ## Implementation and Handoff
 
-Repository: tradewave-tw2. Branch: `codex/toolbar-control-titles-20260927`. Worktree: `/home/tradewave-worktrees/toolbar-control-titles-20260927`. Added a default-on user-scoped setting, titles on every visible toolbar control and mobile second-row control, and matching expanded/compact heights. Code commit and live evidence pending. No migration or configuration change. Rollback: restore previous frontend build pointer; backend unchanged. Next: integrate latest main, activate dev under lock, and verify rendered behavior.
+Repository: tradewave-tw2. Task branch `codex/toolbar-control-titles-20260927`, commit `12d9a861`; integration branch `codex/toolbar-titles-integration-20260927`, commit `c2045a082ede9595fceb3783ccef53b228edaf6a`. Worktrees: `/home/tradewave-worktrees/toolbar-control-titles-20260927` and `/home/tradewave-worktrees/toolbar-titles-integration-20260927`, both clean. Changed `App.js`, `DesktopLayout.js`, `SeasonalBarChart.js`, its CSS, and this implementation map/record. No migration or configuration change. Frontend artifact: `/home/flask/web-react/releases/build-c2045a082ede9595fceb3783ccef53b228edaf6a`; previous pointer `/home/flask/web-react/releases/build-55bdbdc2fc61d020d0066382faf6f22a52d28129` for rollback. Backend unchanged. Next: staging qualification only after explicit request.
 
 ## Environment Verification
 
-Dev: pending. Staging: not checked. Production: not checked.
+Dev: verified 2026-09-27 22:44 UTC by Codex on `c2045a082ede9595fceb3783ccef53b228edaf6a` / `main.10ca5482.js` using desktop Chromium 1440x900 and Pixel 5 emulation 390x844, with the documented dev capture-bot shell, real assets/API, and Settings interaction. The assertions and measurements above are the recorded evidence; repeat with a Puppeteer navigation to `/app/?o=` for `2|AAPL|2026-01-15|15|10` using `docs/UI_CAPTURE_PIPELINE.md`'s shell interception. Staging: not checked. Production: not checked.
 
 ## History
 
 - 2026-09-27 22:25 UTC, Codex: Claimed authorized feature. Next: inspect toolbar and settings, implement and verify.
 - 2026-09-27 22:35 UTC, Codex: Implemented source and passed React build; another session currently owns the dev activation lock.
+- 2026-09-27 22:44 UTC, Codex: Integrated latest main and activated candidate under dev lock; desktop and phone browser checks passed; non-forced main advance to `c2045a08` succeeded.
