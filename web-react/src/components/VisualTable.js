@@ -54,6 +54,7 @@ const VisualTable = (props) => {
             }
         }
 
+        if (rdd.isMobile && props.title === 'Wave Info') iconData['Alignment'] = iconData['Trend Alignment']
         SetDisplayedIcons(iconData)
 
         // console.log('tttttttttttttttttttttttttttttttttttmpData1=',tmpData1)
@@ -75,7 +76,7 @@ const VisualTable = (props) => {
                 // else if (k === 'Long Score') tmpData['Trend Long'] = tmpData1[k]
                 // else if (k === 'Short Score') tmpData['Trend Short'] = tmpData1[k]
                 else if (k === 'S&P 500 Buy & Hold') tmpData['S&P 500 B/H'] = tmpData1[k]
-                else if (k === 'Trend Alignment' && props.title !== 'Wave Info') tmpData['Alignment'] = tmpData1[k]
+                else if (k === 'Trend Alignment') tmpData['Alignment'] = tmpData1[k]
                 else tmpData[k] = tmpData1[k]
             }
         }
