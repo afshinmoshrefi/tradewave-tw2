@@ -66,6 +66,17 @@ def _years(value, cap):
     return count
 
 
+def _display_copy(value):
+    """Apply house punctuation to report copy without changing snapshot numbers."""
+    if isinstance(value, str):
+        return re.sub(r'[ \t]*\u2014[ \t]*', ' - ', value)
+    if isinstance(value, list):
+        return [_display_copy(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _display_copy(item) for key, item in value.items()}
+    return value
+
+
 def _summary(report):
     return {key: report.get(key) for key in ('id', 'parent_id', 'title', 'notes', 'created_at', 'status', 'settings', 'holdings_count')}
 
@@ -435,7 +446,7 @@ def register_portfolio_scenarios(app, *, config, redis_db, check_for_token,
                               for h in report['horizons']]}
         prompt = ('Explain only the supplied historical scenario facts in under 120 words. '
                   'Do not calculate, invent statistics, predict outcomes, or give personalized investment advice. '
-                  'State that historical scenarios are not forecasts. No tools.')
+                  'State that historical scenarios are not forecasts. Use plain punctuation, never em dashes. No tools.')
         messages = [{'role': 'user', 'content': json.dumps(facts)}]
         try:
             from openai_tools_appserver import send_openai_messages
@@ -444,7 +455,7 @@ def register_portfolio_scenarios(app, *, config, redis_db, check_for_token,
                 messages, system=prompt,
                 user_id=user, model=PRIMARY_MODEL, max_output_tokens=256)
             if isinstance(text, str) and text.strip():
-                return {'status': 'ready', 'text': text.strip(), 'model': PRIMARY_MODEL}
+                return {'status': 'ready', 'text': _display_copy(text.strip()), 'model': PRIMARY_MODEL}
         except Exception:
             logging.warning('Portfolio scenario primary commentary unavailable')
         try:
@@ -452,7 +463,7 @@ def register_portfolio_scenarios(app, *, config, redis_db, check_for_token,
             from tara_runtime_policy import FALLBACK_MODEL
             text = send_claude_messages(messages, model=FALLBACK_MODEL, system=prompt, max_tokens=256)
             if isinstance(text, str) and text.strip():
-                return {'status': 'ready', 'text': text.strip(), 'model': FALLBACK_MODEL}
+                return {'status': 'ready', 'text': _display_copy(text.strip()), 'model': FALLBACK_MODEL}
         except Exception:
             logging.warning('Portfolio scenario fallback commentary unavailable')
         return {'status': 'unavailable', 'text': None, 'model': None}
@@ -523,7 +534,7 @@ def register_portfolio_scenarios(app, *, config, redis_db, check_for_token,
         if request.method == 'GET':
             ids = json.loads(redis_db.get(ids_key(user)) or b'[]')
             reports = [read_report(user, portfolio_id, rid) for rid in ids]
-            return jsonify({'reports': [_summary(r) for r in reports if r]})
+            return jsonify({'reports': [_display_copy(_summary(r)) for r in reports if r]})
         body = _json()
         if body is None:
             return _error('invalid_json')
@@ -565,7 +576,7 @@ def register_portfolio_scenarios(app, *, config, redis_db, check_for_token,
                     pipe.set(ids_key(user), json.dumps(ids))
                     pipe.execute()
             threading.Thread(target=worker, args=(user, report_id, request.args['token']), daemon=True).start()
-            return jsonify({'report': report}), 202
+            return jsonify({'report': _display_copy(report)}), 202
         except Exception:
             release_job(report_id)
             raise
@@ -587,7 +598,7 @@ def register_portfolio_scenarios(app, *, config, redis_db, check_for_token,
                         report['status'] = 'failed'
                         report['error'] = 'worker_expired'
                         save_report(user, report)
-            return jsonify({'report': report})
+            return jsonify({'report': _display_copy(report)})
         body = _json()
         if body is None:
             return _error('invalid_json')
@@ -605,7 +616,7 @@ def register_portfolio_scenarios(app, *, config, redis_db, check_for_token,
                 report['title'] = title.strip()
                 report['notes'] = notes
                 save_report(user, report)
-            return jsonify({'report': report})
+            return jsonify({'report': _display_copy(report)})
         if body.get('confirm_forever') is not True:
             return _error('confirm_forever_required')
         with redis_db.lock(f'portfolio_scenario_user_lock_{user}', timeout=10, blocking_timeout=5):

@@ -821,6 +821,11 @@ cost/gain figures instead of treating the latest closing quote as a purchase.
 Existing saved study rows remain usable as scenario holdings without changing
 their study dates. Color selection supports several groups independently of the
 manager's totals filter; the snapshot freezes selected row identities and shares.
+Scenario Studio scopes heading line heights to avoid the app's inherited compact
+typography. Phone layouts contain table scrolling, wrap actions and report copy,
+and use touch-sized controls. Scenario response copy normalizes em dashes for
+legacy snapshots, web/print and CSV while retaining original stored numeric facts;
+new AI commentary also follows this house punctuation rule. See TW-BUG-0020.
 
 The authenticated routes are registered by `appserver/appserver/portfolio_scenarios.py`:
 `POST /portfolio_holdings/preview`, `POST /portfolio_holdings/<portfolio_id>`,

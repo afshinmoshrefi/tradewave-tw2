@@ -111,3 +111,86 @@
 @media (max-width: 950px) { .ps-import-grid, .ps-build-layout, .ps-report-two { grid-template-columns: 1fr; }.ps-summary { position: static; }.ps-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.ps-report-toolbar { flex-wrap: wrap; }.ps-history { grid-template-columns: 1fr; } }
 @media (max-width: 610px) { .ps-overlay { padding: 0; }.ps-shell { height: 100dvh; max-height: none; border-radius: 0; }.ps-topbar { padding: 0 18px; }.ps-private, .ps-heading-accent { display: none; }.ps-heading { padding: 22px 22px 17px; }.ps-tabs { padding: 0 12px; }.ps-tabs button { padding: 0 10px; }.ps-tabs button span { font-size: 11px; }.ps-page, .ps-report { padding: 25px 18px 45px; }.ps-section-head { margin-bottom: 20px; }.ps-panel { padding: 18px; }.ps-error { margin: 12px 18px 0; }.ps-metric-grid { gap: 8px; }.ps-metric { padding: 13px; min-height: 120px; }.ps-metric strong { white-space: normal; }.ps-report-hero { padding: 23px; }.ps-report-hero-row { display: block; }.ps-hero-value { text-align: left; margin-top: 20px; }.ps-history-actions { flex-wrap: wrap; }.ps-report-toolbar > div { justify-content: flex-start; }.ps-report-toolbar .ps-button { padding: 0 9px; font-size: 10px; } }
 @media print { @page { size: letter; margin: .5in; } body.ps-print > *:not(.ps-overlay) { display: none !important; } body.ps-print .ps-overlay { position: static; display: block; padding: 0; background: #fff; backdrop-filter: none; color: #111; } body.ps-print .ps-shell, body.ps-print .ps-content { display: block; width: 100%; height: auto; max-height: none; overflow: visible; border-radius: 0; box-shadow: none; background: #fff; } body.ps-print .ps-topbar, body.ps-print .ps-heading, body.ps-print .ps-tabs, body.ps-print .ps-report-toolbar, body.ps-print .ps-report-horizon-tabs, body.ps-print .ps-confirm-backdrop { display: none !important; } body.ps-print .ps-report { max-width: none; padding: 0; } body.ps-print .ps-report-hero { -webkit-print-color-adjust: exact; print-color-adjust: exact; } body.ps-print .ps-report-card, body.ps-print .ps-metric { box-shadow: none; break-inside: avoid; } body.ps-print .ps-page-break { break-inside: avoid; } body.ps-print .ps-bars { max-height: none; overflow: visible; } body.ps-print .ps-print-extra { display: block; } body.ps-print .ps-table-wrap { overflow: visible; } body.ps-print .ps-table-wrap table { font-size: 10px; } body.ps-print .ps-table-wrap th, body.ps-print .ps-table-wrap td { padding: 6px; } }
+
+/* Scoped resets keep the studio independent of the surrounding app typography. */
+.ps-overlay h1, .ps-overlay h2, .ps-overlay h3 { height: auto; min-height: 0; line-height: 1.15; }
+.ps-heading { gap: 20px; }
+.ps-heading > div:first-child, .ps-section-head > div:first-child, .ps-report-hero-row > div:first-child { min-width: 0; }
+.ps-heading h1, .ps-section-head h2, .ps-report-hero h2 { display: block; height: auto; }
+.ps-section-head h2, .ps-report-hero h2 { line-height: 1.12; }
+.ps-tabs button, .ps-button, .ps-file, .ps-color-chip, .ps-horizons label, .ps-report-horizon-tabs button { min-height: 44px; }
+.ps-close { min-width: 44px; min-height: 44px; }
+.ps-table-wrap { min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+.ps-table-wrap table { width: max-content; min-width: 100%; }
+.ps-report-horizon-tabs { overscroll-behavior-x: contain; }
+.ps-build-main, .ps-build-side { min-width: 0; }
+.ps-chart-key { flex-wrap: wrap; }
+.ps-history-card p, .ps-report-note { overflow-wrap: anywhere; }
+.ps-report-hero h2 { overflow-wrap: anywhere; }
+.ps-report-hero p:not(.ps-eyebrow) { line-height: 1.5; }
+.ps-hero-value { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.ps-confirm-backdrop { overflow-y: auto; }
+.ps-confirm { max-height: 100%; overflow-y: auto; }
+
+@media (max-width: 610px) {
+  .ps-overlay { padding: 0; }
+  .ps-shell { width: 100%; height: 100vh; height: 100dvh; max-height: none; border-radius: 0; }
+  .ps-topbar { padding: 0 14px; }
+  .ps-private, .ps-heading-accent { display: none; }
+  .ps-close { width: 44px; }
+  .ps-heading { padding: 20px 18px 16px; }
+  .ps-heading h1 { font-size: clamp(28px, 9vw, 40px); overflow-wrap: anywhere; }
+  .ps-heading p:last-child { line-height: 1.5; }
+  .ps-tabs { padding: 0 8px; }
+  .ps-page, .ps-report { width: 100%; min-width: 0; padding: 22px 14px 36px; }
+  .ps-section-head { display: block; margin-bottom: 20px; }
+  .ps-section-head h2 { font-size: clamp(25px, 8vw, 32px); overflow-wrap: anywhere; }
+  .ps-section-head p:not(.ps-eyebrow) { font-size: 13px; }
+  .ps-step { display: block; margin-top: 10px; }
+  .ps-panel { min-width: 0; padding: 16px; }
+  .ps-note { padding: 20px; }
+  .ps-panel > textarea { min-height: 190px; padding: 13px; }
+  .ps-panel textarea, .ps-field input, .ps-field textarea, .ps-field select, .ps-table-wrap input, .ps-table-wrap select { font-size: 16px; }
+  .ps-error { margin: 12px 14px 0; }
+  .ps-error button { flex: none; min-width: 44px; min-height: 44px; }
+  .ps-color-chip, .ps-horizons label { max-width: 100%; }
+  .ps-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .ps-metric { min-width: 0; padding: 12px; min-height: 120px; }
+  .ps-metric strong { white-space: normal; overflow-wrap: anywhere; font-size: clamp(17px, 5vw, 22px); }
+  .ps-report-hero { min-width: 0; padding: 20px 16px; }
+  .ps-report-hero-row { display: block; }
+  .ps-report-hero h2 { font-size: clamp(24px, 7vw, 32px); }
+  .ps-hero-value { text-align: left; margin-top: 20px; }
+  .ps-report-toolbar { align-items: stretch; }
+  .ps-report-toolbar > button, .ps-report-toolbar > div { width: 100%; justify-content: flex-start; }
+  .ps-report-toolbar > div .ps-button { flex: 1 1 145px; max-width: 100%; white-space: normal; }
+  .ps-history { grid-template-columns: minmax(0, 1fr); }
+  .ps-history-card { min-width: 0; padding: 19px; }
+  .ps-history-card h3 { overflow-wrap: anywhere; }
+  .ps-history-actions { flex-wrap: wrap; }
+  .ps-history-actions .ps-button { flex: 1 1 130px; white-space: normal; }
+  .ps-report-two { grid-template-columns: minmax(0, 1fr); }
+  .ps-report-card { min-width: 0; padding: 17px; }
+  .ps-confirm-backdrop { place-items: start center; padding: 12px; }
+  .ps-confirm { width: 100%; padding: 22px 17px; }
+  .ps-confirm .ps-inline-actions { justify-content: stretch; }
+  .ps-confirm .ps-inline-actions .ps-button { flex: 1 1 120px; white-space: normal; }
+}
+
+@media (max-width: 360px) {
+  .ps-page, .ps-report { padding-right: 12px; padding-left: 12px; }
+  .ps-panel { padding: 13px; }
+  .ps-metric-grid { grid-template-columns: minmax(0, 1fr); }
+  .ps-report-toolbar > div .ps-button, .ps-history-actions .ps-button { flex-basis: 100%; }
+  .ps-confirm { padding: 18px 14px; }
+}
+@media print {
+  body.ps-print .ps-table-wrap { overflow: visible; }
+  body.ps-print .ps-table-wrap table { width: 100%; }
+  body.ps-print .ps-confirm { max-height: none; overflow: visible; }
+}
+.ps-field input, .ps-field select, .ps-table-wrap input, .ps-table-wrap select { min-height: 44px; }
+.ps-check input { width: 20px; height: 20px; flex: none; }
+@media print {
+  body.ps-print .ps-field input, body.ps-print .ps-field select, body.ps-print .ps-table-wrap input, body.ps-print .ps-table-wrap select { min-height: 0; }
+}

@@ -71,7 +71,7 @@ test('shows a dash for unavailable data while keeping the reason accessible', ()
   )
 
   const unavailable = screen.getByLabelText(/AI Score unavailable for MSFT.*Temporarily unavailable/i)
-  expect(unavailable).toHaveTextContent('—')
+  expect(unavailable).toHaveTextContent('-')
   expect(unavailable).toHaveClass('opp-ai-cell--unavailable')
 })
 

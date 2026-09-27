@@ -20,7 +20,7 @@ const OpportunityAICell = ({ bundle, metric, symbol }) => {
         className="opp-ai-cell opp-ai-cell--unavailable"
         aria-label={`${metadata ? metadata.label : 'AI score'} unavailable for ${symbol || 'this pattern'}. ${compactState}. Select the row and open AI Scores for details.`}
       >
-        <span aria-hidden="true">—</span>
+        <span aria-hidden="true">-</span>
       </span>
     )
   }

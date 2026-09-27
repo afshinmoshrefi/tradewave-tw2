@@ -1359,7 +1359,7 @@ const SeasonalBarChart = (props) => {
     if (marketId === undefined || marketId === null) return
     if (!props.showMaxProjection) return
     if (!props.maxAvailableYears || props.maxAvailableYears <= 0) return
-    // If cons and the user is already viewing max, the primary line covers this — no fetch needed,
+    // If cons and the user is already viewing max, the primary line covers this - no fetch needed,
     // and clear the stale max-cycle so we don't render two identical dashed lines on top of each other.
     if (props.PEselected === 'cons' && parseInt(props.seasonalYears, 10) === props.maxAvailableYears) {
       if (props.maxYearsConsolidatedSeasonalData && props.maxYearsConsolidatedSeasonalData.length > 0) {

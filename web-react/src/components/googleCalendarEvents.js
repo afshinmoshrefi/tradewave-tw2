@@ -144,7 +144,7 @@ export function buildPatternEventDict(start_or_end, p) {
         `${saved_line}Calendar events created ${created_text} by <a href="https://tradewave.ai">tradewave.ai</a><br>` +
         `Historical research for educational purposes, not advice or a recommendation.`;
 
-    const summary = `${p.ticker} ${dirWord} — TradeWave Seasonal ${is_start ? 'Start' : 'End'} (${friendlyDate(p.date1)} – ${friendlyDate(p.date2)})`;
+    const summary = `${p.ticker} ${dirWord} - TradeWave Seasonal ${is_start ? 'Start' : 'End'} (${friendlyDate(p.date1)} – ${friendlyDate(p.date2)})`;
 
     const overrides = [];
     if (p.emailReminder) overrides.push({ 'method': 'email', 'minutes': 24 * 60 });

@@ -218,7 +218,7 @@ const OppTable = (props) => {
   //  is a temporal-dead-zone ReferenceError at render - it blanked the whole panel)
 
   const userPickedPYearsRef = useRef('')  // the partial-years value the USER explicitly picked, while it is still selected
-  const lastOppUrlRef = useRef('')  // last OppList4 URL actually fetched — fetch when the resolved query changes, not when opportunities happens to be empty
+  const lastOppUrlRef = useRef('')  // last OppList4 URL actually fetched - fetch when the resolved query changes, not when opportunities happens to be empty
   const metaReqRef = useRef(0)      // ordering guard: only the LATEST YearsMetaData2 response may write state (stale/empty responses clobbered the metadata)
   const metaLoadingRef = useRef(false) // synchronous guard: do not validate against metadata from the previous request
   const oppReqRef = useRef(0)       // ordering guard: only the LATEST OppList4 response may write opportunities/activeOpportunities state
@@ -485,7 +485,7 @@ const OppTable = (props) => {
     SetPartialSeasonalYearsOptionsList(tmp);
 
     // partial-years is invalid when we KNOW the valid options for the current
-    // years (tmp populated) and the current value isn't one of them — e.g. a
+    // years (tmp populated) and the current value isn't one of them - e.g. a
     // stale 18 left over from a years=15 selection after years drops to 10.
     // Such a pair (10/18) has no Monthly_Opp dataset on the appserver, which
     // returns its -1 sentinel -> empty table. tmp.length===0 means metadata is
@@ -534,7 +534,7 @@ const OppTable = (props) => {
 
       // if (debug) console.log('opplist4 url: ', url)
 
-      // Fetch when the resolved query URL changes — NOT gated on
+      // Fetch when the resolved query URL changes - NOT gated on
       // opportunities.length===0. The old gate suppressed the fetch for the
       // final settled params whenever a transitional effect pass (during the
       // -1 -> value settle after a market switch) had already populated
@@ -549,7 +549,7 @@ const OppTable = (props) => {
       // populated) AFTER selecting the list, and the symbol filter below only
       // runs inside this fetch's .then. Without the wl signature in the key, the
       // post-symbols refetch dedupes against the bare-group fetch and the filter
-      // never re-applies — leaving the whole group's rows showing unfiltered.
+      // never re-applies - leaving the whole group's rows showing unfiltered.
       const wlSig = props.activeWatchlistFilter
         ? `|wl=${props.activeWatchlistFilter.name}:${props.activeWatchlistFilter.symbols ? props.activeWatchlistFilter.symbols.size : 'pending'}`
         : ''
@@ -623,7 +623,7 @@ const OppTable = (props) => {
 
               // Missing-dataset sentinel: when no precomputed opportunity file
               // exists for the selected year combo, the appserver returns
-              // {OppList: '-1:<path>'} — a STRING, with no OppActiveList. Bail
+              // {OppList: '-1:<path>'} - a STRING, with no OppActiveList. Bail
               // out to an empty table here; otherwise OppList.map() below throws
               // on the string and the catch mislabels it "Data temporarily
               // unavailable" instead of showing the no-patterns message above.
@@ -863,7 +863,7 @@ const OppTable = (props) => {
 
     // Step down to the next LOWER *valid* partial-years option, not a blind
     // currentPY-1: a decremented value with no dataset gets yanked back up by the
-    // invalid-value reset while the URL dedupe blocks a refetch — an infinite
+    // invalid-value reset while the URL dedupe blocks a refetch - an infinite
     // 4<->5 ping-pong with the table stuck empty. Options are sorted DESC, so the
     // first entry below currentPY is the closest valid step. No lower option
     // (or options not loaded yet) -> stop with the guidance message.

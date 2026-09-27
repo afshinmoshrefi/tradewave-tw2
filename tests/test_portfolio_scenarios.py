@@ -266,3 +266,14 @@ class PortfolioScenarioTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def test_report_punctuation_preserves_snapshot_values():
+    original = {'title': 'Technology\u2014scenario', 'commentary': {'text': 'History \u2014 not a forecast.'},
+                'horizons': [{'mean_change': -12.25, 'positive': 8}], 'notes': None}
+    shown = scenarios._display_copy(original)
+    assert shown['title'] == 'Technology - scenario'
+    assert shown['commentary']['text'] == 'History - not a forecast.'
+    assert shown['horizons'] == original['horizons']
+    assert shown['notes'] is None
+    assert original['title'] == 'Technology\u2014scenario'

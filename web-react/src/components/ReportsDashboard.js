@@ -1383,7 +1383,7 @@ const ReportsDashboard = (props) => {
 
 
 
-                            {/* Article Management Icons — gated on newsroom_author role (or super_admin). Grant via Flask-Admin → users.roles. */}
+                            {/* Article Management Icons - gated on newsroom_author role (or super_admin). Grant via Flask-Admin → users.roles. */}
                             {(props.userRoles?.includes('newsroom_author') || props.isAdmin) && (
                                 <Tippy disabled={!props.tooltipSW} placement={'bottom'} content={
                                     <div theme="tw" >

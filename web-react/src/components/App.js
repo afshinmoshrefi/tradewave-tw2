@@ -700,7 +700,7 @@ const App = () => {
   // Resolution: global default -> per-market override -> cookie. PE mode uses
   // a separate global default ([6,6]), separate override dict, and a separate
   // cookie slot so PE and cons selections persist independently. This is the
-  // ONLY source of the years value on a market switch — the SeasonalBarChart
+  // ONLY source of the years value on a market switch - the SeasonalBarChart
   // "max years" computation must never silently rewrite it (that produced the
   // jump-to-4 / empty-chart bug).
   const getOppYearsForGroup = (groupName, peMode = false) => {
@@ -725,7 +725,7 @@ const App = () => {
     // dropdown handler saves [newYears, currentPartialYears], so lowering Years
     // below a previously-set partial-years would otherwise persist an invalid
     // pair (e.g. [15,18]) for which no Monthly_Opp_<month>_<y1>_<y2> dataset
-    // exists — the appserver then returns its -1 sentinel and the opp table
+    // exists - the appserver then returns its -1 sentinel and the opp table
     // shows "Data temporarily unavailable".
     if (Number.isFinite(y1) && Number.isFinite(y2) && y2 > y1) y2 = y1;
     let saved = {};

@@ -24,7 +24,7 @@ const metricColumns = [
 ]
 
 const prettyDate = (value) => {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return value || '—'
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return value || '-'
   const [, month, day] = value.split('-')
   const date = new Date(2000, Number(month) - 1, Number(day))
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -44,7 +44,7 @@ const reportRowLabel = (row, reportType) => {
 }
 
 const metricText = (key, value, metrics = {}) => {
-  if (key === 'sharpe_ratio') return Number.isFinite(value) ? String(value) : '—'
+  if (key === 'sharpe_ratio') return Number.isFinite(value) ? String(value) : '-'
   if (key === 'profitable_pct' && Number.isFinite(metrics.winners)) {
     const sample = Number.isFinite(metrics.losers)
       ? metrics.winners + metrics.losers
@@ -178,7 +178,7 @@ const ComparedUsing = ({ report }) => {
         ['Year selection', yearGroupLabel(context.pe_cycle)],
       ]
       : [
-      ['Ticker', context.symbol || rows[0]?.symbol || '—'],
+      ['Ticker', context.symbol || rows[0]?.symbol || '-'],
       ['Excluded dates', `${prettyDate(context.start_date)} to ${prettyDate(context.end_date)}`],
       ['History', `${years} completed years compared`],
       ['Year selection', yearGroupLabel(context.pe_cycle)],

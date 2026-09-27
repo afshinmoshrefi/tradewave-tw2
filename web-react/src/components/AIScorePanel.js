@@ -263,7 +263,7 @@ const PanelToolbar = ({
 )
 
 const metricDisplay = (view, metric) => {
-  if (!view || view.status !== 'available') return '—'
+  if (!view || view.status !== 'available') return '-'
   const value = view.metrics && view.metrics[metric]
   const formatted = formatOpportunityAIMetric(metric, value)
   if (metric === 'ml_score' && formatted !== 'N/A') {

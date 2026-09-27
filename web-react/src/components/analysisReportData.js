@@ -375,7 +375,7 @@ export const historyAdjustment = (requestedYears, symbols, minimumYears = 5) => 
   }
 }
 
-export const formatPercent = (value, fallback = '—') => {
+export const formatPercent = (value, fallback = '-') => {
   if (!Number.isFinite(value)) return fallback
   const prefix = value > 0 ? '+' : ''
   return `${prefix}${round(value)}%`

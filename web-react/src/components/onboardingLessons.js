@@ -22,7 +22,7 @@
 //                Wave Stats table: desktop = the middle of the 3-dot carousel above the
 //                bottom chart, on its right side; mobile portrait = swipe left to the
 //                Wave Stats slide. Filled in LessonBox.fill().
-//   Voice: human, confident, honest, no advice, no em-dashes (use ' - ').
+//   Voice: human, confident, honest, no advice, no em-dashes (use '-').
 //
 // TRIAL_CLOSE_SCREEN ("Onboarding Lessons v2", 2026-07-04): NOT part of the static
 // LESSONS array - it is a single extra screen exported on its own and appended
