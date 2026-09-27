@@ -30,4 +30,5 @@ Status belongs in each record and this index; update both together. Preserve res
 | [TW-BUG-0015](TW-BUG-0015.md) | P2 | verified on Dev | Median labels overlap seasonal bars |
 | [TW-BUG-0016](TW-BUG-0016.md) | P2 | code integrated; Dev activation blocked | SMN drops a flat year; TradeWave tie convention conflicts with current output |
 | [TW-BUG-0017](TW-BUG-0017.md) | P2 | verified on dev (API) | TradeWave counts a flat long return as a loss |
-| [TW-BUG-0018](TW-BUG-0018.md) | P2 | in-progress | Wave Info displays SMA 50 where Sharpe Ratio belongs |
+| [TW-BUG-0018](TW-BUG-0018.md) | P2 | verified on dev | Wave Info displays SMA 50 where Sharpe Ratio belongs |
+| [TW-BUG-0019](TW-BUG-0019.md) | P2 | open | Mobile Wave Stats shows raw Sharpe Ratio2 row |

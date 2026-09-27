@@ -1325,13 +1325,19 @@ missing data, never JSON NaN or ranking inputs.
 
 ChartData4 marks each row `completed`; active nonzero bars and future placeholders remain
 available to the authenticated viewer but are excluded from gateway evidence/statistics.
-Flat completed years remain observations (non-wins). Consecutive N retains N prior entry
+Flat completed years remain observations; ChartData4 counts zero as a long win and a short loss.
+Consecutive N retains N prior entry
 years plus a completed current year; PE-N selects N completed matching occurrences. The
 actual `years_tested` survives every card projection and is what MCP text reports. Lookbacks
 before listing cannot snap to the first quote and fabricate history. Engine excursions
 include entry zero, including one-interval holds; averages and compounded returns retain
-fractional percentage points. Cache versions are `chartdata_v2`, `gw:opp-evidence:v3`, and
+fractional percentage points. Cache versions are `chartdata_v3`, `gw:opp-evidence:v3`, and
 `tw:api:scan-core:v5` so older semantics cannot return after deployment.
+
+The Wave Viewer's Wave Info rows consume named ChartData4 fields: Percent Profitable,
+Sharpe Ratio, `Sharpe Ratio2` (labelled TradeWave Ratio when both the `show_sr2`
+token claim and UI visibility flag allow it), and the direction-matched Trend score.
+The trend row combines alignment, score and change arrow without recalculating engine statistics.
 
 **Expanded MCP/API audit (2026-09-07):** daily-pick track records now consume the
 canonical `site/lib/pick_stats.py` directly. The former gateway copy trusted stale
