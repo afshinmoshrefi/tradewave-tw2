@@ -37,4 +37,4 @@ Status belongs in each record and this index; update both together. Preserve res
 
 | [TW-BUG-0021](TW-BUG-0021.md) | P2 | verified on dev | CSP blocks Cloudflare Web Analytics beacon |
 
-| [TW-BUG-0022](TW-BUG-0022.md) | P2 | in-progress | Wave Viewer toolbar controls are too small |
+| [TW-BUG-0022](TW-BUG-0022.md) | P3 | deferred | Wave Viewer toolbar text slightly small at preferred zoom |

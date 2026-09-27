@@ -1,11 +1,11 @@
 # TW-BUG-0022: Wave Viewer toolbar controls are too small
 
-- Status: in-progress
-- Confidence: reproduced in authenticated dev Chrome
-- Priority: P2 - key pattern controls are hard to read and narrow controls can collapse
+- Status: deferred (user says 110% browser zoom makes the toolbar acceptable)
+- Confidence: small computed text reproduced in authenticated dev Chrome; regression and remaining user impact unconfirmed
+- Priority: P3 - reassess only if the user still finds controls difficult to read at their preferred zoom
 - First observed / last updated: 2026-09-27 22:47 UTC
 - Executor/session/claim time: Codex `/root/wave_info_dev`, 2026-09-27 22:47 UTC
-- Authorization: fix toolbar typography and responsive access on dev only. Preserve the separately owned TW-TASK-0012 toolbar-title feature, its default-on preference and existing control behavior. No staging or production.
+- Authorization: initial dev typography investigation; user subsequently said 110% browser zoom makes the font look okay, though slightly small. No typography activation is authorized from this finding alone. Preserve the separately owned TW-TASK-0012 toolbar-title feature. No staging or production.
 
 ## User Impact and Reproduction
 
@@ -17,16 +17,17 @@ Authenticated dev Chrome on active toolbar-title source `c2045a082ede9595fceb378
 
 ## Acceptance and Regression Checks
 
-Pending: scoped readable font floor and layout access in ON/OFF title states at desktop widths; visible selected option text; pointer/keyboard control access; mobile unaffected. Focused build and authenticated live dev browser proof pending.
+If reopened: compare at the user's preferred zoom in title ON/OFF states at desktop widths, check selected option text and pointer/keyboard access, and preserve mobile behavior. No fix was deployed.
 
 ## Implementation and Handoff
 
-Repository `afshinmoshrefi/tradewave-tw2`; branch `codex/toolbar-font-dev-20260927`, clean worktree `/home/tradewave-worktrees/toolbar-font-20260927`, based on main `c2045a082ede9595fceb3783ccef53b228edaf6a`. Code/integration SHAs pending. No backend, math, config or migration change expected. Frontend build and pointer swap required; rollback to prior frontend pointer. Next: implement after scoped browser prototype, test and verify on dev.
+Repository `afshinmoshrefi/tradewave-tw2`; branch `codex/toolbar-font-dev-20260927`, worktree `/home/tradewave-worktrees/toolbar-font-20260927`. A speculative, unbuilt `SeasonalBarChart.js` wrap candidate remains uncommitted there for possible future review. It is not integrated or deployed. Reassess only on a new user report.
 
 ## Environment Verification
 
-Dev: baseline reproduced; fix pending. Staging: not checked. Production: not checked.
+Dev: computed font measured; no font fix activated. User reports browser zoom 110% makes the font okay. Staging: not checked. Production: not checked.
 
 ## History
 
 - 2026-09-27 22:47 UTC, Codex `/root/wave_info_dev`: Claimed separate typography defect after peer title change landed on dev.
+- 2026-09-27 23:02 UTC, Codex `/root/wave_info_dev`: User clarified 110% zoom makes the font look okay; stopped speculative implementation and deferred this record. No app build or deployment.
