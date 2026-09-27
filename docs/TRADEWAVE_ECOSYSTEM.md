@@ -905,6 +905,9 @@ checks and restart verification are in `ops/OPERATIONS.md` and
 - Features: PE-cycle overlays/filters (`mode=pe`), years selectors, securities
   groups + published lists + watchlists, the `?o=BASE64` shareable pattern param,
   the "Tara" chatbot, wave-viewer charts (bar/cumulative/price).
+- The Wave Viewer toolbar titles are on by default, including its phone portrait
+  second row. Settings > General toggles them with the user-scoped
+  `tw_show_toolbar_titles` localStorage setting; disabling restores compact height.
 - **AI-score eligibility is a TWO-part server contract (invariant, fixed 2026-08-16):**
   `OppList4` returns BOTH `ml_enabled` (market AND tier - may this user see AI scores
   here) and `ml_market_eligible` (market ONLY - `resourceID in

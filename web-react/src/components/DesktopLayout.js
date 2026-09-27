@@ -1077,6 +1077,15 @@ const DesktopLayout = (props) => {
                                             }} checked={props.showWatchlistOnFocus} />
                                             <span style={{ fontSize: '12px', color: tc.text }}>Show Watchlist on Focus</span>
                                         </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px' }}>
+                                            <input
+                                                id="show-toolbar-titles"
+                                                type="checkbox"
+                                                checked={props.showToolbarTitles}
+                                                onChange={(event) => props.SetShowToolbarTitles(event.target.checked)}
+                                            />
+                                            <label htmlFor="show-toolbar-titles" style={{ fontSize: '12px', color: tc.text }}>Show toolbar titles</label>
+                                        </div>
                                     </div>
                                 )}
 

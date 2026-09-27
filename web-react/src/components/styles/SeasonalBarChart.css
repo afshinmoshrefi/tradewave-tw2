@@ -45,6 +45,26 @@
  
 }
 
+.barchart-controls--titles .tw-toolbar-control,
+.second-layer-parent--titles .tw-toolbar-control {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.tw-toolbar-title {
+    display: block;
+    color: white;
+    font-size: clamp(8px, 0.65vw, 10px);
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-align: center;
+    margin-bottom: 4px;
+    pointer-events: none;
+}
+
 /* .barchart-controls  div  {    */
      
     /* font-size: 1.5vmin; */
