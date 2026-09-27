@@ -62,3 +62,5 @@ Dev: core flows verified at 2026-09-27T20:34Z. Active backend and frontend prove
 - 2026-09-27T19:54:26Z Codex: claimed owner-authorized implementation; source review complete and clean managed worktree created.
 
 - 2026-09-27T20:35:00Z Codex: implemented, tested and activated on dev. First activation exposed empty-portfolio import refresh; restored prior pointers, fixed the effect dependency, rebuilt and repeated activation/smoke successfully. Main advanced non-forced to the verified application commit. Core browser checks and CSV passed; native PDF inspection remains pending. Shared dirty checkout preserved. Candidate service stopped.
+
+- September 27, 2026 follow-up: [TW-BUG-0020](../bugs/TW-BUG-0020.md) fixes import heading overlap, removes em dashes from scenario copy and static React interface text, and verifies 320px/390px layouts. Current dev source/artifact 55bdbdc2fc61d020d0066382faf6f22a52d28129; 48 React tests and 6 backend tests pass. Native PDF pagination remains pending.

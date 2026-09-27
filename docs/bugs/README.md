@@ -33,4 +33,4 @@ Status belongs in each record and this index; update both together. Preserve res
 | [TW-BUG-0018](TW-BUG-0018.md) | P2 | verified on dev | Wave Info displays SMA 50 where Sharpe Ratio belongs |
 | [TW-BUG-0019](TW-BUG-0019.md) | P2 | open | Mobile Wave Stats shows raw Sharpe Ratio2 row |
 
-| [TW-BUG-0020](TW-BUG-0020.md) | P2 | in-progress | Scenario import heading overlap and phone layout |
+| [TW-BUG-0020](TW-BUG-0020.md) | P2 | verified on dev | Scenario import heading spacing, phone layout and no-em-dash copy |
