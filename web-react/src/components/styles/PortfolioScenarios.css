@@ -194,3 +194,13 @@
 @media print {
   body.ps-print .ps-field input, body.ps-print .ps-field select, body.ps-print .ps-table-wrap input, body.ps-print .ps-table-wrap select { min-height: 0; }
 }
+
+@media (max-width: 610px) {
+  .portfolio-title-row { min-height: 52px; flex-shrink: 0; }
+  .portfolio-title-row > div:first-child { width: 28px !important; font-size: 12px; }
+  .portfolio-title-row > .portfolio-title-actions { flex: 1; min-width: 0; width: auto !important; gap: 6px !important; }
+  .portfolio-title-actions > span { display: none; }
+  .portfolio-title-actions > button { min-height: 44px; font-size: 12px !important; padding: 4px 8px !important; }
+  .portfolio-title-row > div:nth-last-child(2) { display: none; }
+  .portfolio-title-row > div:last-child { width: 44px !important; min-height: 44px; flex-shrink: 0; }
+}

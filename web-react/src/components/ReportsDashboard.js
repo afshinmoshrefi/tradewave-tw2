@@ -1283,7 +1283,7 @@ const ReportsDashboard = (props) => {
 
             <div className='dialog-popup-reports-dashboard' style={popupDialogStyle} onClick={(e) => { e.stopPropagation(); }} >
 
-                <div style={titleDiv}>
+                <div className="portfolio-title-row" style={titleDiv}>
 
                     <div style={{ height: '100%', width: (parseFloat(title_close_width.replace('%', '')) * 2) + '%', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
                         <span style={{ color: tc.textOnControl }}>
@@ -1292,7 +1292,7 @@ const ReportsDashboard = (props) => {
                     </div>
 
 
-                    <div style={{ height: '100%', width: title_width, display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent', cursor: rdd.isMobile ? 'default' : 'move', gap: '12px' }} onMouseDown={handleTitleMouseDown}>
+                    <div className="portfolio-title-actions" style={{ height: '100%', width: title_width, display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent', cursor: rdd.isMobile ? 'default' : 'move', gap: '12px' }} onMouseDown={handleTitleMouseDown}>
                         <span>{rdd.isMobile ? 'Portfolio' : 'Portfolio Manager'}</span>
                         {[["import", "Import"], ["create", "Scenario"], ["history", "Reports"]].map(([entry, label]) => <button key={entry} type="button" onMouseDown={e => e.stopPropagation()} onClick={() => { setScenarioEntry(entry); setScenarioStudioOpen(true); }} style={{ cursor: 'pointer', border: '1px solid currentColor', borderRadius: '4px', padding: '4px 7px', background: 'transparent', color: 'inherit', fontSize: 'clamp(9px, .65vw, 11px)', whiteSpace: 'nowrap' }}>{label}</button>)}
                     </div>
