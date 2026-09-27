@@ -43,6 +43,7 @@ const TradeDetail = (props) => {
     const [vtStrategyPL, SetVTStrategyPL] = useState({ 'Num Losers': '0', 'Num Winners': '10', 'Percent Profitable': '100%', 'Biggest Winnder': '25.41%' })
 
     const [vtWaveStats, SetVTWaveStats] = useState({ 'Avg Loss': '0', 'Avg Gain': '0%', 'Median Gain': '0%', 'Std Dev': '0%' })
+    const [avgGainValues, SetAvgGainValues] = useState(null)
 
 
 
@@ -246,6 +247,7 @@ const TradeDetail = (props) => {
             // vtWaveStats, SetVTWaveStats
 
             SetVTWaveStats({ 'Avg Loss': trData['Avg Loss'], 'Avg Gain': trData['Avg Profit'] + ', ' + trData['Avg Profit - All'], 'Median Gain': trData['Median Profit'], 'Std Dev': trData['Std Dev'] })
+            SetAvgGainValues([trData['Avg Profit'], trData['Avg Profit - All']])
 
             let biggest_winner = largest;
             if (props.barChartLongOrShort !== 'long') biggest_winner = -smallest;
@@ -531,7 +533,7 @@ const TradeDetail = (props) => {
 
                         <div className="report-div-row" style={{ backgroundColor: tc.panelBg }}>
                             <div className="report-div">
-                                <VisualTable title="Wave Stats" data={vtWaveStats} tooltips={tradeDetailToolTips} tooltipSW={props.tooltipSW} />
+                                <VisualTable title="Wave Stats" data={vtWaveStats} avgGainValues={avgGainValues} tooltips={tradeDetailToolTips} tooltipSW={props.tooltipSW} />
                             </div>
                             <div className="report-div">
                                 {(() => {
