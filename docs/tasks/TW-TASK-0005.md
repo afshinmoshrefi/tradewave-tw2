@@ -159,3 +159,6 @@ The TradeWave data is correct. The SMN plain bars renderer omits the genuine fla
 
 ## Scheduled run - September 26, 2026
 2026-09-26T11:02Z: the normal Codex heartbeat resumed after the one-day Claude delegation. A clean worktree at SMN main `4131416179ba55420b746016690b3705c142587d` checked the New York date through `subscription_capture.py` and received `waiting_for_production`; no complete six-subject September26 production batch exists. No engine capture, research, model job, article generation, publication or production write ran. No prior-date substitution. The obsolete September25 skip text was removed from the existing daily automation; its ordinary 07:00 America/New_York schedule remains active.
+
+## Scheduled run - September 27, 2026
+2026-09-27T11:02Z: a clean worktree at current SMN main `5a500cb` checked the New York date through `subscription_capture.py` and received `waiting_for_production`; no complete six-subject September27 production batch exists. No engine capture, research, model job, article generation, publication or production write ran, and no prior-date substitution was made. The date-specific September28 Claude subscription and full usage-report override remains scheduled for the next run and was not started early.
