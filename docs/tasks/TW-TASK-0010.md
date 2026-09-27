@@ -1,7 +1,7 @@
 # TW-TASK-0010: Avg Gain value tooltips
 
-- Status: in-progress
-- Confidence: reproduced presentation behavior
+- Status: verified on dev
+- Confidence: reproduced and live-verified
 - Priority: P3 - clarify two existing values
 - First observed / last updated: 2026-09-27 UTC
 - Executor/session/claim time: Codex `/root/wave_info_dev`, 2026-09-27 UTC
@@ -17,16 +17,19 @@ At baseline `b0957627610f5a8de08ad11f4147b63c44689774`, `TradeDetail.js` combine
 
 ## Acceptance and Regression Checks
 
-Pending: focused component check and authenticated dev browser hover checks for both tooltip states; verify values stay engine-identical and desktop/mobile layout remains stable. Staging/production not checked.
+- 2026-09-27, authenticated dev Chrome at 1920 x 1080, AAPL long, January 15-29, 2026, 10 years: loaded candidate `main.af8f6b5f.js`. With global tooltips OFF, hovering each number separately displayed exactly the requested short tooltip. The row remained `2.38%, 1.74%`.
+- Clicked the actual global tooltip toggle ON. The short-tip spans disappeared, the original detailed row tooltip appeared, and the row still read `2.38%, 1.74%`, matching the two TradeWave engine fields. Existing capture chart-ready, painted-canvas, visual-stability and sanity checks passed.
+- `npm run build` passed with pre-existing project lint warnings. No dedicated component test existed. Mobile hover was not run; markup and text are shared, and no style dimensions changed.
 
 ## Implementation and Handoff
 
-Repository `afshinmoshrefi/tradewave-tw2`; branch `codex/avg-gain-tooltips-20260927`; worktree `/home/tradewave-worktrees/avg-gain-tooltips-20260927`. Source and integration SHAs pending. No math, backend, configuration or migrations. Rollback: prior dev frontend pointer. Next: implement the two presentation hints, test, activate and verify on dev.
+Repository `afshinmoshrefi/tradewave-tw2`; branch `codex/avg-gain-tooltips-20260927`, pushed source commit `7653f1129e55363ee458b0667476ec6360de0a68`; worktree `/home/tradewave-worktrees/avg-gain-tooltips-20260927`. Clean integration commit and active dev source: `c76bd9b8e036d6c2638c44871b1e64b1981392ae`; frontend artifact `/home/flask/web-react/releases/build-c76bd9b8e036d6c2638c44871b1e64b1981392ae`. `TradeDetail.js` retains the two named engine values; `VisualTable.js` adds scoped per-number tips. No math, backend, configuration or migrations. Previous dev frontend pointer for rollback: `/home/flask/web-react/releases/build-1a0d986047e715a0e475212780e989237804f99e`. Next: owner review on dev; staging requires a separate request.
 
 ## Environment Verification
 
-Dev: pending. Staging: not checked. Production: not checked.
+Dev: verified on 2026-09-27 at `c76bd9b8e036d6c2638c44871b1e64b1981392ae` by authenticated browser interaction and engine-value comparison. Staging: not checked. Production: not checked.
 
 ## History
 
-- 2026-09-27 UTC, Codex `/root/wave_info_dev`: Claimed authorized UI enhancement from current main; implementation pending.
+- 2026-09-27 UTC, Codex `/root/wave_info_dev`: Claimed authorized UI enhancement at `d97e91ea3c541e57af5f355b1d06d7013d4b088e`.
+- 2026-09-27 UTC, Codex `/root/wave_info_dev`: Implemented, built and verified on live dev at `c76bd9b8e036d6c2638c44871b1e64b1981392ae`.

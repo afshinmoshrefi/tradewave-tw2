@@ -13,4 +13,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0007](TW-TASK-0007.md) | verified | Controlled six-subject Astra/Sol/Luna quality and usage comparison |
 | [TW-TASK-0008](TW-TASK-0008.md) | verified on dev | SMN publishing dashboard (pins, order, publish/unpublish, schedule, hero) and portfolio Rec Hero/Delete/publish-icon fixes |
 | [TW-TASK-0009](TW-TASK-0009.md) | in-progress | Dev generation dashboard live; private Claude comparison produced five reviewed previews and one held article; ChatGPT server sign-in pending |
-| [TW-TASK-0010](TW-TASK-0010.md) | in-progress | Short tooltips for both Avg Gain values when global tips are off |
+| [TW-TASK-0010](TW-TASK-0010.md) | verified on dev | Short tooltips for both Avg Gain values when global tips are off |
