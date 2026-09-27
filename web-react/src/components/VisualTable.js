@@ -212,6 +212,8 @@ const VisualTable = (props) => {
                 {Object.keys(displayedData).map((x) => {
                     const isTrend = x === 'Trend Long' || x === 'Trend Short' || x === 'Trend Alignment' || x === 'Alignment'
                     const isTrendScore = isTrend
+                    const showAvgGainTips = props.title === 'Wave Stats' && x === 'Avg Gain' && !props.tooltipSW &&
+                        props.avgGainValues && props.avgGainValues.every(value => value !== undefined)
                     const shortTip = isTrend
                         ? (x === 'Trend Long' ? 'Bullish score' : x === 'Trend Short' ? 'Bearish score' : 'Trend vs trade direction') + (props.lastPriceDate ? ' as of ' + props.lastPriceDate : '')
                         : x === 'TWR' ? 'TradeWave Ratio - includes favorable movement during the window.' : ''
@@ -234,7 +236,13 @@ const VisualTable = (props) => {
                             </div>
 
                             <div className='right-cell' style={{ backgroundColor: rowColor[x], color: fontColor[x], fontSize: rdd.isMobile && x === 'Alignment' ? '0.95em' : undefined }}  >
-                                <span style={{ padding: '2px', backgroundColor: x === 'Symbol' ? 'transparent' : 'transparent' }}>{displayedData[x]}</span>
+                                <span style={{ padding: '2px', backgroundColor: x === 'Symbol' ? 'transparent' : 'transparent' }}>
+                                    {showAvgGainTips ? <>
+                                        <Tippy content="Average of winning years" placement="top"><span>{props.avgGainValues[0]}</span></Tippy>
+                                        {', '}
+                                        <Tippy content="Average of all years" placement="top"><span>{props.avgGainValues[1]}</span></Tippy>
+                                    </> : displayedData[x]}
+                                </span>
 
                                 {(isTrend && displayedIcons[x] === 'u')
                                     &&
