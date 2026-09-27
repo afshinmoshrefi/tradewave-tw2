@@ -2338,8 +2338,8 @@ const SeasonalBarChart = (props) => {
     barchartControlsHeight = '14%'
   }
   if (!rdd.isMobile && props.showToolbarTitles) {
-    barchartHeight = narrowDesktopToolbar ? 'calc(100% - 140px)' : 'calc(100% - 100px)'
-    barchartControlsHeight = narrowDesktopToolbar ? '140px' : '100px'
+    barchartHeight = narrowDesktopToolbar ? 'calc(100% - 150px)' : 'calc(100% - 100px)'
+    barchartControlsHeight = narrowDesktopToolbar ? '150px' : '100px'
   }
   var navArrowSize = 30
 

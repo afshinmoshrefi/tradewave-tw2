@@ -123,8 +123,12 @@
 
 .barchart-controls--narrow.barchart-controls--desktop .tw-toolbar-main-controls {
     flex-wrap: wrap;
-    align-content: center;
-    height: 88px !important;
+    align-content: space-between;
+    height: 96px !important;
+}
+
+.barchart-controls--narrow.barchart-controls--desktop .tw-toolbar-main-controls > .barchart-controls-div {
+    height: 46px !important;
 }
 
 .tw-toolbar-title {
