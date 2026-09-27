@@ -12,10 +12,12 @@ import { cumulativeReturn } from './Common'
 import { FaAngleDoubleLeft } from "react-icons/fa";
 import { BsQuestionCircle } from "react-icons/bs";
 import { monthsOptionsListS } from './Common'
+import { waveInfoRows } from './waveInfoRows'
+import jwt_decode from 'jwt-decode'
 
 const TradeDetailMobile = (props) => {
 
-    const { browserH, browserW, rdd, infoTextSize, UITheme } = useContext(UserContext)
+    const { browserH, browserW, rdd, infoTextSize, UITheme, token } = useContext(UserContext)
     const tc = themeColors(UITheme);
 
     const [tradeReportData, SetTradeReportData] = useState({ 'heading': 'heading value' })
@@ -223,7 +225,12 @@ const TradeDetailMobile = (props) => {
                     <div className="report-div-row-m" style={{ backgroundColor: darkBg }}>
 
                         <div className="report-div-m"> <VisualTable title="Wave Stats" data={tradeReportData} filter={[4, 5, 9,17]} /> </div>
-                        <div className="report-div-m"> <VisualTable title="Wave Info" data={tradeReportData} filter={[12, 15, 19, 21]} icons={['', '', lsIcon, ssIcon]} /> </div>
+                        <div className="report-div-m">{(() => {
+                            let entitled = false
+                            try { entitled = jwt_decode(token).show_sr2 === 1 } catch (e) { /* No TWR without a valid entitlement. */ }
+                            const { rows, trendIcon } = waveInfoRows(props.tradeDetailData, props.barChartLongOrShort, entitled && props.showSR2)
+                            return <VisualTable title="Wave Info" data={rows} icons={{ 'Trend Alignment': trendIcon }} />
+                        })()}</div>
 
                     </div>
                 </div>

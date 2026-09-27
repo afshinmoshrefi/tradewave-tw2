@@ -37,6 +37,15 @@
     margin-right: 1px;
     
 }
+.wave-info-table .left-cell{
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    white-space: nowrap;
+}
+.wave-info-table .right-cell{
+    white-space: nowrap;
+}
 .right-cell{
     height:100%;
     width: 50%;

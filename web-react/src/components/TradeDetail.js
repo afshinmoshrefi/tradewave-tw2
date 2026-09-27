@@ -24,6 +24,8 @@ import { brand } from './Common'
 import { UIcolors, themeColors } from './Common';
 import { markCaptureReady, clearCaptureReady } from './captureReady'
 import { hasUsableTrendScore, trendAlignmentLabel } from './trendScoreState'
+import { waveInfoRows } from './waveInfoRows'
+import jwt_decode from 'jwt-decode'
 
 const TradeDetail = (props) => {
     const tc = themeColors(props.UITheme)
@@ -82,6 +84,7 @@ const TradeDetail = (props) => {
         'Percent Profitable': 'Percentage of years that were profitable; 100% means every year was profitable',
         'Cumulative Return': 'Cumulative return of the seasonal pattern over the number of historical years being analyzed',
         'Sharpe Ratio': 'The Sharpe Ratio gauges the quality of a pattern by comparing its average profit to how much those profits vary year to year. Above 1 means the average profit is larger than the year-to-year fluctuation - a sign of a consistent pattern. Below 1 means the fluctuation outweighs the average profit. It is the default sort for the opportunity table.',
+        'TradeWave Ratio': 'The TradeWave Ratio includes favorable movement during the window as well as the end-of-window result. It complements the Sharpe Ratio.',
         'Trend Long': 'Trend Long measures whether price has been moving upward over roughly the last one to two weeks, on a scale of 0 to 100 as of ' + (props.lastPrice[0] || '') + '. A high score means recent movement supports a long direction. A low score means it has not been moving strongly upward; it is not a prediction that the seasonal pattern will lose. The arrow shows whether the score rose, fell, or stayed unchanged since the prior reading.',
         'Trend Short': 'Trend Short measures whether price has been moving downward over roughly the last one to two weeks, on a scale of 0 to 100 as of ' + (props.lastPrice[0] || '') + '. A high score means recent movement supports a short direction. A low score means it has not been moving strongly downward; it is not a prediction that the seasonal pattern will lose. The arrow shows whether the score rose, fell, or stayed unchanged since the prior reading.',
         'Trend Alignment': 'Compares recent price movement with this seasonal setup\'s direction. For a long setup, it uses Trend Long and asks whether price has recently been moving upward. For a short setup, it uses Trend Short and asks whether price has recently been moving downward. Aligned (above 60) means recent movement confirms that direction; Against (below 40) means it does not; Neutral (40-60) means no clear confirmation. This is separate from the historical win rate. Unavailable means no usable current score was returned.',
@@ -532,13 +535,10 @@ const TradeDetail = (props) => {
                             </div>
                             <div className="report-div">
                                 {(() => {
-                                    const keys = Object.keys(tradeReportData)
-                                    const isLong = props.barChartLongOrShort === 'long'
-                                    const trendKey = isLong ? 'Trend Long' : 'Trend Short'
-                                    const trendIcon = isLong ? lsIcon : ssIcon
-                                    const trendIdx = keys.indexOf(trendKey)
-                                    const alignIdx = keys.indexOf('Trend Alignment')
-                                    return <VisualTable title="Wave Info" data={tradeReportData} filter={[12, 15, alignIdx, trendIdx]} icons={['', '', '', trendIcon]} stockscore={props.stockScore} tooltips={tradeDetailToolTips} tooltipSW={props.tooltipSW} lastPriceDate={props.lastPrice[0]} />
+                                    let entitled = false
+                                    try { entitled = jwt_decode(token).show_sr2 === 1 } catch (e) { /* No TWR without a valid entitlement. */ }
+                                    const { rows, trendIcon } = waveInfoRows(props.tradeDetailData, props.barChartLongOrShort, entitled && props.showSR2)
+                                    return <VisualTable title="Wave Info" data={rows} icons={{ 'Trend Alignment': trendIcon }} stockscore={props.stockScore} tooltips={tradeDetailToolTips} tooltipSW={props.tooltipSW} lastPriceDate={props.lastPrice[0]} />
                                 })()}
                             </div>
                             <div className="report-div report-info-div" style={{ backgroundColor: tc.statLabelBg, color: tc.text }}>

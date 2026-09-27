@@ -33,7 +33,7 @@ const VisualTable = (props) => {
         // console.log(props.data)
 
         var tmpData1 = {}
-        var iconData = {}
+        var iconData = props.filter == null ? (props.icons || {}) : {}
         if (props.filter == null) {
             tmpData1 = Object.assign({}, props.data);
         }
@@ -75,7 +75,7 @@ const VisualTable = (props) => {
                 // else if (k === 'Long Score') tmpData['Trend Long'] = tmpData1[k]
                 // else if (k === 'Short Score') tmpData['Trend Short'] = tmpData1[k]
                 else if (k === 'S&P 500 Buy & Hold') tmpData['S&P 500 B/H'] = tmpData1[k]
-                else if (k === 'Trend Alignment') tmpData['Alignment'] = tmpData1[k]
+                else if (k === 'Trend Alignment' && props.title !== 'Wave Info') tmpData['Alignment'] = tmpData1[k]
                 else tmpData[k] = tmpData1[k]
             }
         }
@@ -198,7 +198,7 @@ const VisualTable = (props) => {
 
     return (
 
-        <div className='visual-table-parent-div noselect' style={{ borderColor: tc.border }}>
+        <div className={'visual-table-parent-div noselect' + (props.title === 'Wave Info' ? ' wave-info-table' : '')} style={{ borderColor: tc.border }}>
 
             <div className="title-div" style={{ fontSize: titleFontSize, backgroundColor: tc.statsBarBg, color: tc.text }} >
                 {props.title}
@@ -209,7 +209,7 @@ const VisualTable = (props) => {
 
                 {Object.keys(displayedData).map((x) => {
                     const isTrend = x === 'Trend Long' || x === 'Trend Short' || x === 'Trend Alignment' || x === 'Alignment'
-                    const isTrendScore = x === 'Trend Long' || x === 'Trend Short'
+                    const isTrendScore = isTrend
                     const shortTip = isTrend
                         ? (x === 'Trend Long' ? 'Bullish score' : x === 'Trend Short' ? 'Bearish score' : 'Trend vs trade direction') + (props.lastPriceDate ? ' as of ' + props.lastPriceDate : '')
                         : ''
@@ -224,7 +224,7 @@ const VisualTable = (props) => {
 
  
 
-                        <div className="row-div" style={{ fontSize: vtFontSize, lineHeight: '1.6vh' }} >
+                        <div className="row-div" style={{ fontSize: vtFontSize, lineHeight: '1.6vh', height: props.title === 'Wave Info' ? `${100 / Object.keys(displayedData).length}%` : undefined }} >
 
                             <div className='left-cell' style={{ backgroundColor: rowColor[x] }} >
                                 <span style={{ color: x.includes('S&P 500') ? 'rgb(170,0,0)' : tc.text }}> {x}</span>
@@ -234,15 +234,15 @@ const VisualTable = (props) => {
                             <div className='right-cell' style={{ backgroundColor: rowColor[x], color: fontColor[x] }}  >
                                 <span style={{ padding: '2px', backgroundColor: x === 'Symbol' ? 'transparent' : 'transparent' }}>{displayedData[x]}</span>
 
-                                {((x === 'Trend Long' || x === 'Trend Short') && displayedIcons[x] === 'u')
+                                {(isTrend && displayedIcons[x] === 'u')
                                     &&
                                     <BsArrowUp size={20} style={{ fill: "green" }} />
                                 }
-                                {((x === 'Trend Short' || x === 'Trend Long') && displayedIcons[x] === 'd')
+                                {(isTrend && displayedIcons[x] === 'd')
                                     &&
                                     <BsArrowDown size={20} style={{ fill: "red" }} />
                                 }
-                                {((x === 'Trend Short' || x === 'Trend Long') && displayedIcons[x] === 'n')
+                                {(isTrend && displayedIcons[x] === 'n')
                                     &&
                                     <BsArrowLeft size={20} style={{ fill: "gray" }} />
                                 }
