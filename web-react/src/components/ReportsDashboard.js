@@ -85,6 +85,7 @@ const ReportsDashboard = (props) => {
     const [newsToggle, SetNewsToggle] = useState(() => localStorage.getItem('newsToggle') === '1') // switches news toggle icon on and off
     const [scenarioStudioOpen, setScenarioStudioOpen] = useState(false);
     const [scenarioEntry, setScenarioEntry] = useState('create');
+    const [holdingsRefreshVersion, setHoldingsRefreshVersion] = useState(0);
     // const [articleVer, SetArticleVer] = useState(0); // this is just used to refresh loading the reports list when
     // publishArticl creates a new article or deletes one - so it refreshes
     //-------------------------------------------------------------------------------------------
@@ -387,7 +388,7 @@ const ReportsDashboard = (props) => {
             });
 
 
-    }, [props.reportsDashVisible, props.reportsList.length, props.selectedPortfolioID, props.numReportsCreated, props.showPopulatePortfolio, newsToggle]);
+    }, [props.reportsDashVisible, props.reportsList.length, props.selectedPortfolioID, props.numReportsCreated, props.showPopulatePortfolio, newsToggle, holdingsRefreshVersion]);
     //-------------------------------------------------------------------------------------------------------------------------------------
     // this useEffect is run initially when dialog is opened and run again when status color icon next to Total Invested is changed
     //-------------------------------------------------------------------------------------------------------------------------------------
@@ -1578,7 +1579,7 @@ const ReportsDashboard = (props) => {
 
                 </div>
 
-                {scenarioStudioOpen && <PortfolioScenarios portfolioId={props.selectedPortfolioID} portfolioName={props.selectedPortfolio} holdings={props.reportsList} resourceObj={resourceObj} token={token} initialTab={scenarioEntry} onClose={() => setScenarioStudioOpen(false)} onImport={() => props.SetReportsList([])} />}
+                {scenarioStudioOpen && <PortfolioScenarios portfolioId={props.selectedPortfolioID} portfolioName={props.selectedPortfolio} holdings={props.reportsList} resourceObj={resourceObj} token={token} initialTab={scenarioEntry} onClose={() => setScenarioStudioOpen(false)} onImport={() => { props.SetReportsList([]); setHoldingsRefreshVersion(version => version + 1); }} />}
             </div>
         </div>
     )
