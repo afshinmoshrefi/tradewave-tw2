@@ -1,6 +1,6 @@
 import { hasUsableTrendScore, trendAlignmentLabel } from './trendScoreState';
 
-export const waveInfoRows = (stats, direction, showTWR) => {
+export const waveInfoRows = (stats, direction, showTWR, compact = false) => {
   const scoreKey = direction === 'short' ? 'Trend Short' : 'Trend Long';
   const priorKey = `${scoreKey}1`;
   const available = hasUsableTrendScore(stats, direction);
@@ -12,7 +12,7 @@ export const waveInfoRows = (stats, direction, showTWR) => {
   };
   if (showTWR) rows['TradeWave Ratio'] = stats['Sharpe Ratio2'];
   rows['Trend Alignment'] = available
-    ? `${trendAlignmentLabel(score)} · ${score}/100`
+    ? `${trendAlignmentLabel(score)}${compact ? ' ' : ' · '}${score}${compact ? '' : '/100'}`
     : 'Unavailable';
 
   const priorAvailable = prior !== null && prior !== undefined && prior !== '' && Number.isFinite(Number(prior));

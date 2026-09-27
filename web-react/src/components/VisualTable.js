@@ -77,6 +77,7 @@ const VisualTable = (props) => {
                 // else if (k === 'Short Score') tmpData['Trend Short'] = tmpData1[k]
                 else if (k === 'S&P 500 Buy & Hold') tmpData['S&P 500 B/H'] = tmpData1[k]
                 else if (k === 'Trend Alignment') tmpData['Alignment'] = tmpData1[k]
+                else if (k === 'TradeWave Ratio') tmpData['TWR'] = tmpData1[k]
                 else tmpData[k] = tmpData1[k]
             }
         }
@@ -213,12 +214,12 @@ const VisualTable = (props) => {
                     const isTrendScore = isTrend
                     const shortTip = isTrend
                         ? (x === 'Trend Long' ? 'Bullish score' : x === 'Trend Short' ? 'Bearish score' : 'Trend vs trade direction') + (props.lastPriceDate ? ' as of ' + props.lastPriceDate : '')
-                        : ''
+                        : x === 'TWR' ? 'TradeWave Ratio - includes favorable movement during the window.' : ''
                     return (
 
-                    <Tippy disabled={isTrend ? false : !props.tooltipSW} key={x} placement={isTrend ? 'top' : 'right'} content={
+                    <Tippy disabled={isTrend || x === 'TWR' ? false : !props.tooltipSW} key={x} placement={isTrend ? 'top' : 'right'} content={
                         <div theme="tw" >
-                            {props.tooltipSW ? props.tooltips[x] : shortTip}
+                            {props.tooltipSW && props.tooltips && props.tooltips[x] ? props.tooltips[x] : shortTip}
                         </div>
                     }>
 
@@ -227,25 +228,25 @@ const VisualTable = (props) => {
 
                         <div className="row-div" style={{ fontSize: vtFontSize, lineHeight: '1.6vh', height: props.title === 'Wave Info' ? `${100 / Object.keys(displayedData).length}%` : undefined }} >
 
-                            <div className='left-cell' style={{ backgroundColor: rowColor[x] }} >
+                            <div className='left-cell' style={{ backgroundColor: rowColor[x] }} aria-label={x === 'TWR' ? 'TradeWave Ratio' : undefined} >
                                 <span style={{ color: x.includes('S&P 500') ? 'rgb(170,0,0)' : tc.text }}> {x}</span>
-                                {isTrendScore && <BsInfoCircle size={12} style={{ marginLeft: '5px', color: '#60a5fa', cursor: 'pointer', flexShrink: 0 }} onClick={(e) => { e.stopPropagation(); SetShowTrendPopup(true); }} />}
+                                {isTrendScore && <BsInfoCircle size={rdd.isMobile && x === 'Alignment' ? 10 : 12} style={{ marginLeft: rdd.isMobile && x === 'Alignment' ? '3px' : '5px', color: '#60a5fa', cursor: 'pointer', flexShrink: 0 }} onClick={(e) => { e.stopPropagation(); SetShowTrendPopup(true); }} />}
                             </div>
 
-                            <div className='right-cell' style={{ backgroundColor: rowColor[x], color: fontColor[x] }}  >
+                            <div className='right-cell' style={{ backgroundColor: rowColor[x], color: fontColor[x], fontSize: rdd.isMobile && x === 'Alignment' ? '0.95em' : undefined }}  >
                                 <span style={{ padding: '2px', backgroundColor: x === 'Symbol' ? 'transparent' : 'transparent' }}>{displayedData[x]}</span>
 
                                 {(isTrend && displayedIcons[x] === 'u')
                                     &&
-                                    <BsArrowUp size={20} style={{ fill: "green" }} />
+                                    <BsArrowUp size={rdd.isMobile && x === 'Alignment' ? 10 : 20} style={{ fill: "green", flexShrink: 0 }} />
                                 }
                                 {(isTrend && displayedIcons[x] === 'd')
                                     &&
-                                    <BsArrowDown size={20} style={{ fill: "red" }} />
+                                    <BsArrowDown size={rdd.isMobile && x === 'Alignment' ? 10 : 20} style={{ fill: "red", flexShrink: 0 }} />
                                 }
                                 {(isTrend && displayedIcons[x] === 'n')
                                     &&
-                                    <BsArrowLeft size={20} style={{ fill: "gray" }} />
+                                    <BsArrowLeft size={rdd.isMobile && x === 'Alignment' ? 10 : 20} style={{ fill: "gray", flexShrink: 0 }} />
                                 }
                             </div>
                         </div>

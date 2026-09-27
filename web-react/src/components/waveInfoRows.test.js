@@ -35,3 +35,9 @@ test('provider-confirmed zero is a usable trend score', () => {
   expect(result.rows['Trend Alignment']).toBe('Against · 0/100');
   expect(result.trendIcon).toBe('n');
 });
+
+test('mobile keeps the score and arrow with a compact alignment value', () => {
+  const result = waveInfoRows(stats, 'long', true, true);
+  expect(result.rows['Trend Alignment']).toBe('Against 37');
+  expect(result.trendIcon).toBe('n');
+});

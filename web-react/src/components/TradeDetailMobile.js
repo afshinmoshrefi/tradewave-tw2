@@ -228,7 +228,7 @@ const TradeDetailMobile = (props) => {
                         <div className="report-div-m">{(() => {
                             let entitled = false
                             try { entitled = jwt_decode(token).show_sr2 === 1 } catch (e) { /* No TWR without a valid entitlement. */ }
-                            const { rows, trendIcon } = waveInfoRows(props.tradeDetailData, props.barChartLongOrShort, entitled && props.showSR2)
+                            const { rows, trendIcon } = waveInfoRows(props.tradeDetailData, props.barChartLongOrShort, entitled && props.showSR2, true)
                             return <VisualTable title="Wave Info" data={rows} icons={{ 'Trend Alignment': trendIcon }} />
                         })()}</div>
 
