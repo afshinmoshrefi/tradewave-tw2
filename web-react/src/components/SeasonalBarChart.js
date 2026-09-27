@@ -2330,7 +2330,7 @@ const SeasonalBarChart = (props) => {
   //---------------------------------------
   // dynamic styles for mobile
   //---------------------------------------
-  const narrowDesktopToolbar = !rdd.isMobile && browserW * (props.leftNavWidthPct != null ? (100 - props.leftNavWidthPct) / 100 : 1) < 940
+  const narrowDesktopToolbar = !rdd.isMobile && browserW * (props.leftNavWidthPct != null ? (100 - props.leftNavWidthPct) / 100 : 1) < 780
   let barchartHeight = "92%"
   let barchartControlsHeight = '8%'
   if (props.showToolbarTitles) {

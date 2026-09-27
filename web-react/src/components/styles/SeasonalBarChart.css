@@ -113,6 +113,7 @@
 .barchart-controls--titles.barchart-controls--desktop #monthsAndQtrs { min-width: 112px; }
 
 .barchart-controls--titles.barchart-controls--desktop .tw-direction-value {
+    color: #f6f8fc;
     display: flex;
     align-items: center;
     gap: 2px;
