@@ -6248,6 +6248,19 @@ def dr_report_list(portfolio_id,articleToggle): # get the list of reports from r
         sym   = o['symbol']
         sdate = o['date']
         days  = o['days_hold']
+        if o.get('record_type') == 'holding':
+            # Imported holdings have no purchase price or seasonal exit. Quote the
+            # current closing price for the legacy portfolio value columns only.
+            # The UI marks their return and original study fields unavailable.
+            quote_response = getStockLastPrice(rID, sym)
+            quote = (quote_response.get_json() or {}).get('StockLastPrice') or [0, 0]
+            o['price1'] = float(quote[1]) if len(quote) == 2 and quote[1] else 0
+            o['current_price_date'] = quote[0] if len(quote) == 2 else None
+            o['gain_loss'] = 0
+            o['article_exists'] = False
+            o['article_queued'] = False
+            o['article_publish_date'] = None
+            continue
         # Check if Redis article exists
         if articleToggle == 1:
             # article status now comes from the blog-queue box over HTTP (its db3 is
@@ -6388,6 +6401,8 @@ def update_status(status,portfolioID,dr_id): # use slug as an identifier for whi
 # used to build the slug in the first place, so a legacy record still counts as an owner.
 #---------------------------------------------------------------------------------------------------
 def _record_slug(record):
+    if record.get('record_type') == 'holding':
+        return None
     slug = record.get('slug')
     if slug:
         return slug
@@ -9067,6 +9082,20 @@ def risk_profile():
     # return jsonify({'status':'ok','cs_exp':option_values0_exp,'cs_current':option_values0_current,'cs_labels':stock_price_range})
 
 #-----------------------------------------------------------------------------------------------------
+from portfolio_scenarios import register_portfolio_scenarios
+
+def _scenario_symbol_in_resource(resource_id, symbol):
+    if resource_id in ('0', '1', '2', '3', '4'):
+        return symbol in _load_us_stock_set(resource_id, config.available_resources_path[resource_id])
+    return symbol in _symbols_for_market(resource_id)
+
+register_portfolio_scenarios(
+    app, config=config, redis_db=redis_client2, check_for_token=check_for_token,
+    symbols_for_market=_symbols_for_market, chart_data=getChartData4,
+    last_price=getStockLastPrice, market_today=_market_today,
+    symbol_in_resource=_scenario_symbol_in_resource,
+)
+
 if __name__ == '__main__':
     # get available resources by loading all the symbol csv files in the root of data
     app.run(host='0.0.0.0', debug=True)

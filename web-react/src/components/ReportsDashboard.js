@@ -44,6 +44,7 @@ import { userlist_amp, userlist_auto, userlist_article } from './Common'
 
 import { IoNewspaperSharp } from "react-icons/io5";
 import { GiAutomaticSas } from "react-icons/gi"; // total automation icon for news articles
+import PortfolioScenarios from './PortfolioScenarios';
 
 
 
@@ -82,6 +83,8 @@ const ReportsDashboard = (props) => {
     const [totalInvestedStatus, SetTotalInvestedStatus] = useState(0);
 
     const [newsToggle, SetNewsToggle] = useState(() => localStorage.getItem('newsToggle') === '1') // switches news toggle icon on and off
+    const [scenarioStudioOpen, setScenarioStudioOpen] = useState(false);
+    const [scenarioEntry, setScenarioEntry] = useState('create');
     // const [articleVer, SetArticleVer] = useState(0); // this is just used to refresh loading the reports list when
     // publishArticl creates a new article or deletes one - so it refreshes
     //-------------------------------------------------------------------------------------------
@@ -420,10 +423,10 @@ const ReportsDashboard = (props) => {
 
                 var v = {};
                 var p = parseFloat(tmp[i]['price1']);
-                var n = parseInt(tmp[i]['num_shares']);
+                var n = Number(tmp[i]['num_shares']) || 0;
                 v['pct_profit_loss'] = tmp[i]['gain_loss']
 
-                if (tmp[i]['date'] <= today_date) {
+                if (tmp[i]['record_type'] === 'holding' || tmp[i]['date'] <= today_date) {
                     v['invested'] = n * p;
                 }
                 else { // this opportunity has not started yet
@@ -431,7 +434,7 @@ const ReportsDashboard = (props) => {
                 }
 
                 // only add to total invested if the start date is today or in the past
-                if (tmp[i]['date'] <= today_date) {
+                if (tmp[i]['record_type'] === 'holding' || tmp[i]['date'] <= today_date) {
                     total_invested += v['invested'];
                 }
                 if (tmp[i]['direction'] === 'long') {
@@ -471,7 +474,9 @@ const ReportsDashboard = (props) => {
             total_invested = total_invested.toLocaleString()
             total_current_value = total_current_value.toLocaleString()
 
-            let tmp_total = { 'total_invested': total_invested, 'total_current_value': total_current_value, 'total_pct_profit_loss': total_pct_profit_loss }
+            // Imported holdings have a quote but no purchase cost basis.
+            const hasImportedHoldings = tmp.some(row => row.record_type === 'holding' && (totalInvestedStatus === 0 || Number(row.status) === totalInvestedStatus));
+            let tmp_total = { 'total_invested': hasImportedHoldings ? '-' : total_invested, 'total_current_value': total_current_value, 'total_pct_profit_loss': hasImportedHoldings ? '-' : total_pct_profit_loss, 'no_cost_basis': hasImportedHoldings }
             // console.log('tmp_total=',tmp_total);
 
             SetOppValues(opptmp);
@@ -560,7 +565,8 @@ const ReportsDashboard = (props) => {
         let idx = row['id'];
         if (td[idx]['date'] > today_date) return '$0';
         let price = parseFloat(td[idx]['price1']);
-        let shares = parseInt(td[idx]['num_shares']);
+        let shares = Number(td[idx]['num_shares']);
+        if (td[idx]['record_type'] === 'holding') return '$' + (shares * price).toLocaleString(undefined, { maximumFractionDigits: 2 });
         let investment = shares * price;
 
         let cur_val = 0;
@@ -616,11 +622,12 @@ const ReportsDashboard = (props) => {
         if (!props.reportsList || props.reportsList.length <= clickedRowIndex) return;
 
         let security_purchase_price = parseFloat(props.reportsList[clickedRowIndex]['price1']).toFixed(2);
-        let security_num_shares = parseInt(props.reportsList[clickedRowIndex]['num_shares']);
+        let security_num_shares = Number(props.reportsList[clickedRowIndex]['num_shares']);
         let gain_loss = parseFloat(props.reportsList[clickedRowIndex]['gain_loss']);
 
 
         let security_current_price = (security_purchase_price * (1 + gain_loss / 100)).toFixed(2);
+        const importedHolding = props.reportsList[clickedRowIndex]['record_type'] === 'holding';
 
         let bgcolor = 'transparent'; // this is the color if gain_loss===0
         if (gain_loss > 0) bgcolor = tc.profitRowBg;
@@ -629,7 +636,7 @@ const ReportsDashboard = (props) => {
         SetSecurityData({
             'value1': '$' + security_purchase_price.toString(),
             'value2': security_num_shares.toString(),
-            'value3': '$' + security_current_price.toString(),
+            'value3': importedHolding ? (props.reportsList[clickedRowIndex]['current_price_date'] || 'Unavailable') : '$' + security_current_price.toString(),
             'bgcolor': bgcolor,
         });
 
@@ -726,8 +733,9 @@ const ReportsDashboard = (props) => {
         let rid = props.reportsList[idx]['resourceID']
         let resource_group = resourceObj[parseInt(rid)]
 
-        let date = props.reportsList[idx]['date']
-        let years = props.reportsList[idx]['years']
+        const isImportedHolding = props.reportsList[idx]['record_type'] === 'holding';
+        let date = isImportedHolding ? getTodayDate() : props.reportsList[idx]['date'];
+        let years = isImportedHolding ? '10' : props.reportsList[idx]['years'];
 
         // Handle PE cycle years (both new format "pe2-10" and legacy format "pe2")
         if (years.toLowerCase().includes('pe')) {
@@ -748,7 +756,7 @@ const ReportsDashboard = (props) => {
         }
 
         let ticker = props.reportsList[idx]['symbol']
-        let days = props.reportsList[idx]['days_hold']
+        let days = isImportedHolding ? 30 : props.reportsList[idx]['days_hold'];
 
         props.SetOpportunities([])
         props.SetStartDate(date)
@@ -1040,7 +1048,7 @@ const ReportsDashboard = (props) => {
             new_value = new_value.substring(1);
         }
 
-        if (old_value === parseInt(new_value)) return; // number didn't change
+        if (Number(old_value) === Number(new_value)) return; // number didn't change
 
 
 
@@ -1057,13 +1065,13 @@ const ReportsDashboard = (props) => {
         let num_shares = 0;
 
         if (textbox_name === 'shares') {
-            num_shares = parseInt(new_value);
+            num_shares = Number(new_value);
         }
         else if (textbox_name === 'total_price') {
             // calculate the new number of shares
 
             let price1 = props.reportsList[idx]['price1']
-            num_shares = parseInt(new_value / price1);
+            num_shares = Number(new_value) / Number(price1);
 
             if (new_value > 0 && num_shares === 0) num_shares = 1;
 
@@ -1072,6 +1080,7 @@ const ReportsDashboard = (props) => {
 
 
 
+        if (!Number.isFinite(num_shares) || num_shares < 0) { event.target.value = old_value; return; }
         // if (textbox_name === 'total_price') return;
 
         // console.log('portfolios=',props.portfolios)
@@ -1282,8 +1291,9 @@ const ReportsDashboard = (props) => {
                     </div>
 
 
-                    <div style={{ height: '100%', width: title_width, display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent', cursor: rdd.isMobile ? 'default' : 'move' }} onMouseDown={handleTitleMouseDown}>
-                        <span>Portfolio&nbsp;&nbsp;&nbsp;Manager</span>
+                    <div style={{ height: '100%', width: title_width, display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent', cursor: rdd.isMobile ? 'default' : 'move', gap: '12px' }} onMouseDown={handleTitleMouseDown}>
+                        <span>{rdd.isMobile ? 'Portfolio' : 'Portfolio Manager'}</span>
+                        {[["import", "Import"], ["create", "Scenario"], ["history", "Reports"]].map(([entry, label]) => <button key={entry} type="button" onMouseDown={e => e.stopPropagation()} onClick={() => { setScenarioEntry(entry); setScenarioStudioOpen(true); }} style={{ cursor: 'pointer', border: '1px solid currentColor', borderRadius: '4px', padding: '4px 7px', background: 'transparent', color: 'inherit', fontSize: 'clamp(9px, .65vw, 11px)', whiteSpace: 'nowrap' }}>{label}</button>)}
                     </div>
 
                     <div style={{ height: '100%', width: title_close_width }}></div>
@@ -1530,11 +1540,11 @@ const ReportsDashboard = (props) => {
 
 
                 <div style={{ height: opp_info_footer_height, width: '100%', backgroundColor: tc.footerBg, borderTop: '1px solid ' + tc.border, display: 'flex', fontSize: statsFontSize, fontFamily: statsFontFamily, fontWeight: 'bold' }}>
-                    <div className='portfolio-div-left' style={{ backgroundColor: tc.footerRow1Label, color: tc.text }}>{sdata1title}</div>
+                    <div className='portfolio-div-left' style={{ backgroundColor: tc.footerRow1Label, color: tc.text }}>{props.reportsList[clickedRowIndex]?.record_type === 'holding' ? 'Current Price:' : sdata1title}</div>
                     <div className='portfolio-div-right' style={{ backgroundColor: 'transparent', borderRight: '1px solid ' + tc.border, color: tc.text }}>{securityData['value1']}</div>
                     <div className='portfolio-div-left' style={{ backgroundColor: tc.footerRow1Label, color: tc.text }}>{sdata2title}</div>
                     <div className='portfolio-div-right' style={{ backgroundColor: 'transparent', borderRight: '1px solid ' + tc.border, color: tc.text }}>{securityData['value2']}</div>
-                    <div className='portfolio-div-left' style={{ backgroundColor: tc.footerRow1Label, color: tc.text }}>{sdata3title}</div>
+                    <div className='portfolio-div-left' style={{ backgroundColor: tc.footerRow1Label, color: tc.text }}>{props.reportsList[clickedRowIndex]?.record_type === 'holding' ? 'Quote Date:' : sdata3title}</div>
                     <div className='portfolio-div-right' style={{ backgroundColor: securityData['bgcolor'], color: tc.text }}>{securityData['value3']}</div>
                 </div>
 
@@ -1548,26 +1558,27 @@ const ReportsDashboard = (props) => {
                         </div>
                     }>
 
-                        <div className='portfolio-div-left' style={{ backgroundColor: tc.footerRow2Label, color: tc.text }} onClick={() => handlerTotalInvestedIcon()}>
+                        <div className='portfolio-div-left' title={oppValuesTotal.no_cost_basis ? 'Imported holdings have no purchase cost basis; invested value and gain/loss are unavailable.' : ''} style={{ backgroundColor: tc.footerRow2Label, color: tc.text }} onClick={() => handlerTotalInvestedIcon()}>
                             {totalInvestedStatus === 0
                                 ? <BiSquare size={icon_status_size} style={{ fill: tc.textSecondary, verticalAlign: "middle", marginRight: '2px' }} />
                                 : <BiSolidSquare size={icon_status_size} style={{ fill: statusColor[totalInvestedStatus], verticalAlign: "middle", marginRight: '2px' }} />
                             }
-                            <span style={{ marginTop: '2px' }}>{data1title}</span>
+                            <span style={{ marginTop: '2px' }}>{oppValuesTotal.no_cost_basis ? 'Cost Basis Unavailable:' : data1title}</span>
                         </div>
 
                     </Tippy>
 
-                    <div className='portfolio-div-right' style={{ backgroundColor: 'transparent', borderRight: '1px solid ' + tc.border, color: tc.text }}>${oppValuesTotal['total_invested']}</div>
+                    <div className='portfolio-div-right' style={{ backgroundColor: 'transparent', borderRight: '1px solid ' + tc.border, color: tc.text }}>{oppValuesTotal.no_cost_basis ? '-' : '$' + oppValuesTotal['total_invested']}</div>
 
                     <div className='portfolio-div-left' style={{ backgroundColor: tc.footerRow2Label, color: tc.text }}>{data2title}</div>
                     <div className='portfolio-div-right' style={{ backgroundColor: 'transparent', borderRight: '1px solid ' + tc.border, color: tc.text }}>${oppValuesTotal['total_current_value']}</div>
 
                     <div className='portfolio-div-left' style={{ backgroundColor: tc.footerRow2Label, color: tc.text }}>{data3title}</div>
-                    <div className='portfolio-div-right' style={{ backgroundColor: oppValuesTotal['total_pct_profit_loss'] > 0 ? tc.profitRowBg : oppValuesTotal['total_pct_profit_loss'] < 0 ? tc.lossRowBg : 'transparent', color: tc.text }}>{oppValuesTotal['total_pct_profit_loss']}%</div>
+                    <div className='portfolio-div-right' style={{ backgroundColor: oppValuesTotal['total_pct_profit_loss'] > 0 ? tc.profitRowBg : oppValuesTotal['total_pct_profit_loss'] < 0 ? tc.lossRowBg : 'transparent', color: tc.text }}>{oppValuesTotal.no_cost_basis ? '-' : oppValuesTotal['total_pct_profit_loss'] + '%'}</div>
 
                 </div>
 
+                {scenarioStudioOpen && <PortfolioScenarios portfolioId={props.selectedPortfolioID} portfolioName={props.selectedPortfolio} holdings={props.reportsList} resourceObj={resourceObj} token={token} initialTab={scenarioEntry} onClose={() => setScenarioStudioOpen(false)} onImport={() => props.SetReportsList([])} />}
             </div>
         </div>
     )

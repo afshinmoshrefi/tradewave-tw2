@@ -201,21 +201,21 @@ const TableBoxReports = ({ table_data, handlerRowClicked, getCurValue, handlerKe
             let newobj = {
                 id: tmp[i]['id'], // this id preserves the order based on the original list - this is not dr_id
                 S: tmp[i]['status'],
-                Date1: tmp[i]['date'],
-                Date2: date2,
-                days: parseInt(tmp[i]['days_hold']),
+                Date1: tmp[i]['record_type'] === 'holding' ? 'Holding' : tmp[i]['date'],
+                Date2: tmp[i]['record_type'] === 'holding' ? '-' : date2,
+                days: tmp[i]['record_type'] === 'holding' ? '-' : parseInt(tmp[i]['days_hold']),
                 ticker: tmp[i]['symbol'],
                 DIR: opp_dir,
-                sharpe_Ratio: parseFloat(tmp[i]['sharpe_ratio']),
-                years: opp_years,
+                sharpe_Ratio: tmp[i]['record_type'] === 'holding' ? '-' : parseFloat(tmp[i]['sharpe_ratio']),
+                years: tmp[i]['record_type'] === 'holding' ? '-' : opp_years,
                 group: group,
                 load: 'x',
                 slug: slug,
                 refresh: 'x', // replaced refresh with calendar - didn't change the names just the icons 
                 X: 'X',
-                num: parseInt(tmp[i]['num_shares']),
+                num: Number(tmp[i]['num_shares']),
                 I: '$' + Math.ceil(tmp[i]['num_shares'] * tmp[i]['price1']).toString(),
-                G: tmp[i]['gain_loss'].toFixed(1) + '%',
+                G: tmp[i]['record_type'] === 'holding' ? '-' : tmp[i]['gain_loss'].toFixed(1) + '%',
                 orders: has_orders,
                 article_exists: tmp[i]['article_exists'] ? true : false,
                 article_queued: tmp[i]['article_queued'] ? true : false,
@@ -510,7 +510,7 @@ const TableBoxReports = ({ table_data, handlerRowClicked, getCurValue, handlerKe
 
         if (td[idx]['date'] > today_date) return '$0';
         let price = parseFloat(td[idx]['price1']);
-        let shares = parseInt(td[idx]['num_shares']);
+        let shares = Number(td[idx]['num_shares']);
         let investment = Math.ceil(shares * price);
         investment = investment.toLocaleString();
         return '$' + investment;
@@ -695,7 +695,9 @@ const TableBoxReports = ({ table_data, handlerRowClicked, getCurValue, handlerKe
 
                                                 <td key={`col-${key}-${indexC}`} style={{ verticalAlign: 'middle', height: rowHeight, backgroundColor: getTDBackColor(key, row, indexR), color: key === 'id' ? 'transparent' : (key === 'G' && parseFloat(row['G']) === 0) ? (UITheme === 'dark' ? 'lightgray' : 'black') : (key === 'DIR' || key === 'G') ? 'black' : tc.text, display: key === 'orders' ? 'none' : 'table-cell' }}>
 
-                                                    {key === "slug" ? (
+                                                    {table_data[row.id]?.record_type === 'holding' && (key === 'slug' || key === 'refresh') ? (
+                                                        <span title="Use Scenario for this holding. Save a dated study to create a study report or calendar reminder.">-</span>
+                                                    ) : key === "slug" ? (
 
                                                         newsToggle === true
                                                             ?

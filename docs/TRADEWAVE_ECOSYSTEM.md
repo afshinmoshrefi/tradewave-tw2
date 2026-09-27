@@ -811,6 +811,53 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
 
 ## 7. TW2 React app (`web-react/`, served at `/app/`)
 
+### Portfolio holdings and historical scenarios (September 27, 2026)
+
+`PortfolioScenarios.js` extends the existing Portfolio Manager with reviewed
+holdings import, scenario setup and saved report history. Imported records in
+`user_reports_<user>` carry `record_type=holding`; quantities may be fractional.
+They have no purchase cost or dated study, so the manager hides study actions and
+cost/gain figures instead of treating the latest closing quote as a purchase.
+Existing saved study rows remain usable as scenario holdings without changing
+their study dates. Color selection supports several groups independently of the
+manager's totals filter; the snapshot freezes selected row identities and shares.
+
+The authenticated routes are registered by `appserver/appserver/portfolio_scenarios.py`:
+`POST /portfolio_holdings/preview`, `POST /portfolio_holdings/<portfolio_id>`,
+`GET/POST /portfolio_scenarios/<portfolio_id>`, and
+`GET/PATCH/DELETE /portfolio_scenarios/<portfolio_id>/<report_id>`. Redis db2
+stores private per-user snapshots and their index. Only title/notes are mutable;
+editing quantities/settings creates a new report referring to its parent.
+Permanent deletion requires `confirm_forever=true`; worker completion must never
+recreate deleted snapshots. Hosted access is authenticated; downloaded copies
+cannot be revoked. There is no public report-sharing route.
+
+Scenarios consume authoritative completed `ChartData4` returns with exact-window,
+direction and historical-sample identity checks. The new engine-owned calculation
+replays fixed current notionals across the intersection of completed years for
+each horizon; existing source returns are retained verbatim. It does not average
+holding win probabilities or scores. Source audit found no existing common-year
+fixed-share portfolio replay to reuse. The report discloses its cohort, excluded
+years and closing-quote dates. Quote dates must agree across holdings and be no
+more than seven calendar days old; the study start remains the requested market
+date, with any baseline-date gap disclosed. Horizons use the existing inclusive
+calendar-day convention, including December 31 for End of Year.
+
+Initial valuation supports USD share groups 0-4 and 11 (USD-listed ETF assumption).
+Other currencies, futures, forex and index units are explicitly unsupported.
+Short positions show modeled notional value, not brokerage equity; no collateral,
+borrowing costs, rebalancing or currency conversion is modeled. Missing prices or
+mismatched engine identity fail explicitly. No common history yields unavailable
+statistics. Bounded asynchronous jobs allow one active report per user and two
+globally, up to 500 holdings and 200 saved reports per user.
+
+AI commentary uses the existing Tara primary/fallback integration over supplied
+report statistics. Exact-window AI scores remain unavailable rather than invented.
+The interactive report includes all horizons in its print/save-as-PDF layout and
+offers CSV. Calculation tests use retained source rows; the dev HTTP smoke compares
+saved returns directly with the live engine and removes only its disposable records.
+See `docs/tasks/TW-TASK-0011.md` for acceptance and deployment evidence.
+
 **Frontend/runtime separation (2026-09-09):** the deployed web unit sets
 `TW2_REACT_BUILD_DIR=/home/flask/web-react/build`, the same stable symlink nginx
 uses for `/app/` assets. `web/react_build.py` preserves the configured symlink

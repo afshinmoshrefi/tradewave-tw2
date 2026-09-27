@@ -1,7 +1,7 @@
 # TW-TASK-0011: Portfolio Holdings Import and Scenario Reports
 
 - Status: in-progress
-- Confidence: source reviewed; implementation pending
+- Confidence: implementation under review; focused backend and real-engine candidate smoke passed
 - Priority: P2 - owner-requested portfolio research feature
 - First observed / last updated: 2026-09-27T19:54:26Z
 - Executor/session/claim time: Codex, portfolio-scenarios-20260927, 2026-09-27T19:54:26Z
@@ -24,20 +24,34 @@ Baseline GitHub main e42fb09a9ee09ff7b6deed50528a65e58017071f. Portfolio rows ar
 
 ## Acceptance and Regression Checks
 
-Pending: engine contract, import parsing/validation, ownership/access isolation, immutable revisions, deletion, selection, missing/ambiguous/duplicate securities, long/short/fractional holdings, exact dates/common cohorts, AI failure handling, PDF parity, focused UI build and rendered dev smoke. No live verification yet.
+Backend focused checks: five tests passed in the dev Python 3.13 environment, covering reviewed fractional import and validation, common cohort/long-short replay, frozen revisions, cross-user isolation, deletion during generation, mismatched quote dates and engine identity. Tests retain supplied engine return rows rather than duplicate their calculation.
+
+Candidate loopback HTTP smoke (`tests/verify_portfolio_scenarios_dev.py`) passed with disposable service-owned AAPL 10.5 / MSFT 5 holdings: 30-day and End of Year each had 10 shared completed years; saved returns matched live ChartData4 exactly; AI commentary was ready. Title/notes updates preserved calculations, deletion required confirmation and returned 404 afterward. Disposable reports/holdings/portfolio were removed. Candidate service is separate from the active dev app. The final backend source also passed the same smoke after exact resource membership, cancellation and timeout checks were added. AI provider failure is covered by a focused test and preserves the factual report.
+
+Pending: final parser/UI checks, provenance-stamped build, rendered browser smoke and print/PDF layout verification. No public dev activation yet.
 
 ## Implementation and Handoff
 
 - Branch: codex/portfolio-scenarios-20260927
 - Local managed worktree: C:/Users/afshin/.codex/worktrees/portfolio-scenarios/TradeWave Main Orchestrator
-- Dev workspace: pending; preserve dirty /home/flask.
+- Dev workspace: /home/tradewave-worktrees/portfolio-scenarios-20260927; dirty shared /home/flask preserved.
 - Source/integration commits, dependencies and rollback: pending.
-- Next action: engine audit and implement bounded authenticated report/import contracts, then UI/report presentation and focused tests.
+- Next action: finish UI review, test/build exact candidate, activate and verify on dev under the short activation lock.
 - Dev GitHub SSH fetch currently fails authentication; local authenticated GitHub fetch works. Transfer exact commits via bundle if needed; all server Git operations run as flask.
 
 ## Environment Verification
 
 Dev: not deployed by this task. Staging: not checked. Production: not checked.
+
+## Implementation Decisions
+
+- Existing ChartData4 owns per-security returns; its zero-based route duration is supplied as inclusive days minus one. Exact-window echo, historical count, PE cycle, symbol, resource and direction must match.
+- Audit found no existing common-year fixed-share portfolio replay, so the new aggregation lives in the TradeWave appserver, not the browser. Short figures are modeled notionals, not brokerage equity.
+- Scope initially accepts USD stock groups 0-4 and USD-listed ETFs (group 11 assumption). Other units/currencies explicitly fail. Latest closing quotes must share a date and be at most seven calendar days old; the report discloses any difference from the scenario's market-date start.
+- Imported records are holdings without purchase cost basis or seasonal-study dates. Fractional share handling extends the manager; original studies retain their dates.
+- Per-user Redis snapshots are private, indexed and bounded; no database migration or new dependency. One active report per user, two globally. Restarts can interrupt in-process jobs, which become failed after the bounded expiry and can be regenerated.
+- AI text uses the existing Tara provider integration; exact-window AI scores remain explicitly unavailable. PDF delivery uses the browser's Print / Save as PDF with all selected horizons.
+- Previous backend pointer: /home/tradewave-worktrees/flat-return-release-585b668. Previous frontend pointer: /home/flask/web-react/releases/build-c76bd9b8e036d6c2638c44871b1e64b1981392ae. Verify again at activation and retain for rollback.
 
 ## History
 
