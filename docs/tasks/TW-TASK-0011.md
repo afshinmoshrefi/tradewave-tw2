@@ -1,9 +1,9 @@
 # TW-TASK-0011: Portfolio Holdings Import and Scenario Reports
 
-- Status: in-progress
-- Confidence: implementation under review; focused backend and real-engine candidate smoke passed
+- Status: fixed (live on dev; native PDF layout verification pending)
+- Confidence: core flows reproduced and self-verified on dev; PDF layout remains unverified
 - Priority: P2 - owner-requested portfolio research feature
-- First observed / last updated: 2026-09-27T19:54:26Z
+- First observed / last updated: 2026-09-27T19:54:26Z / 2026-09-27T20:35:00Z
 - Executor/session/claim time: Codex, portfolio-scenarios-20260927, 2026-09-27T19:54:26Z
 - Authorization: Afshin approved implementation in voice discussion with "Okay, let's get started." Includes routine dev completion; no staging or production deployment.
 
@@ -28,20 +28,24 @@ Backend focused checks: five tests passed in the dev Python 3.13 environment, co
 
 Candidate loopback HTTP smoke (`tests/verify_portfolio_scenarios_dev.py`) passed with disposable service-owned AAPL 10.5 / MSFT 5 holdings: 30-day and End of Year each had 10 shared completed years; saved returns matched live ChartData4 exactly; AI commentary was ready. Title/notes updates preserved calculations, deletion required confirmation and returned 404 afterward. Disposable reports/holdings/portfolio were removed. Candidate service is separate from the active dev app. The final backend source also passed the same smoke after exact resource membership, cancellation and timeout checks were added. AI provider failure is covered by a focused test and preserves the factual report.
 
-Pending: final parser/UI checks, provenance-stamped build, rendered browser smoke and print/PDF layout verification. No public dev activation yet.
+Final checks: 5 backend tests and 3 parser/selection tests passed. Production React build succeeded with existing lint warnings. The final active backend passed the real-engine HTTP smoke. Browser checks on Chrome/dev verified ambiguous category resolution, fractional imports, empty-portfolio immediate refresh, multi-color subset selection, all five horizons, saved history after reload, share-count revisions preserving the original, and permanent-delete checkbox gating (browser deletion canceled). API smoke verified actual deletion using disposable fixtures. Downloaded CSV was inspected and includes frozen shares, baseline values and horizon evidence.
+
+[Rendered scenario report evidence](evidence/TW-TASK-0011/scenario-report.png). Browser sample portfolio `Scenario Preview` contains illustrative NVDA 100, MSFT 20, AAPL 10.5 holdings and two saved reports (original and AAPL 12.5 revision). `Scenario Import Check` contains the disposable SPY 2.5 regression fixture, retained for repeat checks. These are demonstration holdings, not brokerage records.
+
+Pending: native print/PDF visual layout verification. Print action invoked the browser print flow, but the available browser automation cannot inspect the native dialog; no saved PDF was visually verified. Large-portfolio load and mobile layout were not exercised. Exact-window AI scores are explicitly unavailable; commentary was generated successfully. Initial valuation supports USD stock groups 0-4 and USD-listed ETF group 11 only.
 
 ## Implementation and Handoff
 
 - Branch: codex/portfolio-scenarios-20260927
 - Local managed worktree: C:/Users/afshin/.codex/worktrees/portfolio-scenarios/TradeWave Main Orchestrator
 - Dev workspace: /home/tradewave-worktrees/portfolio-scenarios-20260927; dirty shared /home/flask preserved.
-- Source/integration commits, dependencies and rollback: pending.
-- Next action: finish UI review, test/build exact candidate, activate and verify on dev under the short activation lock.
+- Source commits: c9df19350a6e9dc57c04269d794617aeb4fd797d (implementation), 928fb73cb6bee129825e22e3d6d99c08ac448819 (empty-import refresh regression); both pushed to main. No new dependencies or migration. Rollback pointers below.
+- Next action: visually inspect Print / Save as PDF for the five-horizon saved sample, confirm pagination and matching values, then mark full acceptance verified. Use a browser with native print access. No staging/production action authorized.
 - Dev GitHub SSH fetch currently fails authentication; local authenticated GitHub fetch works. Transfer exact commits via bundle if needed; all server Git operations run as flask.
 
 ## Environment Verification
 
-Dev: not deployed by this task. Staging: not checked. Production: not checked.
+Dev: core flows verified at 2026-09-27T20:34Z. Active backend and frontend provenance both 928fb73cb6bee129825e22e3d6d99c08ac448819; backend worktree clean, appserver/apiserver active, health database/frontend/overall OK. Frontend artifact `/home/flask/web-react/releases/build-928fb73cb6bee129825e22e3d6d99c08ac448819`, browser bundle `main.827e060a.js`. Application commit advanced to main after smoke. Follow-up documentation does not change runtime sources. Activation lock released; receipt preserved at `/var/lib/tradewave/release-state/portfolio-scenarios-verified-928fb73`. Staging: not deployed by this task. Production: not deployed by this task.
 
 ## Implementation Decisions
 
@@ -56,3 +60,5 @@ Dev: not deployed by this task. Staging: not checked. Production: not checked.
 ## History
 
 - 2026-09-27T19:54:26Z Codex: claimed owner-authorized implementation; source review complete and clean managed worktree created.
+
+- 2026-09-27T20:35:00Z Codex: implemented, tested and activated on dev. First activation exposed empty-portfolio import refresh; restored prior pointers, fixed the effect dependency, rebuilt and repeated activation/smoke successfully. Main advanced non-forced to the verified application commit. Core browser checks and CSV passed; native PDF inspection remains pending. Shared dirty checkout preserved. Candidate service stopped.
