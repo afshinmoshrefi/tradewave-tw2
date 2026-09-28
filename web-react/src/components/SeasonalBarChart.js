@@ -2330,16 +2330,11 @@ const SeasonalBarChart = (props) => {
   //---------------------------------------
   // dynamic styles for mobile
   //---------------------------------------
-  const narrowDesktopToolbar = !rdd.isMobile && browserW * (props.leftNavWidthPct != null ? (100 - props.leftNavWidthPct) / 100 : 1) < 780
   let barchartHeight = "92%"
   let barchartControlsHeight = '8%'
   if (props.showToolbarTitles) {
     barchartHeight = '86%'
     barchartControlsHeight = '14%'
-  }
-  if (!rdd.isMobile && props.showToolbarTitles) {
-    barchartHeight = narrowDesktopToolbar ? 'calc(100% - 150px)' : 'calc(100% - 100px)'
-    barchartControlsHeight = narrowDesktopToolbar ? '150px' : '100px'
   }
   var navArrowSize = 30
 
@@ -3189,7 +3184,7 @@ const SeasonalBarChart = (props) => {
 
       {/* _______________________________________________container_________________________________________________________ */}
 
-      <div className={'barchart-controls' + (!rdd.isMobile ? ' barchart-controls--desktop' : '') + (props.showToolbarTitles ? ' barchart-controls--titles' : '') + (narrowDesktopToolbar && props.showToolbarTitles ? ' barchart-controls--narrow' : '')} style={barchartControlsStyle} >
+      <div className={'barchart-controls' + (props.showToolbarTitles ? ' barchart-controls--titles' : '')} style={barchartControlsStyle} >
 
         <div className="barchart-controls-div" style={StyleNavDiv} >
 
@@ -3274,10 +3269,10 @@ const SeasonalBarChart = (props) => {
             box stay until the measured slack leaves under 3px per side (bwWide); only then
             drop to the compact undecorated label. */}
         {!rdd.isMobile && oppBySymbolOptions.length > 0 &&
-          <div ref={bwWrapRef} className="tw-toolbar-control tw-toolbar-best-waves" style={{ paddingLeft: '2px', paddingRight: '6px', flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'center' }}>
+          <div ref={bwWrapRef} className="tw-toolbar-control" style={{ paddingLeft: '2px', paddingRight: '6px', flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'center' }}>
           {toolbarTitle('Best waves')}
           <SelectBox
-            optionList={bwWide && !props.showToolbarTitles ? [{ ...oppBySymbolOptions[0], label: '── Best Waves ──' }, ...oppBySymbolOptions.slice(1)] : oppBySymbolOptions}
+            optionList={bwWide ? [{ ...oppBySymbolOptions[0], label: '── Best Waves ──' }, ...oppBySymbolOptions.slice(1)] : oppBySymbolOptions}
             value={selectedOppBySymbol}
             name="oppBySymbol"
             suffix=""
@@ -3390,7 +3385,7 @@ const SeasonalBarChart = (props) => {
 
 
 
-        <div className="tw-toolbar-main-controls" style={{ display: "flex", alignItems: "center", height: "90%", backgroundColor: 'transparent' }}>
+        <div style={{ display: "flex", alignItems: "center", height: "90%", backgroundColor: 'transparent' }}>
 
           {props.seasonalBarChartData.length > 0 &&
             <div className='barchart-controls-div tw-toolbar-control' style={StyleLSSquare}>
@@ -3400,7 +3395,7 @@ const SeasonalBarChart = (props) => {
                   {props.tooltipSW ? 'Color of square can be red or green.  WaveViewer determines if the current date range should be analyzed as bullish or bearish.  Bullish trade have at least 50% of years as bullish.  The only special condition is for Buy & Hold - Buy and Hold is always analyzed as bullish even if there are more losing years than winning years.' : ''}
                 </div>
               }>
-                {props.showToolbarTitles && !rdd.isMobile ? <div className="tw-direction-value"><div style={longShortSquare}></div><span>{props.barChartLongOrShort === 'long' ? 'Long' : 'Short'}</span></div> : <div style={longShortSquare}></div>}
+                <div style={longShortSquare}  ></div>
 
               </Tippy>
             </div>
@@ -3546,7 +3541,7 @@ const SeasonalBarChart = (props) => {
         </div>
 
 
-        <div className="tw-toolbar-control tw-toolbar-help" style={{ width: questionDivWidth, height: '100%', display: displayElement[13], alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' }}>
+        <div className="tw-toolbar-control" style={{ width: questionDivWidth, height: '100%', display: displayElement[13], alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' }}>
           {toolbarTitle('Help')}
           <BsQuestionCircle size={questionSize} style={{ fill: "white" }} onClick={handleHelpClicked} />
         </div>
