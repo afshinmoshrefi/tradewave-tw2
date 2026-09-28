@@ -31,6 +31,7 @@ from market_clock import new_york_now
 from blog_tools import get_company_name, convert_param_base64
 from get_price_eod import get_quote_details
 from ga_snippet import ga_head_snippet
+import hundred_year_home
 from log_safety import scrub_secret_text
 from pick_stats import (
     compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, compute_median_result_return,
@@ -368,6 +369,28 @@ def appserver_login():
         return result.get('token')
     except Exception as e:
         print("   ERROR appserver login failed after retries: %s" % scrub_secret_text(e, config.SERVICE_API_KEY))
+        return None
+
+
+def fetch_hundred_year_chart(request):
+    """ChartData4 for the canonical 100-Year Pattern view, or None on failure."""
+    token = appserver_login()
+    if not token:
+        return None
+    url = '%s/ChartData4/%s/%s/%s/%s/%s' % (
+        APPSERVER_URL, request['market'], request['entry_date'],
+        request['symbol'], request['engine_days'], request['years'])
+    try:
+        resp = requests.get(url, params={'token': token}, timeout=45)
+    except requests.RequestException:
+        # The prepared URL carries the session token; never log the exception.
+        return None
+    if resp.status_code != 200:
+        print("   WARN 100-Year Pattern ChartData4 HTTP %s" % resp.status_code)
+        return None
+    try:
+        return resp.json()
+    except ValueError:
         return None
 
 
@@ -943,7 +966,7 @@ def _hero_headline(history):
 
 
 def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=None,
-                  show_opportunities=SHOW_OPPORTUNITIES):
+                  show_opportunities=SHOW_OPPORTUNITIES, hundred_year=None):
     """Generate HTML from template and data."""
 
     jinja_env = Environment(
@@ -968,6 +991,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
     content = {
         "show_opportunities": show_opportunities,
         "home_100_year_pattern_enabled": HOME_100_YEAR_PATTERN_ENABLED,
+        "hundred_year": hundred_year,
         "enable_seo": ENABLE_SEO,
         # GA4 <head> snippet ('' when TW2_GA_MEASUREMENT_ID is unset, e.g. dev).
         "ga_head_snippet": ga_head_snippet(),
@@ -1891,11 +1915,25 @@ def main():
             traceback.print_exc(file=sys.stderr)
             featured_data = None
 
+    # 4b. 100-Year Pattern card: engine values only, fail-soft to no numbers.
+    hundred_year = None
+    if HOME_100_YEAR_PATTERN_ENABLED:
+        try:
+            hundred_year = hundred_year_home.build_card(fetch_hundred_year_chart)
+            print("   100-Year Pattern: %s, live score %s" % (
+                hundred_year["status"],
+                "shown" if (hundred_year.get("live") or {}).get("show_score") else "held"))
+        except Exception:
+            print("   WARN 100-Year Pattern card failed; card omitted. Traceback:",
+                  file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
+
     # 5. Generate HTML
     print("   Generating HTML...")
     html = generate_html(opportunities_by_tab, featured_data=featured_data,
                          market_bar_items=market_bar_items,
-                         show_opportunities=show_opportunities)
+                         show_opportunities=show_opportunities,
+                         hundred_year=hundred_year)
 
     # 6. Save to output file
     output_dir = Path(OUTPUT_DIR)

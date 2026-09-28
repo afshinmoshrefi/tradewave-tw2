@@ -415,6 +415,17 @@ Flask-rendered (static from `/var/www/tradewave/`).
   separate, server-rendered block in `site/templates/index-dark-blue.html`,
   gated per environment by `TW2_HOME_100_YEAR_PATTERN_ENABLED`. The gate is off
   unless explicitly enabled, so stage and production do not inherit a dev test.
+  Once the occurrence starts, the same homepage slot becomes a live cycle card
+  built by `site/hundred_year_home.py` during the 07:00 weekday home bake (no
+  separate cron). It calls `ChartData4` for the canonical
+  `featured_patterns.hundred_year_view_spec()` and passes the engine's values
+  through: completed-cycle stats (winners, mean, median, only loss) and the
+  active current-year row's return so far. The live score is held until 5
+  trading sessions have closed after the resolved entry, and hidden when the
+  engine's `last_trade_date` is more than 6 days old. Any engine failure or
+  echoed-study mismatch renders the card without numbers - never a locally
+  computed return. The card also links the book's free preview PDF and
+  100yearpattern.com.
   The evidence-page countdown card also offers a no-signup calendar chooser.
   Google and Outlook open a prefilled event; Apple and other calendars receive
   an environment-aware `.ics` file rendered by the same generator. The public

@@ -1,0 +1,175 @@
+{
+ "_source": "dev appserver ChartData4/5/2026-09-27/SPX/294/pe2-24 recorded 2026-09-28",
+ "ChartData4": [
+  {
+   "completed": true,
+   "pct": "-23.41,2.86,-35.38",
+   "price": "18.88,14.46",
+   "year": 1930
+  },
+  {
+   "completed": true,
+   "pct": "16.12,16.23,-12.2",
+   "price": "9.18,10.66",
+   "year": 1934
+  },
+  {
+   "completed": true,
+   "pct": "10.65,26.57,-5.19",
+   "price": "10.99,12.16",
+   "year": 1938
+  },
+  {
+   "completed": true,
+   "pct": "41.17,42.18,-0.45",
+   "price": "8.89,12.55",
+   "year": 1942
+  },
+  {
+   "completed": true,
+   "pct": "4.9,6.82,-8.87",
+   "price": "15.11,15.85",
+   "year": 1946
+  },
+  {
+   "completed": true,
+   "pct": "12.73,17.52,-2.11",
+   "price": "19.41,21.88",
+   "year": 1950
+  },
+  {
+   "completed": true,
+   "pct": "30.22,32.74,-2.61",
+   "price": "32.53,42.36",
+   "year": 1954
+  },
+  {
+   "completed": true,
+   "pct": "18.13,20.37,0.0",
+   "price": "49.87,58.91",
+   "year": 1958
+  },
+  {
+   "completed": true,
+   "pct": "22.81,27.74,-5.77",
+   "price": "55.77,68.49",
+   "year": 1962
+  },
+  {
+   "completed": true,
+   "pct": "19.72,21.96,-7.45",
+   "price": "78.1,93.5",
+   "year": 1966
+  },
+  {
+   "completed": true,
+   "pct": "17.9,25.85,-2.0",
+   "price": "83.91,98.93",
+   "year": 1970
+  },
+  {
+   "completed": true,
+   "pct": "43.52,48.72,-6.13",
+   "price": "64.94,93.2",
+   "year": 1974
+  },
+  {
+   "completed": true,
+   "pct": "0.03,4.5,-9.85",
+   "price": "101.66,101.69",
+   "year": 1978
+  },
+  {
+   "completed": true,
+   "pct": "32.62,38.81,-2.82",
+   "price": "123.62,163.95",
+   "year": 1982
+  },
+  {
+   "completed": true,
+   "pct": "35.44,36.83,0.0",
+   "price": "229.91,311.39",
+   "year": 1986
+  },
+  {
+   "completed": true,
+   "pct": "28.04,30.0,-2.15",
+   "price": "300.97,385.37",
+   "year": 1990
+  },
+  {
+   "completed": true,
+   "pct": "20.87,21.84,-4.15",
+   "price": "462.05,558.46",
+   "year": 1994
+  },
+  {
+   "completed": true,
+   "pct": "34.23,35.44,-11.95",
+   "price": "1048.6899,1407.65",
+   "year": 1998
+  },
+  {
+   "completed": true,
+   "pct": "20.06,22.73,-7.1",
+   "price": "827.37,993.32",
+   "year": 2002
+  },
+  {
+   "completed": true,
+   "pct": "15.68,16.41,-0.71",
+   "price": "1336.59,1546.17",
+   "year": 2006
+  },
+  {
+   "completed": true,
+   "pct": "14.3,20.0,-0.9",
+   "price": "1142.16,1305.4399",
+   "year": 2010
+  },
+  {
+   "completed": true,
+   "pct": "7.61,7.93,-7.95",
+   "price": "1977.8,2128.28",
+   "year": 2014
+  },
+  {
+   "completed": true,
+   "pct": "2.78,3.56,-19.47",
+   "price": "2914.0,2995.1101",
+   "year": 2018
+  },
+  {
+   "completed": true,
+   "pct": "24.89,25.09,-4.27",
+   "price": "3647.29,4554.98",
+   "year": 2022
+  },
+  {
+   "completed": false,
+   "pct": "0,0,0",
+   "price": "0,0",
+   "year": 2026
+  }
+ ],
+ "request": {
+  "cut_off_year": 0,
+  "days_out": 295,
+  "entry_date": "2026-09-27",
+  "market": "5",
+  "pe_cycle": "pe2",
+  "symbol": "SPX",
+  "years": 24
+ },
+ "stats": {
+  "Avg Loss": "-23.41%",
+  "Avg Profit": "20.63%",
+  "Avg Profit - All": "18.79%",
+  "Median Profit": "18.92%",
+  "Num Losers": "1",
+  "Num Winners": "23",
+  "Percent Profitable": "95.83%",
+  "Trade Dir": "long",
+  "last_trade_date": "2026-09-25"
+ }
+}
