@@ -140,6 +140,49 @@ def per_year_returns(chart_entries, lookback=None, direction="long", **window):
     return rows, wins, losses
 
 
+def buy_hold_window(today=None):
+    """The app's canonical Buy & Hold range: Jan 1 of this year to Jan 1 of next year,
+    inclusive (the appserver itself canonicalizes the Jan 1 entry to Jan 2)."""
+    year = (today or market_today()).year
+    start = datetime.date(year, 1, 1)
+    return start.isoformat(), (datetime.date(year + 1, 1, 1) - start).days + 1
+
+
+def buy_hold_benchmark(window_per_year, buy_hold_entries):
+    """Compare a seasonal window with simply holding the symbol all year, over the SAME
+    completed years (matched by the year label, as the app's range comparison does).
+    Cumulative returns compound each year's % exactly like the appserver's Stats Table.
+    Returns None when the two histories share no completed year."""
+    bh_rows, _, _ = per_year_returns(buy_hold_entries or [], direction="long")
+    bh_by_year = {r["year"]: r["return_pct"] for r in bh_rows}
+    pairs = [(str(r["year"]), r["return_pct"], bh_by_year[str(r["year"])])
+             for r in (window_per_year or []) if str(r.get("year")) in bh_by_year]
+    if not pairs:
+        return None
+
+    def compound(values):
+        total = 1.0
+        for value in values:
+            total *= 1 + value / 100
+        return round((total - 1) * 100, 2)
+
+    window_cum = compound(p[1] for p in pairs)
+    bh_cum = compound(p[2] for p in pairs)
+    return {
+        "years_compared": len(pairs),
+        "first_year": pairs[0][0],
+        "last_year": pairs[-1][0],
+        "window_cumulative_pct": window_cum,
+        "buy_hold_cumulative_pct": bh_cum,
+        "window_avg_pct": round(sum(p[1] for p in pairs) / len(pairs), 2),
+        "buy_hold_avg_pct": round(sum(p[2] for p in pairs) / len(pairs), 2),
+        "years_window_beat_buy_hold": sum(1 for p in pairs if p[1] > p[2]),
+        "beats_buy_hold": window_cum > bh_cum,
+        "basis": ("Seasonal window vs holding the symbol Jan 1 to Jan 1, same completed "
+                  "years; cumulative compounds each year's return."),
+    }
+
+
 def per_year_bars(chart_entries, direction="long", **window):
     """Per-year bars for the Trend Chart visualization: each completed year's TRADE return
     PLUS its favorable / adverse excursion band, all as PERCENTAGES (never prices). Built

@@ -335,3 +335,35 @@ def test_ml_state_sets_tier_notes(state):
     c = cards.build_pattern_card(opp, dict(_STATS), list(_LONG_ENTRIES), market_name="S&P 500",
                                 as_of=AS_OF, ml_state=state)
     assert c["tier_notes"] == cards._ML_NOTES[state]
+
+
+def test_buy_hold_benchmark_compares_only_shared_completed_years():
+    """TW-TASK-0014 item 2: window vs Jan 1 - Jan 1 holding over the same years."""
+    from apiserver import cards as c
+
+    window = [{"year": "2020", "return_pct": 10.0}, {"year": "2021", "return_pct": -5.0},
+              {"year": "2022", "return_pct": 3.0}]
+    buy_hold = [{"year": 2020, "pct": "20.00,25.00,-2.00"},
+                {"year": 2021, "pct": "0.00,4.00,-6.00"}]
+
+    result = c.buy_hold_benchmark(window, buy_hold)
+
+    assert result["years_compared"] == 2                 # 2022 has no buy-and-hold year
+    assert result["window_cumulative_pct"] == 4.5         # 1.10 * 0.95 - 1
+    assert result["buy_hold_cumulative_pct"] == 20.0
+    assert result["beats_buy_hold"] is False
+    assert result["years_window_beat_buy_hold"] == 0
+
+
+def test_buy_hold_benchmark_without_shared_years_is_absent():
+    from apiserver import cards as c
+
+    assert c.buy_hold_benchmark([{"year": "2020", "return_pct": 1.0}], []) is None
+
+
+def test_buy_hold_window_is_the_apps_full_calendar_year():
+    import datetime
+    from apiserver import cards as c
+
+    assert c.buy_hold_window(datetime.date(2026, 7, 1)) == ("2026-01-01", 366)
+    assert c.buy_hold_window(datetime.date(2027, 3, 1)) == ("2027-01-01", 366)

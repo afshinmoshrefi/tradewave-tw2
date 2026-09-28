@@ -896,6 +896,50 @@ def test_analyze_stock_still_uses_per_symbol_grid(client, monkeypatch):
     assert response.status_code == 200
 
 
+def test_analyze_adds_buy_hold_benchmark_over_same_years(client, monkeypatch):
+    """TW-TASK-0014 item 2."""
+    from apiserver import appserver_client as ac
+
+    calls = []
+    _mock_card_chain(monkeypatch, by_symbol=[_opp()])
+
+    def chart(market, symbol, entry, days, years, direction=None):
+        calls.append((entry, days, years, direction))
+        if entry == "2026-01-01":
+            return {}, [{"year": 2015 + i, "pct": "10.00,12.00,-3.00"} for i in range(10)]
+        return dict(_STATS), list(_ENTRIES)
+
+    monkeypatch.setattr(ac, "chart_stats_and_years", chart)
+
+    response = client.get("/v1/analyze/AAPL?market=2", headers=_hdr())
+
+    assert response.status_code == 200
+    benchmark = response.get_json()["card"]["benchmark"]
+    assert ("2026-01-01", 366, "10", "long") in calls
+    assert benchmark["years_compared"] == 10
+    assert benchmark["beats_buy_hold"] is False
+    table = client.get("/v1/analyze/AAPL?market=2&view=table", headers=_hdr()).get_json()["card"]
+    assert table["beats_buy_hold"] is False
+
+
+def test_analyze_without_buy_hold_history_keeps_card(client, monkeypatch):
+    from apiserver import appserver_client as ac
+
+    _mock_card_chain(monkeypatch, by_symbol=[_opp()])
+
+    def chart(market, symbol, entry, days, years, direction=None):
+        if entry == "2026-01-01":
+            return None, None
+        return dict(_STATS), list(_ENTRIES)
+
+    monkeypatch.setattr(ac, "chart_stats_and_years", chart)
+
+    response = client.get("/v1/analyze/AAPL?market=2", headers=_hdr())
+
+    assert response.status_code == 200
+    assert "benchmark" not in response.get_json()["card"]
+
+
 def test_analyze_include_chart_attaches_inline(client, monkeypatch):
     _mock_card_chain(monkeypatch, by_symbol=[_opp()],
                      curve=[{"date": "2026-07-01", "index": 40.0}, {"date": "2026-07-02", "index": 41.0}])

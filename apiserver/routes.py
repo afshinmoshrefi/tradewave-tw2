@@ -937,6 +937,20 @@ def _price_safe_scan_opp(opp):
     safe["ml"] = None
     return safe
 
+def _buy_hold_benchmark(opp, card):
+    """Does this window beat simply holding the symbol all year, over the same years?
+    Optional evidence: a failed or empty Buy & Hold fetch leaves the card unchanged."""
+    per_year = (card.get("receipts") or {}).get("per_year") or []
+    if not per_year or (card.get("receipts") or {}).get("receipts_unavailable"):
+        return None
+    entry, days = cards.buy_hold_window()
+    _stats, entries = appserver_client.chart_stats_and_years(
+        opp["market"], opp["symbol"], entry, days, opp.get("years"), direction="long")
+    if not entries:
+        return None
+    return cards.buy_hold_benchmark(per_year, entries)
+
+
 def _enrich_and_card(opp, *, ml_available, seasonal_curve=None, as_of=None, rank=None,
                      ml_state="na", name_map=None, include_chart=False,
                      prefetched_stats=_PREFETCH_NOT_PROVIDED,
@@ -1597,8 +1611,13 @@ def analyze_symbol(symbol):
         include_chart=include_chart)
     if resolution_note:
         card["note"] = resolution_note
+    benchmark = _buy_hold_benchmark(best, card)
+    if benchmark:
+        card["benchmark"] = benchmark
     view = _view_arg()
     card = cards.project_card(card, view)
+    if benchmark and view == "table":
+        card["beats_buy_hold"] = benchmark["beats_buy_hold"]
 
     other = [cards.compact_setup(o) for o in opps if o is not best]
     tier_cap = g.customer["entitlements"]["opp_limit"]
