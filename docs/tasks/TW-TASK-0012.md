@@ -194,7 +194,12 @@ to 40% left panel produced 622.827px: all 15 headings remained one row, with no
 select/input/button/title bounds overflow and visibly readable controls. The
 user had fullscreened the window during implementation, so the reviewer used
 a supported temporary 1151x600 viewport override to reproduce the original CSS
-viewport while preserving native zoom, then restored the splitter/viewport.
+viewport while preserving native zoom. A real drag near 20% also passed at
+831.378px with all 15 headings on one row (y=72, height 59.97px). The reviewer
+opened the native Days selector at 623px and escaped without changing the value.
+The temporary viewport override was cleared. Exact divider restoration was not
+completed before the user resumed testing, so no restored divider state is
+claimed. Afshin subsequently confirmed that all fixes worked.
 
 Light-theme title-on at 623px passed with visible values/carets. Title-off at
 623px remained 19px high with zero headings; its pre-existing clipping was not
