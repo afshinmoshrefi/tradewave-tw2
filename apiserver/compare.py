@@ -91,12 +91,18 @@ def compare(symbol_rows, days_out, max_years=None, buy_hold=None):
     }
 
 
-def _leader(rows, key, lowest=False):
+def _leaders(rows, key, lowest=False):
+    """Every symbol tied for the best value of key (ties are named, never hidden)."""
     usable = [r for r in rows if r["metrics"].get(key) is not None]
     if not usable:
-        return None
-    pick = min if lowest else max
-    return pick(usable, key=lambda r: r["metrics"][key])
+        return []
+    best = (min if lowest else max)(r["metrics"][key] for r in usable)
+    return [r for r in usable if r["metrics"][key] == best]
+
+
+def _names(rows):
+    names = [r["symbol"] for r in rows]
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
 
 
 def findings(rows, common, max_years=None):
@@ -106,19 +112,19 @@ def findings(rows, common, max_years=None):
         return ["These symbols share no completed year for this setup, so they cannot be "
                 "compared fairly."]
     n = len(common)
-    avg = _leader(rows, "average_return_pct")
+    avg = _leaders(rows, "average_return_pct")
     if avg:
         out.append("%s had the highest average return, %+.1f%% per year over the %d shared years."
-                   % (avg["symbol"], avg["metrics"]["average_return_pct"], n))
-    cons = _leader(rows, "profitable_pct")
+                   % (_names(avg), avg[0]["metrics"]["average_return_pct"], n))
+    cons = _leaders(rows, "profitable_pct")
     if cons:
-        m = cons["metrics"]
-        out.append("%s was profitable most often, in %d of %d years."
-                   % (cons["symbol"], m["winners"], m["sample_years"]))
-    deep = _leader(rows, "worst_mae_pct", lowest=True)
+        m = cons[0]["metrics"]
+        out.append("%s %s profitable most often, in %d of %d years."
+                   % (_names(cons), "was" if len(cons) == 1 else "were", m["winners"], m["sample_years"]))
+    deep = _leaders(rows, "worst_mae_pct", lowest=True)
     if deep:
         out.append("%s had the deepest drop inside the window, %.1f%% at its worst point."
-                   % (deep["symbol"], deep["metrics"]["worst_mae_pct"]))
+                   % (_names(deep), deep[0]["metrics"]["worst_mae_pct"]))
     short = [r for r in rows if r["years_available"] == min(x["years_available"] for x in rows)]
     longest = max(r["years_available"] for r in rows)
     wanted = int(max_years) if max_years else longest

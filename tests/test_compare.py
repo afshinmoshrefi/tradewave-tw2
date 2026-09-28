@@ -54,3 +54,10 @@ def test_buy_hold_benchmark_uses_the_same_shared_years():
     assert row["benchmark"]["years_compared"] == 10
     assert row["metrics"]["beats_buy_hold"] is True
     assert "benchmark" not in next(r for r in result["rows"] if r["symbol"] == "B")
+
+
+def test_tied_leaders_are_all_named():
+    a = cmp.yearly_results(_entries({y: (5.0, 6.0, -1.0) for y in range(2015, 2021)}))
+    b = cmp.yearly_results(_entries({y: (3.0, 4.0, -2.0) for y in range(2015, 2021)}))
+    result = cmp.compare({"NVDA": a, "PG": b}, days_out=30)
+    assert "NVDA and PG were profitable most often, in 6 of 6 years." in result["findings"]
