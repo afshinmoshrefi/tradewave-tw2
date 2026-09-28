@@ -1,6 +1,6 @@
 # TW-TASK-0014: Strategy Lab MCP capabilities (AI-run seasonal strategies anyone can copy)
 
-- Status: in-progress
+- Status: in-progress (item 1 deployed on dev; release gate blocked by dev clock)
 - Confidence: reproduced (each gap below was observed through the live production MCP connector on 2026-09-28)
 - Priority: P2 - blocks the public Strategy Lab video series and the "connect TradeWave to Claude or ChatGPT and run your own idea" user flow
 - First observed / last updated: 2026-09-28 20:30 UTC
@@ -55,16 +55,29 @@ Observed 2026-09-28 through the production MCP connector:
 
 ## Acceptance and Regression Checks
 
-Pending. Tests not run yet.
+Item 1 (ETF/index analysis):
+- New tests in `tests/test_apiserver_endpoints.py`: ETF analysis uses the market scan (never the per-symbol grid); ETF with no setup today returns 404 that explains `entry_date`/`days_out`/`period`; stocks still use the per-symbol grid. Full suite on dev worktree: 1480 passed, 5 skipped (missing `mcp` module, ungenerated quickstart, deferred React branch), 0 failed.
+- Live dev gateway (127.0.0.1:8088, stored dev release API key), before -> after activation:
+  - `/v1/analyze/SPY?market=11`: 400 "Per-symbol ... not available for ETFs" -> 200 "SPY long - enter ~Sep 28, hold 320d. Won 9/10 years, avg +16.4%, Sharpe 1.2."
+  - `/v1/analyze/GLD?market=11`: 400 -> 200 "GLD long - enter ~Sep 28, hold 248d. Won 9/10 years, avg +12.1%, Sharpe 0.9."
+  - Pinned SPY 2026-09-28/294d/20y, AAPL and SPGI (market 2): identical output before and after.
+- Not yet run: `ops/dev_mcp_release_auth.py run-gate` (MCP transport + load). It failed before any request with `ImmatureSignatureError (iat)`: the dev host clock is about 64.6 s behind; chrony reports "Leap status: Not synchronised" with conflicting sources. Not caused by this change.
 
 ## Implementation and Handoff
 
-Pending. Next concrete action: create the dev worktree and trace where the ETF rejection is raised (gateway vs MCP layer), then implement item 1 with tests.
+Branch `claude/strategy-lab-p1-20260928` pushed to GitHub; item 1 commit `bb20f11c5422417c1623893028ea2e1fd8a7ee5b` (changes `apiserver/routes.py`, `tests/test_apiserver_endpoints.py`). Root cause: `analyze_symbol` validated every unpinned request against the per-symbol detection band, which hard-blocks markets without that grid, so its existing scan fallback was unreachable. `compare_opportunities` calls `/v1/analyze` per symbol and inherits the fix.
+
+Dev activation: immutable release worktree `/home/flask/.tw2-releases/bb20f11c5422417c1623893028ea2e1fd8a7ee5b` (only `apiserver/routes.py` differs from the prior release among apiserver/mcpserver/appserver Python files); `/home/flask/.tw2-app-current` repointed; apiserver and mcpserver restarted; appserver not restarted (backend code identical). Prior target `/home/flask/.tw2-releases/9b02f007d90a26b605e2217b80188109e6f48add`.
+
+Safety: owner VM snapshot taken before activation; snapshot folder `/root/tradewave-snapshots/strategy-lab-p1-dev-20260928T204338Z` on dev (prior target and SHA, unit files and drop-ins, service state, full prior backend code archive, runtime file hashes, before/after checks) with `rollback.sh` and `rollforward.sh`.
+
+Next: owner decision on the dev clock so the MCP release gate can run; then items 2-6.
 
 ## Environment Verification
 
-Dev: pending. Staging: not checked. Production: not checked.
+Dev: deployed/unverified for item 1 - 2026-09-28 20:45 UTC, `bb20f11c`, Claude session `c7bd49c6`, direct gateway checks passed; MCP release gate pending (dev clock). Staging: not checked. Production: not checked.
 
 ## History
 
 - 2026-09-28 20:30 UTC, Claude Code session `c7bd49c6`: plan agreed with Afshin over the conversation; task opened and Phase 1 claimed. Next: item 1.
+- 2026-09-28 20:47 UTC, Claude session `c7bd49c6`: item 1 implemented, tested, activated on dev with snapshot folder + owner VM snapshot; release gate blocked by dev clock skew. Next: owner decision on clock, then run gate.
