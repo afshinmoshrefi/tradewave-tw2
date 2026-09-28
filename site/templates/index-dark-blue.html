@@ -234,7 +234,7 @@ section{padding:var(--s6) 0}
 .hero-pill:hover{border-color:var(--accent)}
 .hero-pill .tag{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:#fff;background:var(--accent);border-radius:999px;padding:3px 9px}
 .hero-pill .arr{color:var(--accent);font-weight:700}
-{% if content.home_100_year_pattern_enabled %}
+{% if content.home_100_year_pattern_enabled and content.hundred_year %}
 /* TW100 HOME COUNTDOWN START - flag: TW2_HOME_100_YEAR_PATTERN_ENABLED */
 .tw100-home-card{max-width:920px;margin:42px auto 72px;padding:24px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:28px;align-items:center;text-align:left;border:1px solid rgba(124,92,255,.32);border-radius:16px;background:linear-gradient(135deg,rgba(124,92,255,.13),rgba(8,13,24,.88) 55%);box-shadow:0 26px 70px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.04)}
 .tw100-home-copy{min-width:0}
@@ -254,6 +254,44 @@ section{padding:var(--s6) 0}
   .tw100-home-kicker{justify-content:center}.tw100-home-copy p{margin-left:auto;margin-right:auto}
   .tw100-home-timer{width:100%;min-width:0;max-width:420px;margin:0 auto}
   .tw100-home-unit{padding:12px 6px}
+}
+/* Live / completed cycle card */
+.tw100-live{grid-template-columns:minmax(0,1fr) 280px}
+.tw100-home-kicker.is-live::before{background:var(--win);box-shadow:0 0 0 4px rgba(63,182,139,.18);animation:tw100pulse 2s ease-in-out infinite}
+@keyframes tw100pulse{50%{box-shadow:0 0 0 7px rgba(63,182,139,.06)}}
+@media(prefers-reduced-motion:reduce){.tw100-home-kicker.is-live::before{animation:none}}
+.tw100-progress{margin-top:16px;max-width:520px}
+.tw100-progress-top{display:flex;justify-content:space-between;gap:12px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.7rem;letter-spacing:.06em;color:var(--muted)}
+.tw100-progress-top b{color:#fff;font-weight:700}
+.tw100-bar{height:6px;margin-top:8px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.tw100-bar span{display:block;height:100%;min-width:6px;border-radius:99px;background:linear-gradient(90deg,var(--accent),#b9adff)}
+.tw100-panel{align-self:stretch;display:flex;flex-direction:column;justify-content:center;padding:18px;border:1px solid var(--line2);border-radius:12px;background:rgba(6,10,20,.62);text-align:center}
+.tw100-panel-label{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.tw100-panel-value{margin-top:8px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:clamp(2rem,4vw,2.6rem);font-weight:700;line-height:1;font-variant-numeric:tabular-nums;color:var(--win)}
+.tw100-panel-value.is-neg{color:var(--loss)}
+.tw100-panel-wait{margin-top:10px;color:#fff;font-weight:700;font-size:1.02rem;line-height:1.35}
+.tw100-panel-sub{margin-top:8px;color:var(--muted);font-size:.78rem;line-height:1.45}
+.tw100-panel-note{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:.76rem;line-height:1.45}
+.tw100-stats{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.tw100-stat{padding:12px 10px;border:1px solid var(--line);border-radius:11px;background:rgba(6,10,20,.4);text-align:center}
+.tw100-stat strong{display:block;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:1.2rem;color:#fff;font-variant-numeric:tabular-nums}
+.tw100-stat strong.is-neg{color:var(--loss)}
+.tw100-stat span{display:block;margin-top:6px;color:var(--faint);font-size:.72rem;line-height:1.35}
+.tw100-stats-cap{grid-column:1/-1;margin:-18px 0 0;color:var(--faint);font-size:.72rem;text-align:center}
+.tw100-foot{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding-top:16px;border-top:1px solid var(--line)}
+.tw100-foot .tw100-home-link{margin-top:0}
+.tw100-book{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:.82rem;line-height:1.4}
+.tw100-book img{width:46px;height:auto;filter:drop-shadow(0 4px 10px rgba(0,0,0,.45))}
+.tw100-book b{color:var(--ink);font-weight:600}
+.tw100-book a{color:#d6d0ff;font-weight:600}
+.tw100-book a:hover{color:#fff}
+.tw100-live .tw100-home-basis{margin-top:-14px;padding-top:0;border-top:0}
+@media(max-width:760px){
+  .tw100-live{grid-template-columns:1fr}
+  .tw100-progress{margin-left:auto;margin-right:auto}
+  .tw100-progress-top{flex-direction:column;align-items:center;gap:4px}
+  .tw100-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tw100-foot{justify-content:center;text-align:left}
 }
 /* TW100 HOME COUNTDOWN END */
 {% endif %}
@@ -769,9 +807,11 @@ body{background-image:none !important;}
   </div>
 </div></section>
 
-{% if content.home_100_year_pattern_enabled %}
+{% if content.home_100_year_pattern_enabled and content.hundred_year %}
 <!-- TW100 HOME COUNTDOWN START -->
 <div class="wrap">
+{% set hy = content.hundred_year %}
+{% if hy.status == 'upcoming' %}
   <aside class="tw100-home-card" aria-labelledby="tw100-home-title">
     <div class="tw100-home-copy">
       <div class="tw100-home-kicker">The 100-Year Pattern</div>
@@ -786,6 +826,56 @@ body{background-image:none !important;}
     </div>
     <p class="tw100-home-basis">Countdown to 12:00 a.m. Eastern Time on the nominal calendar date. September 27 and July 18 both fall on Sunday; TradeWave uses the next trading day for analytics.</p>
   </aside>
+{% else %}
+{% set hist = hy.history %}{% set live = hy.live %}
+  <aside class="tw100-home-card tw100-live" aria-labelledby="tw100-home-title">
+    <div class="tw100-home-copy">
+      {% if hy.status == 'active' %}
+      <div class="tw100-home-kicker is-live">The 100-Year Pattern &middot; Live now</div>
+      <h2 id="tw100-home-title">The {{ hy.cycle_label }} cycle is under way</h2>
+      {% else %}
+      <div class="tw100-home-kicker">The 100-Year Pattern &middot; {{ hy.cycle_label }} result</div>
+      <h2 id="tw100-home-title">The {{ hy.cycle_label }} cycle is complete</h2>
+      {% endif %}
+      <p>One fixed S&amp;P 500 window: enter September 27 of a midterm election year, exit July 18 of the next year.{% if hist and hy.status == 'active' %} It finished higher in {{ hist.winners }} of {{ hist.cycles }} cycles since {{ hist.first_year }}. This is cycle {{ hist.cycles + 1 }}, the first one tracked in public from day one.{% endif %}</p>
+      <div class="tw100-progress" id="tw100-progress" data-start="{{ hy.start_iso }}" data-days="{{ hy.window_days }}">
+        <div class="tw100-progress-top"><span>Day <b data-tw100-day>{{ hy.day_number }}</b> of {{ hy.window_days }}</span><span>{{ hy.entry_label }} &rarr; {{ hy.exit_label }}</span></div>
+        <div class="tw100-bar" aria-hidden="true"><span data-tw100-bar style="width:{{ '%.1f'|format(100 * hy.day_number / hy.window_days) }}%"></span></div>
+      </div>
+    </div>
+    <div class="tw100-panel" aria-live="polite">
+      {% if live and live.show_score %}
+      <div class="tw100-panel-label">{% if live.completed %}Final result{% else %}S&amp;P 500 since entry{% endif %}</div>
+      <div class="tw100-panel-value{% if live.is_negative %} is-neg{% endif %}">{{ live.return }}</div>
+      <div class="tw100-panel-sub">{% if live.completed %}Close to close, {{ hy.entry_label }} &rarr; {{ hy.exit_label }}{% else %}As of the {{ live.as_of }} close. Updated each trading day.{% endif %}</div>
+      {% if live.is_negative and not live.completed and hist and hist.winners_that_dipped %}
+      <div class="tw100-panel-note">Dips are normal in this window. {{ hist.winners_that_dipped }} of {{ hist.winners }} winning cycles fell below the start price before they finished higher.</div>
+      {% endif %}
+      {% else %}
+      <div class="tw100-panel-label">Live score</div>
+      <div class="tw100-panel-wait">Starts after {{ live.min_sessions if live else 5 }} trading days</div>
+      <div class="tw100-panel-sub">The first few days are noise. After that, the S&amp;P 500 result since entry updates each trading day.</div>
+      {% endif %}
+    </div>
+    {% if hist %}
+    <div class="tw100-stats">
+      <div class="tw100-stat"><strong>{{ hist.winners }} of {{ hist.cycles }}</strong><span>cycles finished higher</span></div>
+      {% if hist.mean %}<div class="tw100-stat"><strong>{{ hist.mean }}</strong><span>average return</span></div>{% endif %}
+      {% if hist.median %}<div class="tw100-stat"><strong>{{ hist.median }}</strong><span>median return</span></div>{% endif %}
+      {% if hist.only_loss %}<div class="tw100-stat"><strong class="is-neg">{{ hist.only_loss.value }}</strong><span>only loss ({{ hist.only_loss.year }})</span></div>{% endif %}
+    </div>
+    <p class="tw100-stats-cap">Completed cycles {{ hist.first_year }}&ndash;{{ hist.last_year }}. S&amp;P 500 price return, close to close.</p>
+    {% endif %}
+    <div class="tw100-foot">
+      <a class="tw100-home-link" href="/100-year-pattern">See every cycle, year by year <span aria-hidden="true">&rarr;</span></a>
+      <div class="tw100-book">
+        <img src="/_static/100-year-pattern/100-year-pattern-book.webp" alt="" width="46" height="60" loading="lazy" decoding="async">
+        <span><b>The book: The 100-Year Pattern</b><br><a href="https://100yearpattern.com/assets/100-year-pattern-preview.pdf" target="_blank" rel="noopener">Free preview (PDF)</a> &middot; <a href="https://100yearpattern.com" target="_blank" rel="noopener">100yearpattern.com</a></span>
+      </div>
+    </div>
+    <p class="tw100-home-basis">Historical pattern evidence, not a forecast or advice. Past results do not guarantee future results.</p>
+  </aside>
+{% endif %}
 </div>
 <!-- TW100 HOME COUNTDOWN END -->
 {% endif %}
@@ -1268,7 +1358,7 @@ document.addEventListener('click', function(e){
     });
 })();
 
-{% if content.home_100_year_pattern_enabled %}
+{% if content.home_100_year_pattern_enabled and content.hundred_year %}
 // TW100 HOME COUNTDOWN START - minute resolution, no network or scroll work.
 (function(){
   var root=document.getElementById('tw100-home-countdown');
@@ -1290,6 +1380,23 @@ document.addEventListener('click', function(e){
     render();
     window.setInterval(render,60000);
   },60000-(Date.now()%60000)+20);
+})();
+// Live cycle: advance "Day N of 295" by the New York calendar date between bakes.
+(function(){
+  var root=document.getElementById('tw100-progress');
+  if(!root) return;
+  var total=parseInt(root.getAttribute('data-days'),10);
+  var start=root.getAttribute('data-start');
+  var dayEl=root.querySelector('[data-tw100-day]');
+  var bar=root.querySelector('[data-tw100-bar]');
+  try{
+    var ny=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    var n=Math.round((Date.parse(ny+'T00:00:00Z')-Date.parse(start+'T00:00:00Z'))/86400000)+1;
+    if(!(n>=1)) return;
+    n=Math.min(n,total);
+    dayEl.textContent=String(n);
+    bar.style.width=(100*n/total).toFixed(1)+'%';
+  }catch(e){}
 })();
 // TW100 HOME COUNTDOWN END
 {% endif %}
