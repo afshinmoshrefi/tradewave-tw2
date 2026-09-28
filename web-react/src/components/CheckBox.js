@@ -4,7 +4,7 @@ import Tippy from '@tippyjs/react'
 import { UserContext } from './UserContext'
 import { themeColors } from './Common'
 
-const CheckBox = ({ tooltipContent, label, cbChanged, checked, textSide, textColor, disabled }) => { //textSide is either left or right. default left
+const CheckBox = ({ tooltipContent, label, cbChanged, checked, textSide, textColor, disabled, hideLabel = false, ariaLabel }) => { //textSide is either left or right. default left
 
     const { checkboxZoom, UITheme } = useContext(UserContext)
     const tc = themeColors(UITheme)
@@ -42,10 +42,10 @@ const CheckBox = ({ tooltipContent, label, cbChanged, checked, textSide, textCol
                 <div style={{ whiteSpace: "nowrap", display: 'flex', alignItems: 'center', backgroundColor: 'transparent', opacity: disabled ? 0.75 : 1 }}>
 
                     <div style={{ height: '100%', backgroundColor: 'transparent', display: 'flex', alignItems: 'center' }} >
-                        <input type="checkbox" value={label} onChange={disabled ? undefined : cbChanged} checked={checked} disabled={disabled} style={{ zoom: checkboxZoom }} />
+                        <input type="checkbox" value={label} aria-label={ariaLabel || label} onChange={disabled ? undefined : cbChanged} checked={checked} disabled={disabled} style={{ zoom: checkboxZoom }} />
                     </div>
 
-                    {label !== 'email_reminder' && label !== 'popup_reminder' &&
+                    {!hideLabel && label !== 'email_reminder' && label !== 'popup_reminder' &&
                         <div style={{ height: '100%', backgroundColor: 'transparent' }} >
                             <span style={{ color: cb_text_color, }}>{label}</span>
                         </div>
@@ -55,13 +55,13 @@ const CheckBox = ({ tooltipContent, label, cbChanged, checked, textSide, textCol
                 </div>
                 :
                 <div style={{ whiteSpace: "nowrap", display: 'flex', alignItems: 'center', backgroundColor: 'transparent', opacity: disabled ? 0.75 : 1 }}>
-                    {label !== 'email_reminder' && label !== 'popup_reminder' &&
+                    {!hideLabel && label !== 'email_reminder' && label !== 'popup_reminder' &&
                         <div style={{ height: '100%', backgroundColor: 'transparent' }} >
                             <span style={{ color: cb_text_color, }}>{label}</span>
                         </div>
                     }
                     <div style={{ height: '100%', backgroundColor: 'transparent', display: 'flex', alignItems: 'center' }} >
-                        <input type="checkbox" value={label} name={label} onChange={disabled ? undefined : cbChanged} checked={checked} disabled={disabled} style={{ zoom: checkboxZoom }} />
+                        <input type="checkbox" value={label} name={label} aria-label={ariaLabel || label} onChange={disabled ? undefined : cbChanged} checked={checked} disabled={disabled} style={{ zoom: checkboxZoom }} />
                     </div>
 
                 </div>
