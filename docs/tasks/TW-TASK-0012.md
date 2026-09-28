@@ -39,6 +39,12 @@ Afshin reported the visual redesign made the toolbar completely broken and asked
 
 Afshin requested coherent Opportunity-table-style toolbar headings, specifically correcting the Save wave title alignment. This is a new dev-only follow-up after the rejected redesign rollback. Claimed by Codex `/root/wave_info_dev` at 2026-09-28 00:43 UTC, branch `codex/toolbar-title-headings-20260927`, isolated worktree `/home/tradewave-worktrees/toolbar-title-polish-20260927`. Keep the restored control behavior and compact title-off mode. Validate actual desktop and narrowed-panel renders before activation; no staging or production authorization.
 
+## Focused heading follow-up result (2026-09-28)
+
+Commit `00e3af9266ac4b208f81b392979a105786e20354` is on current main and active on dev as `/home/flask/web-react/releases/build-00e3af9266ac4b208f81b392979a105786e20354` (`main.771a8bc4.js`). The title-on desktop toolbar uses the Opportunity table header theme colors and borders, aligns each heading with its existing control, gives Best Waves/Years/Cycle enough width to show their selected values, and wraps whole title/control pairs when the chart panel narrows. Title-off and mobile paths retain their prior layout. Backend, math, settings persistence, staging and production were unchanged.
+
+React build passed with existing lint warnings. Authenticated dev browser checks used the built artifact and then the live served asset: 1440px and 1280px desktop, 1280px with the left panel widened to 40%, and title-off at 1440px. In the narrow view, all 15 visible control pairs were inside the 763px toolbar, the chart began exactly at the toolbar bottom (179px), and hidden Chart/More controls remained hidden. Title-off had zero headings and a compact 40.7px bar. On live dev, the Years selector changed to 9; `/healthz` reported DB/frontend OK. Browser screenshots are in `docs/tasks/evidence/TW-TASK-0012-heading-20260928/`. A 1280px viewport exercises a narrower CSS layout than a 1440px viewport at approximate 110% scaling; native browser zoom itself was not tested. Rollback pointer: `build-c2045a082ede9595fceb3783ccef53b228edaf6a`.
+
 ## History
 
 - 2026-09-27 22:25 UTC, Codex: Claimed authorized feature. Next: inspect toolbar and settings, implement and verify.
