@@ -1,10 +1,10 @@
 # TW-TASK-0012: Chart Toolbar Control Titles
 
-- Status: in-progress - reopened desktop no-wrap failure
+- Status: desktop single-row repair verified on dev
 - Confidence: reproduced
 - Priority: P3 - improves control discoverability
-- First observed / last updated: 2026-09-27 22:45 UTC / 2026-09-28 04:36 UTC
-- Executor/session/claim time: Codex `/root/toolbar_responsive_labels` / 2026-09-28 04:01 UTC (original implementation: Codex toolbar_titles / 2026-09-27 22:25 UTC)
+- First observed / last updated: 2026-09-27 22:45 UTC / 2026-09-28 15:11 UTC
+- Executor/session: Codex `/root/toolbar_no_wrap_repair`; independent visual/native-Chrome reviewer `/root`. Original implementation and prior failed attempts are retained below.
 - Authorization: User requested implementation and routine dev activation; staging and production excluded.
 
 ## Goal, Scope and Acceptance
@@ -156,3 +156,53 @@ at 22 actual splitter positions, 623-831px toolbar width including 782.6px: one
 heading row, no control bounds overflow, no heading overlap, date/ticker values
 fit. Root visually reviewed 623px and 783px screenshots and accepted this design.
 Final clean-source artifact, transition, interaction and live checks pending.
+
+### Single-row repair verified on dev
+
+Source/integration SHA: `79fcba0be29af546cfd2ac01b1042b8405382b60`,
+pushed on `codex/toolbar-single-row-20260928` and advanced to main without force.
+Final clean integration worktree:
+`/home/tradewave-worktrees/toolbar-single-row-integration-20260928`.
+Production React build via `ops/build_react_release.sh` passed with existing
+lint warnings; artifact provenance names that exact SHA. Dev runs
+`/home/flask/web-react/releases/build-79fcba0be29af546cfd2ac01b1042b8405382b60`,
+`main.7fb35429.js`. Backend pointer remains
+`/home/flask/.tw2-releases/9b02f007d90a26b605e2217b80188109e6f48add`;
+backend source paths match current main. Previous frontend for rollback:
+`/home/flask/web-react/releases/build-eb3975d50232c57c921d965f60d21345d4ec18d5`.
+Activation lock released after the non-forced main update and parity proof.
+No staging or production change; this is fast-dev completion, not staging qualification.
+
+Evidence: [screenshots, width receipts and repeatable browser check](evidence/TW-TASK-0012-nowrap-20260928/).
+The final compiled bundle and then live served bundle each passed a single-page
+22-position actual splitter sweep at viewport 1046x545: approximately 623-831px
+actual toolbar widths, one heading row, all controls in bounds, no heading text
+overlap, visible date/ticker values. HLT / 2026-09-28 / 141 calendar days / 10
+years reproduced the original inputs. Additional final-artifact checks at
+1440x900 and 1745x900 cover the 20%-40% splitter endpoints/intermediate positions
+and both sides of the 1040px compact transition (1039.7/1041.9px).
+Days selection changed to 140, showing compact `140` while the native option and
+hover title retained `140 days`. MFE toggled. Best Waves retained the full native
+choice `12/13-02/13 L SR:4.26`; choosing it resets the action selector to its
+existing placeholder behavior. The overlay never rewrites option values/labels.
+`/healthz` reported database/frontend OK; the live browser loaded main.7fb35429.js.
+
+Independent root verification used the original user Chrome session with native
+110% zoom (devicePixelRatio 1.1): original 1046x545 CSS viewport, 782.713px
+toolbar, all 15 headings at y=71, toolbar height 59.97px. An actual pointer drag
+to 40% left panel produced 622.827px: all 15 headings remained one row, with no
+select/input/button/title bounds overflow and visibly readable controls. The
+user had fullscreened the window during implementation, so the reviewer used
+a supported temporary 1151x600 viewport override to reproduce the original CSS
+viewport while preserving native zoom, then restored the splitter/viewport.
+
+Light-theme title-on at 623px passed with visible values/carets. Title-off at
+623px remained 19px high with zero headings; its pre-existing clipping was not
+changed or presented as a successful fit. Pixel 5 emulation at 390x844 retained
+identical control geometry against the prior eb3975d5 artifact (64px toolbar,
+same nine top-row headings and same existing mobile bounds limitation). Mobile
+layout/persistence paths were not redesigned. Verification is limited to the
+recorded browsers/viewports, not an exhaustive device audit.
+
+Next action: none for this dev fix. Staging qualification only after explicit
+request. No migrations, environment configuration, or backend restart required.

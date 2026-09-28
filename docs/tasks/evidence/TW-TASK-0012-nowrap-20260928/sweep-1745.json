@@ -1,0 +1,1490 @@
+[
+  {
+    "width": 1042,
+    "height": 60,
+    "left": 703,
+    "right": 1745,
+    "rows": [
+      66
+    ],
+    "headers": [
+      {
+        "text": "Save",
+        "x": 703,
+        "y": 66,
+        "right": 736,
+        "width": 33,
+        "textWidth": 23.3544921875
+      },
+      {
+        "text": "Remind",
+        "x": 736,
+        "y": 66,
+        "right": 780.671875,
+        "width": 44.671875,
+        "textWidth": 36.669921875
+      },
+      {
+        "text": "Waves",
+        "x": 782.671875,
+        "y": 66,
+        "right": 882.671875,
+        "width": 100,
+        "textWidth": 31.3134765625
+      },
+      {
+        "text": "Ticker",
+        "x": 884.671875,
+        "y": 66,
+        "right": 948.671875,
+        "width": 64,
+        "textWidth": 29.2822265625
+      },
+      {
+        "text": "Range",
+        "x": 950.671875,
+        "y": 66,
+        "right": 1052.21875,
+        "width": 101.546875,
+        "textWidth": 30.5615234375
+      },
+      {
+        "text": "Dir",
+        "x": 1054.21875,
+        "y": 66,
+        "right": 1076.125,
+        "width": 21.90625,
+        "textWidth": 13.8916015625
+      },
+      {
+        "text": "MFE",
+        "x": 1076.125,
+        "y": 66,
+        "right": 1105.234375,
+        "width": 29.109375,
+        "textWidth": 21.1083984375
+      },
+      {
+        "text": "MAE",
+        "x": 1105.234375,
+        "y": 66,
+        "right": 1135.46875,
+        "width": 30.234375,
+        "textWidth": 22.2216796875
+      },
+      {
+        "text": "Start",
+        "x": 1135.46875,
+        "y": 66,
+        "right": 1255.46875,
+        "width": 120,
+        "textWidth": 22.783203125
+      },
+      {
+        "text": "Days",
+        "x": 1255.46875,
+        "y": 66,
+        "right": 1333.984375,
+        "width": 78.515625,
+        "textWidth": 23.90625
+      },
+      {
+        "text": "Yrs",
+        "x": 1333.984375,
+        "y": 66,
+        "right": 1409.984375,
+        "width": 76,
+        "textWidth": 16.123046875
+      },
+      {
+        "text": "Cycle",
+        "x": 1409.984375,
+        "y": 66,
+        "right": 1501.984375,
+        "width": 92,
+        "textWidth": 26.6845703125
+      },
+      {
+        "text": "Analysis",
+        "x": 1501.984375,
+        "y": 66,
+        "right": 1585.734375,
+        "width": 83.75,
+        "textWidth": 41.1328125
+      },
+      {
+        "text": "Prsts",
+        "x": 1585.734375,
+        "y": 66,
+        "right": 1699.15625,
+        "width": 113.421875,
+        "textWidth": 25.0146484375
+      },
+      {
+        "text": "Help",
+        "x": 1699.15625,
+        "y": 66,
+        "right": 1730.40625,
+        "width": 31.25,
+        "textWidth": 21.669921875
+      }
+    ],
+    "inputs": [
+      {
+        "id": "oppBySymbol",
+        "value": "Best Waves",
+        "width": 100,
+        "x": 782.671875,
+        "right": 882.671875,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Best waves",
+        "textWidth": 60.34553527832031
+      },
+      {
+        "id": "symbol",
+        "value": "HLT",
+        "width": 64,
+        "x": 884.671875,
+        "right": 948.671875,
+        "font": "10.6428px",
+        "title": "",
+        "aria": null,
+        "textWidth": 19.863693237304688
+      },
+      {
+        "id": "",
+        "value": "MFE",
+        "width": 13,
+        "x": 1084.671875,
+        "right": 1097.671875,
+        "font": "13.3333px",
+        "title": "",
+        "aria": "MFE overlay",
+        "textWidth": 28.133544921875
+      },
+      {
+        "id": "",
+        "value": "MAE",
+        "width": 13,
+        "x": 1114.34375,
+        "right": 1127.34375,
+        "font": "13.3333px",
+        "title": "",
+        "aria": "MAE overlay",
+        "textWidth": 28.881942749023438
+      },
+      {
+        "id": "date",
+        "value": "2026-09-28",
+        "width": 88,
+        "x": 1151.46875,
+        "right": 1239.46875,
+        "font": "11.4px",
+        "title": "",
+        "aria": null,
+        "textWidth": 58.265777587890625
+      },
+      {
+        "id": "daysout",
+        "value": "141 days",
+        "width": 78.515625,
+        "x": 1255.46875,
+        "right": 1333.984375,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Days hold",
+        "textWidth": 46.22996520996094
+      },
+      {
+        "id": "years",
+        "value": "10 years",
+        "width": 76,
+        "x": 1333.984375,
+        "right": 1409.984375,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Years",
+        "textWidth": 43.688201904296875
+      },
+      {
+        "id": "PEselection",
+        "value": "consecutive",
+        "width": 92,
+        "x": 1409.984375,
+        "right": 1501.984375,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Cycle filter",
+        "textWidth": 60.15122985839844
+      },
+      {
+        "id": "analysisActions",
+        "value": "Analysis",
+        "width": 83.75,
+        "x": 1501.984375,
+        "right": 1585.734375,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Analysis",
+        "textWidth": 42.41453552246094
+      },
+      {
+        "id": "monthsAndQtrs",
+        "value": "Months & Qtrs",
+        "width": 113.421875,
+        "x": 1585.734375,
+        "right": 1699.15625,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Months and Quarters",
+        "textWidth": 72.79327392578125
+      }
+    ],
+    "canvas": true,
+    "pct": 40,
+    "overflow": [],
+    "labelOverflow": [],
+    "clippedValues": []
+  },
+  {
+    "width": 1122.53125,
+    "height": 60,
+    "left": 622.46875,
+    "right": 1745,
+    "rows": [
+      66
+    ],
+    "headers": [
+      {
+        "text": "Save",
+        "x": 622.46875,
+        "y": 66,
+        "right": 655.46875,
+        "width": 33,
+        "textWidth": 23.3544921875
+      },
+      {
+        "text": "Remind",
+        "x": 655.46875,
+        "y": 66,
+        "right": 700.140625,
+        "width": 44.671875,
+        "textWidth": 36.669921875
+      },
+      {
+        "text": "Waves",
+        "x": 702.140625,
+        "y": 66,
+        "right": 802.140625,
+        "width": 100,
+        "textWidth": 31.3134765625
+      },
+      {
+        "text": "Ticker",
+        "x": 804.140625,
+        "y": 66,
+        "right": 874.140625,
+        "width": 70,
+        "textWidth": 29.2822265625
+      },
+      {
+        "text": "Range",
+        "x": 876.140625,
+        "y": 66,
+        "right": 986.03125,
+        "width": 109.890625,
+        "textWidth": 30.5615234375
+      },
+      {
+        "text": "Dir",
+        "x": 988.03125,
+        "y": 66,
+        "right": 1009.9375,
+        "width": 21.90625,
+        "textWidth": 13.8916015625
+      },
+      {
+        "text": "MFE",
+        "x": 1009.9375,
+        "y": 66,
+        "right": 1039.046875,
+        "width": 29.109375,
+        "textWidth": 21.1083984375
+      },
+      {
+        "text": "MAE",
+        "x": 1039.046875,
+        "y": 66,
+        "right": 1069.28125,
+        "width": 30.234375,
+        "textWidth": 22.2216796875
+      },
+      {
+        "text": "Start",
+        "x": 1069.28125,
+        "y": 66,
+        "right": 1189.28125,
+        "width": 120,
+        "textWidth": 22.783203125
+      },
+      {
+        "text": "Days",
+        "x": 1189.28125,
+        "y": 66,
+        "right": 1267.796875,
+        "width": 78.515625,
+        "textWidth": 23.90625
+      },
+      {
+        "text": "Yrs",
+        "x": 1267.796875,
+        "y": 66,
+        "right": 1343.796875,
+        "width": 76,
+        "textWidth": 16.123046875
+      },
+      {
+        "text": "Cycle",
+        "x": 1343.796875,
+        "y": 66,
+        "right": 1435.796875,
+        "width": 92,
+        "textWidth": 26.6845703125
+      },
+      {
+        "text": "Analysis",
+        "x": 1435.796875,
+        "y": 66,
+        "right": 1519.546875,
+        "width": 83.75,
+        "textWidth": 41.1328125
+      },
+      {
+        "text": "Prsts",
+        "x": 1519.546875,
+        "y": 66,
+        "right": 1632.96875,
+        "width": 113.421875,
+        "textWidth": 25.0146484375
+      },
+      {
+        "text": "Help",
+        "x": 1632.96875,
+        "y": 66,
+        "right": 1666.640625,
+        "width": 33.671875,
+        "textWidth": 21.669921875
+      }
+    ],
+    "inputs": [
+      {
+        "id": "oppBySymbol",
+        "value": "Best Waves",
+        "width": 100,
+        "x": 702.140625,
+        "right": 802.140625,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Best waves",
+        "textWidth": 60.34553527832031
+      },
+      {
+        "id": "symbol",
+        "value": "HLT",
+        "width": 70,
+        "x": 804.140625,
+        "right": 874.140625,
+        "font": "11.5379px",
+        "title": "",
+        "aria": null,
+        "textWidth": 21.528900146484375
+      },
+      {
+        "id": "",
+        "value": "MFE",
+        "width": 13,
+        "x": 1018.484375,
+        "right": 1031.484375,
+        "font": "13.3333px",
+        "title": "",
+        "aria": "MFE overlay",
+        "textWidth": 28.133544921875
+      },
+      {
+        "id": "",
+        "value": "MAE",
+        "width": 13,
+        "x": 1048.15625,
+        "right": 1061.15625,
+        "font": "13.3333px",
+        "title": "",
+        "aria": "MAE overlay",
+        "textWidth": 28.881942749023438
+      },
+      {
+        "id": "date",
+        "value": "2026-09-28",
+        "width": 88,
+        "x": 1085.28125,
+        "right": 1173.28125,
+        "font": "11.4px",
+        "title": "",
+        "aria": null,
+        "textWidth": 58.265777587890625
+      },
+      {
+        "id": "daysout",
+        "value": "141 days",
+        "width": 78.515625,
+        "x": 1189.28125,
+        "right": 1267.796875,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Days hold",
+        "textWidth": 46.22996520996094
+      },
+      {
+        "id": "years",
+        "value": "10 years",
+        "width": 76,
+        "x": 1267.796875,
+        "right": 1343.796875,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Years",
+        "textWidth": 43.688201904296875
+      },
+      {
+        "id": "PEselection",
+        "value": "consecutive",
+        "width": 92,
+        "x": 1343.796875,
+        "right": 1435.796875,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Cycle filter",
+        "textWidth": 60.15122985839844
+      },
+      {
+        "id": "analysisActions",
+        "value": "Analysis",
+        "width": 83.75,
+        "x": 1435.796875,
+        "right": 1519.546875,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Analysis",
+        "textWidth": 42.41453552246094
+      },
+      {
+        "id": "monthsAndQtrs",
+        "value": "Months & Qtrs",
+        "width": 113.421875,
+        "x": 1519.546875,
+        "right": 1632.96875,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Months and Quarters",
+        "textWidth": 72.79327392578125
+      }
+    ],
+    "canvas": true,
+    "pct": 35,
+    "overflow": [],
+    "labelOverflow": [],
+    "clippedValues": []
+  },
+  {
+    "width": 1196.390625,
+    "height": 60,
+    "left": 548.609375,
+    "right": 1745,
+    "rows": [
+      66
+    ],
+    "headers": [
+      {
+        "text": "Save",
+        "x": 548.609375,
+        "y": 66,
+        "right": 581.609375,
+        "width": 33,
+        "textWidth": 23.3544921875
+      },
+      {
+        "text": "Remind",
+        "x": 581.609375,
+        "y": 66,
+        "right": 691.296875,
+        "width": 109.6875,
+        "textWidth": 36.669921875
+      },
+      {
+        "text": "Waves",
+        "x": 693.296875,
+        "y": 66,
+        "right": 793.296875,
+        "width": 100,
+        "textWidth": 31.3134765625
+      },
+      {
+        "text": "Ticker",
+        "x": 795.296875,
+        "y": 66,
+        "right": 871.296875,
+        "width": 76,
+        "textWidth": 29.2822265625
+      },
+      {
+        "text": "Range",
+        "x": 873.296875,
+        "y": 66,
+        "right": 991.53125,
+        "width": 118.234375,
+        "textWidth": 30.5615234375
+      },
+      {
+        "text": "Dir",
+        "x": 993.53125,
+        "y": 66,
+        "right": 1015.4375,
+        "width": 21.90625,
+        "textWidth": 13.8916015625
+      },
+      {
+        "text": "MFE",
+        "x": 1015.4375,
+        "y": 66,
+        "right": 1044.546875,
+        "width": 29.109375,
+        "textWidth": 21.1083984375
+      },
+      {
+        "text": "MAE",
+        "x": 1044.546875,
+        "y": 66,
+        "right": 1074.78125,
+        "width": 30.234375,
+        "textWidth": 22.2216796875
+      },
+      {
+        "text": "Start",
+        "x": 1074.78125,
+        "y": 66,
+        "right": 1194.78125,
+        "width": 120,
+        "textWidth": 22.783203125
+      },
+      {
+        "text": "Days",
+        "x": 1194.78125,
+        "y": 66,
+        "right": 1273.296875,
+        "width": 78.515625,
+        "textWidth": 23.90625
+      },
+      {
+        "text": "Yrs",
+        "x": 1273.296875,
+        "y": 66,
+        "right": 1349.296875,
+        "width": 76,
+        "textWidth": 16.123046875
+      },
+      {
+        "text": "Cycle",
+        "x": 1349.296875,
+        "y": 66,
+        "right": 1441.296875,
+        "width": 92,
+        "textWidth": 26.6845703125
+      },
+      {
+        "text": "Analysis",
+        "x": 1441.296875,
+        "y": 66,
+        "right": 1525.046875,
+        "width": 83.75,
+        "textWidth": 41.1328125
+      },
+      {
+        "text": "Prsts",
+        "x": 1525.046875,
+        "y": 66,
+        "right": 1638.46875,
+        "width": 113.421875,
+        "textWidth": 25.0146484375
+      },
+      {
+        "text": "Help",
+        "x": 1638.46875,
+        "y": 66,
+        "right": 1674.359375,
+        "width": 35.890625,
+        "textWidth": 21.669921875
+      }
+    ],
+    "inputs": [
+      {
+        "id": "oppBySymbol",
+        "value": "Best Waves",
+        "width": 100,
+        "x": 693.296875,
+        "right": 793.296875,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Best waves",
+        "textWidth": 60.34553527832031
+      },
+      {
+        "id": "symbol",
+        "value": "HLT",
+        "width": 76,
+        "x": 795.296875,
+        "right": 871.296875,
+        "font": "12.4165px",
+        "title": "",
+        "aria": null,
+        "textWidth": 23.194808959960938
+      },
+      {
+        "id": "",
+        "value": "MFE",
+        "width": 13,
+        "x": 1023.984375,
+        "right": 1036.984375,
+        "font": "13.3333px",
+        "title": "",
+        "aria": "MFE overlay",
+        "textWidth": 28.133544921875
+      },
+      {
+        "id": "",
+        "value": "MAE",
+        "width": 13,
+        "x": 1053.65625,
+        "right": 1066.65625,
+        "font": "13.3333px",
+        "title": "",
+        "aria": "MAE overlay",
+        "textWidth": 28.881942749023438
+      },
+      {
+        "id": "date",
+        "value": "2026-09-28",
+        "width": 88,
+        "x": 1090.78125,
+        "right": 1178.78125,
+        "font": "11.4px",
+        "title": "",
+        "aria": null,
+        "textWidth": 58.265777587890625
+      },
+      {
+        "id": "daysout",
+        "value": "141 days",
+        "width": 78.515625,
+        "x": 1194.78125,
+        "right": 1273.296875,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Days hold",
+        "textWidth": 46.22996520996094
+      },
+      {
+        "id": "years",
+        "value": "10 years",
+        "width": 76,
+        "x": 1273.296875,
+        "right": 1349.296875,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Years",
+        "textWidth": 43.688201904296875
+      },
+      {
+        "id": "PEselection",
+        "value": "consecutive",
+        "width": 92,
+        "x": 1349.296875,
+        "right": 1441.296875,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Cycle filter",
+        "textWidth": 60.15122985839844
+      },
+      {
+        "id": "analysisActions",
+        "value": "Analysis",
+        "width": 83.75,
+        "x": 1441.296875,
+        "right": 1525.046875,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Analysis",
+        "textWidth": 42.41453552246094
+      },
+      {
+        "id": "monthsAndQtrs",
+        "value": "Months & Qtrs",
+        "width": 113.421875,
+        "x": 1525.046875,
+        "right": 1638.46875,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Months and Quarters",
+        "textWidth": 72.79327392578125
+      }
+    ],
+    "canvas": true,
+    "pct": 30,
+    "overflow": [],
+    "labelOverflow": [],
+    "clippedValues": []
+  },
+  {
+    "width": 1291.15625,
+    "height": 60,
+    "left": 453.84375,
+    "right": 1745,
+    "rows": [
+      66
+    ],
+    "headers": [
+      {
+        "text": "Save",
+        "x": 453.84375,
+        "y": 66,
+        "right": 486.84375,
+        "width": 33,
+        "textWidth": 23.3544921875
+      },
+      {
+        "text": "Remind",
+        "x": 486.84375,
+        "y": 66,
+        "right": 596.53125,
+        "width": 109.6875,
+        "textWidth": 36.669921875
+      },
+      {
+        "text": "Waves",
+        "x": 598.53125,
+        "y": 66,
+        "right": 698.53125,
+        "width": 100,
+        "textWidth": 31.3134765625
+      },
+      {
+        "text": "Ticker",
+        "x": 700.53125,
+        "y": 66,
+        "right": 779.53125,
+        "width": 79,
+        "textWidth": 29.2822265625
+      },
+      {
+        "text": "Range",
+        "x": 781.53125,
+        "y": 66,
+        "right": 908.109375,
+        "width": 126.578125,
+        "textWidth": 30.5615234375
+      },
+      {
+        "text": "Dir",
+        "x": 910.109375,
+        "y": 66,
+        "right": 932.015625,
+        "width": 21.90625,
+        "textWidth": 13.8916015625
+      },
+      {
+        "text": "MFE",
+        "x": 932.015625,
+        "y": 66,
+        "right": 961.125,
+        "width": 29.109375,
+        "textWidth": 21.1083984375
+      },
+      {
+        "text": "MAE",
+        "x": 961.125,
+        "y": 66,
+        "right": 991.359375,
+        "width": 30.234375,
+        "textWidth": 22.2216796875
+      },
+      {
+        "text": "Start",
+        "x": 991.359375,
+        "y": 66,
+        "right": 1111.359375,
+        "width": 120,
+        "textWidth": 22.783203125
+      },
+      {
+        "text": "Days",
+        "x": 1111.359375,
+        "y": 66,
+        "right": 1189.875,
+        "width": 78.515625,
+        "textWidth": 23.90625
+      },
+      {
+        "text": "Yrs",
+        "x": 1189.875,
+        "y": 66,
+        "right": 1265.875,
+        "width": 76,
+        "textWidth": 16.123046875
+      },
+      {
+        "text": "Cycle",
+        "x": 1265.875,
+        "y": 66,
+        "right": 1357.875,
+        "width": 92,
+        "textWidth": 26.6845703125
+      },
+      {
+        "text": "Analysis",
+        "x": 1357.875,
+        "y": 66,
+        "right": 1441.625,
+        "width": 83.75,
+        "textWidth": 41.1328125
+      },
+      {
+        "text": "Prsts",
+        "x": 1441.625,
+        "y": 66,
+        "right": 1555.046875,
+        "width": 113.421875,
+        "textWidth": 25.0146484375
+      },
+      {
+        "text": "Help",
+        "x": 1555.046875,
+        "y": 66,
+        "right": 1593.78125,
+        "width": 38.734375,
+        "textWidth": 21.669921875
+      }
+    ],
+    "inputs": [
+      {
+        "id": "oppBySymbol",
+        "value": "Best Waves",
+        "width": 100,
+        "x": 598.53125,
+        "right": 698.53125,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Best waves",
+        "textWidth": 60.34553527832031
+      },
+      {
+        "id": "symbol",
+        "value": "HLT",
+        "width": 79,
+        "x": 700.53125,
+        "right": 779.53125,
+        "font": "13.3117px",
+        "title": "",
+        "aria": null,
+        "textWidth": 24.859268188476562
+      },
+      {
+        "id": "",
+        "value": "MFE",
+        "width": 13,
+        "x": 940.5625,
+        "right": 953.5625,
+        "font": "13.3333px",
+        "title": "",
+        "aria": "MFE overlay",
+        "textWidth": 28.133544921875
+      },
+      {
+        "id": "",
+        "value": "MAE",
+        "width": 13,
+        "x": 970.234375,
+        "right": 983.234375,
+        "font": "13.3333px",
+        "title": "",
+        "aria": "MAE overlay",
+        "textWidth": 28.881942749023438
+      },
+      {
+        "id": "date",
+        "value": "2026-09-28",
+        "width": 88,
+        "x": 1007.359375,
+        "right": 1095.359375,
+        "font": "11.4px",
+        "title": "",
+        "aria": null,
+        "textWidth": 58.265777587890625
+      },
+      {
+        "id": "daysout",
+        "value": "141 days",
+        "width": 78.515625,
+        "x": 1111.359375,
+        "right": 1189.875,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Days hold",
+        "textWidth": 46.22996520996094
+      },
+      {
+        "id": "years",
+        "value": "10 years",
+        "width": 76,
+        "x": 1189.875,
+        "right": 1265.875,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Years",
+        "textWidth": 43.688201904296875
+      },
+      {
+        "id": "PEselection",
+        "value": "consecutive",
+        "width": 92,
+        "x": 1265.875,
+        "right": 1357.875,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Cycle filter",
+        "textWidth": 60.15122985839844
+      },
+      {
+        "id": "analysisActions",
+        "value": "Analysis",
+        "width": 83.75,
+        "x": 1357.875,
+        "right": 1441.625,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Analysis",
+        "textWidth": 42.41453552246094
+      },
+      {
+        "id": "monthsAndQtrs",
+        "value": "Months & Qtrs",
+        "width": 113.421875,
+        "x": 1441.625,
+        "right": 1555.046875,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Months and Quarters",
+        "textWidth": 72.79327392578125
+      }
+    ],
+    "canvas": true,
+    "pct": 25,
+    "overflow": [],
+    "labelOverflow": [],
+    "clippedValues": []
+  },
+  {
+    "width": 1378.15625,
+    "height": 60,
+    "left": 366.84375,
+    "right": 1745,
+    "rows": [
+      66
+    ],
+    "headers": [
+      {
+        "text": "Save wave",
+        "x": 372.84375,
+        "y": 66,
+        "right": 431.453125,
+        "width": 58.609375,
+        "textWidth": 50.595703125
+      },
+      {
+        "text": "Reminder",
+        "x": 431.453125,
+        "y": 66,
+        "right": 541.140625,
+        "width": 109.6875,
+        "textWidth": 46.123046875
+      },
+      {
+        "text": "Best waves",
+        "x": 543.140625,
+        "y": 66,
+        "right": 663.140625,
+        "width": 120,
+        "textWidth": 54.4775390625
+      },
+      {
+        "text": "Ticker",
+        "x": 669.140625,
+        "y": 66,
+        "right": 754.140625,
+        "width": 85,
+        "textWidth": 29.2822265625
+      },
+      {
+        "text": "Date range",
+        "x": 760.140625,
+        "y": 66,
+        "right": 897.921875,
+        "width": 137.78125,
+        "textWidth": 51.6845703125
+      },
+      {
+        "text": "Direction",
+        "x": 900.921875,
+        "y": 66,
+        "right": 952.265625,
+        "width": 51.34375,
+        "textWidth": 43.33984375
+      },
+      {
+        "text": "MFE overlay",
+        "x": 958.265625,
+        "y": 66,
+        "right": 1025.1875,
+        "width": 66.921875,
+        "textWidth": 58.9111328125
+      },
+      {
+        "text": "MAE overlay",
+        "x": 1031.1875,
+        "y": 66,
+        "right": 1099.21875,
+        "width": 68.03125,
+        "textWidth": 60.0244140625
+      },
+      {
+        "text": "Start date",
+        "x": 1105.21875,
+        "y": 66,
+        "right": 1225.21875,
+        "width": 120,
+        "textWidth": 46.123046875
+      },
+      {
+        "text": "Days hold",
+        "x": 1231.21875,
+        "y": 66,
+        "right": 1309.734375,
+        "width": 78.515625,
+        "textWidth": 47.7880859375
+      },
+      {
+        "text": "Years",
+        "x": 1315.734375,
+        "y": 66,
+        "right": 1391.734375,
+        "width": 76,
+        "textWidth": 26.6943359375
+      },
+      {
+        "text": "Cycle filter",
+        "x": 1397.734375,
+        "y": 66,
+        "right": 1493.734375,
+        "width": 96,
+        "textWidth": 51.1328125
+      },
+      {
+        "text": "Analysis",
+        "x": 1496.734375,
+        "y": 66,
+        "right": 1580.484375,
+        "width": 83.75,
+        "textWidth": 41.1328125
+      },
+      {
+        "text": "Date presets",
+        "x": 1580.484375,
+        "y": 66,
+        "right": 1693.90625,
+        "width": 113.421875,
+        "textWidth": 60.029296875
+      },
+      {
+        "text": "Help",
+        "x": 1693.90625,
+        "y": 66,
+        "right": 1735.25,
+        "width": 41.34375,
+        "textWidth": 21.669921875
+      }
+    ],
+    "inputs": [
+      {
+        "id": "oppBySymbol",
+        "value": "Best Waves",
+        "width": 120,
+        "x": 543.140625,
+        "right": 663.140625,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Best waves",
+        "textWidth": 60.34553527832031
+      },
+      {
+        "id": "symbol",
+        "value": "HLT",
+        "width": 85,
+        "x": 669.140625,
+        "right": 754.140625,
+        "font": "14.1903px",
+        "title": "",
+        "aria": null,
+        "textWidth": 26.525177001953125
+      },
+      {
+        "id": "",
+        "value": "MFE",
+        "width": 13,
+        "x": 997.75,
+        "right": 1010.75,
+        "font": "13.3333px",
+        "title": "",
+        "aria": "MFE overlay",
+        "textWidth": 28.133544921875
+      },
+      {
+        "id": "",
+        "value": "MAE",
+        "width": 13,
+        "x": 1071.546875,
+        "right": 1084.546875,
+        "font": "13.3333px",
+        "title": "",
+        "aria": "MAE overlay",
+        "textWidth": 28.881942749023438
+      },
+      {
+        "id": "date",
+        "value": "2026-09-28",
+        "width": 88,
+        "x": 1121.21875,
+        "right": 1209.21875,
+        "font": "11.4px",
+        "title": "",
+        "aria": null,
+        "textWidth": 58.265777587890625
+      },
+      {
+        "id": "daysout",
+        "value": "141 days",
+        "width": 78.515625,
+        "x": 1231.21875,
+        "right": 1309.734375,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Days hold",
+        "textWidth": 46.22996520996094
+      },
+      {
+        "id": "years",
+        "value": "10 years",
+        "width": 76,
+        "x": 1315.734375,
+        "right": 1391.734375,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Years",
+        "textWidth": 43.688201904296875
+      },
+      {
+        "id": "PEselection",
+        "value": "consecutive",
+        "width": 96,
+        "x": 1397.734375,
+        "right": 1493.734375,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Cycle filter",
+        "textWidth": 60.15122985839844
+      },
+      {
+        "id": "analysisActions",
+        "value": "Analysis",
+        "width": 83.75,
+        "x": 1496.734375,
+        "right": 1580.484375,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Analysis",
+        "textWidth": 42.41453552246094
+      },
+      {
+        "id": "monthsAndQtrs",
+        "value": "Months & Qtrs",
+        "width": 113.421875,
+        "x": 1580.484375,
+        "right": 1693.90625,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Months and Quarters",
+        "textWidth": 72.79327392578125
+      }
+    ],
+    "canvas": true,
+    "pct": 20,
+    "overflow": [],
+    "labelOverflow": [],
+    "clippedValues": []
+  },
+  {
+    "width": 1042,
+    "height": 60,
+    "left": 703,
+    "right": 1745,
+    "rows": [
+      66
+    ],
+    "headers": [
+      {
+        "text": "Save",
+        "x": 703,
+        "y": 66,
+        "right": 736,
+        "width": 33,
+        "textWidth": 23.3544921875
+      },
+      {
+        "text": "Remind",
+        "x": 736,
+        "y": 66,
+        "right": 780.671875,
+        "width": 44.671875,
+        "textWidth": 36.669921875
+      },
+      {
+        "text": "Waves",
+        "x": 782.671875,
+        "y": 66,
+        "right": 882.671875,
+        "width": 100,
+        "textWidth": 31.3134765625
+      },
+      {
+        "text": "Ticker",
+        "x": 884.671875,
+        "y": 66,
+        "right": 948.671875,
+        "width": 64,
+        "textWidth": 29.2822265625
+      },
+      {
+        "text": "Range",
+        "x": 950.671875,
+        "y": 66,
+        "right": 1052.21875,
+        "width": 101.546875,
+        "textWidth": 30.5615234375
+      },
+      {
+        "text": "Dir",
+        "x": 1054.21875,
+        "y": 66,
+        "right": 1076.125,
+        "width": 21.90625,
+        "textWidth": 13.8916015625
+      },
+      {
+        "text": "MFE",
+        "x": 1076.125,
+        "y": 66,
+        "right": 1105.234375,
+        "width": 29.109375,
+        "textWidth": 21.1083984375
+      },
+      {
+        "text": "MAE",
+        "x": 1105.234375,
+        "y": 66,
+        "right": 1135.46875,
+        "width": 30.234375,
+        "textWidth": 22.2216796875
+      },
+      {
+        "text": "Start",
+        "x": 1135.46875,
+        "y": 66,
+        "right": 1255.46875,
+        "width": 120,
+        "textWidth": 22.783203125
+      },
+      {
+        "text": "Days",
+        "x": 1255.46875,
+        "y": 66,
+        "right": 1333.984375,
+        "width": 78.515625,
+        "textWidth": 23.90625
+      },
+      {
+        "text": "Yrs",
+        "x": 1333.984375,
+        "y": 66,
+        "right": 1409.984375,
+        "width": 76,
+        "textWidth": 16.123046875
+      },
+      {
+        "text": "Cycle",
+        "x": 1409.984375,
+        "y": 66,
+        "right": 1501.984375,
+        "width": 92,
+        "textWidth": 26.6845703125
+      },
+      {
+        "text": "Analysis",
+        "x": 1501.984375,
+        "y": 66,
+        "right": 1585.734375,
+        "width": 83.75,
+        "textWidth": 41.1328125
+      },
+      {
+        "text": "Prsts",
+        "x": 1585.734375,
+        "y": 66,
+        "right": 1699.15625,
+        "width": 113.421875,
+        "textWidth": 25.0146484375
+      },
+      {
+        "text": "Help",
+        "x": 1699.15625,
+        "y": 66,
+        "right": 1730.40625,
+        "width": 31.25,
+        "textWidth": 21.669921875
+      }
+    ],
+    "inputs": [
+      {
+        "id": "oppBySymbol",
+        "value": "Best Waves",
+        "width": 100,
+        "x": 782.671875,
+        "right": 882.671875,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Best waves",
+        "textWidth": 60.34553527832031
+      },
+      {
+        "id": "symbol",
+        "value": "HLT",
+        "width": 64,
+        "x": 884.671875,
+        "right": 948.671875,
+        "font": "10.6428px",
+        "title": "",
+        "aria": null,
+        "textWidth": 19.863693237304688
+      },
+      {
+        "id": "",
+        "value": "MFE",
+        "width": 13,
+        "x": 1084.671875,
+        "right": 1097.671875,
+        "font": "13.3333px",
+        "title": "",
+        "aria": "MFE overlay",
+        "textWidth": 28.133544921875
+      },
+      {
+        "id": "",
+        "value": "MAE",
+        "width": 13,
+        "x": 1114.34375,
+        "right": 1127.34375,
+        "font": "13.3333px",
+        "title": "",
+        "aria": "MAE overlay",
+        "textWidth": 28.881942749023438
+      },
+      {
+        "id": "date",
+        "value": "2026-09-28",
+        "width": 88,
+        "x": 1151.46875,
+        "right": 1239.46875,
+        "font": "11.4px",
+        "title": "",
+        "aria": null,
+        "textWidth": 58.265777587890625
+      },
+      {
+        "id": "daysout",
+        "value": "141 days",
+        "width": 78.515625,
+        "x": 1255.46875,
+        "right": 1333.984375,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Days hold",
+        "textWidth": 46.22996520996094
+      },
+      {
+        "id": "years",
+        "value": "10 years",
+        "width": 76,
+        "x": 1333.984375,
+        "right": 1409.984375,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Years",
+        "textWidth": 43.688201904296875
+      },
+      {
+        "id": "PEselection",
+        "value": "consecutive",
+        "width": 92,
+        "x": 1409.984375,
+        "right": 1501.984375,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Cycle filter",
+        "textWidth": 60.15122985839844
+      },
+      {
+        "id": "analysisActions",
+        "value": "Analysis",
+        "width": 83.75,
+        "x": 1501.984375,
+        "right": 1585.734375,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Analysis",
+        "textWidth": 42.41453552246094
+      },
+      {
+        "id": "monthsAndQtrs",
+        "value": "Months & Qtrs",
+        "width": 113.421875,
+        "x": 1585.734375,
+        "right": 1699.15625,
+        "font": "11.4px",
+        "title": "",
+        "aria": "Months and Quarters",
+        "textWidth": 72.79327392578125
+      }
+    ],
+    "canvas": true,
+    "pct": 40,
+    "overflow": [],
+    "labelOverflow": [],
+    "clippedValues": []
+  }
+]

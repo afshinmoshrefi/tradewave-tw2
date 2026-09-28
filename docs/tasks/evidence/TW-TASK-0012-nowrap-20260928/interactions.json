@@ -1,0 +1,20 @@
+{
+  "days": {
+    "value": "140",
+    "full": "140 days",
+    "caption": "140",
+    "title": "140 days"
+  },
+  "bestOption": {
+    "value": "2026-12-13|63|Long",
+    "label": "12/13-02/13 L SR:4.26"
+  },
+  "selected": {
+    "value": "",
+    "full": "Best Waves",
+    "title": "Best Waves",
+    "caption": "Waves"
+  },
+  "mfeToggled": true,
+  "bundle": "http://127.0.0.1/app/static/js/main.7fb35429.js"
+}
