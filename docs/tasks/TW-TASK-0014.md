@@ -1,6 +1,6 @@
 # TW-TASK-0014: Strategy Lab MCP capabilities (AI-run seasonal strategies anyone can copy)
 
-- Status: in-progress (items 1-4 verified on dev; items 5-6 next; items 9, 11, 12 blocked on attorney sign-off)
+- Status: in-progress (items 1-4 verified on dev; item 5 part 1 live, part 2 needs owner decision; item 6 next; items 9, 11, 12 blocked on attorney sign-off)
 - Confidence: reproduced (each gap below was observed through the live production MCP connector on 2026-09-28)
 - Priority: P2 - blocks the public Strategy Lab video series and the "connect TradeWave to Claude or ChatGPT and run your own idea" user flow
 - First observed / last updated: 2026-09-28 20:30 UTC
@@ -80,6 +80,12 @@ Item 4 (basket scenarios):
 - Live dev: 40% PG / 30% WMT / 30% NVDA, 2026-09-28 to 2027-07-18, midterm years, benchmark SPY: 6 shared years (NVDA limits), average +30.5%, middle +14.7%, rose 6 of 6, worst 2014 +1.5%, best 2022 +93.3%; SPY +15.6% average, basket better in 3 of 6. 50% SPGI / 50% CSX, 20y, 30/60/90/eoy horizons all returned 20 shared years. `{"amount": 5000}` refused with 400. Items 1-3 smoke output unchanged. Not run: a side-by-side parity check against the app's Portfolio Scenarios UI (needs a signed-in app session).
 - Activated under the dev activation lock; release gate PASS (p95 11.3 s, 0% errors).
 
+Item 5 (one shared chart renderer), part 1:
+- Afshin chose (2026-09-28) SMN's chart system as the one standard. New `twcharts/` package = SMN `blog/chartkit.py` (dev working copy sha256 a728bddc..., uncommitted Sep 23 edits on SMN 57055c2; differs from SMN prod b4e83def...) with Roboto fonts (Apache 2.0), buffer output, and `price_projection` removed. `mcpserver/chart_renderer.py` now draws the year-by-year bars (excursion needles) and the seasonal path through it, labeled with each chart's own claim; short cards use the chart system's price convention; PE slices are named, not called consecutive. `requirements-api.txt` adds matplotlib 3.10.9 (installed in dev `/home/flask/venv-api`; pip freeze before/after in the snapshot folder).
+- Tests: `tests/test_twcharts.py` (4) and the updated `tests/test_mcp_chart_renderer.py`. Full suite 1509 passed; MCP 60 passed. Rendered SPY 2026-09-27/295d midterm charts inspected visually: they match the SMN article look.
+- FINDING: over the real MCP transport neither `analyze_symbol` nor `whats_seasonal_now` returns image blocks, before or after this change. `analyze_symbol` (and scans) return an MCP Apps widget (`mcpserver/pattern_widget.html`) that draws its own SVG charts client-side from structuredContent; the PNG path (`_rich_lead`) is only used by `whats_seasonal_now`, whose decision-view cards carry no chart data. So part 1 has no visible effect yet. Part 2 (owner decision pending): send the shared-system PNGs with analyze/compare/basket results and/or make the widget show them.
+- Activated under the lock; release gate PASS (p95 8.7 s).
+
 Process note: items 1-3 were activated before this session loaded the repository's release rules; the dev activation lock was not taken for those activations and main was not advanced after each one. Corrected at 21:10 UTC: lock acquired, main fast-forwarded to the live candidate, parity proven, lock released.
 
 - Finding for item 20: ML is only requested for 10-90 day windows within 5 days of entry (`_ml_unavailability_note`), so long holds never get ML - by design, not an outage. Still to check: why short windows also showed null.
@@ -98,11 +104,13 @@ Item 3 commits `8cba9627eacdab6c1dd1f531f0d08e17b02c3111` and `dcda9a8d8763691d6
 
 Item 4 commit `67d96a6a85d3ce76497eb4c42cdcad56b3a8d99d`, release `/home/flask/.tw2-releases/67d96a6a85d3ce76497eb4c42cdcad56b3a8d99d`, snapshot folder `strategy-lab-p1-dev-item4-20260928T221601Z` (rollback returns to `dcda9a8d`).
 
-Next: item 5 (one shared chart renderer).
+Item 5 part 1 commit `b376e47824fd665c50e88f3e160e6f2b97a692a9`, release `/home/flask/.tw2-releases/b376e47824fd665c50e88f3e160e6f2b97a692a9`, snapshot folder `strategy-lab-p1-dev-item5-20260928T222743Z` (rollback returns to `67d96a6a`; matplotlib stays installed, unused by the prior release).
+
+Next: owner decision on item 5 part 2, then item 6.
 
 ## Environment Verification
 
-Dev: verified for items 1-4 - 2026-09-28 22:20 UTC, release `67d96a6a`, Claude session `c7bd49c6`, direct gateway before/after checks plus MCP release gate PASS. Staging: not checked. Production: not checked.
+Dev: verified for items 1-4 and item 5 part 1 - 2026-09-28 22:35 UTC, release `b376e478`, Claude session `c7bd49c6`, direct gateway before/after checks plus MCP release gate PASS. Staging: not checked. Production: not checked.
 
 ## History
 
@@ -111,3 +119,4 @@ Dev: verified for items 1-4 - 2026-09-28 22:20 UTC, release `67d96a6a`, Claude s
 - 2026-09-28 20:58 UTC, Claude session `c7bd49c6`: dev clock stepped (owner approved); item 1 gate PASS; item 2 implemented, activated with its own snapshot folder, gate PASS. Next: item 3.
 - 2026-09-28 21:10 UTC, Claude session `c7bd49c6`: item 3 live and gated; lock taken, main advanced to the live candidate, lock released. Next: item 4.
 - 2026-09-28 22:20 UTC, Claude session `c7bd49c6`: item 4 paused on the 2026-06-08 educational-only policy; Afshin chose the weights-only basket reframe (A); items 9/11/12 marked blocked on attorney sign-off; item 4 live under lock, gate PASS, main advanced. Next: item 5.
+- 2026-09-28 22:35 UTC, Claude session `c7bd49c6`: item 5 part 1 live under lock, gate PASS; found MCP charts are drawn by the Apps widget, not PNG images. Awaiting owner decision on part 2.
