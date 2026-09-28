@@ -127,3 +127,18 @@ Production stays untouched until Phase 3, and Phase 3 needs explicit owner autho
 ## September26 provider-switch implementation claim
 
 Codex, 2026-09-26: owner explicitly requests a ChatGPT version of Claude's economical script workflow, Astra writer at **high** (not xhigh), and the ability to switch between Claude and ChatGPT generation. Claim: selectable provider profiles, subscription adapters, all-stage budget enforcement, safe resume/provenance, focused tests and Dev-only operational integration. SMN branch `codex/smn-provider-switch-20260926`, Windows worktree `TradeWave Main Orchestrator/smn-provider-switch-20260926`. Preserve Claude's configured roles and all financial/content/visual/publication gates. No production writes, campaigns or paid API fallback. Routine implementation delegated to a Sol agent; parent owns integration and runtime verification. The owner instruction is the authority for Astra High; no peer agreement is invented. Existing dashboard/SSO and flat-year production fixes remain separate. Next: inspect adapter/runtime capabilities and implement the smallest working switch, then verify both profiles and a bounded retained-input smoke.
+
+## September28 Phase 3 production shadow installed (owner instruction)
+
+Claude, 2026-09-28T15:45Z: the owner said "prod shadow ... create the shadow on production now and turn it on". This skips the Phase 1-2 exit gates by owner decision. The shadow writes and checks on production and **never publishes**; the API pipeline still publishes. Live code in `/home/flask` was not changed (so `smn_deploy.sh` was not used).
+
+- Code: SMN branch `claude/smn-prod-shadow-20260928` (`a19ed79`, not pushed, copied to prod as a git bundle) at `/opt/smn-shadow/SMN`. It is built on the other Claude thread's unpushed fixes `59ddc87` (capture only daily articles, 1-6 allowed), `69eb390` (drop stale sources), `db896e1` (millions/billions quote match). New: `32e6b1a` `SMN_CAPTURE_LOCAL=1` reads production locally; `a19ed79` a research/source failure holds only that article, not the edition, and discovery is told nasdaq.com blocks the fetcher.
+- Runtime: `smn-shadow.timer` at 04:30 and 06:00 UTC -> `smn-shadow.service` (oneshot, flock, Nice 15, idle I/O) -> `/opt/smn-shadow/run.sh` -> `smn_daily.py --profile claude --max-jobs 40` (no `--publish`). Evidence: `/var/lib/tradewave/smn-daily/prod-shadow/<date>/`. Node v20.19.4 tarball at `/opt/smn-shadow/node`, Playwright 1.63 at `/opt/smn-playwright` (+ apt Chromium deps, 71 new packages, none upgraded). Existing prod Claude CLI login (2.1.282) works.
+- Engine access: prod key `/root/.ssh/smn_shadow_engine` is authorized on the engine host 194.113.195.141 with `restrict,command="/usr/local/bin/smn_engine_export_forced"`; it can run only a pinned copy of `tradewave_engine_export.py` (`/usr/local/lib/smn-shadow/`). If the exporter changes in SMN, recopy it.
+- Prod host limits: 1 CPU, 961 MB RAM. Jobs run one at a time.
+- First run (2026-09-28, 5 daily articles): capture and engine export passed; held at primary discovery for MCD (nasdaq.com timeouts, SEC exhibits without a visible date). Same nasdaq/SEC results from Dev, so not a prod network issue. Fixed by `a19ed79`; resumed.
+- Weekly Claude meter was 90% during the Dev run on the same day; a limit hit holds the shadow day and does not affect production.
+- Off switch: `systemctl disable --now smn-shadow.timer` on prod.
+- Live production bug seen by the other thread: QQQ failed today at `research_tavily` (HTTP 400, `*` wildcard in `include_domains` with topic `news`), so prod made 5 articles, not 6. Not fixed here.
+
+Next: 5 shadow days; owner compares styles. Codex review of `a19ed79` and the forced-command engine key requested.
