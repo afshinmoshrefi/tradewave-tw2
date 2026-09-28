@@ -1,6 +1,6 @@
 # TW-TASK-0014: Strategy Lab MCP capabilities (AI-run seasonal strategies anyone can copy)
 
-- Status: in-progress (items 1-3 verified on dev; items 4-6 next)
+- Status: in-progress (items 1-4 verified on dev; items 5-6 next; items 9, 11, 12 blocked on attorney sign-off)
 - Confidence: reproduced (each gap below was observed through the live production MCP connector on 2026-09-28)
 - Priority: P2 - blocks the public Strategy Lab video series and the "connect TradeWave to Claude or ChatGPT and run your own idea" user flow
 - First observed / last updated: 2026-09-28 20:30 UTC
@@ -19,17 +19,17 @@ User flow: Idea -> Find -> Compare (same window) -> Research (AI veto only) -> S
 1. ETFs and indices (SPY, GLD, TLT, SPX) work in `analyze_symbol` and `compare_opportunities`.
 2. Buy-and-hold benchmark in results (window cumulative vs the symbol's buy-and-hold).
 3. Same-window compare: several symbols on one entry date, hold and year sample, with chart.
-4. Portfolio Scenarios as an MCP tool (horizons 30/60/90/EOY/custom; samples 10-50 years or last 10 PE+N years).
+4. Basket scenarios as an MCP tool: the app's Portfolio Scenarios math for a HYPOTHETICAL basket of symbols with percentage weights (horizons 30/60/90/EOY/custom; samples 1-50 years or PE+N years). Reframed on 2026-09-28 by Afshin (option A) to stay inside the 2026-06-08 educational-only policy in `api/MCP_INTEGRATION_ROADMAP.md`: weights only, no holdings, share counts, dollars, cost basis or P&L; descriptive output only.
 5. One shared chart renderer: MCP images come from the same renderer as the app and SMN (`site/lib/svg_wave_chart.py`), not the separate `mcpserver/chart_renderer.py`. MCP returns both the chart and the data.
 6. "From today" mode: compare/analyze return the next valid window, not a window that already passed.
 
 ### Phase 2 (planned): dashboards
 7. Create-report tool (server-built from TradeWave templates; link and PDF; AI writes only the explanation).
 8. Save and track a strategy.
-9. "Since I bought" scenario mode (per-holding purchase dates).
+9. BLOCKED - attorney sign-off required (reads real holdings; 2026-06-08 policy). "Since I bought" scenario mode (per-holding purchase dates).
 10. Day-by-day path per past year, to draw the historical band behind live value.
-11. Personal strategy dashboards in the app (same component powers the public challenge dashboard).
-12. "Check my portfolio" MCP tool (live value vs 10y / 20y / last 5 midterm-year band, plain sentence, alerts above best / below worst year).
+11. BLOCKED for personal holdings - attorney sign-off required. Personal strategy dashboards in the app. The public Strategy Lab dashboard (Afshin's own paper strategies, identical for every viewer) is not blocked.
+12. BLOCKED - attorney sign-off required (holdings plus take-profit/stop directives). "Check my portfolio" MCP tool (live value vs 10y / 20y / last 5 midterm-year band, plain sentence, alerts above best / below worst year).
 
 ### Phase 3 (planned): extras
 13. Exit-rule test (profit target and trailing stop, result per past year; needs when MFE/MAE happened).
@@ -73,6 +73,13 @@ Item 3 (same-window compare):
 - Live dev: NVDA/WMT/PG, 2026-09-28/294d, midterm years: 6 shared years (NVDA has 6, WMT 13, PG 15); NVDA avg +76.61%, deepest drop -55.67%; PG avg +11.98%, worst year -0.43%; "NVDA and PG were profitable most often, in 5 of 6 years." Big 7, 20y: 13 shared years (META). SPY/GLD/TLT Q4, 15y: SPY +5.82% avg, 13 of 15 profitable. First live run exposed a tie named as a single leader; fixed in `dcda9a8`.
 - Release gate after activation: PASS (p95 13.6 s, 0% errors).
 
+Item 4 (basket scenarios):
+- New `apiserver/scenarios.py` (the app's `build_horizon` math in percentages: same start date and horizon, completed years shared by all symbols, weighted yearly sum, best/worst year, up/flat/down counts, per-symbol contribution, optional same-years benchmark, deterministic summary). `POST /v1/basket-scenarios`; flagship MCP tool `basket_scenarios` (inventory now 18 = 7 flagship + 11 primitives; tests, checklist, API docs generators, `api/MCP_TOOLS.md`, `api/openapi.yaml`, ecosystem doc updated). Gateway `_chart_data` can request `report_completed_years` like the app's scenarios and verifies the echo.
+- Policy guards: entries accept only symbol/weight_pct/market/direction (amount, shares, cost_basis -> 400); a test asserts no money or holding field appears in output.
+- Tests: `tests/test_scenarios.py` (4), 5 route tests, 1 MCP test. Full suite 1505 passed, 5 skipped; MCP 58 + transport 2 passed (venv-api lacks `yaml`, so `test_consistency.py` runs in the main venv suite).
+- Live dev: 40% PG / 30% WMT / 30% NVDA, 2026-09-28 to 2027-07-18, midterm years, benchmark SPY: 6 shared years (NVDA limits), average +30.5%, middle +14.7%, rose 6 of 6, worst 2014 +1.5%, best 2022 +93.3%; SPY +15.6% average, basket better in 3 of 6. 50% SPGI / 50% CSX, 20y, 30/60/90/eoy horizons all returned 20 shared years. `{"amount": 5000}` refused with 400. Items 1-3 smoke output unchanged. Not run: a side-by-side parity check against the app's Portfolio Scenarios UI (needs a signed-in app session).
+- Activated under the dev activation lock; release gate PASS (p95 11.3 s, 0% errors).
+
 Process note: items 1-3 were activated before this session loaded the repository's release rules; the dev activation lock was not taken for those activations and main was not advanced after each one. Corrected at 21:10 UTC: lock acquired, main fast-forwarded to the live candidate, parity proven, lock released.
 
 - Finding for item 20: ML is only requested for 10-90 day windows within 5 days of entry (`_ml_unavailability_note`), so long holds never get ML - by design, not an outage. Still to check: why short windows also showed null.
@@ -89,11 +96,13 @@ Item 2 commit `77978f2e1fff5475909b423cb814b492e7dc03fc`, release `/home/flask/.
 
 Item 3 commits `8cba9627eacdab6c1dd1f531f0d08e17b02c3111` and `dcda9a8d8763691d68bc9c44c6e01654768df989`; live release `/home/flask/.tw2-releases/dcda9a8d8763691d68bc9c44c6e01654768df989`; snapshot folders `strategy-lab-p1-dev-item3-20260928T210514Z` and `strategy-lab-p1-dev-item3b-20260928T210640Z`.
 
-Next: item 4 (Portfolio Scenarios MCP tool).
+Item 4 commit `67d96a6a85d3ce76497eb4c42cdcad56b3a8d99d`, release `/home/flask/.tw2-releases/67d96a6a85d3ce76497eb4c42cdcad56b3a8d99d`, snapshot folder `strategy-lab-p1-dev-item4-20260928T221601Z` (rollback returns to `dcda9a8d`).
+
+Next: item 5 (one shared chart renderer).
 
 ## Environment Verification
 
-Dev: verified for items 1-3 - 2026-09-28 21:08 UTC, release `dcda9a8d`, Claude session `c7bd49c6`, direct gateway before/after checks plus MCP release gate PASS. Staging: not checked. Production: not checked.
+Dev: verified for items 1-4 - 2026-09-28 22:20 UTC, release `67d96a6a`, Claude session `c7bd49c6`, direct gateway before/after checks plus MCP release gate PASS. Staging: not checked. Production: not checked.
 
 ## History
 
@@ -101,3 +110,4 @@ Dev: verified for items 1-3 - 2026-09-28 21:08 UTC, release `dcda9a8d`, Claude s
 - 2026-09-28 20:47 UTC, Claude session `c7bd49c6`: item 1 implemented, tested, activated on dev with snapshot folder + owner VM snapshot; release gate blocked by dev clock skew. Next: owner decision on clock, then run gate.
 - 2026-09-28 20:58 UTC, Claude session `c7bd49c6`: dev clock stepped (owner approved); item 1 gate PASS; item 2 implemented, activated with its own snapshot folder, gate PASS. Next: item 3.
 - 2026-09-28 21:10 UTC, Claude session `c7bd49c6`: item 3 live and gated; lock taken, main advanced to the live candidate, lock released. Next: item 4.
+- 2026-09-28 22:20 UTC, Claude session `c7bd49c6`: item 4 paused on the 2026-06-08 educational-only policy; Afshin chose the weights-only basket reframe (A); items 9/11/12 marked blocked on attorney sign-off; item 4 live under lock, gate PASS, main advanced. Next: item 5.
