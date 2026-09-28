@@ -2353,13 +2353,20 @@ const SeasonalBarChart = (props) => {
 
   //-----------------------------------------------------------------------------------------------------------
   const barchartStyle = {
-    height: barchartHeight,
+    height: props.showToolbarTitles && !rdd.isMobile ? 'auto' : barchartHeight,
+    flex: props.showToolbarTitles && !rdd.isMobile ? '1 1 0' : undefined,
+    minHeight: props.showToolbarTitles && !rdd.isMobile ? 0 : undefined,
     backgroundColor: UIcolors(loggedinUser, props.UITheme)['background_barchart'],
     borderLeft: '1px solid ' + tc.border
   }
   //-----------------------------------------------------------------------------------------------------------
   const barchartControlsStyle = {
-    height: barchartControlsHeight,
+    height: props.showToolbarTitles && !rdd.isMobile ? 'auto' : barchartControlsHeight,
+    minHeight: props.showToolbarTitles && !rdd.isMobile ? barchartControlsHeight : undefined,
+    flexShrink: props.showToolbarTitles && !rdd.isMobile ? 0 : undefined,
+    '--tw-toolbar-heading-bg': tc.tableHeaderBg,
+    '--tw-toolbar-heading-border': tc.border,
+    '--tw-toolbar-heading-color': tc.text,
     display: "flex",
     alignItems: "center",
     backgroundColor: tc.controlBar,
@@ -3184,7 +3191,7 @@ const SeasonalBarChart = (props) => {
 
       {/* _______________________________________________container_________________________________________________________ */}
 
-      <div className={'barchart-controls' + (props.showToolbarTitles ? ' barchart-controls--titles' : '')} style={barchartControlsStyle} >
+      <div className={'barchart-controls' + (props.showToolbarTitles ? ' barchart-controls--titles' : '') + (props.showToolbarTitles && !rdd.isMobile ? ' barchart-controls--heading-layout' : '')} style={barchartControlsStyle} >
 
         <div className="barchart-controls-div" style={StyleNavDiv} >
 
@@ -3269,14 +3276,14 @@ const SeasonalBarChart = (props) => {
             box stay until the measured slack leaves under 3px per side (bwWide); only then
             drop to the compact undecorated label. */}
         {!rdd.isMobile && oppBySymbolOptions.length > 0 &&
-          <div ref={bwWrapRef} className="tw-toolbar-control" style={{ paddingLeft: '2px', paddingRight: '6px', flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'center' }}>
+          <div ref={bwWrapRef} className="tw-toolbar-control tw-toolbar-waves" style={{ paddingLeft: '2px', paddingRight: '6px', flex: props.showToolbarTitles ? '0 0 120px' : '1 1 0', minWidth: props.showToolbarTitles ? '120px' : 0, display: 'flex', justifyContent: 'center' }}>
           {toolbarTitle('Best waves')}
           <SelectBox
-            optionList={bwWide ? [{ ...oppBySymbolOptions[0], label: '── Best Waves ──' }, ...oppBySymbolOptions.slice(1)] : oppBySymbolOptions}
+            optionList={props.showToolbarTitles ? [{ ...oppBySymbolOptions[0], label: 'Best Waves' }, ...oppBySymbolOptions.slice(1)] : (bwWide ? [{ ...oppBySymbolOptions[0], label: '── Best Waves ──' }, ...oppBySymbolOptions.slice(1)] : oppBySymbolOptions)}
             value={selectedOppBySymbol}
             name="oppBySymbol"
             suffix=""
-            widthOverride={bwWide ? '7vw' : undefined}
+            widthOverride={props.showToolbarTitles ? '100%' : (bwWide ? '7vw' : undefined)}
             fitContainer
             sbChanged={handleOppBySymbolChanged}
             tooltipContent={props.tooltipSW ? 'b,Best seasonal waves for this ticker sorted by Sharpe Ratio. Select a wave to load it in the viewer.' : ''}
@@ -3284,9 +3291,9 @@ const SeasonalBarChart = (props) => {
           </div>
         }
 
-        <div style={StyleDescription} >
+        <div className="tw-toolbar-description" style={StyleDescription} >
 
-          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+          <span className="tw-toolbar-description-fields" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
 
             {/* Inline ticker input - replaces the old static symbol text. The "N-Year" label that
                 used to sit before the ticker was dropped per request. Desktop only: on mobile/tablet
@@ -3385,7 +3392,7 @@ const SeasonalBarChart = (props) => {
 
 
 
-        <div style={{ display: "flex", alignItems: "center", height: "90%", backgroundColor: 'transparent' }}>
+        <div className="tw-toolbar-secondary" style={{ display: "flex", alignItems: "center", height: "90%", backgroundColor: 'transparent' }}>
 
           {props.seasonalBarChartData.length > 0 &&
             <div className='barchart-controls-div tw-toolbar-control' style={StyleLSSquare}>
@@ -3454,7 +3461,7 @@ const SeasonalBarChart = (props) => {
             {toolbarTitle('Cycle filter')}
             <SelectBox optionList={PEselectionList} value={props.PEselected} suffix="" name="PEselection" sbChanged={selectboxChanged} tooltipContent={props.tooltipSW ? 'b,Choose which years are included: Consecutive uses the last N years in a row, while PE/PE+1/PE+2/PE+3 uses only years matching that Presidential Election cycle phase.)' : ''} />
           </div>
-          <div className='barchart-controls-div' style={{ ...StyleMQtrs, alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+          <div className='barchart-controls-div tw-toolbar-actions' style={{ ...StyleMQtrs, alignItems: 'center', gap: '3px', flexShrink: 0 }}>
             <div className="tw-toolbar-control">
               {toolbarTitle('Analysis')}
             <SelectBox

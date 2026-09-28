@@ -258,3 +258,43 @@
         justify-content: flex-end;
     }
 }
+
+/* Desktop title mode keeps each heading attached to its control. */
+.barchart-controls--heading-layout {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-content: center;
+    row-gap: 4px;
+    padding: 4px 0;
+    box-sizing: border-box;
+}
+.barchart-controls--heading-layout .tw-toolbar-description,
+.barchart-controls--heading-layout .tw-toolbar-description-fields,
+.barchart-controls--heading-layout .tw-toolbar-secondary,
+.barchart-controls--heading-layout .tw-toolbar-actions {
+    display: contents !important;
+}
+.barchart-controls--heading-layout .tw-toolbar-control {
+    flex-shrink: 0;
+    min-width: max-content;
+    height: 52px !important;
+    justify-content: space-between !important;
+}
+.barchart-controls--heading-layout .tw-toolbar-title {
+    align-self: stretch;
+    box-sizing: border-box;
+    height: 18px;
+    margin-bottom: 0;
+    padding: 2px 3px;
+    color: var(--tw-toolbar-heading-color);
+    background: var(--tw-toolbar-heading-bg);
+    border: 1px solid var(--tw-toolbar-heading-border);
+}
+
+.barchart-controls--heading-layout > .barchart-controls-div {
+    height: 52px !important;
+    flex-shrink: 0;
+}
+
+.barchart-controls--heading-layout #years { min-width: 76px; }
+.barchart-controls--heading-layout #PEselection { min-width: 96px; }
