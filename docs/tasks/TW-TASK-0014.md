@@ -1,6 +1,6 @@
 # TW-TASK-0014: Strategy Lab MCP capabilities (AI-run seasonal strategies anyone can copy)
 
-- Status: in-progress (item 1 deployed on dev; release gate blocked by dev clock)
+- Status: in-progress (items 1-2 verified on dev; items 3-6 next)
 - Confidence: reproduced (each gap below was observed through the live production MCP connector on 2026-09-28)
 - Priority: P2 - blocks the public Strategy Lab video series and the "connect TradeWave to Claude or ChatGPT and run your own idea" user flow
 - First observed / last updated: 2026-09-28 20:30 UTC
@@ -61,7 +61,13 @@ Item 1 (ETF/index analysis):
   - `/v1/analyze/SPY?market=11`: 400 "Per-symbol ... not available for ETFs" -> 200 "SPY long - enter ~Sep 28, hold 320d. Won 9/10 years, avg +16.4%, Sharpe 1.2."
   - `/v1/analyze/GLD?market=11`: 400 -> 200 "GLD long - enter ~Sep 28, hold 248d. Won 9/10 years, avg +12.1%, Sharpe 0.9."
   - Pinned SPY 2026-09-28/294d/20y, AAPL and SPGI (market 2): identical output before and after.
-- Not yet run: `ops/dev_mcp_release_auth.py run-gate` (MCP transport + load). It failed before any request with `ImmatureSignatureError (iat)`: the dev host clock is about 64.6 s behind; chrony reports "Leap status: Not synchronised" with conflicting sources. Not caused by this change.
+- Release gate: first attempt failed before any request with `ImmatureSignatureError (iat)`: dev clock was 64.6 s behind (chrony "Not synchronised", conflicting sources). With owner approval, `chronyc makestep` at 20:48 UTC (state saved in `clock.before`); chrony then "Normal". Next gate run failed only the load p95 (42.1 s, 0% errors) right after the restart; the immediate re-run passed (p95 5.6 s): PASS API, daily-pick, MCP BYOK, OAuth, load, storm-breaker. The load gate calls `/v1/scan`, which this change does not touch; the cold-cache p95 after a restart is recorded as a separate observation.
+
+Item 2 (buy-and-hold benchmark):
+- `cards.buy_hold_window` (app canonical Jan 1 - Jan 1) and `cards.buy_hold_benchmark` (same completed years by label; Stats Table compounding); analyze adds `card.benchmark` and `beats_buy_hold` in table view; a failed Buy & Hold fetch leaves the card unchanged. New tests in `tests/test_cards.py` and `tests/test_apiserver_endpoints.py`. Full suite: 1485 passed, 5 skipped, 0 failed.
+- Live dev: SPY 2026-09-27/295d, last 8 midterm years: window +222.18% vs buy-and-hold +16.91% cumulative over 7 shared years (avg 18.58% vs 3.73%; window better in 6 of 7). SPGI 2026-09-28/308d/20y: +2339.63% vs +1308.36% (window better in 10 of 20 years). Stock and ETF outputs from item 1 unchanged.
+- Release gate after activation: PASS on first run (p95 12.4 s, 0% errors).
+- Finding for item 20: ML is only requested for 10-90 day windows within 5 days of entry (`_ml_unavailability_note`), so long holds never get ML - by design, not an outage. Still to check: why short windows also showed null.
 
 ## Implementation and Handoff
 
@@ -71,13 +77,16 @@ Dev activation: immutable release worktree `/home/flask/.tw2-releases/bb20f11c54
 
 Safety: owner VM snapshot taken before activation; snapshot folder `/root/tradewave-snapshots/strategy-lab-p1-dev-20260928T204338Z` on dev (prior target and SHA, unit files and drop-ins, service state, full prior backend code archive, runtime file hashes, before/after checks) with `rollback.sh` and `rollforward.sh`.
 
-Next: owner decision on the dev clock so the MCP release gate can run; then items 2-6.
+Item 2 commit `77978f2e1fff5475909b423cb814b492e7dc03fc`, release `/home/flask/.tw2-releases/77978f2e1fff5475909b423cb814b492e7dc03fc`; its snapshot folder `/root/tradewave-snapshots/strategy-lab-p1-dev-item2-20260928T205546Z` (rollback returns to the item 1 release `bb20f11c`; the first folder returns to the original `9b02f007`).
+
+Next: item 3 (same-window compare).
 
 ## Environment Verification
 
-Dev: deployed/unverified for item 1 - 2026-09-28 20:45 UTC, `bb20f11c`, Claude session `c7bd49c6`, direct gateway checks passed; MCP release gate pending (dev clock). Staging: not checked. Production: not checked.
+Dev: verified for items 1-2 - 2026-09-28 20:58 UTC, release `77978f2e`, Claude session `c7bd49c6`, direct gateway before/after checks plus MCP release gate PASS. Staging: not checked. Production: not checked.
 
 ## History
 
 - 2026-09-28 20:30 UTC, Claude Code session `c7bd49c6`: plan agreed with Afshin over the conversation; task opened and Phase 1 claimed. Next: item 1.
 - 2026-09-28 20:47 UTC, Claude session `c7bd49c6`: item 1 implemented, tested, activated on dev with snapshot folder + owner VM snapshot; release gate blocked by dev clock skew. Next: owner decision on clock, then run gate.
+- 2026-09-28 20:58 UTC, Claude session `c7bd49c6`: dev clock stepped (owner approved); item 1 gate PASS; item 2 implemented, activated with its own snapshot folder, gate PASS. Next: item 3.
