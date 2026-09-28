@@ -47,6 +47,8 @@ React build passed with existing lint warnings. Authenticated dev browser checks
 
 ## History
 
+- 2026-09-28, Codex `/root/toolbar_responsive_labels`: Claimed the user-requested responsive heading follow-up on current main `8539914749ee29450bea6afcc992147a6f24a600`. Branch `codex/toolbar-adaptive-titles-20260928`, clean worktree `/home/tradewave-worktrees/toolbar-adaptive-titles-20260928`. Scope: keep a desktop row while shortening only visible headings according to the chart container width; preserve full names, controls, title-off and mobile behavior. Dev only. Next: implement, build, inspect narrowed rendered widths, activate and verify.
+
 - 2026-09-27 22:25 UTC, Codex: Claimed authorized feature. Next: inspect toolbar and settings, implement and verify.
 - 2026-09-27 22:35 UTC, Codex: Implemented source and passed React build; another session currently owns the dev activation lock.
 - 2026-09-27 22:44 UTC, Codex: Integrated latest main and activated candidate under dev lock; desktop and phone browser checks passed; non-forced main advance to `c2045a08` succeeded.
