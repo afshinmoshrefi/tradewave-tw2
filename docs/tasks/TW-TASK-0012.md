@@ -1,6 +1,6 @@
 # TW-TASK-0012: Chart Toolbar Control Titles
 
-- Status: adaptive-width headings verified on dev
+- Status: in-progress - reopened desktop no-wrap failure
 - Confidence: reproduced
 - Priority: P3 - improves control discoverability
 - First observed / last updated: 2026-09-27 22:45 UTC / 2026-09-28 04:36 UTC
@@ -123,3 +123,19 @@ explicit staging request; no configuration or migration is required.
 - 2026-09-27 23:40 UTC, Codex `/root/wave_info_dev`: Completed visual follow-up on dev with browser screenshots and narrow-panel bounds check; no staging or production.
 
 - 2026-09-27 23:50 UTC, Codex `/root/wave_info_dev`: User rejected visual redesign; restored original dev frontend and reverted redesign code on main.
+
+## Desktop single-row repair claim (2026-09-28)
+
+User rejected wrapping and explicitly escalated investigation to Astra. Codex
+`/root/toolbar_no_wrap_repair` owns the follow-up in
+`codex/toolbar-single-row-20260928`, isolated flask worktree
+`/home/tradewave-worktrees/toolbar-single-row-20260928`, claimed 2026-09-28.
+Exact user failure: Chrome at native 110%, CSS viewport 1046x545, toolbar
+782.713px, HLT / 2026-09-28 / 141 days / 10 years, loaded main.de1a2983.js.
+Heading mode wraps controls at 1040px while nonshrinking title/control pairs
+retain fixed selected-control floors. OFF remains one line but clips controls
+and collapses Best Waves to 1.8px. Splitter range is 20%-40% left panel.
+Scope: one desktop heading row directly above one control row across that
+range; compact labels retain full accessible/hover names and actual values.
+Preserve OFF/mobile/settings/theme/Save alignment. Dev only. Next: prototype
+and verify full allowed width sweep, root visual review, build and dev smoke.
