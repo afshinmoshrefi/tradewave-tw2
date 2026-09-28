@@ -35,6 +35,10 @@ User reviewed the dev result and reported that the title layout looks terrible. 
 
 Afshin reported the visual redesign made the toolbar completely broken and asked for the prior version. On dev, the frontend pointer was restored to `/home/flask/web-react/releases/build-c2045a082ede9595fceb3783ccef53b228edaf6a` (source `c2045a082ede9595fceb3783ccef53b228edaf6a`); React asset preflight and the web service passed, and an authenticated AAPL Wave Viewer loaded the previous toolbar. Revert commit `288f8ec8823bb9b5d9540325b7f4dae3786929d1` reverses only the four visual-redesign commits `8f61ed25`, `2bdf2e8d`, `fd0940bd`, and `a5470c70`; `SeasonalBarChart.js` and its CSS now exactly match `c2045a08`. The visual follow-up screenshots above document a rejected, no-longer-active candidate. No staging or production change.
 
+## Focused heading follow-up (2026-09-28)
+
+Afshin requested coherent Opportunity-table-style toolbar headings, specifically correcting the Save wave title alignment. This is a new dev-only follow-up after the rejected redesign rollback. Claimed by Codex `/root/wave_info_dev` at 2026-09-28 00:43 UTC, branch `codex/toolbar-title-headings-20260927`, isolated worktree `/home/tradewave-worktrees/toolbar-title-polish-20260927`. Keep the restored control behavior and compact title-off mode. Validate actual desktop and narrowed-panel renders before activation; no staging or production authorization.
+
 ## History
 
 - 2026-09-27 22:25 UTC, Codex: Claimed authorized feature. Next: inspect toolbar and settings, implement and verify.
