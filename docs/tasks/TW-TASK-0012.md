@@ -1,6 +1,6 @@
 # TW-TASK-0012: Chart Toolbar Control Titles
 
-- Status: verified on dev (visual polish follow-up)
+- Status: original title build restored on dev; visual redesign rejected and rolled back
 - Confidence: reproduced
 - Priority: P3 - improves control discoverability
 - First observed / last updated: 2026-09-27 22:45 UTC
@@ -31,6 +31,10 @@ Dev: verified 2026-09-27 22:44 UTC by Codex on `c2045a082ede9595fceb3783ccef53b2
 
 User reviewed the dev result and reported that the title layout looks terrible. Authenticated screenshots show overlapping labels and a Best Waves selector squeezed to 5.9px at a 1440px viewport, despite the earlier functional checks passing. Improve visual grouping, alignment and readable spacing while preserving the default-on switch, exact Start date/Days hold titles and compact-off mode. This follow-up is authorized for dev only; no staging or production. Owner: Codex `/root/wave_info_dev`, 2026-09-27 23:10 UTC; branch `codex/toolbar-title-polish-20260927`, worktree `/home/tradewave-worktrees/toolbar-title-polish-20260927`. Visual follow-up commit `a5470c706a9fb016c4c5db817c31c79da6939bf1` built as `main.e5cfbd82.js` and activated on dev from `/home/flask/web-react/releases/build-a5470c70`; rollback pointer is `build-c2045a082ede9595fceb3783ccef53b228edaf6a`. The toolbar now uses aligned two-row desktop controls at ordinary widths, adds a narrow three-row layout when the right panel is under 780px, keeps Best Waves readable, and shows Long/Short beside its color square only with titles on. Actual dev Chromium screenshots verified default ON at 1440, 1309, and 1280 CSS pixels, title OFF at 1440 (0 visible titles, 40.7px bar), and a 1280 viewport with 40% left panel / 763px right panel: every visible input and select stayed inside the 150px bar. The 1309px run approximates the responsive CSS width of 1440px at 110% browser zoom; native browser zoom was not tested. Screenshot evidence: `toolbar-final-on-1440.png`, `toolbar-final-off-1440.png`, and `toolbar-final-narrow-1280.png` in the orchestrator task workspace. Existing production-build lint warnings only. Staging and production not tested.
 
+## User-rejected redesign rollback
+
+Afshin reported the visual redesign made the toolbar completely broken and asked for the prior version. On dev, the frontend pointer was restored to `/home/flask/web-react/releases/build-c2045a082ede9595fceb3783ccef53b228edaf6a` (source `c2045a082ede9595fceb3783ccef53b228edaf6a`); React asset preflight and the web service passed, and an authenticated AAPL Wave Viewer loaded the previous toolbar. Revert commit `288f8ec8823bb9b5d9540325b7f4dae3786929d1` reverses only the four visual-redesign commits `8f61ed25`, `2bdf2e8d`, `fd0940bd`, and `a5470c70`; `SeasonalBarChart.js` and its CSS now exactly match `c2045a08`. The visual follow-up screenshots above document a rejected, no-longer-active candidate. No staging or production change.
+
 ## History
 
 - 2026-09-27 22:25 UTC, Codex: Claimed authorized feature. Next: inspect toolbar and settings, implement and verify.
@@ -40,3 +44,5 @@ User reviewed the dev result and reported that the title layout looks terrible. 
 - 2026-09-27 23:10 UTC, Codex `/root/wave_info_dev`: Claimed user-requested visual follow-up; confirmed overlap on actual dev render.
 
 - 2026-09-27 23:40 UTC, Codex `/root/wave_info_dev`: Completed visual follow-up on dev with browser screenshots and narrow-panel bounds check; no staging or production.
+
+- 2026-09-27 23:50 UTC, Codex `/root/wave_info_dev`: User rejected visual redesign; restored original dev frontend and reverted redesign code on main.
