@@ -847,6 +847,55 @@ def test_analyze_custom_lookback_uses_matching_symbol_detection_band(client, mon
     assert response.get_json()["card"]["stats"]["years"] == "16"
 
 
+def test_analyze_etf_uses_market_scan_instead_of_rejecting_symbol(client, monkeypatch):
+    """TW-TASK-0014 item 1: ETFs have no per-symbol grid; analyze must answer from the scan."""
+    from apiserver import appserver_client as ac
+
+    seen = {}
+    _mock_card_chain(monkeypatch)
+
+    def by_symbol(*a, **k):
+        raise AssertionError("ETF analysis must not call the per-symbol grid")
+
+    def scan(market, entry_date, **kwargs):
+        seen.update(market=market, **kwargs)
+        return [_opp(symbol="SPY", market="11"), _opp(symbol="QQQ", market="11")]
+
+    monkeypatch.setattr(ac, "opportunities_by_symbol", by_symbol)
+    monkeypatch.setattr(ac, "opportunities", scan)
+
+    response = client.get("/v1/analyze/SPY?market=11", headers=_hdr())
+
+    assert response.status_code == 200, response.get_json()
+    assert seen["market"] == "11"
+    assert response.get_json()["card"]["symbol"] == "SPY"
+
+
+def test_analyze_etf_without_setup_today_explains_how_to_pin_a_window(client, monkeypatch):
+    from apiserver import appserver_client as ac
+
+    _mock_card_chain(monkeypatch)
+    monkeypatch.setattr(ac, "opportunities", lambda *a, **k: [_opp(symbol="QQQ", market="11")])
+
+    response = client.get("/v1/analyze/GLD?market=11", headers=_hdr())
+
+    assert response.status_code == 404
+    message = response.get_json()["error"]["message"]
+    assert "entry_date" in message and "period" in message
+
+
+def test_analyze_stock_still_uses_per_symbol_grid(client, monkeypatch):
+    from apiserver import appserver_client as ac
+
+    _mock_card_chain(monkeypatch, by_symbol=[_opp()])
+    monkeypatch.setattr(ac, "opportunities",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("scan not expected")))
+
+    response = client.get("/v1/analyze/AAPL?market=2", headers=_hdr())
+
+    assert response.status_code == 200
+
+
 def test_analyze_include_chart_attaches_inline(client, monkeypatch):
     _mock_card_chain(monkeypatch, by_symbol=[_opp()],
                      curve=[{"date": "2026-07-01", "index": 40.0}, {"date": "2026-07-02", "index": 41.0}])

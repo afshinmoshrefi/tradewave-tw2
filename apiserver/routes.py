@@ -1499,6 +1499,7 @@ def analyze_symbol(symbol):
     if scope_err:
         return scope_err
 
+    detect_path = "symbol" if market_bands.path_supported(market, "symbol") else "scan"
     try:
         direction = _direction_arg(request.args.get("direction"))
         pe_cycle = _resolve_pe_cycle(allow_positions=False)        # consecutive | pe (wave-viewer knob)
@@ -1513,8 +1514,11 @@ def analyze_symbol(symbol):
         else:
             if request.args.get("days_out") is not None:
                 raise ValueError("days_out requires entry_date or period for an exact-window analysis")
+            # Markets without the per-symbol grid (ETFs, indices, crypto...) are answered from
+            # the market scan below, so validate the lookback against the scan band instead of
+            # hard-blocking the symbol.
             year1, year2 = _lookback_args(
-                market=market, path="symbol", pe_mode=_opp_mode(pe_cycle) != "consecutive",
+                market=market, path=detect_path, pe_mode=_opp_mode(pe_cycle) != "consecutive",
                 name_map=name_map)
             yrs = _chart_years(pe_cycle, int(year1))
     except ValueError as e:
@@ -1522,7 +1526,7 @@ def analyze_symbol(symbol):
 
     # An exact window is direct research, independent of the precomputed detection
     # grid (and its narrower recurrence bands). Never substitute a nearby setup.
-    opps = [] if pin_entry else appserver_client.opportunities_by_symbol(
+    opps = [] if pin_entry or detect_path != "symbol" else appserver_client.opportunities_by_symbol(
         market, symbol, year1=year1, year2=year2, mode=_opp_mode(pe_cycle))
     if direction:
         want = appserver_client._dir_to_public(direction)
@@ -1544,7 +1548,9 @@ def analyze_symbol(symbol):
             opps = [o for o in scan_rows if o.get("symbol") == symbol]
             if not opps:
                 return _err("not_found",
-                            "no seasonal setups for '%s' in market '%s'%s"
+                            "no seasonal setup for '%s' in market '%s'%s enters today. To study any "
+                            "window for this symbol, pass entry_date with days_out, or a period "
+                            "preset such as period=q4 or period=buy_hold."
                             % (symbol, market, (" (%s)" % direction) if direction else ""), 404)
             for o in opps:
                 o["win_rate"] = appserver_client._win_rate_for_opp(o)
