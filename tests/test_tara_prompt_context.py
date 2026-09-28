@@ -88,6 +88,20 @@ def test_tooltip_questions_load_the_small_guidance_section():
     assert "## TradeWave UI Map" not in selection.text
 
 
+def test_recent_wave_viewer_ui_questions_select_current_knowledge():
+    _, sections = _sections()
+    titles = select_topic_knowledge("How do I hide the toolbar titles?", sections)
+    avg_gain = select_topic_knowledge("What do the two Avg Gain values mean?", sections)
+    wave_info = select_topic_knowledge("What is in Wave Info?", sections)
+    assert titles.headings == ("Bar Chart Toolbar Titles",)
+    assert "Settings > General > Show toolbar titles" in titles.text
+    assert "Tara has no action for the toolbar-title setting" in titles.text
+    assert "Average of winning years" in avg_gain.text
+    assert "Average of all years" in avg_gain.text
+    assert "one row uses the direction-matched current Trend score" in wave_info.text
+    assert "TradeWave Ratio (TWR)" in wave_info.text
+
+
 def test_ai_scores_ui_knowledge_describes_conditional_fourth_window_and_long_horizons():
     _, sections = _sections()
 

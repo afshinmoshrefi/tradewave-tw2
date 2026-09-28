@@ -49,6 +49,14 @@ def parse_knowledge_sections(knowledge_text: str) -> Dict[str, str]:
 _TOPIC_ROUTES: Sequence[Tuple[re.Pattern[str], Tuple[str, ...]]] = (
     (re.compile(r"\b100[- ]year pattern\b", re.I), ("The 100-Year Pattern",)),
     (
+        re.compile(r"\b(?:toolbar (?:titles?|headings?)|show toolbar titles|headings? above (?:the )?(?:bar chart )?controls|labels? above (?:the )?(?:bar chart )?controls)\b", re.I),
+        ("Bar Chart Toolbar Titles",),
+    ),
+    (
+        re.compile(r"\b(?:avg gain|average gain|wave info)\b", re.I),
+        ("Lower Panel Views (below the Gain-Loss Bar Chart)",),
+    ),
+    (
         re.compile(
             r"\b(?:guidance tooltips?|tooltip (?:switch|toggle)|all (?:these|the) tooltips|"
             r"tooltips everywhere|turn .{0,20} tooltips? (?:on|off))\b",
