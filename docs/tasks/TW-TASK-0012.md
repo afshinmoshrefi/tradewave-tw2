@@ -139,3 +139,20 @@ Scope: one desktop heading row directly above one control row across that
 range; compact labels retain full accessible/hover names and actual values.
 Preserve OFF/mobile/settings/theme/Save alignment. Dev only. Next: prototype
 and verify full allowed width sweep, root visual review, build and dev smoke.
+
+### Single-row candidate implementation
+
+Removed the deliberate desktop wrap rule. Compact title-mode controls use
+container-scaled text, selected option labels without redundant units, and short
+Waves/Presets closed captions; native dropdown options, actual values, and full
+selected-label hover text remain intact. CSS removes title min-content floors
+and prevents native selects' longest options from sizing the closed control.
+Direction uses Dir; minimum title tracks prevent MFE/MAE overlap. Existing OFF
+and phone styling remain unchanged. No backend, math, config or migration change.
+
+First source build passed with existing lint warnings. An independent capture
+browser with real HLT data tested the source-CSS correction against that bundle
+at 22 actual splitter positions, 623-831px toolbar width including 782.6px: one
+heading row, no control bounds overflow, no heading overlap, date/ticker values
+fit. Root visually reviewed 623px and 783px screenshots and accepted this design.
+Final clean-source artifact, transition, interaction and live checks pending.

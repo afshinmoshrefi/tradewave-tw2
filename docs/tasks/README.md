@@ -15,5 +15,5 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0009](TW-TASK-0009.md) | in-progress | Dev generation dashboard live; private Claude comparison produced five reviewed previews and one held article; ChatGPT server sign-in pending |
 | [TW-TASK-0010](TW-TASK-0010.md) | verified on dev | Short tooltips for both Avg Gain values when global tips are off |
 | [TW-TASK-0011](TW-TASK-0011.md) | fixed | Portfolio import and historical scenarios live on dev; core browser/engine checks pass; native PDF layout verification pending |
-| [TW-TASK-0012](TW-TASK-0012.md) | verified on dev | Adaptive chart toolbar titles and persisted General switch |
+| [TW-TASK-0012](TW-TASK-0012.md) | in-progress | Desktop single-row toolbar repair and persisted General switch |
 | [TW-TASK-0013](TW-TASK-0013.md) | verified on dev | Tara knowledge for recent Wave Viewer controls |

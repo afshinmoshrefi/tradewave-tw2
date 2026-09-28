@@ -3191,9 +3191,11 @@ const SeasonalBarChart = (props) => {
     'Start date': ['Start date', 'Start'],
     'Days hold': ['Days', 'Days'],
     'Years': ['Years', 'Yrs'],
+    'Direction': ['Direction', 'Dir'],
     'Cycle filter': ['Cycle', 'Cycle'],
     'Date presets': ['Presets', 'Prsts'],
   }
+  const compactToolbarControls = props.showToolbarTitles && !rdd.isMobile && toolbarMode === 'narrow'
   const toolbarTitle = (title) => {
     if (!props.showToolbarTitles) return null
     const variants = compactToolbarTitles[title]
@@ -3223,7 +3225,7 @@ const SeasonalBarChart = (props) => {
 
       {/* _______________________________________________container_________________________________________________________ */}
 
-      <div ref={toolbarRef} className={'barchart-controls' + (props.showToolbarTitles ? ' barchart-controls--titles' : '') + (props.showToolbarTitles && !rdd.isMobile ? ' barchart-controls--heading-layout' : '') + (props.showToolbarTitles && !rdd.isMobile && (toolbarMode === 'tight' || toolbarMode === 'narrow') ? ' barchart-controls--tight' : '') + (props.showToolbarTitles && !rdd.isMobile && toolbarMode === 'narrow' ? ' barchart-controls--narrow' : '')} style={barchartControlsStyle} >
+      <div ref={toolbarRef} className={'barchart-controls' + (props.showToolbarTitles ? ' barchart-controls--titles' : '') + (props.showToolbarTitles && !rdd.isMobile ? ' barchart-controls--heading-layout' : '') + (props.showToolbarTitles && !rdd.isMobile && (toolbarMode === 'tight' || toolbarMode === 'narrow') ? ' barchart-controls--tight' : '') + (props.showToolbarTitles && !rdd.isMobile && toolbarMode === 'narrow' ? ' barchart-controls--narrow' : '')} style={{ ...barchartControlsStyle, '--tw-toolbar-ticker-width': `${Math.max(4, (props.symbol || '').length + 1)}ch` }} >
 
         <div className="barchart-controls-div" style={StyleNavDiv} >
 
@@ -3314,6 +3316,8 @@ const SeasonalBarChart = (props) => {
             optionList={props.showToolbarTitles ? [{ ...oppBySymbolOptions[0], label: 'Best Waves' }, ...oppBySymbolOptions.slice(1)] : (bwWide ? [{ ...oppBySymbolOptions[0], label: '── Best Waves ──' }, ...oppBySymbolOptions.slice(1)] : oppBySymbolOptions)}
             value={selectedOppBySymbol}
             name="oppBySymbol"
+            ariaLabel="Best waves"
+            compactLabel={compactToolbarControls ? 'Waves' : undefined}
             suffix=""
             widthOverride={props.showToolbarTitles ? '100%' : (bwWide ? '7vw' : undefined)}
             fitContainer
@@ -3406,17 +3410,17 @@ const SeasonalBarChart = (props) => {
 
           <div className='barchart-controls-div2 tw-toolbar-control' >
             {toolbarTitle('Days hold')}
-            <SelectBox optionList={daysOutList} value={props.daysOut} suffix=" days" name="daysout" sbChanged={selectboxChanged} />
+            <SelectBox optionList={daysOutList} value={props.daysOut} suffix=" days" name="daysout" ariaLabel="Days hold" compactLabel={compactToolbarControls ? true : undefined} sbChanged={selectboxChanged} />
           </div>
 
           <div className='barchart-controls-div2 tw-toolbar-control' >
             {toolbarTitle('Years')}
-            <SelectBox optionList={includeSelectedWindowOption(seasonalYearsList, props.seasonalYears, 999)} value={props.seasonalYears} suffix=" years" name="years" sbChanged={selectboxChanged} />
+            <SelectBox optionList={includeSelectedWindowOption(seasonalYearsList, props.seasonalYears, 999)} value={props.seasonalYears} suffix=" years" name="years" ariaLabel="Years" compactLabel={compactToolbarControls ? true : undefined} sbChanged={selectboxChanged} />
           </div>
           
           <div className='barchart-controls-div2 tw-toolbar-control' >
             {toolbarTitle('Cycle filter')}
-            <SelectBox optionList={PEselectionList} value={props.PEselected} suffix="" name="PEselection" sbChanged={selectboxChanged} />
+            <SelectBox optionList={PEselectionList} value={props.PEselected} suffix="" name="PEselection" ariaLabel="Cycle filter" compactLabel={compactToolbarControls ? true : undefined} sbChanged={selectboxChanged} />
           </div>
 
 
@@ -3472,7 +3476,7 @@ const SeasonalBarChart = (props) => {
 
           <div className='barchart-controls-div tw-toolbar-control' style={StyleDaysOut}>
             {toolbarTitle('Days hold')}
-            <SelectBox tooltipContent={props.tooltipSW ? 'b,Wave Viewer Control: Select number of days for the date range. Changes the end date while keeping the start date fixed' : ''} optionList={daysOutList} value={props.daysOut} suffix=" days" name="daysout" sbChanged={selectboxChanged} />
+            <SelectBox tooltipContent={props.tooltipSW ? 'b,Wave Viewer Control: Select number of days for the date range. Changes the end date while keeping the start date fixed' : ''} optionList={daysOutList} value={props.daysOut} suffix=" days" name="daysout" ariaLabel="Days hold" compactLabel={compactToolbarControls ? true : undefined} sbChanged={selectboxChanged} />
           </div>
 
           {/* date2 is only shown on desktop for now  */}
@@ -3487,17 +3491,18 @@ const SeasonalBarChart = (props) => {
 
           <div className='barchart-controls-div tw-toolbar-control' style={StyleSeasonalYears}>
             {toolbarTitle('Years')}
-            <SelectBox tooltipContent={props.tooltipSW ? 'b,Select how many matching years to include: if Cycle Filter is Consecutive, “10 years” means the last 10 calendar years; if Cycle Filter is PE/PE+1/PE+2/PE+3, “10 years” means the most recent 10 years in that cycle category (for example, the last 10 PE+2 years).' : ''} optionList={includeSelectedWindowOption(seasonalYearsList, props.seasonalYears, 999)} value={props.seasonalYears} suffix=" years" name="years" sbChanged={selectboxChanged} />
+            <SelectBox tooltipContent={props.tooltipSW ? 'b,Select how many matching years to include: if Cycle Filter is Consecutive, “10 years” means the last 10 calendar years; if Cycle Filter is PE/PE+1/PE+2/PE+3, “10 years” means the most recent 10 years in that cycle category (for example, the last 10 PE+2 years).' : ''} optionList={includeSelectedWindowOption(seasonalYearsList, props.seasonalYears, 999)} value={props.seasonalYears} suffix=" years" name="years" ariaLabel="Years" compactLabel={compactToolbarControls ? true : undefined} sbChanged={selectboxChanged} />
           </div>
           <div className='barchart-controls-div tw-toolbar-control' style={StylePEselection} >
             {toolbarTitle('Cycle filter')}
-            <SelectBox optionList={PEselectionList} value={props.PEselected} suffix="" name="PEselection" sbChanged={selectboxChanged} tooltipContent={props.tooltipSW ? 'b,Choose which years are included: Consecutive uses the last N years in a row, while PE/PE+1/PE+2/PE+3 uses only years matching that Presidential Election cycle phase.)' : ''} />
+            <SelectBox optionList={PEselectionList} value={props.PEselected} suffix="" name="PEselection" ariaLabel="Cycle filter" compactLabel={compactToolbarControls ? true : undefined} sbChanged={selectboxChanged} tooltipContent={props.tooltipSW ? 'b,Choose which years are included: Consecutive uses the last N years in a row, while PE/PE+1/PE+2/PE+3 uses only years matching that Presidential Election cycle phase.)' : ''} />
           </div>
           <div className='barchart-controls-div tw-toolbar-actions' style={{ ...StyleMQtrs, alignItems: 'center', gap: '3px', flexShrink: 0 }}>
             <div className="tw-toolbar-control">
               {toolbarTitle('Analysis')}
             <SelectBox
               ariaLabel="Analysis"
+              compactLabel={compactToolbarControls ? true : undefined}
               tooltipContent={props.tooltipSW ? 'b,Run an analysis using the currently loaded pattern.' : ''}
               optionList={analysisActionsMenu}
               name="analysisActions"
@@ -3567,6 +3572,7 @@ const SeasonalBarChart = (props) => {
               {toolbarTitle('Date presets')}
             <SelectBox
               ariaLabel="Months and Quarters"
+              compactLabel={compactToolbarControls ? 'Presets' : undefined}
               tooltipContent={props.tooltipSW ? 'b,Choose a month, quarter, season, Year to Date, or Today to Year End. The selected shortcut replaces the current date range.' : ''}
               optionList={monthsAndQtrsMenu}
               name="monthsAndQtrs"

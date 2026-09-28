@@ -269,7 +269,7 @@
     box-sizing: border-box;
 }
 .barchart-controls--heading-layout.barchart-controls--narrow {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 .barchart-controls--heading-layout.barchart-controls--tight .barchart-controls-div {
     margin-left: 0;
@@ -322,3 +322,104 @@
 
 .barchart-controls--heading-layout #years { min-width: 76px; }
 .barchart-controls--heading-layout #PEselection { min-width: 96px; }
+
+/* Narrow desktop columns use their closed value, never a viewport-sized select.
+   Native options retain their full labels; headings do not impose min-content widths. */
+.barchart-controls--heading-layout.barchart-controls--narrow {
+    container-type: inline-size;
+    --tw-toolbar-control-font: clamp(9px, 1.45cqw, 12px);
+    gap: 0;
+}
+.barchart-controls--heading-layout.barchart-controls--narrow .tw-toolbar-control {
+    position: relative;
+    flex: 0 0 auto !important;
+    min-width: 22px;
+    height: 42px !important;
+    justify-content: flex-end !important;
+}
+.barchart-controls--heading-layout.barchart-controls--narrow .tw-toolbar-title {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 2px 0;
+    font-size: 8px;
+}
+.barchart-controls--heading-layout.barchart-controls--narrow .barchart-controls-div {
+    margin: 0;
+}
+.barchart-controls--heading-layout.barchart-controls--narrow .tw-toolbar-waves {
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+}
+.barchart-controls--heading-layout.barchart-controls--narrow .tw-toolbar-control > svg {
+    max-width: 24px;
+}
+.barchart-controls--heading-layout.barchart-controls--narrow .tw-select-compact {
+    position: relative;
+    min-height: 20px;
+    display: inline-grid !important;
+    width: auto !important;
+    font-size: var(--tw-toolbar-control-font);
+}
+.barchart-controls--narrow .tw-select-compact select,
+.barchart-controls--narrow .tw-select-compact-label {
+    grid-area: 1 / 1;
+}
+.barchart-controls--narrow .tw-select-compact select {
+    position: absolute;
+    inset: 0;
+    appearance: none;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 20px !important;
+    color: transparent !important;
+    font-size: inherit !important;
+}
+.barchart-controls--narrow .tw-select-compact-label {
+    position: relative;
+    padding: 0 13px 0 3px;
+    align-self: center;
+    pointer-events: none;
+    white-space: nowrap;
+}
+.barchart-controls--heading-layout.barchart-controls--narrow input[type=text] {
+    font-size: var(--tw-toolbar-control-font) !important;
+    height: 20px !important;
+    padding: 0 !important;
+    box-sizing: border-box;
+}
+.barchart-controls--heading-layout.barchart-controls--narrow #date {
+    width: 11ch;
+}
+.barchart-controls--heading-layout.barchart-controls--narrow #symbol {
+    width: max(32px, var(--tw-toolbar-ticker-width));
+}
+.barchart-controls--narrow button[aria-label^="Move start"] {
+    padding: 0 !important;
+}
+.barchart-controls--heading-layout.barchart-controls--narrow .tw-wave-date-range {
+    font-size: var(--tw-toolbar-control-font) !important;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 2px !important;
+}
+.barchart-controls--narrow input[type=checkbox] {
+    width: 13px;
+    height: 13px;
+    margin: 0;
+}
+.barchart-controls--narrow .tw-notify-btn {
+    min-width: 30px;
+    padding: 0 4px;
+    height: 20px;
+}
+
+.barchart-controls--narrow .tw-select-compact-label::after {
+    content: '\25BE';
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+}

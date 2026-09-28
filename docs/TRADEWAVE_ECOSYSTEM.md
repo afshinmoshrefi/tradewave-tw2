@@ -910,9 +910,14 @@ checks and restart verification are in `ops/OPERATIONS.md` and
   `tw_show_toolbar_titles` localStorage setting; disabling restores compact height.
   On desktop, `SeasonalBarChart.js` observes the chart toolbar's actual width and
   progressively shortens visible headings while keeping their full hover and
-  accessible names. The 15 controls stay on one row while their values fit;
-  narrower panels wrap whole controls. The compact title-off and phone paths keep
-  their existing layout. See `docs/tasks/TW-TASK-0012.md` for measured dev widths.
+  accessible names. Desktop controls never wrap. Narrow title mode sizes closed
+  select displays to their visible labels, omits redundant day/year suffixes under
+  their headings, and scales control text with the toolbar container. Native
+  dropdown options and selected-value hover text keep full labels, including
+  nonnumeric options such as All. Absolutely positioned native selects avoid
+  imposing their longest option's intrinsic width on the compact display; visible
+  carets preserve discoverability. Title-off and phone paths retain their layout.
+  See `docs/tasks/TW-TASK-0012.md` for measured dev widths and verification limits.
 - **AI-score eligibility is a TWO-part server contract (invariant, fixed 2026-08-16):**
   `OppList4` returns BOTH `ml_enabled` (market AND tier - may this user see AI scores
   here) and `ml_market_eligible` (market ONLY - `resourceID in

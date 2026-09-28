@@ -7,7 +7,7 @@ import { themeColors } from './Common'
 import Tippy from '@tippyjs/react'
 // import 'tippy.js/dist/tippy.css'
 
-const SelectBox = ({ optionList, value, name, suffix, sbChanged, tooltipContent, widthOverride, ariaLabel, fitContainer = false }) => {
+const SelectBox = ({ optionList, value, name, suffix, sbChanged, tooltipContent, widthOverride, ariaLabel, fitContainer = false, compactLabel }) => {
 
     const { rdd, globalTextSize, browserH, browserW, UITheme } = useContext(UserContext)
     const tc = themeColors(UITheme)
@@ -343,24 +343,29 @@ const SelectBox = ({ optionList, value, name, suffix, sbChanged, tooltipContent,
 
     // console.log('sb value=',value)
 
+    const selectedOption = optionList.find(option => String(option.value) === String(value))
+    const fullSelectedLabel = selectedOption ? `${selectedOption.label}${suffix2 || ''}`.trim() : String(value)
+    const compact = compactLabel !== undefined
+
     return (
-        <div style={fitContainer ? { width: '100%', minWidth: 0, display: 'flex', justifyContent: 'center' } : undefined}>
+        <div className={compact ? 'tw-select-compact' : undefined} style={fitContainer ? { width: '100%', minWidth: 0, display: 'flex', justifyContent: 'center' } : undefined}>
 
             <Tippy placement={ttp} disabled={!ttc} content={
                 <div theme="tw" >
                     {ttc}
                 </div>
             }>
-                <select aria-label={ariaLabel} onChange={sbChanged} id={name} value={value} style={{ fontSize: selectFontSize, backgroundColor: selectBackgroundColor, color: tc.selectText, border: '1px solid ' + tc.selectBorder, height: selectHeight, width: selectWidth, maxWidth: fitContainer ? '100%' : undefined, minWidth: fitContainer ? 0 : undefined, textAlign: textAligncustom, colorScheme: UITheme === 'dark' ? 'dark' : 'light' }}>
+                <select title={compact ? fullSelectedLabel : undefined} aria-label={ariaLabel} onChange={sbChanged} id={name} value={value} style={{ fontSize: selectFontSize, backgroundColor: selectBackgroundColor, color: tc.selectText, border: '1px solid ' + tc.selectBorder, height: selectHeight, width: selectWidth, maxWidth: fitContainer ? '100%' : undefined, minWidth: fitContainer ? 0 : undefined, textAlign: textAligncustom, colorScheme: UITheme === 'dark' ? 'dark' : 'light' }}>
                     {optionList.map((x) => (
                         // x.locked = an over-tier (e.g. above the years cap) option: grayed for the
                         // upgrade nudge but NOT disabled, so selecting it still fires onChange and the
                         // handler can open the upgrade dialog (a disabled <option> can't be clicked).
-                        <option key={x.id} value={x.value} hidden={x.hidden === true} disabled={x.type === 'SEP'} style={{ fontSize: globalTextSize, ...((x.type === 'SEP' || x.locked) ? { fontStyle: 'italic', color: '#999' } : {}) }}> {x.label}{suffix2} </option>
+                        <option key={x.id} value={x.value} hidden={x.hidden === true} disabled={x.type === 'SEP'} style={{ fontSize: globalTextSize, ...((x.type === 'SEP' || x.locked) ? { fontStyle: 'italic', color: '#999' } : compact ? { color: tc.selectText, backgroundColor: tc.selectBg } : {}) }}> {x.label}{suffix2} </option>
                     ))}
 
                 </select>
             </Tippy>
+            {compact && <span className="tw-select-compact-label" aria-hidden="true" style={{ color: tc.selectText }}>{compactLabel === true ? (selectedOption?.label ?? value) : compactLabel}</span>}
 
         </div>
     )
