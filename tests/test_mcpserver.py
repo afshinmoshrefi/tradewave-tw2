@@ -25,7 +25,7 @@ pytestmark = pytest.mark.unit
 def test_all_public_tools_have_async_boundaries():
     tool_names = (
         "find_best_opportunities", "analyze_symbol", "explain_pick", "morning_briefing",
-        "whats_seasonal_now", "compare_opportunities", "list_markets", "whoami",
+        "whats_seasonal_now", "compare_opportunities", "basket_scenarios", "list_markets", "whoami",
         "describe_tradewave", "list_symbols", "get_seasonal_opportunities",
         "get_symbol_patterns", "get_seasonal_pattern", "get_opportunity_chart",
         "score_opportunities", "get_daily_pick", "get_pick_track_record",
@@ -741,3 +741,23 @@ def test_compare_same_window_mode_calls_the_shared_compare_route(monkeypatch):
     calls.clear()
     _run(server.compare_opportunities(symbols=["NVDA", "PG"], ctx=None))
     assert sorted(path for path, _ in calls) == ["/analyze/NVDA", "/analyze/PG"]
+
+
+def test_basket_scenarios_posts_only_the_basket_contract(monkeypatch):
+    """TW-TASK-0014 item 4: educational-only basket - weights, never holdings or money."""
+    captured = {}
+
+    async def fake_post(path, body):
+        captured.update(path=path, body=body)
+        return {"horizons": []}
+
+    monkeypatch.setattr(server, "_post", fake_post)
+    result = _run(server.basket_scenarios(
+        basket=[{"symbol": "PG", "weight_pct": 60}, {"symbol": "NVDA", "weight_pct": 40}],
+        end_date="2027-07-18", pe_cycle="pe", years=10, benchmark="SPY", ctx=None))
+    assert captured["path"] == "/basket-scenarios"
+    assert captured["body"] == {"basket": [{"symbol": "PG", "weight_pct": 60},
+                                           {"symbol": "NVDA", "weight_pct": 40}],
+                                "end_date": "2027-07-18", "years": 10, "pe_cycle": "pe",
+                                "benchmark": "SPY"}
+    assert "do not direct the user to trade" in result

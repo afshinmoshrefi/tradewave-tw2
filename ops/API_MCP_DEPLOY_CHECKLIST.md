@@ -63,7 +63,7 @@ For EACH env (staging, then prod):
    (Dev/Pro/Business) so paid API signups resolve (the gateway reads prices from product metadata).
    See `web/api_portal/create_api_products.py`.
 7. **VERIFY (per env):**
-   - BYOK: a `tw_live_` key -> `GET /v1/markets` 200; MCP lists 17 tools (6 flagship + 11 primitives).
+   - BYOK: a `tw_live_` key -> `GET /v1/markets` 200; MCP lists 18 tools (7 flagship + 11 primitives).
    - Discovery: `POST https://<mcp-host>/` -> 401 + WWW-Authenticate(resource_metadata); `/.well-known/
      oauth-protected-resource` 200; the AuthKit `/.well-known/oauth-authorization-server` advertises
      `registration_endpoint`; `POST <authkit>/oauth2/register` returns a client_id (DCR on).

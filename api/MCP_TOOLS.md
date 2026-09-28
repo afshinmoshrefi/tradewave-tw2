@@ -7,9 +7,9 @@ REST mirror: the model reaches for a small set of FLAGSHIP tools that each retur
 ready, evidence-backed answer, and falls back to the low-level primitives only when
 it needs one exact slice.
 
-**Inventory: 17 tools - 6 flagship + 11 primitives.** Flagship:
+**Inventory: 18 tools - 7 flagship + 11 primitives.** Flagship:
 `find_best_opportunities`, `analyze_symbol`, `explain_pick`, `morning_briefing`,
-`whats_seasonal_now`, `compare_opportunities`. Primitives: `list_markets`, `whoami`, `describe_tradewave`,
+`whats_seasonal_now`, `compare_opportunities`, `basket_scenarios`. Primitives: `list_markets`, `whoami`, `describe_tradewave`,
 `list_symbols`, `get_seasonal_opportunities`, `get_symbol_patterns`,
 `get_seasonal_pattern`, `get_opportunity_chart`, `score_opportunities`,
 `get_daily_pick`, `get_pick_track_record`. (There is NO `get_opportunity_for_symbol`;
@@ -81,7 +81,8 @@ pick's ML is free/unmetered (it is the teaser). Responses include `ml_remaining_
 | `explain_pick` | - | the latest published pick, with its featured date and staleness note, as a PatternCard WITH its live forward-tested track record (the strongest receipt) | `GET /v1/daily-pick` | all |
 | `morning_briefing` | - | the one-call MORNING BRIEFING: the latest published pick (decision view), the live track-record summary with the last 5 outcomes, and the top setups entering their window now; sections fail-soft (a degraded briefing beats no briefing) | `GET /v1/daily-pick` + `GET /v1/daily-pick/track-record` + `GET /v1/scan` (composed, parallel) | all |
 | `whats_seasonal_now` | `markets?`, `min_win_rate?`, `view?` (full\|decision\|table; default `decision`) | setups entering their window in the next 14 calendar days, as ranked PatternCards (weekly digest) | `GET /v1/scan` with `window="now"` | all |
-| `compare_opportunities` | `symbols[]` (2-10), `market?`, `view?` (full\|decision\|table; default `decision`) | N symbols deep-dived and returned side-by-side for head-to-head ranking | N x `GET /v1/analyze/{symbol}` | all (ML metered daily) |
+| `compare_opportunities` | `symbols[]` (2-10), `market?`, `view?` (full\|decision\|table; default `decision`); same-window mode: `entry_date` + `days_out` or `period`, `years?`, `pe_cycle?`, `direction?` | Without a window: N symbols deep-dived side-by-side (each its own best setup). With a window: every symbol on ONE shared setup and the SAME completed years (the app's Symbol Comparison): average, typical, profitable years, best/worst year, average MFE/MAE, deepest drop, Sharpe, cumulative, same-years buy-and-hold benchmark, yearly results, and deterministic findings (tied leaders named; a newer symbol's shorter history explained) | N x `GET /v1/analyze/{symbol}`, or `GET /v1/compare` | all (ML metered daily) |
+| `basket_scenarios` | `basket[]` (1-15 of `{symbol, weight_pct, market?, direction?}`), `end_date?` or `custom_days?`, `horizons?` (30\|60\|90\|eoy\|custom), `start_date?`, `years?`, `pe_cycle?`, `benchmark?` | a HYPOTHETICAL weighted basket measured from one start date over each horizon and the same completed years (the app's Portfolio Scenarios math, in percentages): average/middle result, best/worst year, years up/down, yearly results with each symbol's contribution, optional benchmark on the same years, summary lines. Educational-only: weights only - never holdings, share counts, dollars, cost basis or P&L | `POST /v1/basket-scenarios` | all |
 
 - `find_best_opportunities` is THE "what should I trade right now" entry point; the
   description is opinionated so the model reaches for it on "find me / what's good /
@@ -107,6 +108,9 @@ pick's ML is free/unmetered (it is the teaser). Responses include `ml_remaining_
   also carries a server-generated `wave_viewer.url` for the exact market, symbol, date,
   hold, lookback, PE-cycle selection, and long/short direction. The link can load an exact
   research window even when the opportunity table has no detected rows.
+- **Buy-and-hold benchmark:** `analyze_symbol` cards carry `benchmark` - the window's compounded
+  return vs holding the symbol Jan 1 to Jan 1 over the same completed years (the app's canonical
+  Buy & Hold range and Stats Table compounding); `table` view adds `beats_buy_hold`.
 - **Completed evidence:** summary statistics, year-by-year returns and bars share one
   completed cohort and trade direction. Active partials are excluded. `stats.years` is the
   requested lookback; `years_tested` is the sample count reported in MCP text. Pinned

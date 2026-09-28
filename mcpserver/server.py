@@ -1527,6 +1527,67 @@ async def compare_opportunities(
     )
 
 
+# ---------------------------------------------------------------------------
+# Flagship: basket_scenarios
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(
+    description=(
+        "Study a HYPOTHETICAL basket of symbols with percentage weights against history - the "
+        "TradeWave app's Portfolio Scenarios math, in percentages. REACH FOR THIS when the user "
+        "wants to test a strategy mix before starting it: 'how did 40% PG, 30% WMT, 30% NVDA do "
+        "from late September to July 18 in past midterm years', 'what was the worst year for "
+        "this mix', 'did it beat SPY'. Every symbol is measured from the same start date over the "
+        "same horizon and the SAME completed years; each past year's basket result is the "
+        "weighted sum of the symbols' returns that year. Returns per horizon: average and middle "
+        "result, best and worst year, years up/down, every year's result, each symbol's "
+        "contribution, an optional benchmark (e.g. SPY) on the same years, and plain summary "
+        "lines. EDUCATIONAL-ONLY: accepts only symbols and weight_pct - never holdings, share "
+        "counts, dollar amounts, cost basis or P&L - and describes history; never tell the user "
+        "to buy, sell, or change a position. Historical outcomes are research, not a forecast."
+    )
+)
+@_tool_errors
+async def basket_scenarios(
+    basket: Annotated[list[dict[str, Any]], Field(min_length=1, max_length=15, description=(
+        "Hypothetical mix: [{'symbol': 'PG', 'weight_pct': 40}, {'symbol': 'NVDA', "
+        "'weight_pct': 60}]; optional 'market' id and 'direction' ('long' default or "
+        "'short'). Weights are normalized to 100."))],
+    end_date: Annotated[Optional[str], Field(description=(
+        "Scenario end date YYYY-MM-DD (adds a custom horizon), e.g. '2027-07-18'."))] = None,
+    horizons: Annotated[Optional[list[str]], Field(description=(
+        "Any of '30', '60', '90', 'eoy', 'custom' (default 30/60/90/eoy, or custom when "
+        "end_date is given)."))] = None,
+    custom_days: Annotated[Optional[int], Field(description=(
+        "Custom horizon length in calendar days (1-366), instead of end_date."))] = None,
+    start_date: Annotated[Optional[str], Field(description=(
+        "Scenario start YYYY-MM-DD (default today)."))] = None,
+    years: Annotated[Optional[int], Field(description=(
+        "How many completed years to study (default 10); in PE mode, election-cycle years."))] = None,
+    pe_cycle: Annotated[Optional[str], Field(description=(
+        "'consecutive' (default), 'pe' (the current cycle year type), or 'pe0'..'pe3'."))] = None,
+    benchmark: Annotated[Optional[str], Field(description=(
+        "Optional benchmark symbol measured on the same years, e.g. 'SPY'."))] = None,
+    ctx: Optional[Context] = None,
+) -> str:
+    _bind_request_key(ctx)
+    body: dict[str, Any] = {"basket": basket}
+    for key, value in (("end_date", end_date), ("horizons", horizons), ("custom_days", custom_days),
+                       ("start_date", start_date), ("years", years), ("pe_cycle", pe_cycle),
+                       ("benchmark", benchmark)):
+        if value is not None:
+            body[key] = value
+    data = await _post("/basket-scenarios", body)
+    return _lead(
+        f"Historical scenario for a hypothetical {len(basket)}-symbol basket - lead with each "
+        "horizon's summary lines (average, worst year, benchmark), then the yearly table. "
+        "Describe the history; do not direct the user to trade:",
+        data,
+        handoff=True,
+    )
+
+
 # ===========================================================================
 # LOW-LEVEL PRIMITIVES - prefer the flagships above unless you need an exact slice.
 # ===========================================================================

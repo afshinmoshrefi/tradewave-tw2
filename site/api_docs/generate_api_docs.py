@@ -3,14 +3,14 @@
 TradeWave API developer-docs generator.
 
 Reads  /home/flask/api/openapi.yaml   (the frozen REST contract)
-Reads  /home/flask/api/MCP_TOOLS.md   (17 MCP tools - 6 flagship + 11 primitives)
+Reads  /home/flask/api/MCP_TOOLS.md   (18 MCP tools - 7 flagship + 11 primitives)
 Reads  /home/flask/apiserver/tiers.py (tier limits - imported directly)
 Writes 7 static HTML files into the same directory as this script:
 
   quickstart.html    - get a key + first call in 5 minutes
   authentication.html - Bearer auth, key creation/rotation, BYOK for MCP
   api-reference.html  - all 13 endpoints, regenerated from openapi.yaml
-  mcp-reference.html  - 17 tools (6 flagship + 11 primitives) + OAuth and BYOK connection paths
+  mcp-reference.html  - 18 tools (7 flagship + 11 primitives) + OAuth and BYOK connection paths
   data-dictionary.html - every field + all 15 live markets defined in plain English
   rate-limits.html    - per-tier limits, headers, error shape, upgrade stub
   changelog.html      - v1 release notes
@@ -1452,7 +1452,7 @@ def build_mcp_reference() -> str:
 """
     body = f"""
 <h1>MCP Reference</h1>
-<p>The TradeWave MCP server exposes 17 tools (6 flagship + 11 primitives) for detected seasonal patterns, ML scoring, chart data, and the published daily-pick record. ChatGPT and Claude authorize a TradeWave account. Other developer clients can use OAuth when compatible or the developer bearer-authentication path. Access follows the account or developer credential used for the connection.</p>
+<p>The TradeWave MCP server exposes 18 tools (7 flagship + 11 primitives) for detected seasonal patterns, ML scoring, chart data, and the published daily-pick record. ChatGPT and Claude authorize a TradeWave account. Other developer clients can use OAuth when compatible or the developer bearer-authentication path. Access follows the account or developer credential used for the connection.</p>
 {preview_banner}
 <div class="callout">
   <p><strong>A research partner, not a black box.</strong> TradeWave supplies seasonal and machine-learning evidence about timing. It is blind to fundamentals, valuation, news, catalysts, macro/rates, analyst views, earnings dates, and the live price. It is designed to pair with the assistant's own web, news, and reasoning tools: TradeWave gives the seasonal/ML edge, the assistant extends it with fundamentals/news/macro, and the two synthesize one view. Every card carries a research hand-off, and the <code class="inline-code">describe_tradewave</code> tool self-documents the method. Tools use progressive disclosure - a one-line decision by default, full receipts / the Trend Chart data on request.</p>
@@ -1715,10 +1715,10 @@ def build_mcp_reference() -> str:
 """
     return page(
         title="MCP Reference",
-        description="TradeWave MCP server - 17 tools (6 flagship + 11 primitives) for AI assistants, plus connection instructions for ChatGPT, Claude.ai, Claude Desktop, and Cursor.",
+        description="TradeWave MCP server - 18 tools (7 flagship + 11 primitives) for AI assistants, plus connection instructions for ChatGPT, Claude.ai, Claude Desktop, and Cursor.",
         active_href="mcp-reference.html",
         hero_title="MCP Reference",
-        hero_sub="17 tools for AI assistants (6 flagship + 11 primitives) - sign in from ChatGPT or Claude, or connect with your own API key.",
+        hero_sub="18 tools for AI assistants (7 flagship + 11 primitives) - sign in from ChatGPT or Claude, or connect with your own API key.",
         body=body,
     )
 

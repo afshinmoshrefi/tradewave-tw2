@@ -36,7 +36,7 @@ def _generated_manifest():
 MANIFEST = _generated_manifest()
 
 _FLAGSHIP = ["find_best_opportunities", "analyze_symbol", "explain_pick",
-             "morning_briefing", "whats_seasonal_now", "compare_opportunities"]
+             "morning_briefing", "whats_seasonal_now", "compare_opportunities", "basket_scenarios"]
 _PRIMITIVES = ["list_markets", "whoami", "describe_tradewave", "list_symbols",
                "get_seasonal_opportunities", "get_symbol_patterns", "get_seasonal_pattern",
                "get_opportunity_chart", "score_opportunities", "get_daily_pick",
@@ -58,22 +58,22 @@ def _server_tool_names():
     return names
 
 
-# --- the tool surface is exactly the 17, everywhere ------------------------------
+# --- the tool surface is exactly the 18, everywhere ------------------------------
 
-def test_server_defines_exactly_the_17_tools_flagship_first():
+def test_server_defines_exactly_the_18_tools_flagship_first():
     assert _server_tool_names() == _EXPECTED_TOOLS
 
 
 def test_manifest_matches_the_live_tool_surface():
     manifest_names = [t["name"] for t in MANIFEST["tools"]]
-    assert manifest_names == _EXPECTED_TOOLS          # 17, flagship-first, derived from server.py
+    assert manifest_names == _EXPECTED_TOOLS          # 18, flagship-first, derived from server.py
 
 
 def test_deploy_checklist_uses_current_mcp_and_stripe_inventory():
     checklist = (REPO / "ops" / "API_MCP_DEPLOY_CHECKLIST.md").read_text(
         encoding="utf-8"
     )
-    assert "MCP lists 17 tools (6 flagship + 11 primitives)" in checklist
+    assert "MCP lists 18 tools (7 flagship + 11 primitives)" in checklist
     assert "MCP lists 15 tools" not in checklist
     assert "3 paid API products with their monthly prices (monthly only - no annual)" in checklist
 

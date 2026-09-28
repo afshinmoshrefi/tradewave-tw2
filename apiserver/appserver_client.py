@@ -667,7 +667,7 @@ def appserver_opportunities_safe(market, entry_date, year1, year2, direction, mo
 
 # --------------------------- patterns / chart data -------------------------
 
-def _chart_data(market, symbol, entry_date, days_out, years, direction=None):
+def _chart_data(market, symbol, entry_date, days_out, years, direction=None, completed_years=None):
     """Raw ChartData4 fetch from a public/display window.
 
     ``days_out`` is the inclusive calendar-day count exposed by the gateway.  Convert it
@@ -680,6 +680,9 @@ def _chart_data(market, symbol, entry_date, days_out, years, direction=None):
     params = {"exact_window": "1"}
     if direction:
         params["comparison_direction"] = _dir_to_public(direction)
+    if completed_years:
+        # The app's report mode: exactly N COMPLETED years, skipping the in-progress one.
+        params["report_completed_years"] = str(int(completed_years))
     data = get(path, params=params)
     if not isinstance(data, dict) or "ChartData4" not in data or not isinstance(data.get("stats"), dict):
         raise requests.RequestException("chart engine returned an invalid response")
@@ -694,6 +697,8 @@ def _chart_data(market, symbol, entry_date, days_out, years, direction=None):
             raise requests.RequestException("chart engine did not honor the requested window or lookback")
         if direction and effective.get("comparison_direction") != _dir_to_public(direction):
             raise requests.RequestException("chart engine did not honor the requested direction")
+        if completed_years and str(effective.get("report_completed_years")) != str(int(completed_years)):
+            raise requests.RequestException("chart engine did not honor the completed-years request")
     chart = data["ChartData4"]
     stats = data["stats"]
     # Only the documented gap sentinel is absence. An unexpected status or damaged
@@ -730,7 +735,8 @@ def pattern_stats(market, symbol, entry_date, days_out="30", years="10", directi
     }
 
 
-def chart_stats_and_years(market, symbol, entry_date, days_out, years, direction=None):
+def chart_stats_and_years(market, symbol, entry_date, days_out, years, direction=None,
+                          completed_years=None):
     """Return (stats, chart_entries) for ONE setup: the ChartData4 stats dict PLUS the raw
     per-year entries [{year, pct, price}]. cards.py consumes the per-year entries (parsing
     the NET pct only and DROPPING price) to build the per_year receipts. This is the single
@@ -743,7 +749,8 @@ def chart_stats_and_years(market, symbol, entry_date, days_out, years, direction
         so the caller stamps the card receipts_unavailable instead of rendering a
         confident no-edge from missing data. Either way a multi-row scan never aborts."""
     try:
-        chart, stats = _chart_data(market, symbol, entry_date, days_out, years, direction=direction)
+        chart, stats = _chart_data(market, symbol, entry_date, days_out, years, direction=direction,
+                                   completed_years=completed_years)
     except requests.RequestException as e:
         log.warning("chart_stats_and_years FETCH FAILED for %s/%s (days_out=%s): %s",
                     market, symbol, days_out, e)

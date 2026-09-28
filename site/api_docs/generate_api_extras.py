@@ -62,7 +62,7 @@ _SCORE_BODY = {
 # We never import server.py (it pulls in fastmcp + the full server runtime); we read it as text
 # and walk the AST, so this generator stays a pure, dependency-light build step. For every
 # @mcp.tool-decorated function we take the def name and its description= kwarg (an implicitly
-# concatenated string literal). Source order is preserved (server.py defines the 6 flagships
+# concatenated string literal). Source order is preserved (server.py defines the 7 flagships
 # first, then the 11 primitives), so the manifest cannot drift from the live tool surface.
 
 # Sentence terminators followed by whitespace + the start of a new sentence. We require the next

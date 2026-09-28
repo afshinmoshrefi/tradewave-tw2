@@ -1331,7 +1331,7 @@ paid standalone API price display remains separately gated as described below.
 - **MCP server** `mcpserver/` (named to not shadow the `mcp` SDK). FastMCP,
   streamable-http mounted at the ROOT (the BARE host is the canonical published
   connector URL; `/mcp` is kept as an alias), dev `127.0.0.1:9090`, systemd
-  `tradewave-mcpserver`. 17 tools (6 flagship + 11 primitives), thin HTTP wrapper
+  `tradewave-mcpserver`. 18 tools (7 flagship + 11 primitives), thin HTTP wrapper
   over the gateway. Auth, two modes: ChatGPT, Claude.ai, and Claude Desktop can
   connect through OAuth - paste the URL and sign in with the TradeWave account
   (WorkOS AuthKit AS, RFC 9728 discovery; see `docs/MCP_OAUTH_INTEGRATION.md`). Cursor
@@ -1353,7 +1353,7 @@ paid standalone API price display remains separately gated as described below.
   #1 drift class); `api/MCP_TOOLS.md` is the MCP tool SSOT - sync `build_mcp_reference()`
   to it + `mcpserver/server.py` whenever tools change.
 
-**Contract:** `api/openapi.yaml` (12 endpoints) + `api/MCP_TOOLS.md` (17 tools - 6
+**Contract:** `api/openapi.yaml` (14 endpoints) + `api/MCP_TOOLS.md` (18 tools - 7
 flagship + 11 primitives).
 
 **Future enhancements:** `api/MCP_INTEGRATION_ROADMAP.md` owns the maintained MCP/API

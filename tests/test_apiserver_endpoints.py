@@ -990,6 +990,57 @@ def test_compare_upstream_failure_is_retryable_not_a_wrong_answer(client, monkey
     assert response.status_code == 503
 
 
+def test_basket_scenarios_measure_weights_on_one_start_date(client, monkeypatch):
+    """TW-TASK-0014 item 4."""
+    from apiserver import appserver_client as ac
+
+    calls = []
+    _mock_card_chain(monkeypatch)
+    monkeypatch.setattr(ac, "resolve_market_for_symbol",
+                        lambda sym, scope: ["11"] if sym == "SPY" else ["2"])
+
+    def chart(market, symbol, entry, days, years, direction=None, completed_years=None):
+        calls.append((symbol, market, entry, days, years, direction, completed_years))
+        return {}, [{"year": y, "pct": "10.00,12.00,-2.00", "price": "1,1"} for y in range(2016, 2026)]
+
+    monkeypatch.setattr(ac, "chart_stats_and_years", chart)
+
+    response = client.post("/v1/basket-scenarios", headers=_hdr(), json={
+        "basket": [{"symbol": "PG", "weight_pct": 3}, {"symbol": "NVDA", "weight_pct": 1}],
+        "start_date": "2026-09-28", "end_date": "2027-07-18", "years": 10, "pe_cycle": "pe",
+        "benchmark": "SPY"})
+
+    assert response.status_code == 200, response.get_json()
+    body = response.get_json()
+    assert body["settings"]["weights_normalized_to_100"] is True
+    assert [b["weight_pct"] for b in body["basket"]] == [75.0, 25.0]
+    assert ("PG", "2", "2026-09-28", 294, "pe2-10", "long", 10) in calls
+    assert ("SPY", "11", "2026-09-28", 294, "pe2-10", "long", 10) in calls
+    horizon = body["horizons"][0]
+    assert horizon["key"] == "custom" and horizon["mean_change_pct"] == 10.0
+    assert horizon["benchmark"]["symbol"] == "SPY" and horizon["summary"]
+
+
+@pytest.mark.parametrize("entry", [
+    {"symbol": "PG", "amount": 25000},
+    {"symbol": "PG", "shares": 10, "weight_pct": 50},
+    {"symbol": "PG", "weight_pct": 50, "cost_basis": 100},
+])
+def test_basket_scenarios_refuse_holdings_and_money(client, monkeypatch, entry):
+    """Educational-only policy 2026-06-08: never ingest holdings, share counts or dollars."""
+    _mock_card_chain(monkeypatch)
+    response = client.post("/v1/basket-scenarios", headers=_hdr(), json={"basket": [entry]})
+    assert response.status_code == 400
+
+
+def test_basket_scenarios_reject_long_custom_horizon(client, monkeypatch):
+    _mock_card_chain(monkeypatch)
+    response = client.post("/v1/basket-scenarios", headers=_hdr(), json={
+        "basket": [{"symbol": "PG", "weight_pct": 100}], "start_date": "2026-01-01",
+        "end_date": "2027-06-01"})
+    assert response.status_code == 400
+
+
 def test_analyze_include_chart_attaches_inline(client, monkeypatch):
     _mock_card_chain(monkeypatch, by_symbol=[_opp()],
                      curve=[{"date": "2026-07-01", "index": 40.0}, {"date": "2026-07-02", "index": 41.0}])

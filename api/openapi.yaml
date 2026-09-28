@@ -358,6 +358,74 @@ paths:
                 oneOf:
                   - $ref: "#/components/schemas/ScoreResponse"
                   - $ref: "#/components/schemas/MLDailyLimitReached"
+  /compare:
+    get:
+      tags: [patterns]
+      summary: Compare 2-10 symbols on one shared window and the same completed years
+      description: >
+        The app's Symbol Comparison: every symbol is measured on one setup (entry_date +
+        days_out, or a period preset; years; pe_cycle; direction) and restricted to the
+        completed years all symbols share (latest `years` of them, minimum 5 for
+        can_compare). Returns per-symbol metrics (average, median, profitable %, best/worst
+        year, average MFE/MAE, deepest drop, Sharpe, cumulative), a same-years buy-and-hold
+        benchmark, yearly results, and deterministic findings. Percentages only.
+      parameters:
+        - { name: symbols, in: query, required: true, schema: { type: string }, description: "comma-separated, 2-10 distinct tickers" }
+        - { name: market, in: query, schema: { type: string } }
+        - { name: entry_date, in: query, schema: { type: string, format: date } }
+        - { name: days_out, in: query, schema: { type: integer } }
+        - { name: period, in: query, schema: { type: string } }
+        - { name: years, in: query, schema: { type: integer, default: 10 } }
+        - { name: pe_cycle, in: query, schema: { type: string } }
+        - { name: direction, in: query, schema: { type: string, enum: [long, short] } }
+      responses:
+        "200": { description: "OK - setup, common_years, years_used, can_compare, rows[], findings[]" }
+        "400": { description: "invalid request - fewer than 2 symbols, duplicates, or no shared window" }
+        "503": { description: "evidence temporarily unavailable - retry" }
+  /basket-scenarios:
+    post:
+      tags: [patterns]
+      summary: Historical scenarios for a hypothetical weighted basket (educational-only)
+      description: >
+        The app's Portfolio Scenarios math in percentages for a HYPOTHETICAL basket of 1-15
+        symbols with weight_pct (normalized to 100). Every symbol is measured from one
+        start date over each horizon (30, 60, 90, eoy, custom up to 366 days / end_date) and
+        the same completed years. Returns average/median result, best/worst year, years
+        up/down, yearly results with contributions, optional same-years benchmark, and
+        summary lines. Accepts only symbol, weight_pct, market and direction - never
+        holdings, share counts, dollar amounts, cost basis or P&L.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [basket]
+              properties:
+                basket:
+                  type: array
+                  minItems: 1
+                  maxItems: 15
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [symbol, weight_pct]
+                    properties:
+                      symbol: { type: string }
+                      weight_pct: { type: number, exclusiveMinimum: 0 }
+                      market: { type: string }
+                      direction: { type: string, enum: [long, short] }
+                start_date: { type: string, format: date }
+                end_date: { type: string, format: date }
+                horizons: { type: array, items: { type: string, enum: ["30", "60", "90", eoy, custom] } }
+                custom_days: { type: integer, minimum: 1, maximum: 366 }
+                years: { type: integer, minimum: 1, maximum: 50 }
+                pe_cycle: { type: string }
+                benchmark: { type: string }
+      responses:
+        "200": { description: "OK - settings, basket[], horizons[]" }
+        "400": { description: "invalid request" }
+        "503": { description: "evidence temporarily unavailable - retry" }
   /daily-pick:
     get:
       tags: [daily-pick]

@@ -1710,6 +1710,131 @@ def compare_symbols():
     })
 
 
+_BASKET_MAX_SYMBOLS = 15
+
+
+@v1.post("/basket-scenarios")
+@require_api_key
+def basket_scenarios():
+    """Historical scenarios for a HYPOTHETICAL basket of symbols with percentage weights - the
+    app's Portfolio Scenarios math in percentages. Educational-only (owner policy 2026-06-08):
+    no holdings, share counts, dollar amounts, cost basis or P&L are accepted or returned.
+    Body: {basket: [{symbol, weight_pct, market?, direction?}], start_date?,
+    horizons?: ['30','60','90','eoy','custom'], custom_days?, end_date?, years?: 10,
+    pe_cycle?, benchmark?: 'SPY', benchmark_market?}."""
+    from . import scenarios as sc
+
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return _err("invalid_request", "JSON body with 'basket' is required", 400)
+    raw = body.get("basket")
+    if not isinstance(raw, list) or not raw or len(raw) > _BASKET_MAX_SYMBOLS:
+        return _err("invalid_request", "'basket' must list 1 to %d symbols" % _BASKET_MAX_SYMBOLS, 400)
+    try:
+        start = datetime.date.fromisoformat(str(body.get("start_date") or _today()))
+        end_date = body.get("end_date")
+        custom_days = body.get("custom_days")
+        horizons = [str(h) for h in (body.get("horizons") or (["custom"] if end_date else ["30", "60", "90", "eoy"]))]
+        if end_date:
+            custom_days = (datetime.date.fromisoformat(str(end_date)) - start).days + 1
+            if "custom" not in horizons:
+                horizons.append("custom")
+        if not 1 <= len(horizons) <= 5 or len(set(horizons)) != len(horizons) \
+                or any(h not in sc.HORIZON_KEYS for h in horizons):
+            raise ValueError("horizons must be 1 to 5 distinct values from 30, 60, 90, eoy, custom")
+        if "custom" in horizons and (isinstance(custom_days, bool) or not isinstance(custom_days, int)
+                                     or not 1 <= custom_days <= 366):
+            raise ValueError("custom horizon must be 1 to 366 calendar days (custom_days or end_date)")
+        count = body.get("years", 10)
+        if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= 50:
+            raise ValueError("years must be an integer from 1 to 50")
+        pe_cycle = str(body.get("pe_cycle") or "consecutive").lower()
+        if pe_cycle not in ("consecutive", "pe", "pe0", "pe1", "pe2", "pe3"):
+            raise ValueError("pe_cycle must be consecutive, pe, or pe0..pe3")
+        yrs = _chart_years(pe_cycle, count)
+        basket = []
+        for item in raw:
+            if not isinstance(item, dict):
+                raise ValueError("each basket entry must be an object")
+            if set(item) - {"symbol", "weight_pct", "market", "direction"}:
+                raise ValueError("basket entries accept only symbol, weight_pct, market and direction")
+            sym = str(item.get("symbol") or "").strip().upper()
+            if not _SYMBOL_RE.fullmatch(sym):
+                raise ValueError("invalid symbol '%s'" % sym)
+            weight = item.get("weight_pct")
+            if isinstance(weight, bool) or not isinstance(weight, (int, float)) or weight <= 0:
+                raise ValueError("every symbol needs a positive weight_pct")
+            direction = _direction_arg(item.get("direction")) or "long"
+            basket.append({"symbol": sym, "market": item.get("market"), "weight_pct": float(weight),
+                           "direction": appserver_client._dir_to_public(direction)})
+        if len({b["symbol"] for b in basket}) != len(basket):
+            raise ValueError("each symbol may appear once")
+        total = sum(b["weight_pct"] for b in basket)
+        normalized = abs(total - 100) > 1e-9
+        for b in basket:
+            b["weight_pct"] = b["weight_pct"] * 100 / total
+        bench = str(body.get("benchmark") or "").strip().upper() or None
+        if bench and not _SYMBOL_RE.fullmatch(bench):
+            raise ValueError("invalid benchmark symbol")
+    except ValueError as e:
+        return _err("invalid_request", str(e), 400)
+
+    bench_holder = {"symbol": bench, "market": body.get("benchmark_market")} if bench else None
+    for b in basket + ([bench_holder] if bench else []):
+        r = _demo_guard_symbol(b["symbol"])
+        if r:
+            return r
+        market = b.get("market")
+        if market:
+            market, m_err = _market_arg(str(market))
+            if m_err:
+                return m_err
+        else:
+            market = _resolve_symbol_market(b["symbol"], None)
+        if not market:
+            return _err("not_found", "symbol '%s' not found in any of your in-scope markets" % b["symbol"], 404)
+        scope_err = _require_scope(market)
+        if scope_err:
+            return scope_err
+        b["market"] = market
+
+    windows = {key: sc.horizon_window(start, key, custom_days) for key in horizons}
+    jobs = [(b["symbol"], b["market"], b["direction"], key) for key in horizons for b in basket]
+    if bench:
+        jobs += [(bench, bench_holder["market"], "long", key) for key in horizons]
+
+    def fetch(job):
+        sym, market, direction, key = job
+        _end, days = windows[key]
+        _stats, entries = appserver_client.chart_stats_and_years(
+            market, sym, start.isoformat(), days, yrs, direction=direction, completed_years=count)
+        return job, entries
+
+    fetched = parallel_map(fetch, jobs, max_workers=8)
+    failed = sorted({job[0] for job, entries in fetched if entries is None})
+    if failed:
+        return _err("upstream_unavailable",
+                    "evidence temporarily unavailable for %s - retry shortly" % ", ".join(failed), 503)
+    evidence = {(job[0], job[3]): sc.annual_returns(entries, job[2]) for job, entries in fetched}
+    results = []
+    for key in horizons:
+        end, days = windows[key]
+        annual = {b["symbol"]: evidence[(b["symbol"], key)] for b in basket}
+        result = sc.horizon(basket, annual, start, end, days, key,
+                            benchmark=(bench, evidence[(bench, key)]) if bench else None)
+        result["summary"] = sc.summary(result)
+        results.append(result)
+    return jsonify({
+        "settings": {"start_date": start.isoformat(), "years": yrs, "horizons": horizons,
+                     "custom_days": custom_days if "custom" in horizons else None,
+                     "benchmark": bench, "weights_normalized_to_100": normalized},
+        "basket": [{"symbol": b["symbol"], "market": b["market"], "direction": b["direction"],
+                    "weight_pct": round(b["weight_pct"], 2)} for b in basket],
+        "horizons": results,
+        "disclaimer": cards.DISCLAIMER, "as_of": _today(),
+    })
+
+
 @v1.get("/patterns/<market_id>/<symbol>")
 @require_api_key
 def pattern(market_id, symbol):
