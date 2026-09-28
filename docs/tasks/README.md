@@ -17,4 +17,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0011](TW-TASK-0011.md) | fixed | Portfolio import and historical scenarios live on dev; core browser/engine checks pass; native PDF layout verification pending |
 | [TW-TASK-0012](TW-TASK-0012.md) | verified on dev | Single-row responsive desktop toolbar and persisted General switch |
 | [TW-TASK-0013](TW-TASK-0013.md) | verified on dev | Tara knowledge for recent Wave Viewer controls |
-| [TW-TASK-0014](TW-TASK-0014.md) | in-progress | Strategy Lab MCP capabilities: ETFs, buy-and-hold, same-window compare, scenarios, shared charts (Phase 1 claimed) |
+| [TW-TASK-0014](TW-TASK-0014.md) | in-progress | Strategy Lab MCP: ETF analysis, buy-and-hold benchmark, same-window compare live on dev; scenarios, shared charts, from-today next |

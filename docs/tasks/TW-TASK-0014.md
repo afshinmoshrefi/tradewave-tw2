@@ -1,6 +1,6 @@
 # TW-TASK-0014: Strategy Lab MCP capabilities (AI-run seasonal strategies anyone can copy)
 
-- Status: in-progress (items 1-2 verified on dev; items 3-6 next)
+- Status: in-progress (items 1-3 verified on dev; items 4-6 next)
 - Confidence: reproduced (each gap below was observed through the live production MCP connector on 2026-09-28)
 - Priority: P2 - blocks the public Strategy Lab video series and the "connect TradeWave to Claude or ChatGPT and run your own idea" user flow
 - First observed / last updated: 2026-09-28 20:30 UTC
@@ -67,6 +67,14 @@ Item 2 (buy-and-hold benchmark):
 - `cards.buy_hold_window` (app canonical Jan 1 - Jan 1) and `cards.buy_hold_benchmark` (same completed years by label; Stats Table compounding); analyze adds `card.benchmark` and `beats_buy_hold` in table view; a failed Buy & Hold fetch leaves the card unchanged. New tests in `tests/test_cards.py` and `tests/test_apiserver_endpoints.py`. Full suite: 1485 passed, 5 skipped, 0 failed.
 - Live dev: SPY 2026-09-27/295d, last 8 midterm years: window +222.18% vs buy-and-hold +16.91% cumulative over 7 shared years (avg 18.58% vs 3.73%; window better in 6 of 7). SPGI 2026-09-28/308d/20y: +2339.63% vs +1308.36% (window better in 10 of 20 years). Stock and ETF outputs from item 1 unchanged.
 - Release gate after activation: PASS on first run (p95 12.4 s, 0% errors).
+Item 3 (same-window compare):
+- New `apiserver/compare.py` mirrors the app's Symbol Comparison (`web-react/src/components/analysisReportData.js`): direction-aware yearly results, restriction to the completed years all symbols share (latest N), the app's metrics (profitable = return >= 0; Sharpe with 4% risk-free scaled by days; compounded cumulative), minimum 5 shared years, same-years buy-and-hold per symbol, deterministic findings that name every tied leader and explain when a newer symbol shortens the shared history. New route `GET /v1/compare`; MCP `compare_opportunities` gains a same-window mode (entry_date/days_out or period, years, pe_cycle, direction) and is unchanged without it.
+- Tests: `tests/test_compare.py` (6), 3 route tests, 1 MCP test. Full suite 1496 passed, 5 skipped; MCP suite (venv-api) 57 passed.
+- Live dev: NVDA/WMT/PG, 2026-09-28/294d, midterm years: 6 shared years (NVDA has 6, WMT 13, PG 15); NVDA avg +76.61%, deepest drop -55.67%; PG avg +11.98%, worst year -0.43%; "NVDA and PG were profitable most often, in 5 of 6 years." Big 7, 20y: 13 shared years (META). SPY/GLD/TLT Q4, 15y: SPY +5.82% avg, 13 of 15 profitable. First live run exposed a tie named as a single leader; fixed in `dcda9a8`.
+- Release gate after activation: PASS (p95 13.6 s, 0% errors).
+
+Process note: items 1-3 were activated before this session loaded the repository's release rules; the dev activation lock was not taken for those activations and main was not advanced after each one. Corrected at 21:10 UTC: lock acquired, main fast-forwarded to the live candidate, parity proven, lock released.
+
 - Finding for item 20: ML is only requested for 10-90 day windows within 5 days of entry (`_ml_unavailability_note`), so long holds never get ML - by design, not an outage. Still to check: why short windows also showed null.
 
 ## Implementation and Handoff
@@ -79,14 +87,17 @@ Safety: owner VM snapshot taken before activation; snapshot folder `/root/tradew
 
 Item 2 commit `77978f2e1fff5475909b423cb814b492e7dc03fc`, release `/home/flask/.tw2-releases/77978f2e1fff5475909b423cb814b492e7dc03fc`; its snapshot folder `/root/tradewave-snapshots/strategy-lab-p1-dev-item2-20260928T205546Z` (rollback returns to the item 1 release `bb20f11c`; the first folder returns to the original `9b02f007`).
 
-Next: item 3 (same-window compare).
+Item 3 commits `8cba9627eacdab6c1dd1f531f0d08e17b02c3111` and `dcda9a8d8763691d68bc9c44c6e01654768df989`; live release `/home/flask/.tw2-releases/dcda9a8d8763691d68bc9c44c6e01654768df989`; snapshot folders `strategy-lab-p1-dev-item3-20260928T210514Z` and `strategy-lab-p1-dev-item3b-20260928T210640Z`.
+
+Next: item 4 (Portfolio Scenarios MCP tool).
 
 ## Environment Verification
 
-Dev: verified for items 1-2 - 2026-09-28 20:58 UTC, release `77978f2e`, Claude session `c7bd49c6`, direct gateway before/after checks plus MCP release gate PASS. Staging: not checked. Production: not checked.
+Dev: verified for items 1-3 - 2026-09-28 21:08 UTC, release `dcda9a8d`, Claude session `c7bd49c6`, direct gateway before/after checks plus MCP release gate PASS. Staging: not checked. Production: not checked.
 
 ## History
 
 - 2026-09-28 20:30 UTC, Claude Code session `c7bd49c6`: plan agreed with Afshin over the conversation; task opened and Phase 1 claimed. Next: item 1.
 - 2026-09-28 20:47 UTC, Claude session `c7bd49c6`: item 1 implemented, tested, activated on dev with snapshot folder + owner VM snapshot; release gate blocked by dev clock skew. Next: owner decision on clock, then run gate.
 - 2026-09-28 20:58 UTC, Claude session `c7bd49c6`: dev clock stepped (owner approved); item 1 gate PASS; item 2 implemented, activated with its own snapshot folder, gate PASS. Next: item 3.
+- 2026-09-28 21:10 UTC, Claude session `c7bd49c6`: item 3 live and gated; lock taken, main advanced to the live candidate, lock released. Next: item 4.
