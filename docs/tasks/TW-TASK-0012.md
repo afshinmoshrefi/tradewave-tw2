@@ -1,10 +1,10 @@
 # TW-TASK-0012: Chart Toolbar Control Titles
 
-- Status: adaptive-width follow-up in progress; original titles verified on dev
+- Status: adaptive-width headings verified on dev
 - Confidence: reproduced
 - Priority: P3 - improves control discoverability
-- First observed / last updated: 2026-09-27 22:45 UTC
-- Executor/session/claim time: Codex toolbar_titles / 2026-09-27 22:25 UTC
+- First observed / last updated: 2026-09-27 22:45 UTC / 2026-09-28 04:36 UTC
+- Executor/session/claim time: Codex `/root/toolbar_responsive_labels` / 2026-09-28 04:01 UTC (original implementation: Codex toolbar_titles / 2026-09-27 22:25 UTC)
 - Authorization: User requested implementation and routine dev activation; staging and production excluded.
 
 ## Goal, Scope and Acceptance
@@ -83,16 +83,34 @@ it. AAPL `2|AAPL|2026-01-15|15|10`, desktop Chromium, 20% left panel:
 | 1250 | 995 | short, one row | none | 1px |
 
 At 1035px with titles off, the toolbar stayed 34px high with no headings and all
-controls inside its bounds. The 1019px view approximates a narrowed desktop
-layout at 110% browser zoom; native zoom and other browsers were not tested.
+controls inside its bounds. A 1600px CSS viewport is close to the effective
+width of 1745px at 110% zoom (about 1586px); the 1280px check probes further
+narrowing. Native zoom and other browsers were not tested.
 Unobscured screenshots: `docs/tasks/evidence/TW-TASK-0012-adaptive-20260928/`.
 At 995px the row has minimal slack; the CSS wraps whole controls when needed
-below that width rather than clipping values. Next: activate the integrated
-artifact on dev under the lock, live-check the same toolbar states and interaction,
-advance main without force, record artifact/parity and rollback pointer. Dev
-activation is pending at this record revision; staging/production not checked.
+below that width rather than clipping values. Integration commit
+`eb3975d50232c57c921d965f60d21345d4ec18d5` passed the production React
+build and was activated on dev as
+`/home/flask/web-react/releases/build-eb3975d50232c57c921d965f60d21345d4ec18d5`.
+Rollback pointer: `/home/flask/web-react/releases/build-00e3af9266ac4b208f81b392979a105786e20354`.
+The backend pointer remained `/home/flask/.tw2-releases/9b02f007d90a26b605e2217b80188109e6f48add`.
+
+Live dev verification at 2026-09-28 04:35 UTC used the same authenticated
+Chromium capture shell through nginx with the active served bundle, not the
+pre-activation candidate intercept. AAPL chart canvas rendered. At 1391px the
+15 full headings fit one row with 22px right slack; at 1019px the short headings
+fit one row with 17px slack. Every visible control and input stayed within the
+toolbar, and toggling MFE changed checkbox state. Title-off at 1019px had zero
+headings, 34px height and no overflow. The active bundle provenance file names
+`eb3975d5`; `/healthz` reported DB/frontend OK. Current origin/main at activation
+was advanced non-force to `eb3975d5`; its application tree matches the live
+frontend source. This is self-verification by the implementing Codex session.
+Staging and production were not checked. Next: qualify and promote only after an
+explicit staging request; no configuration or migration is required.
 
 ## History
+
+- 2026-09-28 04:36 UTC, Codex `/root/toolbar_responsive_labels`: Activated integration `eb3975d5` on dev, live browser checks passed, pushed main non-force and proved app tree/artifact parity; released dev lock. Next: documentation receipt and staging only on later request.
 
 - 2026-09-28, Codex `/root/toolbar_responsive_labels`: Claimed the user-requested responsive heading follow-up on current main `8539914749ee29450bea6afcc992147a6f24a600`. Branch `codex/toolbar-adaptive-titles-20260928`, clean worktree `/home/tradewave-worktrees/toolbar-adaptive-titles-20260928`. Scope: keep a desktop row while shortening only visible headings according to the chart container width; preserve full names, controls, title-off and mobile behavior. Dev only. Next: implement, build, inspect narrowed rendered widths, activate and verify.
 
