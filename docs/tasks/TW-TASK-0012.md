@@ -1,6 +1,6 @@
 # TW-TASK-0012: Chart Toolbar Control Titles
 
-- Status: original title build restored on dev; visual redesign rejected and rolled back
+- Status: adaptive-width follow-up in progress; original titles verified on dev
 - Confidence: reproduced
 - Priority: P3 - improves control discoverability
 - First observed / last updated: 2026-09-27 22:45 UTC
@@ -44,6 +44,53 @@ Afshin requested coherent Opportunity-table-style toolbar headings, specifically
 Commit `00e3af9266ac4b208f81b392979a105786e20354` is on current main and active on dev as `/home/flask/web-react/releases/build-00e3af9266ac4b208f81b392979a105786e20354` (`main.771a8bc4.js`). The title-on desktop toolbar uses the Opportunity table header theme colors and borders, aligns each heading with its existing control, gives Best Waves/Years/Cycle enough width to show their selected values, and wraps whole title/control pairs when the chart panel narrows. Title-off and mobile paths retain their prior layout. Backend, math, settings persistence, staging and production were unchanged.
 
 React build passed with existing lint warnings. Authenticated dev browser checks used the built artifact and then the live served asset: 1440px and 1280px desktop, 1280px with the left panel widened to 40%, and title-off at 1440px. In the narrow view, all 15 visible control pairs were inside the 763px toolbar, the chart began exactly at the toolbar bottom (179px), and hidden Chart/More controls remained hidden. Title-off had zero headings and a compact 40.7px bar. On live dev, the Years selector changed to 9; `/healthz` reported DB/frontend OK. Browser screenshots are in `docs/tasks/evidence/TW-TASK-0012-heading-20260928/`. A 1280px viewport exercises a narrower CSS layout than a 1440px viewport at approximate 110% scaling; native browser zoom itself was not tested. Rollback pointer: `build-c2045a082ede9595fceb3783ccef53b228edaf6a`.
+
+## Adaptive-width heading follow-up (2026-09-28)
+
+Afshin reported that modest narrowing of the chart panel makes the full headings
+wrap awkwardly. Authorized scope: use the actual toolbar width to shorten visible
+headings progressively, keep the normal desktop row where controls fit, retain
+full hover/accessibility names and selected values, and preserve title-off/mobile.
+Staging and production are excluded.
+
+Codex `/root/toolbar_responsive_labels` claimed this follow-up on main
+`8539914749ee29450bea6afcc992147a6f24a600`, then pushed the claim as
+`2181e7f08a92569cf61ca44d10487914e55f811f`. Task branch
+`codex/toolbar-adaptive-titles-20260928` and worktree
+`/home/tradewave-worktrees/toolbar-adaptive-titles-20260928` contain pushed
+source commit `9259378c190472b0d0c8516cce3851d11c93915f`. The clean
+integration worktree is `/home/tradewave-worktrees/toolbar-adaptive-integration-20260928`.
+
+`SeasonalBarChart.js` uses `ResizeObserver` on `.barchart-controls` and changes
+only visible title text at measured widths; `CheckBox.js` allows MFE/MAE's
+redundant inline words to disappear in tight title mode while preserving their
+input values, full accessible names and callbacks. The CSS keeps fixed selected
+values readable and removes empty spacing only in tight title mode. The phone
+and title-off paths retain their previous display rules. No backend, calculation,
+configuration or migration changes. React build from the clean task commit passed
+with existing lint warnings; browser candidate checks used its built bundle and
+real dev API through the documented authenticated capture shell without activating
+it. AAPL `2|AAPL|2026-01-15|15|10`, desktop Chromium, 20% left panel:
+
+| Viewport CSS px | Toolbar px | Heading row | Control/input overflow | Right slack |
+|---:|---:|---:|---:|---:|
+| 1745 | 1391 | full, one row | none | 22px |
+| 1600 | 1275 | short, one row | none | 65px |
+| 1400 | 1115 | short, one row | none | 50px |
+| 1350 | 1075 | short, one row | none | 20px before final spacing reduction |
+| 1300 | 1035 | short, one row | none | 29px |
+| 1280 | 1019 | short, one row | none | 17px |
+| 1250 | 995 | short, one row | none | 1px |
+
+At 1035px with titles off, the toolbar stayed 34px high with no headings and all
+controls inside its bounds. The 1019px view approximates a narrowed desktop
+layout at 110% browser zoom; native zoom and other browsers were not tested.
+Unobscured screenshots: `docs/tasks/evidence/TW-TASK-0012-adaptive-20260928/`.
+At 995px the row has minimal slack; the CSS wraps whole controls when needed
+below that width rather than clipping values. Next: activate the integrated
+artifact on dev under the lock, live-check the same toolbar states and interaction,
+advance main without force, record artifact/parity and rollback pointer. Dev
+activation is pending at this record revision; staging/production not checked.
 
 ## History
 

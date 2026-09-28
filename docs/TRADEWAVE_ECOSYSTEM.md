@@ -908,6 +908,11 @@ checks and restart verification are in `ops/OPERATIONS.md` and
 - The Wave Viewer toolbar titles are on by default, including its phone portrait
   second row. Settings > General toggles them with the user-scoped
   `tw_show_toolbar_titles` localStorage setting; disabling restores compact height.
+  On desktop, `SeasonalBarChart.js` observes the chart toolbar's actual width and
+  progressively shortens visible headings while keeping their full hover and
+  accessible names. The 15 controls stay on one row while their values fit;
+  narrower panels wrap whole controls. The compact title-off and phone paths keep
+  their existing layout. See `docs/tasks/TW-TASK-0012.md` for measured dev widths.
 - **AI-score eligibility is a TWO-part server contract (invariant, fixed 2026-08-16):**
   `OppList4` returns BOTH `ml_enabled` (market AND tier - may this user see AI scores
   here) and `ml_market_eligible` (market ONLY - `resourceID in
