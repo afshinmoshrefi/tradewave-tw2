@@ -720,3 +720,24 @@ def test_morning_briefing_degrades_per_section(monkeypatch):
     body = _json.loads(out.split("\n\n")[1])
     assert body["this_week"] == {"unavailable": "rate limit exceeded"}
     assert body["todays_pick"]["symbol"] == "AAPL"
+
+
+def test_compare_same_window_mode_calls_the_shared_compare_route(monkeypatch):
+    """TW-TASK-0014 item 3: a shared window goes to /compare; no window keeps per-symbol cards."""
+    calls = []
+
+    async def fake_get(path, params=None):
+        calls.append((path, dict(params or {})))
+        return {"rows": [], "findings": ["x"]} if path == "/compare" else {"card": {"symbol": "A"}}
+
+    monkeypatch.setattr(server, "_get", fake_get)
+    result = _run(server.compare_opportunities(
+        symbols=["NVDA", "PG"], entry_date="2026-09-28", days_out=294, years=6,
+        pe_cycle="pe", ctx=None))
+    assert calls == [("/compare", {"symbols": "NVDA,PG", "entry_date": "2026-09-28",
+                                   "days_out": 294, "years": 6, "pe_cycle": "pe"})]
+    assert "Same-window comparison" in result
+
+    calls.clear()
+    _run(server.compare_opportunities(symbols=["NVDA", "PG"], ctx=None))
+    assert sorted(path for path, _ in calls) == ["/analyze/NVDA", "/analyze/PG"]

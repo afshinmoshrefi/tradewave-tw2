@@ -1627,6 +1627,89 @@ def analyze_symbol(symbol):
                     "disclaimer": cards.DISCLAIMER, "as_of": _today()})
 
 
+def _resolve_symbol_market(symbol, market):
+    """Market for one symbol of a comparison: the caller's market, else the primary US listing
+    (S&P 500 -> DOW 30 -> NASDAQ 100) among the caller's in-scope markets, like analyze."""
+    if market:
+        return market
+    scoped = _in_scope_markets()
+    candidates = scoped if len(scoped) == 1 else appserver_client.resolve_market_for_symbol(symbol, scoped)
+    if not candidates:
+        return None
+    return next((m for m in ("2", "0", "1") if m in candidates), sorted(candidates)[0])
+
+
+@v1.get("/compare")
+@require_api_key
+def compare_symbols():
+    """Several symbols on ONE shared setup (entry_date + days_out or a period preset, years,
+    pe_cycle, direction), restricted to the completed years they all share - the app's Symbol
+    Comparison report. Adds each symbol's buy-and-hold benchmark over those same years."""
+    from . import compare as cmp
+
+    symbols = [s.strip().upper() for s in (request.args.get("symbols") or "").split(",") if s.strip()]
+    if not 2 <= len(symbols) <= 10 or len(set(symbols)) != len(symbols):
+        return _err("invalid_request", "symbols must list 2 to 10 different tickers", 400)
+    if any(not _SYMBOL_RE.fullmatch(s) for s in symbols):
+        return _err("invalid_request", "symbols contain invalid characters", 400)
+    for s in symbols:
+        r = _demo_guard_symbol(s)
+        if r:
+            return r
+    if request.args.get("entry_date") is None and not request.args.get("period"):
+        return _err("invalid_request",
+                    "a shared window is required: entry_date with days_out, or a period preset", 400)
+    market = request.args.get("market")
+    if market:
+        market, m_err = _market_arg(market)
+        if m_err:
+            return m_err
+    try:
+        direction = _direction_arg(request.args.get("direction")) or "long"
+        entry, days, yrs = _chart_window_and_years(symbols[0])
+        days = int(days)
+    except ValueError as e:
+        return _err("invalid_request", str(e), 400)
+    direction = appserver_client._dir_to_public(direction)
+
+    markets = {}
+    for s in symbols:
+        m = _resolve_symbol_market(s, market)
+        if not m:
+            return _err("not_found", "symbol '%s' not found in any of your in-scope markets" % s, 404)
+        scope_err = _require_scope(m)
+        if scope_err:
+            return scope_err
+        markets[s] = m
+
+    bh_entry, bh_days = cards.buy_hold_window()
+
+    def fetch(sym):
+        _stats, window_entries = appserver_client.chart_stats_and_years(
+            markets[sym], sym, entry, days, yrs, direction=direction)
+        _bh_stats, bh_entries = appserver_client.chart_stats_and_years(
+            markets[sym], sym, bh_entry, bh_days, yrs, direction="long")
+        return sym, window_entries, bh_entries
+
+    fetched = parallel_map(fetch, symbols, max_workers=min(8, len(symbols)))
+    failed = [sym for sym, window_entries, _ in fetched if window_entries is None]
+    if failed:
+        return _err("upstream_unavailable",
+                    "evidence temporarily unavailable for %s - retry shortly" % ", ".join(failed), 503)
+    rows = {sym: cmp.yearly_results(window_entries, direction) for sym, window_entries, _ in fetched}
+    buy_hold = {sym: bh for sym, _, bh in fetched if bh}
+    count = int(str(yrs).split("-")[-1])
+    result = cmp.compare(rows, days, max_years=count, buy_hold=buy_hold)
+    name_map = appserver_client.market_name_map()
+    for row in result["rows"]:
+        row["market"] = {"id": markets[row["symbol"]], "name": name_map.get(markets[row["symbol"]])}
+    return jsonify({
+        "setup": {"entry_date": entry, "days_out": days, "years": yrs, "direction": direction},
+        **result,
+        "disclaimer": cards.DISCLAIMER, "as_of": _today(),
+    })
+
+
 @v1.get("/patterns/<market_id>/<symbol>")
 @require_api_key
 def pattern(market_id, symbol):

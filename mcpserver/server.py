@@ -1449,6 +1449,13 @@ async def whats_seasonal_now(
         "'compare AAPL, MSFT and NVDA seasonally', 'which of these has the better setup'. "
         "Each card carries its own edge score, win rate, and receipts; present them as a "
         "comparison and call out which has the strongest, most consistent edge. "
+        "SAME-WINDOW MODE: pass entry_date + days_out (or a period preset) to measure EVERY "
+        "symbol on ONE shared setup and the SAME completed years (the TradeWave app's Symbol "
+        "Comparison): returns one table (average, typical, profitable years, best/worst year, "
+        "average MFE/MAE, deepest drop, Sharpe, cumulative, beats buy-and-hold), plain findings, "
+        "and yearly results for a chart. Use it when the user wants to choose between symbols "
+        "for the same dates or weigh risk vs return (e.g. NVDA vs PG in midterm years). A "
+        "newer symbol shortens the shared history for all - say so from the findings. "
         "ML availability and daily allowance depend on your connected plan (check whoami), "
         "on eligible markets."
     )
@@ -1464,9 +1471,39 @@ async def compare_opportunities(
     view: Annotated[Optional[str], Field(description=(
         "Verbosity per card. 'decision' (default) = lean read for an easy head-to-head; "
         "'full' = full receipts on each."))] = None,
+    entry_date: Annotated[Optional[str], Field(description=(
+        "SAME-WINDOW MODE: shared entry date YYYY-MM-DD for every symbol (with days_out)."))] = None,
+    days_out: Annotated[Optional[int], Field(description=(
+        "SAME-WINDOW MODE: shared inclusive holding period in calendar days."))] = None,
+    period: Annotated[Optional[str], Field(description=(
+        "SAME-WINDOW MODE: shared date-range preset instead of entry_date/days_out: 'jan'..'dec', "
+        "'q1'..'q4', 'spring'|'summer'|'fall'|'winter', 'ytd', 'year_end', 'buy_hold'."))] = None,
+    years: Annotated[Optional[int], Field(description=(
+        "SAME-WINDOW MODE: how many completed years to compare (default 10); in PE mode the "
+        "number of election-cycle years."))] = None,
+    pe_cycle: Annotated[Optional[str], Field(description=(
+        "SAME-WINDOW MODE: 'consecutive' (default), 'pe' (current cycle position, e.g. midterm "
+        "years in 2026), or 'pe0'..'pe3'."))] = None,
+    direction: Annotated[Optional[str], Field(description=(
+        "SAME-WINDOW MODE: 'long' (default) or 'short'."))] = None,
     ctx: Optional[Context] = None,
 ) -> str:
     _bind_request_key(ctx)
+    if entry_date is not None or period is not None:
+        params: dict[str, Any] = {"symbols": ",".join(symbols)}
+        for key, value in (("market", market), ("entry_date", entry_date), ("days_out", days_out),
+                           ("period", period), ("years", years), ("pe_cycle", pe_cycle),
+                           ("direction", direction)):
+            if value is not None:
+                params[key] = value
+        data = await _get("/compare", params)
+        return _lead(
+            f"Same-window comparison of {len(symbols)} symbols on one shared setup and the same "
+            "completed years - lead with the findings, then the table:",
+            data,
+            handoff=True,
+        )
+
     async def analyze_one(sym):
         params: dict[str, Any] = {"view": view or "decision"}
         if market is not None:

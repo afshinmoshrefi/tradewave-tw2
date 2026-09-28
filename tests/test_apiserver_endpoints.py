@@ -940,6 +940,56 @@ def test_analyze_without_buy_hold_history_keeps_card(client, monkeypatch):
     assert "benchmark" not in response.get_json()["card"]
 
 
+def test_compare_measures_symbols_on_one_shared_window(client, monkeypatch):
+    """TW-TASK-0014 item 3."""
+    from apiserver import appserver_client as ac
+
+    calls = []
+    _mock_card_chain(monkeypatch)
+    monkeypatch.setattr(ac, "resolve_market_for_symbol", lambda sym, scope: ["2"])
+
+    def chart(market, symbol, entry, days, years, direction=None):
+        calls.append((symbol, entry, days, years, direction))
+        first = 2019 if symbol == "NVDA" else 2011
+        return {}, [{"year": y, "pct": "4.00,6.00,-2.00", "price": "1,1"} for y in range(first, 2026)]
+
+    monkeypatch.setattr(ac, "chart_stats_and_years", chart)
+
+    response = client.get("/v1/compare?symbols=NVDA,PG&entry_date=2026-09-28&days_out=294"
+                          "&years=10&direction=long", headers=_hdr())
+
+    assert response.status_code == 200, response.get_json()
+    body = response.get_json()
+    assert body["setup"] == {"entry_date": "2026-09-28", "days_out": 294, "years": "10",
+                             "direction": "long"}
+    assert body["years_used"] == 7 and body["common_years"][0] == 2019
+    assert ("PG", "2026-09-28", 294, "10", "long") in calls
+    assert ("PG", "2026-01-01", 366, "10", "long") in calls        # same-years buy-and-hold
+    assert all(r["metrics"]["sample_years"] == 7 for r in body["rows"])
+    assert body["disclaimer"]
+
+
+@pytest.mark.parametrize("query", [
+    "symbols=AAPL&entry_date=2026-09-28&days_out=30",
+    "symbols=AAPL,AAPL&entry_date=2026-09-28&days_out=30",
+    "symbols=AAPL,MSFT",
+])
+def test_compare_rejects_ambiguous_requests(client, monkeypatch, query):
+    _mock_card_chain(monkeypatch)
+    response = client.get("/v1/compare?" + query, headers=_hdr())
+    assert response.status_code == 400
+
+
+def test_compare_upstream_failure_is_retryable_not_a_wrong_answer(client, monkeypatch):
+    from apiserver import appserver_client as ac
+
+    _mock_card_chain(monkeypatch)
+    monkeypatch.setattr(ac, "resolve_market_for_symbol", lambda sym, scope: ["2"])
+    monkeypatch.setattr(ac, "chart_stats_and_years", lambda *a, **k: (None, None))
+    response = client.get("/v1/compare?symbols=AAPL,MSFT&period=q4", headers=_hdr())
+    assert response.status_code == 503
+
+
 def test_analyze_include_chart_attaches_inline(client, monkeypatch):
     _mock_card_chain(monkeypatch, by_symbol=[_opp()],
                      curve=[{"date": "2026-07-01", "index": 40.0}, {"date": "2026-07-02", "index": 41.0}])
