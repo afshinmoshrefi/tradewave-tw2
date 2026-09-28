@@ -261,12 +261,36 @@
 
 /* Desktop title mode keeps each heading attached to its control. */
 .barchart-controls--heading-layout {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-start;
     align-content: center;
     row-gap: 4px;
     padding: 4px 0;
     box-sizing: border-box;
+}
+.barchart-controls--heading-layout.barchart-controls--narrow {
+    flex-wrap: wrap;
+}
+.barchart-controls--heading-layout.barchart-controls--tight .barchart-controls-div {
+    margin-left: 0;
+    margin-right: 0;
+}
+.barchart-controls--heading-layout.barchart-controls--tight .tw-toolbar-waves {
+    flex-basis: 100px !important;
+    min-width: 100px !important;
+    padding-right: 2px !important;
+}
+.barchart-controls--heading-layout.barchart-controls--tight .tw-toolbar-description-fields > .tw-toolbar-control {
+    margin-right: 2px !important;
+}
+.barchart-controls--heading-layout.barchart-controls--tight .tw-wave-date-range {
+    margin-right: 2px !important;
+}
+.barchart-controls--heading-layout.barchart-controls--tight .tw-toolbar-actions {
+    gap: 1px !important;
+}
+.barchart-controls--heading-layout.barchart-controls--tight #PEselection {
+    min-width: 92px;
 }
 .barchart-controls--heading-layout .tw-toolbar-description,
 .barchart-controls--heading-layout .tw-toolbar-description-fields,

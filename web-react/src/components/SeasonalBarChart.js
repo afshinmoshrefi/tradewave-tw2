@@ -3166,10 +3166,42 @@ const SeasonalBarChart = (props) => {
   // Right-panel width in px (the split-aware version of window.innerWidth) - drives the
   // Remind me pill's icon-only collapse.
   const rightPanelPx = window.innerWidth * (props.leftNavWidthPct != null ? (100 - props.leftNavWidthPct) / 100 : 1)
+  const toolbarRef = useRef(null)
+  const [toolbarMode, setToolbarMode] = useState('full')
+  useEffect(() => {
+    if (!toolbarRef.current || !window.ResizeObserver) return
+    const observer = new ResizeObserver(([entry]) => {
+      const width = entry.contentRect.width
+      const mode = width < 1040 ? 'narrow' : width < 1300 ? 'tight' : width < 1360 ? 'compact' : 'full'
+      setToolbarMode(current => current === mode ? current : mode)
+    })
+    observer.observe(toolbarRef.current)
+    return () => observer.disconnect()
+  }, [])
   // "Reminder set" = Google Calendar events actually exist for this pattern (a save
   // via the Plus icon alone does NOT flip it - gc_events is stamped only on insert).
   const reminderSet = !!(reminderInfo?.saved && reminderInfo?.gcEvents)
-  const toolbarTitle = (title) => props.showToolbarTitles && <span className="tw-toolbar-title">{title}</span>
+  const compactToolbarTitles = {
+    'Save wave': ['Save', 'Save'],
+    'Reminder': ['Reminder', 'Remind'],
+    'Best waves': ['Waves', 'Waves'],
+    'Date range': ['Range', 'Range'],
+    'MFE overlay': ['MFE', 'MFE'],
+    'MAE overlay': ['MAE', 'MAE'],
+    'Start date': ['Start date', 'Start'],
+    'Days hold': ['Days', 'Days'],
+    'Years': ['Years', 'Yrs'],
+    'Cycle filter': ['Cycle', 'Cycle'],
+    'Date presets': ['Presets', 'Prsts'],
+  }
+  const toolbarTitle = (title) => {
+    if (!props.showToolbarTitles) return null
+    const variants = compactToolbarTitles[title]
+    const displayTitle = !rdd.isMobile && variants
+      ? toolbarMode === 'tight' || toolbarMode === 'narrow' ? variants[1] : toolbarMode === 'compact' ? variants[0] : title
+      : title
+    return <span className="tw-toolbar-title" title={title} aria-label={title}>{displayTitle}</span>
+  }
   // Best Waves keeps its "── Best Waves ──" decoration until the wide box, centered in the
   // measured slack, would have under 3px of air per side - only then drop to the compact
   // undecorated variant (owner-specified threshold). 0.07 = the 7vw wide-variant width.
@@ -3191,7 +3223,7 @@ const SeasonalBarChart = (props) => {
 
       {/* _______________________________________________container_________________________________________________________ */}
 
-      <div className={'barchart-controls' + (props.showToolbarTitles ? ' barchart-controls--titles' : '') + (props.showToolbarTitles && !rdd.isMobile ? ' barchart-controls--heading-layout' : '')} style={barchartControlsStyle} >
+      <div ref={toolbarRef} className={'barchart-controls' + (props.showToolbarTitles ? ' barchart-controls--titles' : '') + (props.showToolbarTitles && !rdd.isMobile ? ' barchart-controls--heading-layout' : '') + (props.showToolbarTitles && !rdd.isMobile && (toolbarMode === 'tight' || toolbarMode === 'narrow') ? ' barchart-controls--tight' : '') + (props.showToolbarTitles && !rdd.isMobile && toolbarMode === 'narrow' ? ' barchart-controls--narrow' : '')} style={barchartControlsStyle} >
 
         <div className="barchart-controls-div" style={StyleNavDiv} >
 
@@ -3411,12 +3443,12 @@ const SeasonalBarChart = (props) => {
 
           <div className='barchart-controls-div tw-toolbar-control' style={StyleMFE}>
             {toolbarTitle('MFE overlay')}
-            <CheckBox tooltipContent={props.tooltipSW ? 'b,MFE: Maximum Favorable Excursion, adds the maximum level the price reached in favor of the trade as light green on bullish and light red on bearish barcharts' : ''} label="MFE" cbChanged={checkboxChanged} checked={props.showMFE} />
+            <CheckBox tooltipContent={props.tooltipSW ? 'b,MFE: Maximum Favorable Excursion, adds the maximum level the price reached in favor of the trade as light green on bullish and light red on bearish barcharts' : ''} label="MFE" ariaLabel="MFE overlay" hideLabel={props.showToolbarTitles && !rdd.isMobile && (toolbarMode === 'tight' || toolbarMode === 'narrow')} cbChanged={checkboxChanged} checked={props.showMFE} />
           </div>
 
           <div className='barchart-controls-div tw-toolbar-control' style={StyleMAE}>
             {toolbarTitle('MAE overlay')}
-            <CheckBox tooltipContent={props.tooltipSW ? 'b,MAE: Maximum Adverse Excursion, adds the maximum price reached against the trade as light red on bullish and light green on bearish barchars' : ''} label="MAE" cbChanged={checkboxChanged} checked={props.showMAE} />
+            <CheckBox tooltipContent={props.tooltipSW ? 'b,MAE: Maximum Adverse Excursion, adds the maximum price reached against the trade as light red on bullish and light green on bearish barchars' : ''} label="MAE" ariaLabel="MAE overlay" hideLabel={props.showToolbarTitles && !rdd.isMobile && (toolbarMode === 'tight' || toolbarMode === 'narrow')} cbChanged={checkboxChanged} checked={props.showMAE} />
           </div>
 
           <div className='barchart-controls-div tw-toolbar-control' style={StyleStartDate}>
