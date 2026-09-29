@@ -1,6 +1,6 @@
 # TW-TASK-0014: Strategy Lab MCP capabilities (AI-run seasonal strategies anyone can copy)
 
-- Status: in-progress (items 1-4 verified on dev; item 5 part 1 live, part 2 needs owner decision; item 6 next; items 9, 11, 12 blocked on attorney sign-off)
+- Status: in-progress (items 1-5 live on dev; item 5 widget display needs a real-host check; item 6 next; items 9, 11, 12 blocked on attorney sign-off)
 - Confidence: reproduced (each gap below was observed through the live production MCP connector on 2026-09-28)
 - Priority: P2 - blocks the public Strategy Lab video series and the "connect TradeWave to Claude or ChatGPT and run your own idea" user flow
 - First observed / last updated: 2026-09-28 20:30 UTC
@@ -86,6 +86,13 @@ Item 5 (one shared chart renderer), part 1:
 - FINDING: over the real MCP transport neither `analyze_symbol` nor `whats_seasonal_now` returns image blocks, before or after this change. `analyze_symbol` (and scans) return an MCP Apps widget (`mcpserver/pattern_widget.html`) that draws its own SVG charts client-side from structuredContent; the PNG path (`_rich_lead`) is only used by `whats_seasonal_now`, whose decision-view cards carry no chart data. So part 1 has no visible effect yet. Part 2 (owner decision pending): send the shared-system PNGs with analyze/compare/basket results and/or make the widget show them.
 - Activated under the lock; release gate PASS (p95 8.7 s).
 
+Item 5 part 2 (owner chose option A, 2026-09-28):
+- `analyze_symbol` renders the twcharts images off the event loop (`asyncio.to_thread`) and sends them as base64 PNGs in the result `_meta["tradewave/charts"]` (kinds `year_bars`, `seasonal_path`, with each chart's alt text), which hosts pass to the embedded app, not the model; content stays text-only. The widget (`pattern_widget.html`) shows those images and falls back to its built-in SVG charts when absent or when an image fails to load. Template URI moved to `pattern-evidence-v4`; v3 and v2 stay served for cached connectors.
+- Tests: 2 new MCP tests (images only in `_meta`, never in content or structuredContent; widget reads `_meta`/`toolResponseMetadata` with an error fallback); widget-template tests updated to v4/v3/v2. MCP 62 passed; full suite 1509 passed; widget script `node --check` OK.
+- Live dev over the real MCP transport: `analyze_symbol` SPY 2026-09-27/295d midterm returns text-only content plus `_meta` charts (year_bars 68,071 bytes, seasonal_path 89,815 bytes) and advertises `ui://tradewave/pattern-evidence-v4.html`. Compare and basket smokes unchanged.
+- NOT verified: the widget actually displaying the images inside ChatGPT and Claude (needs a signed-in host session with the dev connector). The fallback keeps the old charts if a host blocks data: images.
+- Release gate: first run failed load (44.5% errors, all `/v1/scan` 503 with the 101-byte `scan_busy` body between 00:06:23 and 00:06:48 UTC); immediate re-run PASS (p95 6.6 s, 0% errors). Cause: the scan cache TTL is 120 s and waiters give up after 12 s, so a gate run that finds a cold cache while the appserver is busy (here, right after this item's compare/basket smokes) returns the designed retryable 503. `/v1/scan` is unchanged by this task. Recorded as a separate observation: the load gate is sensitive to a cold scan cache.
+
 Process note: items 1-3 were activated before this session loaded the repository's release rules; the dev activation lock was not taken for those activations and main was not advanced after each one. Corrected at 21:10 UTC: lock acquired, main fast-forwarded to the live candidate, parity proven, lock released.
 
 - Finding for item 20: ML is only requested for 10-90 day windows within 5 days of entry (`_ml_unavailability_note`), so long holds never get ML - by design, not an outage. Still to check: why short windows also showed null.
@@ -106,11 +113,13 @@ Item 4 commit `67d96a6a85d3ce76497eb4c42cdcad56b3a8d99d`, release `/home/flask/.
 
 Item 5 part 1 commit `b376e47824fd665c50e88f3e160e6f2b97a692a9`, release `/home/flask/.tw2-releases/b376e47824fd665c50e88f3e160e6f2b97a692a9`, snapshot folder `strategy-lab-p1-dev-item5-20260928T222743Z` (rollback returns to `67d96a6a`; matplotlib stays installed, unused by the prior release).
 
-Next: owner decision on item 5 part 2, then item 6.
+Item 5 part 2 commit `1f21742d005c6f40e628a040e6ae006ff19f46ce`, release `/home/flask/.tw2-releases/1f21742d005c6f40e628a040e6ae006ff19f46ce`, snapshot folder `strategy-lab-p1-dev-item5b-20260929T000533Z`.
+
+Next: owner check of the widget images in ChatGPT/Claude with the dev connector; item 6 (from-today mode).
 
 ## Environment Verification
 
-Dev: verified for items 1-4 and item 5 part 1 - 2026-09-28 22:35 UTC, release `b376e478`, Claude session `c7bd49c6`, direct gateway before/after checks plus MCP release gate PASS. Staging: not checked. Production: not checked.
+Dev: verified for items 1-5 (widget display in real hosts pending) - 2026-09-29 00:10 UTC, release `1f21742d`, Claude session `c7bd49c6`, direct gateway before/after checks plus MCP release gate PASS. Staging: not checked. Production: not checked.
 
 ## History
 
@@ -120,3 +129,4 @@ Dev: verified for items 1-4 and item 5 part 1 - 2026-09-28 22:35 UTC, release `b
 - 2026-09-28 21:10 UTC, Claude session `c7bd49c6`: item 3 live and gated; lock taken, main advanced to the live candidate, lock released. Next: item 4.
 - 2026-09-28 22:20 UTC, Claude session `c7bd49c6`: item 4 paused on the 2026-06-08 educational-only policy; Afshin chose the weights-only basket reframe (A); items 9/11/12 marked blocked on attorney sign-off; item 4 live under lock, gate PASS, main advanced. Next: item 5.
 - 2026-09-28 22:35 UTC, Claude session `c7bd49c6`: item 5 part 1 live under lock, gate PASS; found MCP charts are drawn by the Apps widget, not PNG images. Awaiting owner decision on part 2.
+- 2026-09-29 00:10 UTC, Claude session `c7bd49c6`: item 5 part 2 live under lock; gate PASS on re-run after a cold-cache scan_busy burst. Next: owner host check, item 6.
