@@ -1,6 +1,6 @@
 # TW-TASK-0014: Strategy Lab MCP capabilities (AI-run seasonal strategies anyone can copy)
 
-- Status: in-progress (items 1-5 live on dev; item 5 widget display needs a real-host check; item 6 next; items 9, 11, 12 blocked on attorney sign-off)
+- Status: in-progress (Phase 1 items 1-6 live on dev; item 5 widget display needs a real-host check; items 9, 11, 12 blocked on attorney sign-off)
 - Confidence: reproduced (each gap below was observed through the live production MCP connector on 2026-09-28)
 - Priority: P2 - blocks the public Strategy Lab video series and the "connect TradeWave to Claude or ChatGPT and run your own idea" user flow
 - First observed / last updated: 2026-09-28 20:30 UTC
@@ -93,6 +93,12 @@ Item 5 part 2 (owner chose option A, 2026-09-28):
 - NOT verified: the widget actually displaying the images inside ChatGPT and Claude (needs a signed-in host session with the dev connector). The fallback keeps the old charts if a host blocks data: images.
 - Release gate: first run failed load (44.5% errors, all `/v1/scan` 503 with the 101-byte `scan_busy` body between 00:06:23 and 00:06:48 UTC); immediate re-run PASS (p95 6.6 s, 0% errors). Cause: the scan cache TTL is 120 s and waiters give up after 12 s, so a gate run that finds a cold cache while the appserver is busy (here, right after this item's compare/basket smokes) returns the designed retryable 503. `/v1/scan` is unchanged by this task. Recorded as a separate observation: the load gate is sensitive to a cold scan cache.
 
+Item 6 (from-today mode):
+- `analyze` gains `timing=next|best` (default next): the best setup whose entry is today or later, or within the card's 3-day entry window; when the top-Sharpe slice has none, the FULL detected per-symbol list (same detection band) is fetched without enrichment and only its top 5 upcoming setups are refreshed from completed evidence and ranked by edge; if nothing lies ahead, the year's best is kept with `next_occurrence` (same month-day next year). `timing=best` keeps the old behavior. Table view adds `next_entry_date`. MCP `analyze_symbol` exposes `timing`; compare without a window inherits the default. `api/MCP_TOOLS.md` updated.
+- Tests: 6 route/helper tests, 1 MCP test. Full suite 1523 passed; MCP 63 passed.
+- Live dev, Big 7 unpinned (before -> after): every symbol moved from a passed May-July window to one ahead: AAPL Nov 9 (358d, 9/9, avg +30.7%), MSFT Oct 10 (308d, 9/10, +28.3%), GOOGL Dec 6, AMZN Dec 19, NVDA Dec 17, META Nov 17, TSLA Oct 21 (83d, 9/10, +31.6%). `timing=best` still returns the old windows. Compare, basket and MCP chart smokes unchanged. 14 cold analyze calls took 16.6 s.
+- Activated under the dev lock (two releases in one lock window, each with its own snapshot folder); release gate PASS (p95 11.8 s).
+
 Process note: items 1-3 were activated before this session loaded the repository's release rules; the dev activation lock was not taken for those activations and main was not advanced after each one. Corrected at 21:10 UTC: lock acquired, main fast-forwarded to the live candidate, parity proven, lock released.
 
 - Finding for item 20: ML is only requested for 10-90 day windows within 5 days of entry (`_ml_unavailability_note`), so long holds never get ML - by design, not an outage. Still to check: why short windows also showed null.
@@ -115,11 +121,13 @@ Item 5 part 1 commit `b376e47824fd665c50e88f3e160e6f2b97a692a9`, release `/home/
 
 Item 5 part 2 commit `1f21742d005c6f40e628a040e6ae006ff19f46ce`, release `/home/flask/.tw2-releases/1f21742d005c6f40e628a040e6ae006ff19f46ce`, snapshot folder `strategy-lab-p1-dev-item5b-20260929T000533Z`.
 
-Next: owner check of the widget images in ChatGPT/Claude with the dev connector; item 6 (from-today mode).
+Item 6 commits `9d804d5ece5a631c68aa4fade9933459072b1e60` and `a8e6239ce15dee49cd450b2be4c8ac83d4f1391f` (branch `claude/mcp-from-today-20260929`, based on main `469d600`), live release `/home/flask/.tw2-releases/a8e6239ce15dee49cd450b2be4c8ac83d4f1391f`, snapshot folders `strategy-lab-p1-dev-item6-20260929T004906Z` (rollback to `469d600c`) and `strategy-lab-p1-dev-item6b-20260929T005130Z` (rollback to `9d804d5e`).
+
+Phase 1 complete on dev. Next: owner check of the widget images in ChatGPT/Claude with the dev connector; knowledge-base update; staging only on request; Phase 2 items 7, 8, 10 (not blocked) and Phase 3 when authorized.
 
 ## Environment Verification
 
-Dev: verified for items 1-5 (widget display in real hosts pending) - 2026-09-29 00:10 UTC, release `1f21742d`, Claude session `c7bd49c6`, direct gateway before/after checks plus MCP release gate PASS. Staging: not checked. Production: not checked.
+Dev: verified for Phase 1 items 1-6 (widget display in real hosts pending) - 2026-09-29 00:55 UTC, release `a8e6239c`, Claude session `c7bd49c6`, direct gateway before/after checks plus MCP release gate PASS. Staging: not checked. Production: not checked.
 
 ## History
 
@@ -130,3 +138,4 @@ Dev: verified for items 1-5 (widget display in real hosts pending) - 2026-09-29 
 - 2026-09-28 22:20 UTC, Claude session `c7bd49c6`: item 4 paused on the 2026-06-08 educational-only policy; Afshin chose the weights-only basket reframe (A); items 9/11/12 marked blocked on attorney sign-off; item 4 live under lock, gate PASS, main advanced. Next: item 5.
 - 2026-09-28 22:35 UTC, Claude session `c7bd49c6`: item 5 part 1 live under lock, gate PASS; found MCP charts are drawn by the Apps widget, not PNG images. Awaiting owner decision on part 2.
 - 2026-09-29 00:10 UTC, Claude session `c7bd49c6`: item 5 part 2 live under lock; gate PASS on re-run after a cold-cache scan_busy burst. Next: owner host check, item 6.
+- 2026-09-29 00:55 UTC, Claude session `c7bd49c6`: item 6 live under lock, gate PASS, main advanced. Phase 1 complete on dev. (A homepage overlap with session "100 year pattern home page update" at 00:34 was resolved in its favor; TW-BUG-0023 is a duplicate on its own branch.)
