@@ -1531,9 +1531,21 @@ def build_mcp_reference() -> str:
     <span class="tier-badge tier-all">All tiers</span>
   </div>
   <div class="tool-card-body">
-    <p>Compares 2-10 symbols by edge score, win rate, Sharpe, avg/median return and ML basis. Invalid list sizes are rejected before analysis. Individual unavailable symbols retain an explicit error row.</p>
-    <p><strong>Inputs:</strong> <code class="inline-code">symbols</code> (required, a list of ticker symbols, e.g. <code class="inline-code">["GLD", "SLV", "GDX"]</code>), <code class="inline-code">market</code> (optional, applied to every symbol), <code class="inline-code">view</code></p>
-    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/analyze/{{symbol}}</code> (per symbol)</p>
+    <p>Compares 2-10 symbols by edge score, win rate, Sharpe, avg/median return and ML basis. Invalid list sizes are rejected before analysis. Individual unavailable symbols retain an explicit error row. With a shared window, every symbol is measured on one setup and the same completed years: average, typical, profitable years, best/worst year, average MFE/MAE, deepest drop, Sharpe, cumulative, a same-years buy-and-hold benchmark, and plain findings.</p>
+    <p><strong>Inputs:</strong> <code class="inline-code">symbols</code> (required, a list of ticker symbols, e.g. <code class="inline-code">["GLD", "SLV", "GDX"]</code>), <code class="inline-code">market</code> (optional, applied to every symbol), <code class="inline-code">view</code>; shared window: <code class="inline-code">entry_date</code> + <code class="inline-code">days_out</code> or <code class="inline-code">period</code>, <code class="inline-code">years</code>, <code class="inline-code">pe_cycle</code>, <code class="inline-code">direction</code></p>
+    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/analyze/{{symbol}}</code> (per symbol), or <code class="inline-code">GET /v1/compare</code> with a shared window</p>
+  </div>
+</div>
+
+<div class="tool-card">
+  <div class="tool-card-header">
+    <span class="tool-name">basket_scenarios</span>
+    <span class="tier-badge tier-all">All tiers</span>
+  </div>
+  <div class="tool-card-body">
+    <p>Studies a hypothetical basket of 1-15 symbols with percentage weights against history: every symbol from one start date over each horizon and the same completed years. Returns the average and middle result, best and worst year, every year's result with each symbol's contribution, and an optional benchmark on the same years. Educational only: it accepts symbols and weights, never holdings, share counts, dollar amounts or cost basis.</p>
+    <p><strong>Inputs:</strong> <code class="inline-code">basket</code> (required, e.g. <code class="inline-code">[{{"symbol": "PG", "weight_pct": 60}}, {{"symbol": "NVDA", "weight_pct": 40}}]</code>), <code class="inline-code">end_date</code> or <code class="inline-code">custom_days</code>, <code class="inline-code">horizons</code>, <code class="inline-code">start_date</code>, <code class="inline-code">years</code>, <code class="inline-code">pe_cycle</code>, <code class="inline-code">benchmark</code></p>
+    <p><strong>Maps to:</strong> <code class="inline-code">POST /v1/basket-scenarios</code></p>
   </div>
 </div>
 

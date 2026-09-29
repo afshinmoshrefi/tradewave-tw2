@@ -1337,7 +1337,7 @@ paid standalone API price display remains separately gated as described below.
   data engine). gunicorn `apiserver.app:app`, dev `127.0.0.1:8088`, systemd
   `tradewave-apiserver`, isolated venv `/home/flask/venv-api`. The public, paid front
   door: authenticates customer API keys, enforces tier/scope/rate-limit, **strips raw
-  prices**, exposes ~12 curated `/v1` endpoints, and calls the existing appserver as a
+  prices**, exposes ~14 curated `/v1` endpoints, and calls the existing appserver as a
   service account (`/login/api`).
 - **MCP server** `mcpserver/` (named to not shadow the `mcp` SDK). FastMCP,
   streamable-http mounted at the ROOT (the BARE host is the canonical published
@@ -1366,6 +1366,33 @@ paid standalone API price display remains separately gated as described below.
 
 **Contract:** `api/openapi.yaml` (14 endpoints) + `api/MCP_TOOLS.md` (18 tools - 7
 flagship + 11 primitives).
+
+**Strategy Lab additions (TW-TASK-0014, live on dev 2026-09-29; staging/prod not yet):**
+- `analyze` answers ETFs/indices/crypto (markets without the per-symbol grid) from the
+  market scan instead of rejecting them; unpinned requests default to `timing=next` (best
+  setup not yet passed, full-list search when the top slice has passed, else
+  `next_occurrence`); every card carries `benchmark` (window vs Jan 1 - Jan 1 buy-and-hold
+  over the same completed years, app Stats Table compounding).
+- `GET /v1/compare` (`apiserver/compare.py`) mirrors the app's Symbol Comparison on one
+  shared window and the shared completed years; `POST /v1/basket-scenarios`
+  (`apiserver/scenarios.py`) mirrors the app's Portfolio Scenarios math in percentages for a
+  hypothetical weighted basket. INVARIANT (2026-06-08 educational-only policy): the basket
+  accepts only symbol/weight_pct/market/direction - never holdings, shares, dollars, cost
+  basis or P&L; tests guard it. Features that read real holdings need attorney sign-off.
+- `_chart_data(..., completed_years=N)` sends ChartData4 `report_completed_years` (exactly N
+  completed years, as the app's reports do) and verifies the echo.
+- Charts: `twcharts/chartkit.py` is the one server-side chart system (ported from SMN
+  `blog/chartkit.py`, Roboto fonts bundled, `price_projection` deliberately removed).
+  `mcpserver/chart_renderer.py` uses it; `analyze_symbol` sends the PNGs only in result
+  `_meta["tradewave/charts"]` (for the widget, not the model); `pattern_widget.html` shows
+  them and falls back to its own SVG charts. Widget template URI is
+  `pattern-evidence-v4` (v3/v2 still served). `venv-api` needs matplotlib
+  (`requirements-api.txt`). SMN still uses its own copy until switched to `twcharts`.
+- Gotchas: the MCP release gate's load step hits `/v1/scan`; with the 120 s scan-cache TTL
+  and 12 s waiter timeout, a cold cache while the appserver is busy returns designed
+  `scan_busy` 503s (seen 2026-09-29), so re-run once before treating it as a regression.
+  `/home/flask/venv-api` lacks PyYAML, so `tests/test_consistency.py` runs only in the web
+  venv suite.
 
 **Future enhancements:** `api/MCP_INTEGRATION_ROADMAP.md` owns the maintained MCP/API
 backlog. Its September 7, 2026 list puts user-requested Portfolio Manager read/write
