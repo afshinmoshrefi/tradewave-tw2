@@ -79,4 +79,4 @@ Seasonal trading is ultimately about probability and consistency.
 
 The Trend Chart helps traders visualize recurring market behavior over time, making it easier to identify patterns that may repeat in future market cycles.
 
-![Understanding the Trend Chart - screenshot](/learn/images/understanding-the-trend-chart.png)
+![Understanding the Trend Chart - screenshot](/learn/images/understanding-the-trend-chart.jpg?v=290e78d9f940)

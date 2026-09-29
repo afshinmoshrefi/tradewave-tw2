@@ -100,4 +100,4 @@ Successful trading requires organization, discipline, and ongoing performance re
 
 The Portfolio Manager gives traders a centralized system for tracking opportunities, evaluating results, and refining seasonal trading strategies over time.
 
-![Using the Portfolio Manager in TradeWave - screenshot](/learn/images/using-the-portfolio-manager.png)
+![TradeWave Portfolio Manager showing saved seasonal opportunities, position values, and portfolio gain or loss](/learn/images/using-the-portfolio-manager.png?v=a3ecb55f52d9)

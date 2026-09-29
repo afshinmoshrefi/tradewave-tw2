@@ -54,6 +54,15 @@ SITEMAP_PATH  = Path('/var/www/tradewave/sitemap.xml')
 
 YEAR = datetime.now().year
 
+# Editorial credit shown across the Learn section. Keeping this in one place
+# ensures the visible byline and structured metadata stay in sync.
+LEARN_CREATOR = {
+    'name': 'Michael Sacchitello, CMT',
+    'linkedin_url': 'https://www.linkedin.com/in/michael-sacchitello/',
+    'studio_name': 'FatTail Studio',
+    'studio_url': 'https://www.fattailstudio.com/',
+}
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -130,11 +139,14 @@ def load_articles() -> List[Dict[str, Any]]:
             meta['date'] = datetime.now().strftime('%Y-%m-%d')
         meta['date_pretty'] = date_pretty(meta['date'])
         meta['date_iso']    = date_iso(meta['date'])
-        # og:image: first chart URL embedded in the body, else fallback to favicon.
+        modified = meta.get('updated', meta['date'])
+        meta['updated_pretty'] = date_pretty(modified)
+        meta['updated_iso']    = date_iso(modified)
+        # og:image: first Learn image URL embedded in the body, else fallback to favicon.
         # Open Graph / Twitter Cards prefer raster (PNG), so swap the SVG
         # extension to PNG when the matching .png exists alongside.
         import re as _re
-        m = _re.search(r'<img[^>]+src="(/learn/charts/[^"]+)"', meta['body_html'])
+        m = _re.search(r'<img[^>]+src="(/learn/(?:charts|images)/[^"]+)"', meta['body_html'])
         if m:
             chart_path = m.group(1)
             png_candidate = _re.sub(r'\.svg$', '.png', chart_path)
@@ -242,6 +254,7 @@ def main() -> int:
         html = article_tmpl.render(
             article=art,
             related=related,
+            creator=LEARN_CREATOR,
             tw_header=tw_header,
             year=YEAR,
             ga_head_snippet=ga_head_snippet(),
@@ -254,6 +267,7 @@ def main() -> int:
     # Index
     html = index_tmpl.render(
         articles=articles,
+        creator=LEARN_CREATOR,
         tw_header=tw_header,
         year=YEAR,
         ga_head_snippet=ga_head_snippet(),

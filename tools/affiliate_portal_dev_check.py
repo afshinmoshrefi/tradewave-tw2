@@ -155,7 +155,7 @@ s.close()
 r = client.get("/account/affiliate/smn")
 check("smn invited shows terms", r.status_code == 200 and b"Contributor Terms" in r.data)
 r = client.post("/account/affiliate/smn/accept", data={"agree": "yes"}, follow_redirects=True)
-check("terms accept", b"Welcome to the SMN expert program" in r.data)
+check("terms accept", b"Welcome to the Seasonal Market News expert program" in r.data)
 s = DBSession()
 prof = s.get(AffiliateSmnProfile, aff_id)
 check("terms audit fields", prof.status == "active" and prof.terms_accepted_at is not None

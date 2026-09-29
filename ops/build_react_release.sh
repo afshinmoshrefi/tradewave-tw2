@@ -11,4 +11,5 @@ SHA="$(git -C "$REPO" rev-parse HEAD)"
 ( cd "$REPO/web-react" && npm run build )
 [ -d "$REPO/web-react/build/static" ] || { echo "FAIL: React build output missing" >&2; exit 1; }
 printf '%s\n' "$SHA" >"$REPO/web-react/build/.tradewave-source-sha"
+bash "$REPO/ops/normalize_react_build_permissions.sh"
 echo "React release built for $SHA"

@@ -28,6 +28,101 @@ input[type=text], select, textarea{
     flex-shrink: 0;
  }
 
+.tw-left-panel {
+   min-width: 0;
+   visibility: visible;
+   transition: width 180ms ease, visibility 0s linear 0s;
+   will-change: width;
+}
+
+.tw-left-panel--collapsed {
+   pointer-events: none;
+   visibility: hidden;
+   transition: width 180ms ease, visibility 0s linear 180ms;
+}
+
+.tw-left-panel-toggle,
+.tw-left-panel-rail-button {
+   appearance: none;
+   box-sizing: border-box;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   padding: 0;
+   cursor: pointer;
+   transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.tw-left-panel-toggle {
+   width: 24px;
+   height: 22px;
+   flex-shrink: 0;
+   border: 1px solid;
+   border-radius: 4px;
+   background: rgba(0, 0, 0, 0.14);
+}
+
+.tw-left-panel-rail {
+   width: 0;
+   min-width: 0;
+   height: 100%;
+   box-sizing: border-box;
+   flex-shrink: 0;
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   overflow: hidden;
+   opacity: 0;
+   visibility: hidden;
+   border-right: 0 solid;
+   transition: width 180ms ease, opacity 120ms ease, border-width 180ms ease;
+}
+
+.tw-left-panel-rail--visible {
+   width: 34px;
+   opacity: 1;
+   visibility: visible;
+   border-right-width: 1px;
+}
+
+.tw-left-panel-rail-button {
+   width: 26px;
+   height: 28px;
+   margin-top: 6px;
+   border: 1px solid;
+   border-radius: 5px;
+}
+
+.tw-left-panel-tara-button {
+   margin-top: auto;
+   margin-bottom: 10px;
+}
+
+.tw-left-panel-toggle:hover,
+.tw-left-panel-rail-button:hover {
+   filter: brightness(1.14);
+}
+
+.tw-left-panel-toggle:active,
+.tw-left-panel-rail-button:active {
+   transform: translateY(1px);
+}
+
+.tw-left-panel-toggle:focus-visible,
+.tw-left-panel-rail-button:focus-visible {
+   outline: 2px solid #7aa2f7;
+   outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+   .tw-left-panel,
+   .tw-left-panel-rail,
+   .tw-left-panel-toggle,
+   .tw-left-panel-rail-button {
+      transition: none;
+   }
+}
+
 .security-selection{
    height:4%;
    width:100%;

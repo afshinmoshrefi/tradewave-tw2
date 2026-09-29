@@ -60,3 +60,12 @@ export const resolveOpportunityRecurrence = (
     partialYears: String(partialYears),
   }
 }
+
+export const resolveViewerDeepLinkOpportunityRecurrence = (
+  _viewerYears,
+  savedOpportunityYears,
+  savedOpportunityPartialYears,
+) => ({
+  years: String(savedOpportunityYears),
+  partialYears: String(savedOpportunityPartialYears),
+})

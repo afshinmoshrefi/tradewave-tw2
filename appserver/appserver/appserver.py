@@ -57,9 +57,11 @@ import os
 import pandas as pd
 import datetime
 from datetime import timedelta
+from zoneinfo import ZoneInfo
 import base64
 import hashlib
 import hmac
+import math
 from dateutil.relativedelta import relativedelta
 import glob
 import json
@@ -606,12 +608,25 @@ def get_num_reports(wp_userid):
 # (spoofing one = a chosen-key limiter bypass). Mitigation: rate_limit_login in
 # config.py is sized for the WHOLE user base sharing one bucket, and /login/api
 # keeps its own tight 10/minute api-key brute-force guard.
+@app.route('/login/session', methods=['POST'])
 @app.route('/login/<string:wp_userid>/<string:user_level>/<string:country_code>/<string:zip>/<string:skey>', methods=['GET'])
 @limiter.limit(config.rate_limit_login[0])
 @limiter.limit(config.rate_limit_login[1])
 @limiter.limit(config.rate_limit_login[2])
 @limiter.limit(config.rate_limit_login[3])
-def login(wp_userid, user_level, country_code, zip, skey): # I had ip for no reason - changed it to user_level 3/7/2023
+def login(wp_userid=None, user_level=None, country_code=None, zip=None, skey=None): # I had ip for no reason - changed it to user_level 3/7/2023
+    # Browser sessions use POST so the signed login credential cannot be copied
+    # into reverse-proxy/access-log request paths. Keep the legacy GET route for
+    # old clients during the rollout, but the React client no longer calls it.
+    if request.method == 'POST':
+        payload = request.get_json(silent=True) or {}
+        wp_userid = str(payload.get('wp_userid') or '')
+        user_level = str(payload.get('user_level') or '')
+        country_code = str(payload.get('country_code') or '')
+        zip = str(payload.get('zip') or '')
+        skey = str(payload.get('skey') or '')
+        if not wp_userid or not skey:
+            return jsonify({'message': 'authentication required'}), 401
     # with open("log.txt", "a+") as f: f.write("text")
     # print('login started')
     
@@ -867,6 +882,38 @@ def login_api():
     return response
 
 
+# Internal completion signal for jobs that must not consume the appserver's
+# local CSVs until its post-keyprovider EOD pull has finished.
+@app.route('/internal/eod-status', methods=['GET'])
+@check_for_token
+def internal_eod_status():
+    claims = _request_token_claims()
+    if not claims or not claims.get('is_service_account'):
+        return jsonify({'message': 'service account required'}), 403
+
+    status_path = os.environ.get(
+        'TW2_EOD_UPDATE_STATUS_FILE',
+        '/var/lib/tradewave/eod/update_status.json',
+    )
+    try:
+        with open(status_path, encoding='utf-8') as handle:
+            status = json.load(handle)
+        if not isinstance(status, dict):
+            raise ValueError('invalid status shape')
+    except (OSError, ValueError):
+        response = jsonify({
+            'ok': False,
+            'message': 'EOD appserver sync has not completed',
+        })
+        response.status_code = 503
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+
+    response = jsonify(status)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # 4/12/2022  - return resource obj from config back to react app
 @app.route('/getResourcesObj', methods=['GET'])
@@ -916,6 +963,14 @@ def root(token=''):
     })
 
 
+
+
+def _drop_disabled_market_symbols(df, resource_id):
+    """Exclude retired/disabled symbols on both cache hits and cache misses."""
+    disabled = config.drop_symbols_by_market.get(str(resource_id), [])
+    if df.empty or 'sym' not in df.columns or not disabled:
+        return df
+    return df[~df['sym'].isin(disabled)]
 
 
 # --------start opplist4------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1193,12 +1248,6 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
                 # print('ooooooooooooooooooooooooopp=',opp,'\n\n')
 
 
-                # remove symbols listed in config - these are symbols that aren't being updated for some reason
-                if resourceID in config.drop_symbols_by_market: 
-                    # print('before',opp.shape[0],opp)
-                    opp = opp[~opp['sym'].isin(config.drop_symbols_by_market[resourceID])]
-                    # print('after',opp)
-
                 # change all the dates on the opp list to next_trading_day to support weekend and holidays
                 # opp['date']=next_trading_day # keep the dates as is 9/11/2022
             
@@ -1296,6 +1345,12 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
     else:
         opp  = pd.DataFrame(json.loads(opp_redis))
         oppa = pd.DataFrame(json.loads(oppa_redis))
+
+    # Apply the disabled-symbol policy after loading from either files or Redis.
+    # Keeping this outside the cache-miss branch prevents retired symbols from
+    # lingering in cached regular or active opportunity lists.
+    opp = _drop_disabled_market_symbols(opp, resourceID)
+    oppa = _drop_disabled_market_symbols(oppa, resourceID)
 
     # ------------------------------------------------------------------------
     # now we have opp llist - if symbol != '' then filter by symbol 12/4/2023
@@ -1422,12 +1477,14 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
     if all_prices:
         for row in l:
             if len(row) > 1 and row[1] in all_prices:
-                p = all_prices[row[1]]
-                opp_prices[row[1]] = {'price': p[0], 'change_p': p[1]}
+                p = validate_realtime_quote_for_resource(resourceID, row[1], all_prices[row[1]])
+                if p:
+                    opp_prices[row[1]] = _realtime_quote_payload(p)
         for row in la:
             if len(row) > 1 and row[1] not in opp_prices and row[1] in all_prices:
-                p = all_prices[row[1]]
-                opp_prices[row[1]] = {'price': p[0], 'change_p': p[1]}
+                p = validate_realtime_quote_for_resource(resourceID, row[1], all_prices[row[1]])
+                if p:
+                    opp_prices[row[1]] = _realtime_quote_payload(p)
 
     # Check if this user+market qualifies for ML score columns
     ml_enabled = False
@@ -2085,17 +2142,151 @@ def get_earnings_dates(symbol):
 
     return result
 
+def _finite_number(value, *, positive=False):
+    """Return a finite float or None; upstream sometimes emits "NA"/NaN."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(number) or (positive and number <= 0):
+        return None
+    return number
+
+
+def _sanitize_realtime_prices(prices):
+    sanitized = {}
+    for sym, pair in (prices or {}).items():
+        if isinstance(pair, dict):
+            raw_price = pair.get('price')
+            raw_change = pair.get('change_p')
+            raw_open = pair.get('open')
+            raw_high = pair.get('high')
+            raw_low = pair.get('low')
+            raw_volume = pair.get('volume')
+            raw_timestamp = pair.get('timestamp')
+        elif isinstance(pair, (list, tuple)) and len(pair) >= 2:
+            raw_price, raw_change = pair[0], pair[1]
+            raw_open = pair[2] if len(pair) > 2 else None
+            raw_high = pair[3] if len(pair) > 3 else None
+            raw_low = pair[4] if len(pair) > 4 else None
+            raw_volume = pair[5] if len(pair) > 5 else None
+            raw_timestamp = pair[6] if len(pair) > 6 else None
+        else:
+            continue
+        price = _finite_number(raw_price, positive=True)
+        if price is None:
+            continue
+        volume = _finite_number(raw_volume)
+        if volume is not None and volume < 0:
+            volume = None
+        timestamp = _finite_number(raw_timestamp, positive=True)
+        sanitized[str(sym).upper()] = [
+            price,
+            _finite_number(raw_change),
+            _finite_number(raw_open, positive=True),
+            _finite_number(raw_high, positive=True),
+            _finite_number(raw_low, positive=True),
+            volume,
+            int(timestamp) if timestamp is not None else None,
+        ]
+    return sanitized
+
+
+_TRADEWAVE_TIMEZONE = ZoneInfo('America/New_York')
+
+
+def _realtime_quote_payload(pair):
+    """Convert the compact cached quote into the fields used by the UI."""
+    values = list(pair or []) + [None] * 7
+    timestamp = values[6]
+    quote_date = None
+    if timestamp is not None:
+        try:
+            quote_date = datetime.datetime.fromtimestamp(
+                float(timestamp),
+                tz=datetime.timezone.utc,
+            ).astimezone(_TRADEWAVE_TIMEZONE).date().isoformat()
+        except (OverflowError, TypeError, ValueError):
+            quote_date = None
+
+    return {
+        'price': values[0],
+        'change_p': values[1],
+        'open': values[2],
+        'high': values[3],
+        'low': values[4],
+        'volume': values[5],
+        'timestamp': timestamp,
+        'date': quote_date,
+    }
+
+
+_commodity_symbols = None
+_equity_close_cache = {}
+
+
+def _load_commodity_symbols():
+    global _commodity_symbols
+    if _commodity_symbols is None:
+        try:
+            frame = pd.read_csv(config.available_resources_path['7'])
+            _commodity_symbols = {
+                str(symbol).strip().upper()
+                for symbol in frame['symbols'].dropna().tolist()
+            }
+        except Exception:
+            _commodity_symbols = set()
+    return _commodity_symbols
+
+
+def _latest_equity_close(symbol):
+    symbol = str(symbol).strip().upper()
+    if symbol not in _equity_close_cache:
+        try:
+            frame = pd.read_csv(
+                f'/home/flask/data/csv/US/{symbol}.csv',
+                usecols=['close'],
+            )
+            closes = pd.to_numeric(frame['close'], errors='coerce').dropna()
+            _equity_close_cache[symbol] = float(closes.iloc[-1]) if not closes.empty else None
+        except Exception:
+            _equity_close_cache[symbol] = None
+    return _equity_close_cache[symbol]
+
+
+def validate_realtime_quote_for_resource(resource_id, symbol, pair):
+    """Reject malformed quotes and obvious bare-ticker namespace collisions.
+
+    The real-time service keys quotes only by ticker. Symbols such as ES exist
+    in both the equity and futures universes; compare only those collisions with
+    the equity EOD close so a futures quote cannot appear in an equity table.
+    """
+    normalized = _sanitize_realtime_prices({symbol: pair}).get(str(symbol).upper())
+    if not normalized:
+        return None
+    if str(resource_id) in {'0', '1', '2', '3', '4'}:
+        sym = str(symbol).strip().upper()
+        if sym in _load_commodity_symbols():
+            reference = _latest_equity_close(sym)
+            if reference and not (0.5 * reference <= normalized[0] <= 2.0 * reference):
+                return None
+    return normalized
+
+
 def get_realtime_prices_cached():
     """Get all real-time prices from the realtime service, cached in Redis for 55 min.
-    Returns dict of {symbol: [price, change_p]} - compact format to minimize Redis payload.
-    Full /prices/all response is ~3MB; we trim to only price+change_p (~400KB)."""
+    Returns compact arrays containing price/change plus today's OHLCV and timestamp.
+    This keeps the payload smaller than the full upstream quote dictionaries while
+    allowing the price chart to draw a genuine current-day bar."""
     if not getattr(config, 'realtime_service_url', ''):
         return {}
 
-    redis_key = 'realtime_prices'
+    redis_key = 'realtime_prices_v2'
     cached = redis_client.get(redis_key)
     if cached is not None:
-        return json.loads(cached)
+        return _sanitize_realtime_prices(json.loads(cached))
 
     try:
         url = f'{config.realtime_service_url}prices/all'
@@ -2104,10 +2295,8 @@ def get_realtime_prices_cached():
             return {}
         data = resp.json()
         prices = data.get('prices', {})
-        # Trim to [price, change_p] arrays - reduces ~3MB to ~400KB
-        trimmed = {}
-        for sym, p in prices.items():
-            trimmed[sym] = [p.get('price'), p.get('change_p')]
+        # Compact dictionaries into positional arrays before caching in Redis.
+        trimmed = _sanitize_realtime_prices(prices)
         redis_client.set(redis_key, json.dumps(trimmed))
         redis_client.expire(redis_key, 3300)  # 55 min - slightly less than the 60 min refresh interval
         return trimmed
@@ -3144,11 +3333,23 @@ def get_consolidated_seasonal_chart2(resourceID, symbol, sy, chart_start_date, o
     # Validate date formats (must be YYYY-MM-DD)
     try:
         datetime.datetime.strptime(chart_start_date, '%Y-%m-%d')
+        datetime.datetime.strptime(opp_start_date, '%Y-%m-%d')
     except (ValueError, TypeError):
-        return jsonify({'cons_seas_chart': [], 'error': 'invalid chart_start_date'}), 400
+        return jsonify({'cons_seas_chart': [], 'error': 'invalid chart date'}), 400
 
-    # Construct a unique cache key
-    redis_key_seasonal_chart = f'seasonal_chart_{resourceID}_{symbol}_{sy}_{chart_start_date}'
+    request_meta = {
+        'market': str(resourceID),
+        'symbol': str(symbol).upper(),
+        'sy': str(sy),
+        'chart_start_date': chart_start_date,
+        'opp_start_date': opp_start_date,
+    }
+
+    # The opportunity start date affects custom-year filters, so it must be
+    # part of the cache identity as well as the response identity.
+    redis_key_seasonal_chart = (
+        f'seasonal_chart_{resourceID}_{symbol}_{sy}_{chart_start_date}_{opp_start_date}'
+    )
     logging.debug(f"Generated cache key: {redis_key_seasonal_chart}")
 
     # Log activity
@@ -3171,7 +3372,7 @@ def get_consolidated_seasonal_chart2(resourceID, symbol, sy, chart_start_date, o
                 logging.debug(f"Cached cons_seas_chart to Redis for key {redis_key_seasonal_chart}")
             except Exception as e:
                 logging.error(f"Redis set failed for key {redis_key_seasonal_chart}: {e}")
-            return jsonify({'cons_seas_chart': cons_seas_chart})
+            return jsonify({'cons_seas_chart': cons_seas_chart, 'request': request_meta})
 
         # If not found in any cache, process the seasonal chart
         exchange = config.exchange_mapping[resourceID]
@@ -3179,13 +3380,13 @@ def get_consolidated_seasonal_chart2(resourceID, symbol, sy, chart_start_date, o
         result = get_symbol_csv(symbol, exchange)
 
         if isinstance(result, str) and 'Not Traded' in result:
-            return jsonify({'cons_seas_chart': []})
+            return jsonify({'cons_seas_chart': [], 'request': request_meta})
         else:
             df = result
 
         num_years_in_data = num_years_in_df(df)
         if num_years_in_data < config.min_required_years:
-            return jsonify({'cons_seas_chart': []})
+            return jsonify({'cons_seas_chart': [], 'request': request_meta})
 
         df = df[['date', 'close']]
 
@@ -3383,7 +3584,7 @@ def get_consolidated_seasonal_chart2(resourceID, symbol, sy, chart_start_date, o
         cons_seas_chart = json.loads(sc_redis)
         logging.debug(f"Retrieved cons_seas_chart from Redis for key {redis_key_seasonal_chart}")
 
-    return jsonify({'cons_seas_chart': cons_seas_chart})
+    return jsonify({'cons_seas_chart': cons_seas_chart, 'request': request_meta})
 #---------------------------------------------------------------------------------------------------
 # this is a supporting function for dr_report_publish to check for duplicates - return boolean
 #---------------------------------------------------------------------------------------------------
@@ -3614,7 +3815,7 @@ def dr_report_publish(resourceID,symbol,date,days_hold,years,dir,sharpe_ratio,se
 
         _dr_report_render_async(existing_record, token, refresh_title, slug)
 
-        report_url = f"https://tw2.trxstat.com/r/{slug}/"
+        report_url = f"{config.tw2_public_url.rstrip('/')}/r/{slug}/"
         return jsonify({'publish_dr_report':'success', 'report_url': report_url, 'refreshed': True})
 
     # Not a refresh - enforce the LIFETIME report total (the per-day cap below is separate).
@@ -3736,7 +3937,7 @@ def dr_report_publish(resourceID,symbol,date,days_hold,years,dir,sharpe_ratio,se
 
     # Return the URL even though render hasn't completed - the file will exist
     # by the time the user navigates to it.
-    report_url = f"https://tw2.trxstat.com/r/{slug}/"
+    report_url = f"{config.tw2_public_url.rstrip('/')}/r/{slug}/"
 
     # print(existing_reports_list)
     return jsonify({'publish_dr_report':'success', 'report_url': report_url})
@@ -4872,6 +5073,9 @@ def del_user_portfolio_name(portfolio_name): # use slug as an identifier for whi
 # Redis key: user_watchlists_{userid} -> JSON list of dicts: [{name, resourceId, resourceName, isDefault}, ...]
 # Redis key: user_watchlist_items_{userid}_{name} -> JSON list of symbol strings: ["AAPL", "MSFT", ...]
 #---------------------------------------------------------------------------------------------------
+WATCHLIST_NAME_MAX_LENGTH = 64
+
+
 @app.route('/get_user_watchlist_names', methods=['GET'])
 @check_for_token
 @limiter.limit(config.rate_limit_general[0])
@@ -4917,6 +5121,13 @@ def add_user_watchlist_name(name, resourceId, resourceName):
     data            = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'], audience='tw2-appserver', issuer='tw2-web')
     userid          = data['user']
     user_level      = str(data.get('user_level', '1'))
+    name            = name.strip()
+
+    if not name or len(name) > WATCHLIST_NAME_MAX_LENGTH:
+        return jsonify({
+            'watchlist_names_list': 'invalid_name',
+            'message': f'Watchlist names are limited to {WATCHLIST_NAME_MAX_LENGTH} characters',
+        })
 
     max_allowed = config.num_watchlists_allowed_by_level.get(user_level, 0)
 
@@ -4951,10 +5162,20 @@ def edit_user_watchlist_name(old_name, new_name):
     token           = request.args.get("token")
     data            = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'], audience='tw2-appserver', issuer='tw2-web')
     userid          = data['user']
+    new_name        = new_name.strip()
+
+    if not new_name or len(new_name) > WATCHLIST_NAME_MAX_LENGTH:
+        return jsonify({
+            'watchlist_names_list': 'invalid_name',
+            'message': f'Watchlist names are limited to {WATCHLIST_NAME_MAX_LENGTH} characters',
+        })
 
     redis_key = f'user_watchlists_{userid}'
     raw = redis_client2.get(redis_key)
     watchlists = json.loads(raw) if raw else []
+
+    if any(w['name'] == new_name and w['name'] != old_name for w in watchlists):
+        return jsonify({'watchlist_names_list': 'duplicate'})
 
     for w in watchlists:
         if w['name'] == old_name:

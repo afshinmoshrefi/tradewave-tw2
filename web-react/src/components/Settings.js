@@ -450,7 +450,20 @@ const Settings = (props) => {
                             </div>
 
                             <div style={controlRowDIV}>
-                                {/* <button >Auto Trade Interface</button> */}
+                                <div style={controlLeftCell}>
+                                    <label htmlFor="bar-chart-excursion-style">Bar Chart:</label>
+                                </div>
+                                <div style={controlRightCell}>
+                                    <select
+                                        id="bar-chart-excursion-style"
+                                        value={props.barChartExcursionStyle || 'filled'}
+                                        onChange={(event) => props.SetBarChartExcursionStyle(event.target.value)}
+                                    >
+                                        <option value="filled">Filled Extensions</option>
+                                        <option value="ticks">High / Low Ticks</option>
+                                        <option value="needle">Range Needles</option>
+                                    </select>
+                                </div>
                             </div>
 
 

@@ -120,6 +120,15 @@ X_POSTING_ENABLED = (
     os.environ.get('TW2_X_POSTING_ENABLED', '').strip().lower()
     in ('1', 'true', 'yes', 'on')
 )
+# Close-ledger posts inherit the verified global X switch unless explicitly
+# overridden. This avoids a second required production secret while preserving
+# an independent emergency off switch.
+_X_CLOSE_POSTING_RAW = os.environ.get('TW2_X_CLOSE_POSTING_ENABLED', '').strip()
+X_CLOSE_POSTING_ENABLED = (
+    _X_CLOSE_POSTING_RAW.lower() in ('1', 'true', 'yes', 'on')
+    if _X_CLOSE_POSTING_RAW
+    else X_POSTING_ENABLED
+)
 
 #------------------------------------------
 # facebook API variables
@@ -314,6 +323,8 @@ session_expiration_hours = 24
 # some symbols are no longer getting updated.  we'll drop them when loading opp_list 
 drop_symbols_by_market = {
 
+ '2':  ['CTRA'],  # S&P 500 - Coterra merged into Devon and was delisted 2026-05-07
+ '3':  ['CTRA'],  # Russell 1000
  '5':  ['CEX','MSCIWORLD'],  # indices common
  '6':  ['CEX','MSCIWORLD']  # indices all
 

@@ -140,10 +140,17 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   `/affiliate/sign/<token>`, immutable snapshot + audit fields, affiliates are
   created PAUSED and flip active only on signing); monthly/annual interval-split
   coupons; anonymized monthly statement emails (`web/affiliate_report.py`, cron 2nd
-  03:30). Affiliates are NOT users yet (no `users` linkage; magic links only). The
-  affiliate-facing login dashboard + optional SMN expert module:
-  `docs/AFFILIATE_DASHBOARD_SPEC.md` - BUILT + tested on dev 2026-07-07 (32/32
-  integration checks, `tests/test_affiliate_portal_dev.py`). Pieces: blueprint
+  03:30). The affiliate-facing login dashboard + optional SMN expert module:
+  `docs/AFFILIATE_DASHBOARD_SPEC.md` - BUILT, and the whole affiliate chain was
+  re-verified end to end on dev 2026-08-25. The integration check is the SCRIPT
+  `tools/affiliate_portal_dev_check.py` (32/32), NOT a pytest file - it is not
+  collected by `pytest tests/`, so it must be run by hand:
+  `sudo -u flask bash -c 'set -a; . /etc/tradewave/secrets.env; set +a; cd
+  /home/flask/web && ../venv/bin/python ../tools/affiliate_portal_dev_check.py'`.
+  It hits the real stack (live Resend mail to SUPPORT_EMAIL_TO + a Stripe TEST-key
+  invoice list) and cleans up after itself. Pytest covers only the pure units
+  (`tests/test_affiliate.py` + `tests/test_affiliate_signing.py`, 36 tests, no DB).
+  Pieces: blueprint
   `web/affiliate_portal/` at `/account/affiliate` (auto-links by email on first
   visit -> `affiliates.user_id`, migration e7a1b2c9d4f5; access = linkage, NO new
   role); live current-month estimate via `affiliate_service.compute_for_affiliate`
@@ -158,8 +165,13 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   (injects/removes TW-EXPERT-DESK sections in article HTML, heals wiped
   sections after article regeneration, builds `/experts/<slug>.html` hubs;
   web-tier base from `TW2_WEB_INTERNAL_URL`, default loopback :5500).
-  OPEN: expert_sync cron not yet in make_bulletproof.sh; staging/prod rollout
-  via ops/deploy.sh + migration step; scorecard evaluation job (Phase C2) not built.
+  VERIFIED ON PROD 2026-08-25 (read-only, from outside): `/join/<code>` proxies
+  (unknown code -> 302 `/`), `/pricing?code=` redirects + sets `tw_ref`, the
+  portal at `/account/affiliate/` redirects to login, and the deployed
+  `/var/www/tradewave/home.html` still carries the `tw_ref` capture script.
+  OPEN: expert_sync cron not yet in make_bulletproof.sh; scorecard evaluation job
+  (Phase C2) not built; the prod `affiliate_report.py` cron line must carry
+  `--email` (unverified from dev - no ssh reachability to 194.113.195.141).
 - **Standalone promo coupons (Coupons tab)** - plain marketing discount codes
   with NO affiliate / commission / payout. `web/promo_service.py` + `web/models.py`
   (`PromoCoupon`) + migration `b2c0fee1d3a5` + the top-level Flask-Admin **Coupons**
@@ -563,7 +575,11 @@ persistent (reports/portfolios/watchlists), db3 news. Reads CSV under
   `npm run build`** (the npm script supplies PUBLIC_URL=/app/; a raw
   `react-scripts build` used to emit root-relative /static/ asset paths and
   blank the app - .env.production now pins PUBLIC_URL as a backstop,
-  2026-06-12). Built ONCE on dev, same
+  2026-06-12). The npm build also runs `ops/normalize_react_build_permissions.sh`:
+  build directories become `0755`, files `0644`, and a root-run build is restored
+  to `flask:flask`. This prevents authenticated `/app/` requests from returning
+  500 when gunicorn cannot read a root-owned `0600` `build/index.html`.
+  Built ONCE on dev, same
   bundle to all envs (env-agnostic). `build/` is gitignored.
 - Consumes injected `window.*` globals; `window.current_user_id`+`window.ltk` ->
   combined login token; calls the appserver via the same-origin `/appserver/`
@@ -1551,6 +1567,26 @@ bulletproof). See `OPERATIONS.md`.
   no longer SILENT - an unmappable price on a LIVE sub now logs `log.error` + an
   `unmappable_price` audit row (still ACKs 200), so a plan change between two legacy
   prices can't leave a stuck-high tier unnoticed. Caught by a 5-agent billing audit.
+- **UMP "year-1-as-trial" pattern (verified live 2026-07-23, NOT a bug):** UMP's Stripe
+  Connect flow charged an annual founding member's FIRST year up front via a one-time
+  PaymentIntent, then created the Stripe subscription with `trial_end = start + 1 year`
+  so Stripe's recurring engine would not double-bill during the paid year. So a migrated
+  annual founder legitimately shows Stripe `status=trialing` for ~12 months, then Stripe
+  auto-charges the real renewal ($189/yr legacy price, `charge_automatically`) at
+  `trial_end` and flips to `active`. Tells: sub.metadata carries `service=stripe_connect`,
+  `uid`, `lid`, `initial_payment_intent_id`, `prorate_old_subscription_id`. The webhook
+  treats `trialing` as LIVE (`live_statuses={active,trialing,past_due}`, app.py webhook),
+  so tier/access are correct throughout. **Do NOT "fix" the trial or end it early** (that
+  charges the member before their anniversary). **THE REAL RISK is card expiry:** UMP set
+  the card only on the subscription (`default_payment_method`), not the customer default,
+  and if that card expires before `trial_end` the annual auto-charge fails silently into
+  dunning. Diagnose with the read-only prod-web probe pattern (retrieve sub + resolve PM +
+  compare card exp vs trial_end); remediate by emailing the member a `billing_portal`
+  session link to update the card (no code/sub edit). Also verify Stripe Card Account
+  Updater is ON so expiries self-heal. As of 2026-07-23 only 2 real members were in this
+  state (twinrange@proton.me renews 2026-08-08 on a card expiring 07/2026 = WILL FAIL until
+  he updates it; tyleah@gmail.com renews 2026-07-24 on a valid card). Broader revenue check
+  worth running: all subs renewing in the next 60-90d whose card expires before renewal.
 - **Tiers:** explorer/navigator/analyst/strategist. `tier_compat` maps explorer->'1',
   navigator->'2', analyst->'4'/'5', strategist->'6'/'7'. Current consumer prices are
   Explorer $0; Navigator $19/mo or $168/yr; Analyst $47/mo or $399/yr; Strategist
@@ -1751,6 +1787,58 @@ roadmap memories.)
    do not recolor short bars as if colors meant generic profit/loss. Exclude the
    current-year zero placeholder from records and state sample size `n`.
 
+0C. **TRADE DIRECTION IS DETERMINED BY TRADEWAVE, NEVER CHOSEN BY THE USER.**
+   `appserver.py:2681` derives it from the pattern's own record: `pos = count(pct >= 0)`,
+   `neg = count(pct < 0)`, then `longOrShort = 'long' if pos >= neg else 'short'` - so a
+   TIE resolves LONG. Buy & Hold is forced LONG (`appserver.py:2685`) because its start
+   and end month/day match. The value ships as `stats['Trade Dir']`; React only MIRRORS it
+   (`SeasonalBarChart.js:710` calls `SetBarChartLongOrShort(t["stats"]["Trade Dir"])`).
+   **There is no long/short control in the wave viewer and the owner intends none**
+   (owner, 2026-09-14). The one thing that genuinely changes the determined direction is a
+   different `years` lookback, which changes the up/down split.
+
+   The OPPOSITE SIDE IS STILL COMPUTABLE, and TradeWave - not a model - must compute it.
+   When `/analyze/{symbol}` is called with `direction=`, the appserver swaps the
+   winner/loser counts and negates the return series (`appserver.py:2688`). That is the
+   authoritative short-side math. A client that sign-flips a long card's numbers itself is
+   fabricating (see the calculation-authority rule).
+
+   CONSEQUENCE: a read path may return figures for a direction the viewer will never
+   display, so any client showing them MUST label them a what-if. Release defect
+   TW-R14-01 (2026-09-14): asked to "switch this exact pattern from long to short", Tara
+   returned correct short-side figures for AAPL but closed with "loaded in the Wave
+   Viewer", while the screen kept the determined long record. The numbers were right; the
+   LOAD CLAIM was the defect. Owner ruling: answer the question, but state what TradeWave
+   determined and why FIRST, then the opposite-side figures, then a plain-language reason
+   the figures look bad, then that the chart has not moved.
+
+   THE FIX IS DETERMINISTIC, AND HAD TO BE. `tara_gateway.build_direction_flip_reply()`
+   is intercepted in `chatbot.py chat()` just before `build_deterministic_reply`, gated on
+   `tara_prompt_context.is_direction_flip_request()`. It reads the determined side from the
+   on-screen `wave_viewer` stats, calls `analyze_symbol(direction=<opposite>)` for the other
+   side (TradeWave owns that math - never negate the loaded card in a client), and emits a
+   fixed four-part reply. It returns None on any missing piece so the turn falls through to
+   the provider instead of emitting half an answer. It also softens the wording when the
+   up/down split is closer than 70/30, because a near-even record does not make the other
+   side predictably bad.
+
+   THREE PROMPT RULES FAILED FIRST - do not retry that route for this class of behavior.
+   (a) Mid-list in the static prefix: no effect; later rules win on recency. (b) Last
+   `static_parts.append(...)`: still no effect, because `segmented_system_blocks(static,
+   topic KB, dynamic)` puts two more blocks after the whole static prefix. (c) A conditional
+   append to the DYNAMIC block, which genuinely is last: the model then dropped the figures
+   entirely and refused, which was WORSE than the original defect. Root cause of (a)-(c):
+   `RESPONSE STYLE AND RELEVANCE` caps "a simple fact, definition, or view command" at 2
+   sentences, and a direction request reads as a view command, so every rule demanding a
+   structured multi-part answer was compressed away. LESSON: when a required answer has a
+   mandatory SHAPE, build it deterministically - the same conclusion the tooltip control,
+   the MCP product replies and the trend-arrow answer already reached.
+
+   Guards: `tests/test_tara_openai_canary.py::test_direction_flip_reply_answers_with_figures_and_never_claims_a_load`,
+   `::test_direction_flip_reply_softens_when_the_split_is_close`,
+   `::test_direction_flip_reply_falls_through_when_tradewave_cannot_answer`,
+   `::test_direction_flip_detector_separates_flips_from_scans`. User-facing wording also
+   exists in `chatbot_knowledge.txt` under "How Trade Direction is Auto-Detected".
 
 0. **Scorecard WIN DEFINITION (owner, 2026-07-04 - explicit, supersedes the
    2026-06-16 held-to-close headline):** a daily pick WINS when it reaches the

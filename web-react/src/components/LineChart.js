@@ -12,6 +12,7 @@ import 'chartjs-plugin-annotation';
 import { BsFillCaretRightFill, BsFillCaretLeftFill } from "react-icons/bs";
 import { BiX } from "react-icons/bi";
 import { UIcolors, themeColors } from './Common'
+import { allAvailableYearsProjectionLabel, selectedWindowProjectionLabel } from './projectionLabels'
 
 import annotationPlugin from "chartjs-plugin-annotation";
 // import datalabelsPlugin from "chartjs-plugin-datalabels";
@@ -47,7 +48,7 @@ const DEFAULT_BB_CONFIG = {
     fill: true,
 };
 
-const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barChartLongOrShort, tradeDate0, tradeDate1, statDisplay, SetStatDisplay, saveStatDisplay, statBoxCoordinates, SetStatBoxCoordinates, UITheme, showWatermark, priceChartType = 'line', showVolume = true, maConfig = DEFAULT_MA_CONFIG, bbConfig = DEFAULT_BB_CONFIG, priceLevels = [], SetPriceLevels, selectedLevelId = null, SetSelectedLevelId, drawingMode = false, SetDrawingMode, showProjection = false, projectionPeriod = '30', consolidatedSeasonalData = [], showMaxProjection = false, maxYearsConsolidatedSeasonalData = [], maxAvailableYears = 0, projectionCapable = false, priceChartTimeframe = 'daily', showEarnings = true, tradeDetailData = null }) => {
+const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barChartLongOrShort, tradeDate0, tradeDate1, statDisplay, SetStatDisplay, saveStatDisplay, statBoxCoordinates, SetStatBoxCoordinates, UITheme, showWatermark, priceChartType = 'line', showVolume = true, maConfig = DEFAULT_MA_CONFIG, bbConfig = DEFAULT_BB_CONFIG, priceLevels = [], SetPriceLevels, selectedLevelId = null, SetSelectedLevelId, drawingMode = false, SetDrawingMode, showProjection = false, projectionPeriod = '30', consolidatedSeasonalData = [], showMaxProjection = false, maxYearsConsolidatedSeasonalData = [], maxAvailableYears = 0, seasonalYears = 0, tooltipSW = true, projectionCapable = false, priceChartTimeframe = 'daily', showEarnings = true, tradeDetailData = null }) => {
 
     const { browserH, browserW, rdd, loggedinUser } = useContext(UserContext)
     const tc = themeColors(UITheme)
@@ -684,25 +685,29 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
             ...paddedMaDatasets,
             ...paddedBbDatasets,
             ...(projCount > 0 && projectionResult.projectionData.length > 0 ? [{
-                label: `Seasonal Projection (${projectionPeriod || 30}d)`,
+                label: selectedWindowProjectionLabel(seasonalYears),
                 data: projectionResult.projectionData,
                 borderWidth: 2,
                 borderColor: '#e8a838',
                 borderDash: [8, 4],
                 backgroundColor: 'transparent',
                 pointRadius: 0,
+                pointHitRadius: 8,
+                pointHoverRadius: 3,
                 fill: false,
                 tension: 0.3,
                 spanGaps: false,
             }] : []),
             ...(maxProjCount > 0 && maxProjectionResult.projectionData.length > 0 ? [{
-                label: `Seasonal Projection (${projectionPeriod || 30}d, ${maxAvailableYears}-Y)`,
+                label: allAvailableYearsProjectionLabel(maxAvailableYears),
                 data: maxProjectionResult.projectionData,
                 borderWidth: 2,
                 borderColor: '#7c5cff',
                 borderDash: [8, 4],
                 backgroundColor: 'transparent',
                 pointRadius: 0,
+                pointHitRadius: 8,
+                pointHoverRadius: 3,
                 fill: false,
                 tension: 0.3,
                 spanGaps: false,
@@ -835,6 +840,11 @@ const LineChart = ({ showCurrentLineChart, lineChartData, smaSeedData = [], barC
         },
         // showLine:false,
         plugins: {
+            tooltip: {
+                enabled: !!tooltipSW,
+                mode: 'nearest',
+                intersect: true,
+            },
             legend: {
                 display: true,
                 labels: {

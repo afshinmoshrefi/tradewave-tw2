@@ -71,4 +71,4 @@ Click the leftmost portfolio icon to add a wave to your portfolio. This allows y
 
 The Wave Viewer combines data visualization, customization, and workflow tools into a single interface. By enabling both quick exploration and deep analysis of trading wave patterns, it helps traders move from idea generation to actionable insight more efficiently.
 
-![Using the Wave Viewer for Trading Analysis - screenshot](/learn/images/using-the-wave-viewer.png)
+![Using the Wave Viewer for Trading Analysis - screenshot](/learn/images/using-the-wave-viewer.jpg?v=ad329f649f51)

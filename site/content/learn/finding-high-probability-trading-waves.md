@@ -10,7 +10,7 @@ tags: ['opportunities-table', 'trading-waves', 'sharpe-ratio', 'platform']
 ---
 
 ## Key Takeaways:
-- TradeWave analyzes trillions of data points to identify repeatable trading patterns across markets.
+- TradeWave analyzes over a trillion data points to identify repeatable trading patterns across markets.
 - You can discover high-probability seasonal trading opportunities for any day of the year.
 - The Opportunities Table ranks trades using risk-adjusted metrics like Sharpe Ratio.
 - Fully customizable timeframes allow you to test patterns across 10, 14, 20+ years of historical data.
@@ -75,4 +75,4 @@ By combining large-scale data analysis, seasonal pattern recognition, and intuit
 
 Instead of relying on intuition alone, you can identify trading opportunities grounded in historical probability, risk-adjusted performance, and repeatable market behavior.
 
-![Finding High-Probability Trading Waves - screenshot](/learn/images/finding-high-probability-trading-waves.png)
+![Finding High-Probability Trading Waves - screenshot](/learn/images/finding-high-probability-trading-waves.png?v=390e5697b9bc)

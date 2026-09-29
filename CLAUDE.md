@@ -31,6 +31,13 @@ TW2 is the WordPress-removal rebuild of TW1: WorkOS + Stripe + Postgres + Flask
 replace WP/UMP, keeping the React app and the appserver `/login` handshake.
 
 ## Hard rules (full list + reasons in the ecosystem doc §11)
+- DAY COUNTING: a TradeWave "day" is a CALENDAR day (never trading/business days)
+  and the ENTRY DAY is day 1, so `end_date = start + (days - 1)` EVERYWHERE.
+  Jul 21 + 30 days ends Aug 19; Jul 1 + 31 days ends Jul 31. The +1 is a
+  LABEL-only cosmetic so months read as months - never add it to the end date.
+  Code doing `start + days` is WRONG. In prompts/gates state it POSITIVELY
+  ("windows are CALENDAR days"); a bare negative was read backwards by an LLM
+  reviewer and held a correct article. Do NOT re-derive - ecosystem doc §11 (0A).
 - SELF-MAINTAINING KNOWLEDGE: at the end of any substantive task, run the `tw-knowledge`
   skill unprompted (see "Keep it current" above) - capture + improve the ecosystem doc +
   memory, update existing files in place, never duplicate, never re-derive twice.

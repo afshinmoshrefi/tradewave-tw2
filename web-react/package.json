@@ -36,7 +36,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "PUBLIC_URL=/app/ react-scripts build",
+    "build": "PUBLIC_URL=/app/ react-scripts build && bash ../ops/normalize_react_build_permissions.sh",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

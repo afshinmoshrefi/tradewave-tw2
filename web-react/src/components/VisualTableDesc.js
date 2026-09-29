@@ -7,6 +7,7 @@ import './styles/VisualTableDesc.css'
 import Tippy from '@tippyjs/react'
 // import { BsArrowUp, BsArrowDown, BsArrowLeft } from "react-icons/bs";
 import { appserverURL, getSelectedIDFromSecuritiesList2, getTodayDate, customYearsDesc, themeColors } from './Common'
+import { getCurrentRealtimeLastPrice } from './realtimePriceBar'
 
 const VisualTableDesc = (props) => {
 
@@ -37,6 +38,22 @@ const VisualTableDesc = (props) => {
     //---------------------------------------------
     useEffect(() => {
 
+        SetLastPriceDisplay('Not Traded')
+
+        const realtimeLastPrice = getCurrentRealtimeLastPrice(
+            props.symbol,
+            getTodayDate(),
+            props.opportunities,
+            props.activeOpportunities,
+        )
+        if (realtimeLastPrice) {
+            props.SetLastPrice(realtimeLastPrice)
+            SetLastPriceDisplay(realtimeLastPrice[1])
+            return
+        }
+
+        let cancelled = false
+
 
         var id = getSelectedIDFromSecuritiesList2(props.securityTypeList, props.selectedSecurity)
         var asURL = appserverURL()
@@ -48,6 +65,8 @@ const VisualTableDesc = (props) => {
                 return res.json();
             })
             .then((g) => {
+
+                if (cancelled) return
 
 
                 if (g['StockLastPrice'][0] !== 0) { // this symbol is not traded
@@ -65,10 +84,20 @@ const VisualTableDesc = (props) => {
                 }
             })
             .catch(err => {
-                console.log('error retrieving stockLastPrice', err)
+                if (!cancelled) console.log('error retrieving stockLastPrice', err)
             })
 
-    }, [props.symbol]);
+        return () => { cancelled = true }
+
+    }, [
+        props.symbol,
+        props.opportunities,
+        props.activeOpportunities,
+        props.securityTypeList,
+        props.selectedSecurity,
+        props.SetLastPrice,
+        token,
+    ]);
 
 
     // yearsFilterDesc
@@ -175,6 +204,5 @@ const VisualTableDesc = (props) => {
 }
 
 export default VisualTableDesc
-
 
 

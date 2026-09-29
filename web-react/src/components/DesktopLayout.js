@@ -28,7 +28,7 @@ import TestGIS from './TestGIS';
 import './styles/DesktopLayout.css';
 import { UserContext } from './UserContext';
 import { AiOutlineDollarCircle } from "react-icons/ai";
-import { BsFillCircleFill, BsSun, BsMoon, BsListUl } from "react-icons/bs";
+import { BsFillCircleFill, BsSun, BsMoon, BsListUl, BsChevronLeft, BsChevronRight, BsChatDots, BsChatDotsFill } from "react-icons/bs";
 import { SlSettings } from "react-icons/sl";
 import { toggle_off_64, toggle_on_64 } from './Common';
 import { settings_dialog_content } from './Common';
@@ -39,10 +39,12 @@ import "swiper/swiper.min.css";
 import "swiper/components/pagination/pagination.min.css";
 import "swiper/components/navigation/navigation.min.css";
 import SwiperCore, { Pagination, Navigation, Virtual } from 'swiper/core';
-import { getCookie, setCookie, appserverURL } from './Common';
+import { getCookie, setCookie, appserverURL, lsGet, lsSet } from './Common';
+import { LEFT_PANEL_COLLAPSED_KEY, resolveLeftPanelCollapsed } from './leftPanelState';
 import { LiaToggleOffSolid, LiaToggleOnSolid } from "react-icons/lia";
 import { DarkBGColor, LightBGColor, themeColors } from './Common'
 import { tierHasAI } from './Common'
+import { BAR_CHART_EXCURSION_STYLES } from './barChartExcursion'
 import { BsPlus, BsTrash3 } from "react-icons/bs";
 import { GrEdit } from "react-icons/gr";
 import Tippy from '@tippyjs/react'
@@ -78,6 +80,9 @@ const DesktopLayout = (props) => {
         } catch (e) {}
         return DEFAULT_LEFT_NAV_PCT;
     });
+    const [leftNavCollapsePreference, SetLeftNavCollapsePreference] = useState(() => (
+        lsGet(LEFT_PANEL_COLLAPSED_KEY, false)
+    ));
     const isResizingNav = useRef(false);
     const navWidthRef = useRef(leftNavWidthPct); // tracks latest value across closure
     const appContainerRef = useRef(null);
@@ -130,6 +135,19 @@ const DesktopLayout = (props) => {
 
     const { seasonalAppDivH, seasonalAppDivH2, rdd, loggedinUser, wpUserLevels, token } = useContext(UserContext);
     const tc = themeColors(props.UITheme);
+    const isLeftNavCollapsed = resolveLeftPanelCollapsed({
+        storedPreference: leftNavCollapsePreference,
+        isMobile: rdd.isMobile,
+    });
+
+    const setLeftNavCollapsed = useCallback((collapsed) => {
+        SetLeftNavCollapsePreference(collapsed);
+        lsSet(LEFT_PANEL_COLLAPSED_KEY, collapsed);
+        if (collapsed) {
+            isResizingNav.current = false;
+            SetShowLeftNavSettings(false);
+        }
+    }, []);
 
     const toggle_width = '2.2vw';
     const settingsSize = 18;
@@ -586,7 +604,17 @@ const DesktopLayout = (props) => {
 
 
 
-            <div className='left-nav' style={{ width: `${leftNavWidthPct}%`, position: 'relative' }}>
+            <div
+                id="opportunity-side-panel"
+                className={`left-nav tw-left-panel${isLeftNavCollapsed ? ' tw-left-panel--collapsed' : ''}`}
+                aria-hidden={isLeftNavCollapsed}
+                style={{
+                    width: isLeftNavCollapsed ? '0px' : `${leftNavWidthPct}%`,
+                    position: 'relative',
+                    overflow: 'hidden',
+                    backgroundColor: tc.panelBg,
+                }}
+            >
                 <div className='security-selection' style={{ backgroundColor: tc.securitySelectionBg, overflow: 'hidden' }} onClick={handleSecurityDivClicked}>
                     {/* left side: shrinks and clips as left-nav narrows; font scales with container width */}
                     <div style={{ flex: 1, minWidth: 0, height: "100%", backgroundColor: 'transparent', display: "flex", alignItems: 'center', overflow: 'hidden', userSelect: 'none', fontSize: `${Math.min(0.85, Math.max(0.55, leftNavWidthPct * 0.028))}vw` }}>
@@ -638,9 +666,22 @@ const DesktopLayout = (props) => {
                         </div>
                     </div>
 
-                    {/* right side: SelectBox, never shrinks away */}
-                    <div style={{ flexShrink: 0, marginRight: "12px", display: "flex", alignItems: "center", justifyContent: 'flex-end', userSelect: 'none' }}>
+                    {/* right side: security group plus the persistent panel control */}
+                    <div style={{ flexShrink: 0, marginRight: "4px", display: "flex", gap: '4px', alignItems: "center", justifyContent: 'flex-end', userSelect: 'none' }}>
                         <SelectBox tooltipContent={props.tooltipSW ? 'r,Set Securities Group' : ''} optionList={props.securityTypeList} name="securityTypeList" value={props.selectedSecurityDisplay || props.selectedSecurity} sbChanged={props.selectboxChanged} />
+                        <Tippy disabled={!props.tooltipSW} placement="bottom" content="Hide the Opportunity Table and Tara to make more room for the charts.">
+                            <button
+                                type="button"
+                                className="tw-left-panel-toggle"
+                                aria-label="Hide opportunity panel"
+                                aria-controls="opportunity-side-panel"
+                                aria-expanded="true"
+                                onClick={(e) => { e.stopPropagation(); setLeftNavCollapsed(true); }}
+                                style={{ color: tc.textOnControl, borderColor: tc.border }}
+                            >
+                                <BsChevronLeft size={16} />
+                            </button>
+                        </Tippy>
                     </div>
                 </div>
 
@@ -672,6 +713,7 @@ const DesktopLayout = (props) => {
                             <div style={{ width: '140px', flexShrink: 0, borderRight: '1px solid ' + tc.border, paddingTop: '6px' }}>
                                 {[
                                     { key: 'general', label: 'General' },
+                                    { key: 'barchart', label: 'Bar Chart' },
                                     { key: 'pricechart', label: 'Price Chart' },
                                     { key: 'opptable', label: 'Opp Table' },
                                     { key: 'secgroups', label: 'Securities Groups' },
@@ -794,6 +836,73 @@ const DesktopLayout = (props) => {
                                                 setCookie('show_watchlist_on_focus', newVal.toString(), 365)
                                             }} checked={props.showWatchlistOnFocus} />
                                             <span style={{ fontSize: '12px', color: tc.text }}>Show Watchlist on Focus</span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* ── Bar Chart ── */}
+                                {settingsCategory === 'barchart' && (
+                                    <div>
+                                        <Tippy placement="right" content={<div>Choose how MFE and MAE are drawn around each annual return bar</div>}>
+                                            <div style={{ fontSize: '10px', fontWeight: '600', color: tc.text, opacity: 0.55, textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: '10px' }}>
+                                                MFE / MAE Display
+                                            </div>
+                                        </Tippy>
+                                        <div
+                                            role="radiogroup"
+                                            aria-label="MFE and MAE bar chart display"
+                                            style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}
+                                        >
+                                            {[
+                                                {
+                                                    key: BAR_CHART_EXCURSION_STYLES.FILLED,
+                                                    label: 'Filled Extensions',
+                                                    description: 'Current view — shaded distance from the close to each extreme.',
+                                                },
+                                                {
+                                                    key: BAR_CHART_EXCURSION_STYLES.TICKS,
+                                                    label: 'High / Low Ticks',
+                                                    description: 'Thin green and pink marks at the exact extreme levels.',
+                                                },
+                                                {
+                                                    key: BAR_CHART_EXCURSION_STYLES.NEEDLE,
+                                                    label: 'Range Needles',
+                                                    description: 'A theme-aware vertical line spanning the selected range.',
+                                                },
+                                            ].map(({ key, label, description }) => {
+                                                const selected = props.barChartExcursionStyle === key;
+                                                return (
+                                                    <button
+                                                        key={key}
+                                                        type="button"
+                                                        role="radio"
+                                                        aria-checked={selected}
+                                                        onClick={() => props.SetBarChartExcursionStyle(key)}
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '9px 11px',
+                                                            border: '1px solid ' + (selected
+                                                                ? (props.UITheme === 'dark' ? '#7aa2f7' : '#336')
+                                                                : tc.border),
+                                                            borderRadius: '7px',
+                                                            cursor: 'pointer',
+                                                            textAlign: 'left',
+                                                            backgroundColor: selected
+                                                                ? (props.UITheme === 'dark' ? '#3a3a5c' : '#ffffff')
+                                                                : (props.UITheme === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'),
+                                                            color: tc.text,
+                                                            boxShadow: selected ? '0 1px 5px rgba(0,0,0,0.18)' : 'none',
+                                                        }}
+                                                    >
+                                                        <div style={{ fontSize: '12px', fontWeight: selected ? '700' : '500' }}>
+                                                            {label}{key === BAR_CHART_EXCURSION_STYLES.FILLED ? ' (Default)' : ''}
+                                                        </div>
+                                                        <div style={{ marginTop: '3px', fontSize: '10px', lineHeight: 1.35, opacity: 0.65 }}>
+                                                            {description}
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}
@@ -1448,11 +1557,14 @@ const DesktopLayout = (props) => {
 
                 <div ref={oppChatContainerRef} className='opp_table_div' style={{ backgroundColor: tc.panelBg }}>
                     <div style={{ flex: 100 - chatbotHeightPct, minHeight: 0, width: '100%', overflow: 'hidden' }} >
-                        <OppTable {...props} />
+                        <OppTable {...props} onChatbotResizeMouseDown={handleResizerMouseDown} />
                     </div>
 
                     {props.showChatbot && <>
                         <div
+                            role="separator"
+                            aria-orientation="horizontal"
+                            aria-label="Resize Tara chat from bottom edge"
                             onMouseDown={handleResizerMouseDown}
                             style={{
                                 height: '5px',
@@ -1470,22 +1582,64 @@ const DesktopLayout = (props) => {
 
             </div>
 
+            <div
+                className={`tw-left-panel-rail${isLeftNavCollapsed ? ' tw-left-panel-rail--visible' : ''}`}
+                aria-hidden={!isLeftNavCollapsed}
+                style={{ backgroundColor: tc.panelBg, borderColor: tc.border }}
+            >
+                <Tippy disabled={!props.tooltipSW} placement="right" content="Show the Opportunity Table and Tara.">
+                    <button
+                        type="button"
+                        className="tw-left-panel-rail-button"
+                        aria-label="Show opportunity panel"
+                        aria-controls="opportunity-side-panel"
+                        aria-expanded="false"
+                        onClick={() => setLeftNavCollapsed(false)}
+                        style={{ color: tc.text, borderColor: tc.border, backgroundColor: tc.statValueBg }}
+                    >
+                        <BsChevronRight size={18} />
+                    </button>
+                </Tippy>
+                {props.chatbotEnabled &&
+                    <Tippy disabled={!props.tooltipSW} placement="right" content="Open Tara in the side panel.">
+                        <button
+                            type="button"
+                            className={`tw-left-panel-rail-button tw-left-panel-tara-button${props.chatbotIconBlink ? ' chatbot-icon-blink' : ''}`}
+                            aria-label="Open Tara in opportunity panel"
+                            onClick={() => {
+                                setLeftNavCollapsed(false);
+                                props.SetShowChatbot(true);
+                                if (props.onChatbotIconClick) props.onChatbotIconClick();
+                            }}
+                            style={{ color: props.showChatbot ? '#f5c842' : tc.text, borderColor: tc.border, backgroundColor: tc.statValueBg }}
+                        >
+                            {props.showChatbot ? <BsChatDotsFill size={19} /> : <BsChatDots size={19} />}
+                        </button>
+                    </Tippy>
+                }
+            </div>
+
 
             <div
-                onMouseDown={handleNavResizerMouseDown}
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize opportunity panel"
+                aria-hidden={isLeftNavCollapsed}
+                onMouseDown={isLeftNavCollapsed ? undefined : handleNavResizerMouseDown}
                 style={{
-                    width: '5px',
+                    width: isLeftNavCollapsed ? '0px' : '5px',
                     height: '100%',
-                    cursor: 'ew-resize',
+                    cursor: isLeftNavCollapsed ? 'default' : 'ew-resize',
                     backgroundColor: tc.titleBar,
                     flexShrink: 0,
                     userSelect: 'none',
+                    transition: 'width 180ms ease',
                 }}
             />
 
             <div ref={rightContentRef} id='right-content' style={{ backgroundColor: tc.panelBg, flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                 <div className='seasonal-barchart-parent' style={{ height: `${topChartHeightPct}%`, flexShrink: 0 }}>
-                    <SeasonalBarChart {...props} chartTo={chartTo} leftNavWidthPct={leftNavWidthPct} />
+                    <SeasonalBarChart {...props} chartTo={chartTo} leftNavWidthPct={isLeftNavCollapsed ? 0 : leftNavWidthPct} />
                 </div>
 
                 <div
