@@ -153,6 +153,8 @@ def _stripe_prices():
 
 # Input: CSV file with opportunities
 OPPORTUNITIES_CSV = "/home/flask/site/data/home_opportunities.csv"
+# Written each weekday by site/hundred_year_stocks.py while the pattern is open.
+HUNDRED_YEAR_STOCKS_JSON = "/home/flask/site/data/home_100yp_stocks.json"
 
 # Output: Where to save the generated HTML
 # OUTPUT_DIR = "/var/www/html/_static/"
@@ -1923,6 +1925,16 @@ def main():
             print("   100-Year Pattern: %s, live score %s" % (
                 hundred_year["status"],
                 "shown" if (hundred_year.get("live") or {}).get("show_score") else "held"))
+            if hundred_year["status"] == "active":
+                stocks = hundred_year_home.load_stock_list(
+                    HUNDRED_YEAR_STOCKS_JSON, new_york_now().date())
+                if stocks:
+                    # One stock list on the page while the window is open: the
+                    # card's list replaces the Top Patterns table.
+                    hundred_year["stocks"] = stocks
+                    show_opportunities = False
+                print("   100-Year Pattern stock list: %s" % (
+                    "shown" if stocks else "none for today; Top Patterns kept"))
         except Exception:
             print("   WARN 100-Year Pattern card failed; card omitted. Traceback:",
                   file=sys.stderr)

@@ -293,6 +293,33 @@ section{padding:var(--s6) 0}
   .tw100-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
   .tw100-foot{justify-content:center;text-align:left}
 }
+/* 100-Year Pattern stock list */
+.tw100-stocks{grid-column:1/-1;padding-top:18px;border-top:1px solid var(--line)}
+.tw100-stocks-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.tw100-stocks h3{font-size:1.02rem;letter-spacing:-.01em}
+.tw100-stocks-head p{margin:5px 0 0;max-width:520px;color:var(--muted);font-size:.8rem;line-height:1.45}
+.tw100-tabs{display:inline-flex;gap:4px;padding:3px;border:1px solid var(--line2);border-radius:10px;background:rgba(6,10,20,.5)}
+.tw100-tab{border:0;border-radius:7px;padding:6px 11px;background:transparent;color:var(--muted);font:600 .76rem/1.2 inherit;cursor:pointer}
+.tw100-tab.is-on{background:var(--accent);color:#fff}
+.tw100-tab:focus-visible{outline:2px solid #b9adff;outline-offset:2px}
+.tw100-stock-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.tw100-stock{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.2fr) 70px 16px;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(6,10,20,.4);color:var(--ink);transition:border-color .12s ease,background .12s ease}
+.tw100-stock:hover{border-color:rgba(124,92,255,.55);background:rgba(124,92,255,.08)}
+.tw100-stock small{display:block;margin-top:2px;color:var(--faint);font-size:.7rem;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tw100-stock-id b{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.9rem}
+.tw100-stock-window{color:var(--muted);font-size:.78rem;font-family:'JetBrains Mono',ui-monospace,monospace}
+.tw100-stock-rec b{font-size:.8rem;font-weight:600}
+.tw100-stock-avg{text-align:right;font-family:'JetBrains Mono',ui-monospace,monospace;font-weight:700;color:var(--win);font-size:.86rem}
+.tw100-stock-go{color:var(--accent);font-weight:700}
+.tw100-stocks-cap{margin:10px 0 0;color:var(--faint);font-size:.72rem;text-align:center}
+@media(max-width:760px){
+  .tw100-stocks-head{flex-direction:column;align-items:center;text-align:center}
+  .tw100-stock{grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;text-align:left}
+  .tw100-stock-window{grid-column:1/-1;order:3}
+  .tw100-stock-rec{grid-column:1/-1;order:4}
+  .tw100-stock-rec b,.tw100-stock-rec small{display:inline;margin:0 8px 0 0}
+  .tw100-stock-go{display:none}
+}
 /* TW100 HOME COUNTDOWN END */
 {% endif %}
 /* artifact frame */
@@ -866,6 +893,35 @@ body{background-image:none !important;}
     </div>
     <p class="tw100-stats-cap">Completed cycles {{ hist.first_year }}&ndash;{{ hist.last_year }}. S&amp;P 500 price return, close to close.</p>
     {% endif %}
+    {% if hy.stocks %}
+    <section class="tw100-stocks" aria-labelledby="tw100-stocks-title">
+      <div class="tw100-stocks-head">
+        <div>
+          <h3 id="tw100-stocks-title">S&amp;P 500 stocks with a strong record from today</h3>
+          <p>Each one rose in most of the last 15 years over the same dates, and in most midterm election years. History, not a forecast.</p>
+        </div>
+        <div class="tw100-tabs" role="tablist" aria-label="Pattern length">
+          {% for tab in hy.stocks.tabs %}
+          <button type="button" role="tab" id="tw100-tab-{{ tab.key }}" aria-controls="tw100-panel-{{ tab.key }}" aria-selected="{{ 'true' if loop.first else 'false' }}" class="tw100-tab{% if loop.first %} is-on{% endif %}" data-tw100-tab="{{ tab.key }}">{{ tab.label }}</button>
+          {% endfor %}
+        </div>
+      </div>
+      {% for tab in hy.stocks.tabs %}
+      <ol class="tw100-stock-list" role="tabpanel" id="tw100-panel-{{ tab.key }}" aria-labelledby="tw100-tab-{{ tab.key }}" data-tw100-panel="{{ tab.key }}"{% if not loop.first %} hidden{% endif %}>
+        {% for row in tab.rows %}
+        <li><a class="tw100-stock" href="{{ row.url }}">
+          <span class="tw100-stock-id"><b>{{ row.symbol }}</b><small>{{ row.name }}</small></span>
+          <span class="tw100-stock-window">{{ row.window }}</span>
+          <span class="tw100-stock-rec"><b>{{ row.main }}</b><small>{{ row.midterm }}</small></span>
+          <span class="tw100-stock-avg">{{ row.avg }}<small>avg</small></span>
+          <span class="tw100-stock-go" aria-hidden="true">&rarr;</span>
+        </a></li>
+        {% endfor %}
+      </ol>
+      {% endfor %}
+      <p class="tw100-stocks-cap">Opens the Wave Viewer with a free account. Updated each trading morning.</p>
+    </section>
+    {% endif %}
     <div class="tw100-foot">
       <a class="tw100-home-link" href="/100-year-pattern">See every cycle, year by year <span aria-hidden="true">&rarr;</span></a>
       <div class="tw100-book">
@@ -1397,6 +1453,16 @@ document.addEventListener('click', function(e){
     dayEl.textContent=String(n);
     bar.style.width=(100*n/total).toFixed(1)+'%';
   }catch(e){}
+})();
+// 100-Year Pattern stock list tabs.
+(function(){
+  var tabs=document.querySelectorAll('[data-tw100-tab]');
+  if(!tabs.length) return;
+  function show(key){
+    tabs.forEach(function(t){var on=t.getAttribute('data-tw100-tab')===key;t.classList.toggle('is-on',on);t.setAttribute('aria-selected',on?'true':'false');});
+    document.querySelectorAll('[data-tw100-panel]').forEach(function(p){p.hidden=p.getAttribute('data-tw100-panel')!==key;});
+  }
+  tabs.forEach(function(t){t.addEventListener('click',function(){show(t.getAttribute('data-tw100-tab'));});});
 })();
 // TW100 HOME COUNTDOWN END
 {% endif %}

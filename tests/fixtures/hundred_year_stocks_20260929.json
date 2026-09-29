@@ -1,0 +1,1285 @@
+{
+ "_source": "dev appserver, recorded 2026-09-29 for 2026-09-29 entries",
+ "opp_short": [
+  [
+   "2026-09-29",
+   "AJG",
+   "7",
+   "Long",
+   "1.0",
+   1.49,
+   1.29,
+   2.26,
+   1.32
+  ],
+  [
+   "2026-09-29",
+   "JPM",
+   "7",
+   "Long",
+   "0.9",
+   1.85,
+   2.32,
+   3.09,
+   1.32
+  ],
+  [
+   "2026-09-29",
+   "ETR",
+   "29",
+   "Long",
+   "0.88",
+   4.07,
+   4.17,
+   6.39,
+   1.46
+  ],
+  [
+   "2026-09-29",
+   "FE",
+   "23",
+   "Long",
+   "0.82",
+   3.54,
+   4.04,
+   5.07,
+   1.21
+  ],
+  [
+   "2026-09-29",
+   "CPRT",
+   "19",
+   "Long",
+   "0.78",
+   2.95,
+   2.52,
+   5.03,
+   1.39
+  ],
+  [
+   "2026-09-29",
+   "AAPL",
+   "23",
+   "Long",
+   "0.75",
+   2.84,
+   2.88,
+   5.74,
+   1.97
+  ]
+ ],
+ "charts": {
+  "AJG|2026-09-29|7|15": {
+   "ChartData4": [
+    {
+     "completed": true,
+     "pct": "1.75,1.86,-5.88",
+     "price": "19.4455,19.7859",
+     "year": 2011
+    },
+    {
+     "completed": true,
+     "pct": "3.08,3.58,0.0",
+     "price": "26.8778,27.7058",
+     "year": 2012
+    },
+    {
+     "completed": true,
+     "pct": "0.37,1.56,-0.18",
+     "price": "34.0133,34.138",
+     "year": 2013
+    },
+    {
+     "completed": true,
+     "pct": "1.53,1.78,-1.38",
+     "price": "36.2234,36.778",
+     "year": 2014
+    },
+    {
+     "completed": true,
+     "pct": "3.31,3.53,-0.59",
+     "price": "33.8377,34.9579",
+     "year": 2015
+    },
+    {
+     "completed": true,
+     "pct": "0.87,1.53,-0.97",
+     "price": "43.1747,43.5522",
+     "year": 2016
+    },
+    {
+     "completed": true,
+     "pct": "0.34,0.93,-1.1",
+     "price": "54.3056,54.4909",
+     "year": 2017
+    },
+    {
+     "completed": true,
+     "pct": "0.41,1.09,-0.81",
+     "price": "67.9044,68.1844",
+     "year": 2018
+    },
+    {
+     "completed": true,
+     "pct": "-1.13,0.49,-4.72",
+     "price": "82.591,81.6597",
+     "year": 2019
+    },
+    {
+     "completed": true,
+     "pct": "0.94,3.14,-0.78",
+     "price": "98.3324,99.2616",
+     "year": 2020
+    },
+    {
+     "completed": true,
+     "pct": "1.29,1.9,-1.52",
+     "price": "143.6758,145.5231",
+     "year": 2021
+    },
+    {
+     "completed": true,
+     "pct": "4.65,6.71,-0.64",
+     "price": "164.9536,172.6258",
+     "year": 2022
+    },
+    {
+     "completed": true,
+     "pct": "1.79,2.28,-2.01",
+     "price": "222.0391,226.0136",
+     "year": 2023
+    },
+    {
+     "completed": true,
+     "pct": "1.97,3.19,-0.09",
+     "price": "276.6074,282.0438",
+     "year": 2024
+    },
+    {
+     "completed": true,
+     "pct": "1.13,2.56,-1.21",
+     "price": "302.9625,306.3716",
+     "year": 2025
+    },
+    {
+     "completed": false,
+     "pct": "0,0,0",
+     "price": "0,0",
+     "year": 2026
+    }
+   ],
+   "request": {
+    "comparison_direction": "long",
+    "cut_off_year": 0,
+    "days_out": 8,
+    "entry_date": "2026-09-29",
+    "market": "2",
+    "pe_cycle": "cons",
+    "symbol": "AJG",
+    "years": 15
+   },
+   "stats": {
+    "Num Winners": "14",
+    "Num Losers": "1",
+    "Avg Profit - All": "1.49%",
+    "Percent Profitable": "93.33%"
+   }
+  },
+  "AJG|2026-09-29|7|pe2-30": {
+   "ChartData4": [
+    {
+     "completed": true,
+     "pct": "0.42,1.68,-3.36",
+     "price": "2.115,2.1239",
+     "year": 1986
+    },
+    {
+     "completed": true,
+     "pct": "0.0,2.41,-0.0",
+     "price": "1.849,1.849",
+     "year": 1990
+    },
+    {
+     "completed": true,
+     "pct": "-3.79,0.0,-4.92",
+     "price": "3.2631,3.1395",
+     "year": 1994
+    },
+    {
+     "completed": true,
+     "pct": "-5.42,2.17,-6.81",
+     "price": "4.545,4.2988",
+     "year": 1998
+    },
+    {
+     "completed": true,
+     "pct": "-8.48,4.58,-10.26",
+     "price": "12.1708,11.1389",
+     "year": 2002
+    },
+    {
+     "completed": true,
+     "pct": "1.46,1.8,-0.45",
+     "price": "15.0676,15.287900000000002",
+     "year": 2006
+    },
+    {
+     "completed": true,
+     "pct": "0.34,1.45,-1.56",
+     "price": "18.1785,18.2408",
+     "year": 2010
+    },
+    {
+     "completed": true,
+     "pct": "1.53,1.78,-1.38",
+     "price": "36.2234,36.778",
+     "year": 2014
+    },
+    {
+     "completed": true,
+     "pct": "0.41,1.09,-0.81",
+     "price": "67.9044,68.1844",
+     "year": 2018
+    },
+    {
+     "completed": true,
+     "pct": "4.65,6.71,-0.64",
+     "price": "164.9536,172.6258",
+     "year": 2022
+    },
+    {
+     "completed": false,
+     "pct": "0,0,0",
+     "price": "0,0",
+     "year": 2026
+    }
+   ],
+   "request": {
+    "comparison_direction": "long",
+    "cut_off_year": 0,
+    "days_out": 8,
+    "entry_date": "2026-09-29",
+    "market": "2",
+    "pe_cycle": "pe2",
+    "symbol": "AJG",
+    "years": 30
+   },
+   "stats": {
+    "Num Winners": "7",
+    "Num Losers": "3",
+    "Avg Profit - All": "-0.89%",
+    "Percent Profitable": "70.0%"
+   }
+  },
+  "JPM|2026-09-29|7|15": {
+   "ChartData4": [
+    {
+     "completed": true,
+     "pct": "4.06,4.32,-10.5",
+     "price": "20.9656,21.8172",
+     "year": 2011
+    },
+    {
+     "completed": true,
+     "pct": "2.43,4.35,-1.0",
+     "price": "28.2191,28.9062",
+     "year": 2012
+    },
+    {
+     "completed": true,
+     "pct": "1.01,2.67,-0.46",
+     "price": "36.6028,36.9724",
+     "year": 2013
+    },
+    {
+     "completed": true,
+     "pct": "0.42,1.46,-2.2",
+     "price": "43.8949,44.0808",
+     "year": 2014
+    },
+    {
+     "completed": true,
+     "pct": "4.44,4.96,-1.48",
+     "price": "44.6972,46.6824",
+     "year": 2015
+    },
+    {
+     "completed": true,
+     "pct": "4.13,4.44,0.0",
+     "price": "50.4802,52.5665",
+     "year": 2016
+    },
+    {
+     "completed": true,
+     "pct": "2.07,2.83,-0.05",
+     "price": "75.2224,76.7791",
+     "year": 2017
+    },
+    {
+     "completed": true,
+     "pct": "2.32,3.64,-0.61",
+     "price": "91.334,93.4484",
+     "year": 2018
+    },
+    {
+     "completed": true,
+     "pct": "-2.04,1.11,-5.34",
+     "price": "97.565,95.5722",
+     "year": 2019
+    },
+    {
+     "completed": true,
+     "pct": "3.75,6.76,-0.27",
+     "price": "81.8127,84.884",
+     "year": 2020
+    },
+    {
+     "completed": true,
+     "pct": "2.46,3.14,-1.9",
+     "price": "146.4375,150.0453",
+     "year": 2021
+    },
+    {
+     "completed": true,
+     "pct": "2.78,6.43,-1.66",
+     "price": "96.3546,99.0299",
+     "year": 2022
+    },
+    {
+     "completed": true,
+     "pct": "0.79,1.34,-2.17",
+     "price": "135.7599,136.8371",
+     "year": 2023
+    },
+    {
+     "completed": true,
+     "pct": "0.65,1.79,-3.09",
+     "price": "202.3607,203.6684",
+     "year": 2024
+    },
+    {
+     "completed": true,
+     "pct": "-1.59,0.54,-3.03",
+     "price": "309.7686,304.8556",
+     "year": 2025
+    },
+    {
+     "completed": false,
+     "pct": "0,0,0",
+     "price": "0,0",
+     "year": 2026
+    }
+   ],
+   "request": {
+    "comparison_direction": "long",
+    "cut_off_year": 0,
+    "days_out": 8,
+    "entry_date": "2026-09-29",
+    "market": "2",
+    "pe_cycle": "cons",
+    "symbol": "JPM",
+    "years": 15
+   },
+   "stats": {
+    "Num Winners": "13",
+    "Num Losers": "2",
+    "Avg Profit - All": "1.85%",
+    "Percent Profitable": "86.67%"
+   }
+  },
+  "JPM|2026-09-29|7|pe2-30": {
+   "ChartData4": [
+    {
+     "completed": true,
+     "pct": "5.94,7.69,-2.1",
+     "price": "1.5485,1.6405",
+     "year": 1982
+    },
+    {
+     "completed": true,
+     "pct": "-0.85,0.29,-1.71",
+     "price": "3.419,3.3898",
+     "year": 1986
+    },
+    {
+     "completed": true,
+     "pct": "0.81,5.64,-7.26",
+     "price": "1.6972,1.7109",
+     "year": 1990
+    },
+    {
+     "completed": true,
+     "pct": "-2.67,0.9,-4.09",
+     "price": "4.5404,4.4193",
+     "year": 1994
+    },
+    {
+     "completed": true,
+     "pct": "-7.94,1.67,-11.16",
+     "price": "13.6068,12.527",
+     "year": 1998
+    },
+    {
+     "completed": true,
+     "pct": "-10.14,6.04,-13.47",
+     "price": "9.6793,8.6975",
+     "year": 2002
+    },
+    {
+     "completed": true,
+     "pct": "0.5,2.04,-0.47",
+     "price": "28.1796,28.3213",
+     "year": 2006
+    },
+    {
+     "completed": true,
+     "pct": "4.01,4.46,-1.17",
+     "price": "25.2984,26.3136",
+     "year": 2010
+    },
+    {
+     "completed": true,
+     "pct": "0.42,1.46,-2.2",
+     "price": "43.8949,44.0808",
+     "year": 2014
+    },
+    {
+     "completed": true,
+     "pct": "2.32,3.64,-0.61",
+     "price": "91.334,93.4484",
+     "year": 2018
+    },
+    {
+     "completed": true,
+     "pct": "2.78,6.43,-1.66",
+     "price": "96.3546,99.0299",
+     "year": 2022
+    },
+    {
+     "completed": false,
+     "pct": "0,0,0",
+     "price": "0,0",
+     "year": 2026
+    }
+   ],
+   "request": {
+    "comparison_direction": "long",
+    "cut_off_year": 0,
+    "days_out": 8,
+    "entry_date": "2026-09-29",
+    "market": "2",
+    "pe_cycle": "pe2",
+    "symbol": "JPM",
+    "years": 30
+   },
+   "stats": {
+    "Num Winners": "7",
+    "Num Losers": "4",
+    "Avg Profit - All": "-0.44%",
+    "Percent Profitable": "63.64%"
+   }
+  },
+  "ETR|2026-09-29|29|15": {
+   "ChartData4": [
+    {
+     "completed": true,
+     "pct": "2.97,4.69,-6.51",
+     "price": "18.267,18.8094",
+     "year": 2011
+    },
+    {
+     "completed": true,
+     "pct": "4.84,5.42,-0.3",
+     "price": "19.8089,20.7674",
+     "year": 2012
+    },
+    {
+     "completed": true,
+     "pct": "7.79,8.61,-0.25",
+     "price": "19.0014,20.4809",
+     "year": 2013
+    },
+    {
+     "completed": true,
+     "pct": "6.7,7.7,-0.3",
+     "price": "24.2281,25.8509",
+     "year": 2014
+    },
+    {
+     "completed": true,
+     "pct": "5.33,9.86,-0.67",
+     "price": "21.2117,22.3427",
+     "year": 2015
+    },
+    {
+     "completed": true,
+     "pct": "-6.43,0.81,-8.32",
+     "price": "26.7221,25.0047",
+     "year": 2016
+    },
+    {
+     "completed": true,
+     "pct": "13.14,13.93,-1.77",
+     "price": "27.6628,31.2964",
+     "year": 2017
+    },
+    {
+     "completed": true,
+     "pct": "4.17,6.63,-1.35",
+     "price": "30.5452,31.8178",
+     "year": 2018
+    },
+    {
+     "completed": true,
+     "pct": "0.65,3.48,-2.15",
+     "price": "46.2085,46.5077",
+     "year": 2019
+    },
+    {
+     "completed": true,
+     "pct": "7.34,14.28,0.0",
+     "price": "39.0098,41.873",
+     "year": 2020
+    },
+    {
+     "completed": true,
+     "pct": "2.04,4.41,-1.64",
+     "price": "42.5429,43.4128",
+     "year": 2021
+    },
+    {
+     "completed": true,
+     "pct": "4.97,5.23,-7.49",
+     "price": "44.9305,47.1632",
+     "year": 2022
+    },
+    {
+     "completed": true,
+     "pct": "2.45,3.56,-5.84",
+     "price": "42.2087,43.2445",
+     "year": 2023
+    },
+    {
+     "completed": true,
+     "pct": "3.58,5.04,-2.17",
+     "price": "62.7287,64.9736",
+     "year": 2024
+    },
+    {
+     "completed": true,
+     "pct": "1.57,5.38,-2.03",
+     "price": "91.8216,93.2644",
+     "year": 2025
+    },
+    {
+     "completed": false,
+     "pct": "0,0,0",
+     "price": "0,0",
+     "year": 2026
+    }
+   ],
+   "request": {
+    "comparison_direction": "long",
+    "cut_off_year": 0,
+    "days_out": 30,
+    "entry_date": "2026-09-29",
+    "market": "2",
+    "pe_cycle": "cons",
+    "symbol": "ETR",
+    "years": 15
+   },
+   "stats": {
+    "Num Winners": "14",
+    "Num Losers": "1",
+    "Avg Profit - All": "4.07%",
+    "Percent Profitable": "93.33%"
+   }
+  },
+  "ETR|2026-09-29|29|pe2-30": {
+   "ChartData4": [
+    {
+     "completed": true,
+     "pct": "2.63,8.77,-0.88",
+     "price": "1.4738,1.5125",
+     "year": 1982
+    },
+    {
+     "completed": true,
+     "pct": "0.99,2.95,-3.92",
+     "price": "1.3186,1.3316",
+     "year": 1986
+    },
+    {
+     "completed": true,
+     "pct": "3.87,8.39,-0.65",
+     "price": "2.0815,2.1621",
+     "year": 1990
+    },
+    {
+     "completed": true,
+     "pct": "6.49,7.03,-2.43",
+     "price": "3.0472,3.2449",
+     "year": 1994
+    },
+    {
+     "completed": true,
+     "pct": "-5.2,6.44,-6.65",
+     "price": "5.2094,4.9386",
+     "year": 1998
+    },
+    {
+     "completed": true,
+     "pct": "3.63,6.1,-11.54",
+     "price": "8.3662,8.6698",
+     "year": 2002
+    },
+    {
+     "completed": true,
+     "pct": "10.71,11.03,0.0",
+     "price": "17.8111,19.719",
+     "year": 2006
+    },
+    {
+     "completed": true,
+     "pct": "-4.23,0.85,-5.92",
+     "price": "20.0554,19.2064",
+     "year": 2010
+    },
+    {
+     "completed": true,
+     "pct": "6.7,7.7,-0.3",
+     "price": "24.2281,25.8509",
+     "year": 2014
+    },
+    {
+     "completed": true,
+     "pct": "4.17,6.63,-1.35",
+     "price": "30.5452,31.8178",
+     "year": 2018
+    },
+    {
+     "completed": true,
+     "pct": "4.97,5.23,-7.49",
+     "price": "44.9305,47.1632",
+     "year": 2022
+    },
+    {
+     "completed": false,
+     "pct": "0,0,0",
+     "price": "0,0",
+     "year": 2026
+    }
+   ],
+   "request": {
+    "comparison_direction": "long",
+    "cut_off_year": 0,
+    "days_out": 30,
+    "entry_date": "2026-09-29",
+    "market": "2",
+    "pe_cycle": "pe2",
+    "symbol": "ETR",
+    "years": 30
+   },
+   "stats": {
+    "Num Winners": "9",
+    "Num Losers": "2",
+    "Avg Profit - All": "3.16%",
+    "Percent Profitable": "81.82%"
+   }
+  },
+  "FE|2026-09-29|23|15": {
+   "ChartData4": [
+    {
+     "completed": true,
+     "pct": "0.37,1.21,-6.96",
+     "price": "23.9843,24.0741",
+     "year": 2011
+    },
+    {
+     "completed": true,
+     "pct": "4.04,5.65,-0.16",
+     "price": "24.405800000000003,25.3917",
+     "year": 2012
+    },
+    {
+     "completed": true,
+     "pct": "5.35,5.93,0.0",
+     "price": "21.2861,22.4249",
+     "year": 2013
+    },
+    {
+     "completed": true,
+     "pct": "4.56,6.03,-2.74",
+     "price": "20.8289,21.7793",
+     "year": 2014
+    },
+    {
+     "completed": true,
+     "pct": "5.45,7.04,-1.78",
+     "price": "19.6623,20.7337",
+     "year": 2015
+    },
+    {
+     "completed": true,
+     "pct": "0.51,0.99,-8.68",
+     "price": "22.1125,22.2258",
+     "year": 2016
+    },
+    {
+     "completed": true,
+     "pct": "4.22,6.42,-0.58",
+     "price": "21.5343,22.4423",
+     "year": 2017
+    },
+    {
+     "completed": true,
+     "pct": "4.35,5.35,-1.78",
+     "price": "26.9892,28.1633",
+     "year": 2018
+    },
+    {
+     "completed": true,
+     "pct": "0.27,0.91,-2.3",
+     "price": "36.5076,36.606",
+     "year": 2019
+    },
+    {
+     "completed": true,
+     "pct": "15.49,16.33,-0.7",
+     "price": "22.5001,25.9852",
+     "year": 2020
+    },
+    {
+     "completed": true,
+     "pct": "3.99,4.24,-2.42",
+     "price": "29.9104,31.1052",
+     "year": 2021
+    },
+    {
+     "completed": true,
+     "pct": "-0.81,5.11,-4.25",
+     "price": "31.8254,31.5686",
+     "year": 2022
+    },
+    {
+     "completed": true,
+     "pct": "2.37,6.0,-5.85",
+     "price": "30.4756,31.1979",
+     "year": 2023
+    },
+    {
+     "completed": true,
+     "pct": "-1.15,0.52,-4.85",
+     "price": "41.306,40.831",
+     "year": 2024
+    },
+    {
+     "completed": true,
+     "pct": "4.14,5.68,-0.09",
+     "price": "44.0889,45.9142",
+     "year": 2025
+    },
+    {
+     "completed": false,
+     "pct": "0,0,0",
+     "price": "0,0",
+     "year": 2026
+    }
+   ],
+   "request": {
+    "comparison_direction": "long",
+    "cut_off_year": 0,
+    "days_out": 24,
+    "entry_date": "2026-09-29",
+    "market": "2",
+    "pe_cycle": "cons",
+    "symbol": "FE",
+    "years": 15
+   },
+   "stats": {
+    "Num Winners": "13",
+    "Num Losers": "2",
+    "Avg Profit - All": "3.54%",
+    "Percent Profitable": "86.67%"
+   }
+  },
+  "FE|2026-09-29|23|pe2-30": {
+   "ChartData4": [
+    {
+     "completed": true,
+     "pct": "0.45,3.39,-3.92",
+     "price": "0.0221,0.0222",
+     "year": 1986
+    },
+    {
+     "completed": true,
+     "pct": "5.88,5.88,-2.94",
+     "price": "0.0187,0.0198",
+     "year": 1990
+    },
+    {
+     "completed": true,
+     "pct": "-1.38,1.23,-2.53",
+     "price": "0.0217,0.0214",
+     "year": 1994
+    },
+    {
+     "completed": true,
+     "pct": "-0.81,10.77,-3.25",
+     "price": "8.868,8.7959",
+     "year": 1998
+    },
+    {
+     "completed": true,
+     "pct": "-2.65,4.12,-14.15",
+     "price": "10.6663,10.3837",
+     "year": 2002
+    },
+    {
+     "completed": true,
+     "pct": "5.91,5.98,0.0",
+     "price": "23.4075,24.7903",
+     "year": 2006
+    },
+    {
+     "completed": true,
+     "pct": "-2.65,4.1,-3.22",
+     "price": "18.9977,18.4949",
+     "year": 2010
+    },
+    {
+     "completed": true,
+     "pct": "4.56,6.03,-2.74",
+     "price": "20.8289,21.7793",
+     "year": 2014
+    },
+    {
+     "completed": true,
+     "pct": "4.35,5.35,-1.78",
+     "price": "26.9892,28.1633",
+     "year": 2018
+    },
+    {
+     "completed": true,
+     "pct": "-0.81,5.11,-4.25",
+     "price": "31.8254,31.5686",
+     "year": 2022
+    },
+    {
+     "completed": false,
+     "pct": "0,0,0",
+     "price": "0,0",
+     "year": 2026
+    }
+   ],
+   "request": {
+    "comparison_direction": "long",
+    "cut_off_year": 0,
+    "days_out": 24,
+    "entry_date": "2026-09-29",
+    "market": "2",
+    "pe_cycle": "pe2",
+    "symbol": "FE",
+    "years": 30
+   },
+   "stats": {
+    "Num Winners": "5",
+    "Num Losers": "5",
+    "Avg Profit - All": "1.28%",
+    "Percent Profitable": "50.0%"
+   }
+  },
+  "CPRT|2026-09-29|19|15": {
+   "ChartData4": [
+    {
+     "completed": true,
+     "pct": "7.26,9.27,-6.05",
+     "price": "2.48,2.66",
+     "year": 2011
+    },
+    {
+     "completed": true,
+     "pct": "-0.29,1.17,-3.5",
+     "price": "3.43,3.42",
+     "year": 2012
+    },
+    {
+     "completed": true,
+     "pct": "2.52,5.54,-0.25",
+     "price": "3.97,4.07",
+     "year": 2013
+    },
+    {
+     "completed": true,
+     "pct": "0.51,1.52,-5.08",
+     "price": "3.94,3.96",
+     "year": 2014
+    },
+    {
+     "completed": true,
+     "pct": "5.04,5.76,-2.16",
+     "price": "4.17,4.38",
+     "year": 2015
+    },
+    {
+     "completed": true,
+     "pct": "1.96,2.87,-0.45",
+     "price": "6.63,6.76",
+     "year": 2016
+    },
+    {
+     "completed": true,
+     "pct": "6.05,6.64,0.0",
+     "price": "8.59,9.11",
+     "year": 2017
+    },
+    {
+     "completed": true,
+     "pct": "-5.47,1.06,-7.22",
+     "price": "13.16,12.44",
+     "year": 2018
+    },
+    {
+     "completed": true,
+     "pct": "2.49,3.09,-4.93",
+     "price": "20.08,20.58",
+     "year": 2019
+    },
+    {
+     "completed": true,
+     "pct": "9.04,12.15,-1.02",
+     "price": "26.43,28.82",
+     "year": 2020
+    },
+    {
+     "completed": true,
+     "pct": "4.44,4.55,-4.64",
+     "price": "35.35,36.92",
+     "year": 2021
+    },
+    {
+     "completed": true,
+     "pct": "2.51,4.44,-3.64",
+     "price": "27.45,28.14",
+     "year": 2022
+    },
+    {
+     "completed": true,
+     "pct": "4.97,9.17,-1.58",
+     "price": "43.09,45.23",
+     "year": 2023
+    },
+    {
+     "completed": true,
+     "pct": "2.82,8.05,-1.15",
+     "price": "52.4,53.88",
+     "year": 2024
+    },
+    {
+     "completed": true,
+     "pct": "0.36,2.56,-2.87",
+     "price": "44.6,44.76",
+     "year": 2025
+    },
+    {
+     "completed": false,
+     "pct": "0,0,0",
+     "price": "0,0",
+     "year": 2026
+    }
+   ],
+   "request": {
+    "comparison_direction": "long",
+    "cut_off_year": 0,
+    "days_out": 20,
+    "entry_date": "2026-09-29",
+    "market": "2",
+    "pe_cycle": "cons",
+    "symbol": "CPRT",
+    "years": 15
+   },
+   "stats": {
+    "Num Winners": "13",
+    "Num Losers": "2",
+    "Avg Profit - All": "2.95%",
+    "Percent Profitable": "86.67%"
+   }
+  },
+  "CPRT|2026-09-29|19|pe2-30": {
+   "ChartData4": [
+    {
+     "completed": true,
+     "pct": "-4.35,4.35,-26.09",
+     "price": "0.23,0.22",
+     "year": 1998
+    },
+    {
+     "completed": true,
+     "pct": "1.47,4.41,-10.29",
+     "price": "0.68,0.69",
+     "year": 2002
+    },
+    {
+     "completed": true,
+     "pct": "2.27,7.95,-2.84",
+     "price": "1.76,1.8",
+     "year": 2006
+    },
+    {
+     "completed": true,
+     "pct": "3.4,4.85,-1.46",
+     "price": "2.06,2.13",
+     "year": 2010
+    },
+    {
+     "completed": true,
+     "pct": "0.51,1.52,-5.08",
+     "price": "3.94,3.96",
+     "year": 2014
+    },
+    {
+     "completed": true,
+     "pct": "-5.47,1.06,-7.22",
+     "price": "13.16,12.44",
+     "year": 2018
+    },
+    {
+     "completed": true,
+     "pct": "2.51,4.44,-3.64",
+     "price": "27.45,28.14",
+     "year": 2022
+    },
+    {
+     "completed": false,
+     "pct": "0,0,0",
+     "price": "0,0",
+     "year": 2026
+    }
+   ],
+   "request": {
+    "comparison_direction": "long",
+    "cut_off_year": 0,
+    "days_out": 20,
+    "entry_date": "2026-09-29",
+    "market": "2",
+    "pe_cycle": "pe2",
+    "symbol": "CPRT",
+    "years": 30
+   },
+   "stats": {
+    "Num Winners": "5",
+    "Num Losers": "2",
+    "Avg Profit - All": "0.05%",
+    "Percent Profitable": "71.43%"
+   }
+  },
+  "AAPL|2026-09-29|23|15": {
+   "ChartData4": [
+    {
+     "completed": true,
+     "pct": "3.89,9.25,-9.3",
+     "price": "11.6818,12.1365",
+     "year": 2011
+    },
+    {
+     "completed": true,
+     "pct": "-3.85,2.25,-7.55",
+     "price": "19.8068,19.045",
+     "year": 2012
+    },
+    {
+     "completed": true,
+     "pct": "9.04,10.84,0.0",
+     "price": "14.6619,15.988",
+     "year": 2013
+    },
+    {
+     "completed": true,
+     "pct": "2.88,4.0,-4.92",
+     "price": "22.0377,22.6717",
+     "year": 2014
+    },
+    {
+     "completed": true,
+     "pct": "5.9,5.98,-1.6",
+     "price": "24.4184,25.8603",
+     "year": 2015
+    },
+    {
+     "completed": true,
+     "pct": "4.88,5.8,-0.34",
+     "price": "25.654,26.9049",
+     "year": 2016
+    },
+    {
+     "completed": true,
+     "pct": "1.33,4.38,-1.08",
+     "price": "35.8667,36.3438",
+     "year": 2017
+    },
+    {
+     "completed": true,
+     "pct": "-2.91,2.73,-6.57",
+     "price": "53.6875,52.126",
+     "year": 2018
+    },
+    {
+     "completed": true,
+     "pct": "7.14,8.14,-3.95",
+     "price": "53.7313,57.5674",
+     "year": 2019
+    },
+    {
+     "completed": true,
+     "pct": "1.46,9.9,-1.64",
+     "price": "110.5689,112.1777",
+     "year": 2020
+    },
+    {
+     "completed": true,
+     "pct": "4.1,5.15,-3.19",
+     "price": "139.3123,145.0279",
+     "year": 2021
+    },
+    {
+     "completed": true,
+     "pct": "4.89,5.44,-5.69",
+     "price": "139.7496,146.586",
+     "year": 2022
+    },
+    {
+     "completed": true,
+     "pct": "1.05,6.5,-0.75",
+     "price": "168.9253,170.6914",
+     "year": 2023
+    },
+    {
+     "completed": true,
+     "pct": "1.23,1.93,-5.01",
+     "price": "231.0671,233.9033",
+     "year": 2024
+    },
+    {
+     "completed": true,
+     "pct": "1.58,4.27,-4.1",
+     "price": "253.4936,257.4988",
+     "year": 2025
+    },
+    {
+     "completed": false,
+     "pct": "0,0,0",
+     "price": "0,0",
+     "year": 2026
+    }
+   ],
+   "request": {
+    "comparison_direction": "long",
+    "cut_off_year": 0,
+    "days_out": 24,
+    "entry_date": "2026-09-29",
+    "market": "2",
+    "pe_cycle": "cons",
+    "symbol": "AAPL",
+    "years": 15
+   },
+   "stats": {
+    "Num Winners": "13",
+    "Num Losers": "2",
+    "Avg Profit - All": "2.84%",
+    "Percent Profitable": "86.67%"
+   }
+  },
+  "AAPL|2026-09-29|23|pe2-30": {
+   "ChartData4": [
+    {
+     "completed": true,
+     "pct": "40.83,45.65,-1.95",
+     "price": "0.0627,0.0883",
+     "year": 1982
+    },
+    {
+     "completed": true,
+     "pct": "0.0,8.55,-0.76",
+     "price": "0.1109,0.1109",
+     "year": 1986
+    },
+    {
+     "completed": true,
+     "pct": "2.05,4.9,-20.51",
+     "price": "0.215,0.2194",
+     "year": 1990
+    },
+    {
+     "completed": true,
+     "pct": "23.82,26.38,-4.74",
+     "price": "0.2515,0.3114",
+     "year": 1994
+    },
+    {
+     "completed": true,
+     "pct": "-6.97,4.6,-27.84",
+     "price": "0.2954,0.2748",
+     "year": 1998
+    },
+    {
+     "completed": true,
+     "pct": "1.38,5.18,-7.83",
+     "price": "0.2168,0.2198",
+     "year": 2002
+    },
+    {
+     "completed": true,
+     "pct": "5.82,6.39,-5.69",
+     "price": "2.3025,2.4365",
+     "year": 2006
+    },
+    {
+     "completed": true,
+     "pct": "7.0,11.01,-3.34",
+     "price": "8.5951,9.1964",
+     "year": 2010
+    },
+    {
+     "completed": true,
+     "pct": "2.88,4.0,-4.92",
+     "price": "22.0377,22.6717",
+     "year": 2014
+    },
+    {
+     "completed": true,
+     "pct": "-2.91,2.73,-6.57",
+     "price": "53.6875,52.126",
+     "year": 2018
+    },
+    {
+     "completed": true,
+     "pct": "4.89,5.44,-5.69",
+     "price": "139.7496,146.586",
+     "year": 2022
+    },
+    {
+     "completed": false,
+     "pct": "0,0,0",
+     "price": "0,0",
+     "year": 2026
+    }
+   ],
+   "request": {
+    "comparison_direction": "long",
+    "cut_off_year": 0,
+    "days_out": 24,
+    "entry_date": "2026-09-29",
+    "market": "2",
+    "pe_cycle": "pe2",
+    "symbol": "AAPL",
+    "years": 30
+   },
+   "stats": {
+    "Num Winners": "9",
+    "Num Losers": "2",
+    "Avg Profit - All": "7.16%",
+    "Percent Profitable": "81.82%"
+   }
+  }
+ }
+}

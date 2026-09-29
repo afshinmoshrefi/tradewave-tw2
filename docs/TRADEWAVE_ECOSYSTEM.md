@@ -426,6 +426,17 @@ Flask-rendered (static from `/var/www/tradewave/`).
   echoed-study mismatch renders the card without numbers - never a locally
   computed return. The card also links the book's free preview PDF and
   100yearpattern.com.
+  While the occurrence is active, `site/hundred_year_stocks.py` runs in the
+  same `run_site_refresh.sh home` step (fail-soft) and writes
+  `/home/flask/site/data/home_100yp_stocks.json`: S&P 500 long patterns that
+  start today from the engine's 15-year/13-win `OppList4` table, in 7-30 and
+  31-90 day tabs. Each row keeps its engine `ChartData4` records (last 15
+  years, and every midterm year the stock has via `pe2-30`, which the engine
+  limits to available years). It needs at least 12 of 15 winning years, 5 or
+  more midterm years, and more midterm wins than losses. Rows are ranked by
+  the engine ML score (`MLScoreBatch` with the 15/13 study context) and 5 are
+  kept per tab. When today's file exists the card shows it and the separate
+  Top Patterns table is hidden; otherwise Top Patterns stays.
   The evidence-page countdown card also offers a no-signup calendar chooser.
   Google and Outlook open a prefilled event; Apple and other calendars receive
   an environment-aware `.ics` file rendered by the same generator. The public

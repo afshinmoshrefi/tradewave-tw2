@@ -214,3 +214,32 @@ def build_card(
         print("   WARN 100-Year Pattern: engine data is stale (%s); live score hidden." % last_trade)
     card["live"] = live
     return card
+
+
+_STOCK_FIELDS = ("symbol", "name", "window", "main", "midterm", "avg", "url")
+
+
+def load_stock_list(path: str, today: _dt.date) -> Optional[dict]:
+    """Today's stock list written by site/hundred_year_stocks.py, or None.
+
+    A file from an earlier day is ignored so the card never shows windows that
+    started in the past.
+    """
+    import json
+
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or data.get("as_of") != today.isoformat():
+        return None
+    tabs = []
+    for tab in data.get("tabs") or []:
+        rows = [
+            {field: str(row.get(field) or "") for field in _STOCK_FIELDS}
+            for row in (tab.get("rows") or [])
+            if isinstance(row, dict) and str(row.get("url", "")).startswith("/app/?o=")
+        ]
+        if rows:
+            tabs.append({"key": str(tab.get("key")), "label": str(tab.get("label")), "rows": rows})
+    return {"tabs": tabs} if tabs else None

@@ -17,6 +17,8 @@ case "${1:-}" in
     "$PY" site/home_opportunities.py || rc=$?
     # A valid empty screen preserves the CSV. The renderer omits closed windows.
     if [ "$rc" -ne 0 ] && [ "$rc" -ne 2 ]; then exit "$rc"; fi
+    # 100-Year Pattern stock list; fail-soft - the page keeps Top Patterns.
+    "$PY" site/hundred_year_stocks.py || echo "WARN hundred_year_stocks.py failed" >&2
     "$PY" site/generate_home_page.py
     ;;
   scorecard) "$PY" site/generate_scorecard.py ;;
