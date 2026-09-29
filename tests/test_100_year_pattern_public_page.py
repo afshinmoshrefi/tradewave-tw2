@@ -192,3 +192,30 @@ def test_100_year_pattern_clean_url_is_canonical_and_backward_compatible():
     assert "location = /100-year-pattern {" in bootstrap
     assert "location = /100-year-pattern.html { absolute_redirect off; return 308 /100-year-pattern$is_args$args; }" in bootstrap
     assert "location = /100-year-pattern/ { absolute_redirect off; return 308 /100-year-pattern$is_args$args; }" in bootstrap
+
+
+def test_home_countdown_switches_to_open_and_closed_states(tmp_path):
+    """TW-BUG-0023: after Sep 27, 2026 the homepage showed 0:00:00 and 'begins September 27'."""
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    if not node:
+        import pytest
+        pytest.skip("node is not installed")
+    template = (ROOT / "site" / "templates" / "index-dark-blue.html").read_text(encoding="utf-8")
+    start = template.index("// TW100 HOME COUNTDOWN START")
+    end = template.index("// TW100 HOME COUNTDOWN END")
+    script = tmp_path / "tw100.js"
+    script.write_text(template[start:end], encoding="utf-8")
+    harness = ROOT / "tests" / "fixtures" / "tw100_home_countdown_harness.js"
+    cases = ["2026-09-26T12:00:00-04:00", "2026-09-29T01:00:00-04:00",
+             "2026-11-02T00:30:00-05:00", "2027-07-18T22:00:00-04:00", "2027-07-19T08:00:00-04:00"]
+    out = subprocess.run([node, str(harness), str(script), __import__("json").dumps(cases)],
+                         capture_output=True, text=True, check=True).stdout.splitlines()
+    assert out[0].split(" | ")[1] == "(countdown title unchanged)"
+    assert out[1].split(" | ")[1:6] == ["The 100-Year Pattern window is open", "3", "Day", "292", "Days left"]
+    assert out[2].split(" | ")[2] == "37"                      # Eastern days across the DST change
+    assert out[3].split(" | ")[2:5] == ["295", "Day", "0"]
+    assert out[4].split(" | ")[1] == "The 2026-27 window closed July 18, 2027"
+    assert out[4].endswith("hidden=true")

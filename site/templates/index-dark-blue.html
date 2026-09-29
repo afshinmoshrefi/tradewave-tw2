@@ -775,16 +775,16 @@ body{background-image:none !important;}
   <aside class="tw100-home-card" aria-labelledby="tw100-home-title">
     <div class="tw100-home-copy">
       <div class="tw100-home-kicker">The 100-Year Pattern</div>
-      <h2 id="tw100-home-title">The next recorded window begins September 27, 2026</h2>
-      <p>The rule and all 24 completed cycles are public before the next occurrence.</p>
+      <h2 id="tw100-home-title" data-tw100-title>The next recorded window begins September 27, 2026</h2>
+      <p data-tw100-lede>The rule and all 24 completed cycles are public before the next occurrence.</p>
       <a class="tw100-home-link" href="/100-year-pattern">See the full 24-cycle record <span aria-hidden="true">&rarr;</span></a>
     </div>
     <div class="tw100-home-timer" id="tw100-home-countdown" role="timer" aria-label="Time remaining until September 27, 2026 at midnight Eastern Time">
-      <div class="tw100-home-unit"><strong data-tw100-days>--</strong><span>Days</span></div>
-      <div class="tw100-home-unit"><strong data-tw100-hours>--</strong><span>Hours</span></div>
-      <div class="tw100-home-unit"><strong data-tw100-minutes>--</strong><span>Minutes</span></div>
+      <div class="tw100-home-unit"><strong data-tw100-days>--</strong><span data-tw100-days-label>Days</span></div>
+      <div class="tw100-home-unit"><strong data-tw100-hours>--</strong><span data-tw100-hours-label>Hours</span></div>
+      <div class="tw100-home-unit"><strong data-tw100-minutes>--</strong><span data-tw100-minutes-label>Minutes</span></div>
     </div>
-    <p class="tw100-home-basis">Countdown to 12:00 a.m. Eastern Time on the nominal calendar date. September 27 and July 18 both fall on Sunday; TradeWave uses the next trading day for analytics.</p>
+    <p class="tw100-home-basis" data-tw100-basis>Countdown to 12:00 a.m. Eastern Time on the nominal calendar date. September 27 and July 18 both fall on Sunday; TradeWave uses the next trading day for analytics.</p>
   </aside>
 </div>
 <!-- TW100 HOME COUNTDOWN END -->
@@ -1273,17 +1273,52 @@ document.addEventListener('click', function(e){
 (function(){
   var root=document.getElementById('tw100-home-countdown');
   if(!root) return;
+  // Nominal window: Sep 27, 2026 through Jul 18, 2027 (295 calendar days), Eastern Time.
   var target=new Date('2026-09-27T00:00:00-04:00').getTime();
+  var OPEN_DATE='2026-09-27', CLOSE_DATE='2027-07-18', TOTAL_DAYS=295;
+  var card=root.closest('.tw100-home-card');
+  function q(sel){return card?card.querySelector(sel):null;}
   var day=root.querySelector('[data-tw100-days]');
   var hour=root.querySelector('[data-tw100-hours]');
   var minute=root.querySelector('[data-tw100-minutes]');
   function pad(value){return String(value).padStart(2,'0');}
+  function set(sel,text){var n=q(sel);if(n&&n.textContent!==text)n.textContent=text;}
+  // Today's calendar date in New York, so day counts follow Eastern midnight through DST.
+  function easternDate(){
+    var parts={};
+    new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'})
+      .formatToParts(new Date()).forEach(function(p){parts[p.type]=p.value;});
+    return parts.year+'-'+parts.month+'-'+parts.day;
+  }
+  function dayNumber(iso){return Math.round(Date.parse(iso+'T00:00:00Z')/86400000);}
   function render(){
-    var remaining=Math.max(0,target-Date.now());
-    var totalMinutes=Math.floor(remaining/60000);
-    day.textContent=String(Math.floor(totalMinutes/1440));
-    hour.textContent=pad(Math.floor((totalMinutes%1440)/60));
-    minute.textContent=pad(totalMinutes%60);
+    var remaining=target-Date.now();
+    if(remaining>0){
+      var totalMinutes=Math.floor(remaining/60000);
+      day.textContent=String(Math.floor(totalMinutes/1440));
+      hour.textContent=pad(Math.floor((totalMinutes%1440)/60));
+      minute.textContent=pad(totalMinutes%60);
+      return;
+    }
+    var today=easternDate();
+    var elapsed=dayNumber(today)-dayNumber(OPEN_DATE)+1;
+    if(today>CLOSE_DATE){
+      set('[data-tw100-title]','The 2026-27 window closed July 18, 2027');
+      set('[data-tw100-lede]','It ran from September 27, 2026 to July 18, 2027. The full cycle record is public.');
+      set('[data-tw100-basis]','Nominal dates. September 27 and July 18 both fell on Sunday; TradeWave uses the next trading day for analytics.');
+      root.hidden=true;
+      return;
+    }
+    set('[data-tw100-title]','The 100-Year Pattern window is open');
+    set('[data-tw100-lede]','It opened September 27, 2026 and runs to July 18, 2027. The rule and all 24 completed cycles are public.');
+    set('[data-tw100-basis]','Window: September 27, 2026 to July 18, 2027 (nominal dates, Eastern Time). Both fall on Sunday; TradeWave uses the next trading day for analytics.');
+    day.textContent=String(elapsed);
+    hour.textContent=String(TOTAL_DAYS-elapsed);
+    minute.textContent=String(TOTAL_DAYS);
+    set('[data-tw100-days-label]','Day');
+    set('[data-tw100-hours-label]','Days left');
+    set('[data-tw100-minutes-label]','Total days');
+    root.setAttribute('aria-label','Day '+elapsed+' of '+TOTAL_DAYS+' in the 100-Year Pattern window, '+(TOTAL_DAYS-elapsed)+' days left');
   }
   render();
   window.setTimeout(function(){
