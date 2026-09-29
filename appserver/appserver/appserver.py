@@ -1172,7 +1172,7 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
    
  
     elif os.path.isfile(fname) == True: format=2 # format is 1 or 2
-    else: return jsonify({'OppList': '-1:'+fname}) # -1 is missing opp file
+    else: return jsonify({'OppList': '-1:'+fname, 'OppActiveList': []}) # -1 is missing opp file
     ###############################################
     # redis interface
     ###############################################
@@ -1315,8 +1315,16 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
                 
                 if os.path.isfile(p) == False:
                     p = fname_folder + d+'.csv.gz'
-                    if os.path.isfile(p) == False: 
-                        return jsonify({'OppList': []}) # there is no data for this date - file is missing
+                    if os.path.isfile(p) == False:
+                        # SKIP this day rather than abandoning the whole request. A strict
+                        # min-profitable-years combo writes a file only on days that have a
+                        # qualifying pattern, so these folders are legitimately sparse -
+                        # sp500 September 30_29 holds 16 days, August only 2. Returning here
+                        # threw away the days that DO have data: 2026-09-14 carries a real
+                        # TRV row, yet the whole table came back empty (owner report
+                        # 2026-09-14). If no day in the window has a file, the empty result
+                        # after this loop is still returned, unchanged.
+                        continue
                     else:      
                         if opp.shape == (0,0): 
                             opp = pd.read_csv(p)
@@ -1333,7 +1341,14 @@ def OppList4(resourceID, month, day, year1, year2,day_range,oppListExpanded, app
 
                 # change all the dates on the opp list to next_trading_day to support weekend and holidays
                 # opp['date']=next_trading_day # keep the dates as is 9/11/2022
-            
+
+            if opp.shape == (0, 0):
+                # Every day in the window was missing. Preserve the previous outcome for
+                # that case, but keep the SAME keys the success response uses - the client
+                # maps OppActiveList unguarded, so omitting it turned "no patterns" into a
+                # thrown TypeError and the misleading "Data temporarily unavailable" retry
+                # state (owner report 2026-09-14).
+                return jsonify({'OppList': [], 'OppActiveList': []})
 
         # this is dead code from when I had format =1 or format = 2
 

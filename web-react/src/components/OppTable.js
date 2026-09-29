@@ -676,7 +676,12 @@ const OppTable = (props) => {
               });
 
               // load the active rows if exist
-              var tbl_col_reordered_active = opps['OppActiveList'].map((row) => {
+              // Defensive: an OppList4 response is not guaranteed to carry
+              // OppActiveList (the empty/sentinel shapes historically omitted it), and
+              // dereferencing it threw a TypeError that the catch mislabelled as
+              // "Data temporarily unavailable" with a Retry button - a hard failure state
+              // for what was really "no patterns match" (owner report 2026-09-14).
+              var tbl_col_reordered_active = (opps['OppActiveList'] || []).map((row) => {
                 // ['date','symbol','days','dir','sharpe_ratio','avg_profit','median_profit','avg_profit2','sharpe_ratio2']
 
                 const newRow = {
