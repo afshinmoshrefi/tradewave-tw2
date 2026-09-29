@@ -1073,6 +1073,28 @@ def test_analyze_names_the_next_occurrence_when_all_passed(client, monkeypatch):
     assert row["next_entry_date"] == "2027-05-13"
 
 
+def test_analyze_searches_the_full_list_when_the_top_slice_has_passed(client, monkeypatch):
+    """Live 2026-09-28: AAPL's top-10% patterns were all May-July; later ones were deeper."""
+    from apiserver import appserver_client as ac
+
+    calls = []
+    _mock_card_chain(monkeypatch)
+
+    def by_symbol(market, symbol, **kw):
+        calls.append(kw)
+        if kw.get("top_pct") == 100:
+            assert kw.get("enrich_win_rate") is False          # never enrich hundreds of rows
+            return [dict(_opp(entry="2026-11-03"), sharpe_ratio=1.4),
+                    dict(_opp(entry="2026-06-01"), sharpe_ratio=2.9)]
+        return [dict(_opp(entry="2026-05-13"), sharpe_ratio=3.0)]
+
+    monkeypatch.setattr(ac, "opportunities_by_symbol", by_symbol)
+    card = client.get("/v1/analyze/AAPL?market=2", headers=_hdr()).get_json()["card"]
+    assert card["setup"]["entry_date"] == "2026-11-03"
+    assert "next_occurrence" not in card
+    assert len(calls) == 2
+
+
 def test_analyze_rejects_unknown_timing(client, monkeypatch):
     _mock_card_chain(monkeypatch, by_symbol=[_opp()])
     assert client.get("/v1/analyze/AAPL?market=2&timing=soon", headers=_hdr()).status_code == 400

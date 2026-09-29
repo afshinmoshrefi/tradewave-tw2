@@ -940,6 +940,43 @@ def _price_safe_scan_opp(opp):
 _ENTRY_TOLERANCE_DAYS = 3   # the card's entry_window (cards._entry_window)
 
 
+_WIDE_VERIFY = 5   # upcoming setups from the full per-symbol list verified against evidence
+
+
+def _entry_date(o):
+    try:
+        return datetime.date.fromisoformat(str(o.get("entry_date")))
+    except ValueError:
+        return None
+
+
+def _upcoming(ranked):
+    earliest = cards.market_today() - datetime.timedelta(days=_ENTRY_TOLERANCE_DAYS)
+    return [o for o in ranked if _entry_date(o) and _entry_date(o) >= earliest]
+
+
+def _upcoming_from_full_list(market, symbol, year1, year2, mode, direction):
+    """Best not-yet-passed setups from the symbol's FULL detected list (same detection band),
+    ranked by detector Sharpe, with only the top few refreshed from completed evidence and
+    re-ranked by edge. Returns [] on failure - the caller keeps its original answer."""
+    try:
+        rows = appserver_client.opportunities_by_symbol(
+            market, symbol, year1=year1, year2=year2, top_pct=100, enrich_win_rate=False, mode=mode)
+    except requests.RequestException as e:
+        log.warning("analyze full-list fetch failed for %s/%s: %s", market, symbol, e)
+        return []
+    if direction:
+        rows = [o for o in rows if o["direction"] == direction]
+    rows = sorted(_upcoming(rows), key=lambda o: o.get("sharpe_ratio") or float("-inf"), reverse=True)
+    picked = rows[:_WIDE_VERIFY]
+    for o in picked:
+        o["win_rate"] = appserver_client._win_rate_for_opp(o)
+        o["_edge"], _ = cards.compute_edge_score(
+            o.get("win_rate"), o.get("sharpe_ratio"),
+            o.get("years_tested") if o.get("years_tested") is not None else 0)
+    return sorted(picked, key=lambda o: o["_edge"], reverse=True)
+
+
 def _pick_by_timing(ranked, timing):
     """Choose the analyzed setup from edge-ranked setups (TW-TASK-0014 item 6).
 
@@ -952,19 +989,11 @@ def _pick_by_timing(ranked, timing):
     if timing == "best":
         return ranked[0], None
     today = cards.market_today()
-    earliest = today - datetime.timedelta(days=_ENTRY_TOLERANCE_DAYS)
-
-    def entry(o):
-        try:
-            return datetime.date.fromisoformat(str(o.get("entry_date")))
-        except ValueError:
-            return None
-
-    upcoming = [o for o in ranked if entry(o) and entry(o) >= earliest]
+    upcoming = _upcoming(ranked)
     if upcoming:
         return upcoming[0], None
     best = ranked[0]
-    first = entry(best)
+    first = _entry_date(best)
     if not first:
         return best, None
     try:
@@ -1623,6 +1652,14 @@ def analyze_symbol(symbol):
                 o.get("years_tested") if o.get("years_tested") is not None else 0)
             o["_edge"] = prelim
         opps.sort(key=lambda o: o["_edge"], reverse=True)
+        if timing == "next" and detect_path == "symbol" and not _upcoming(opps):
+            # The top-Sharpe slice can be all past windows while later setups inside the
+            # same detection band still lie ahead (AAPL, MSFT, NVDA, AMZN, TSLA on
+            # 2026-09-28). Search the full list, verifying only the best few.
+            wider = _upcoming_from_full_list(market, symbol, year1, year2, _opp_mode(pe_cycle),
+                                             appserver_client._dir_to_public(direction) if direction else None)
+            if wider:
+                opps = wider + opps
         best, next_occurrence = _pick_by_timing(opps, timing)
 
     best["years"] = yrs   # receipts/curve use the requested lookback (and PE cycle)
