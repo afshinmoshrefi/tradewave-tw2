@@ -1,6 +1,6 @@
 # TW-BUG-0023: Homepage 100-Year Pattern countdown stuck at zero after the window opened
 
-- Status: withdrawn - superseded by the session "100 year pattern home page update" (Claude session 2a453899), which owns this fix; this record was never added to main
+- Status: duplicate - of the homepage 100-Year Pattern card work in main commit 469d600 ("Show the live 100-Year Pattern cycle on the homepage", session "100 year pattern home page update"), which covers this acceptance (day N of 295 by Eastern date, window-open copy, no zero countdown); this record was never added to main
 - Confidence: reproduced
 - Priority: P2 - the public homepage states the window "begins September 27, 2026" and shows 0 days 00 hours 00 minutes after it opened
 - First observed / last updated: 2026-09-29 00:25 UTC (Afshin screenshot) / 2026-09-29 00:40 UTC
