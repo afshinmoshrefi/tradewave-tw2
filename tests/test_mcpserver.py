@@ -789,3 +789,16 @@ def test_widget_draws_server_images_with_builtin_fallback():
     html = server.PATTERN_WIDGET_HTML
     assert '"tradewave/charts"' in html and "toolResponseMetadata" in html
     assert 'addEventListener("error"' in html                     # failed image -> built-in chart
+
+
+def test_analyze_passes_timing_through(monkeypatch):
+    """TW-TASK-0014 item 6."""
+    seen = {}
+
+    async def fake_get(path, params=None):
+        seen.update(params or {})
+        return {"card": {"symbol": "AAPL", "bias": "bullish"}}
+
+    monkeypatch.setattr(server, "_get", fake_get)
+    _run(server.analyze_symbol(symbol="AAPL", timing="best", ctx=None))
+    assert seen["timing"] == "best"

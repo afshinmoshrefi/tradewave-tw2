@@ -1041,6 +1041,43 @@ def test_basket_scenarios_reject_long_custom_horizon(client, monkeypatch):
     assert response.status_code == 400
 
 
+def test_analyze_defaults_to_the_best_setup_not_yet_passed(client, monkeypatch):
+    """TW-TASK-0014 item 6: every Big 7 best window had already passed ('from today' mode)."""
+    passed = dict(_opp(entry="2026-05-13"), sharpe_ratio=3.0)          # market day 2026-07-01
+    upcoming = dict(_opp(entry="2026-09-28"), sharpe_ratio=1.0)
+    _mock_card_chain(monkeypatch, by_symbol=[passed, upcoming])
+
+    body = client.get("/v1/analyze/AAPL?market=2", headers=_hdr()).get_json()
+    assert body["card"]["setup"]["entry_date"] == "2026-09-28"
+    assert body["card"]["timing_mode"] == "next" and "next_occurrence" not in body["card"]
+
+    best = client.get("/v1/analyze/AAPL?market=2&timing=best", headers=_hdr()).get_json()
+    assert best["card"]["setup"]["entry_date"] == "2026-05-13"
+
+
+def test_analyze_keeps_a_setup_inside_its_entry_window():
+    from apiserver import routes
+
+    ranked = [_opp(entry="2026-06-28"), _opp(entry="2026-09-01")]       # 3 days before 07-01
+    best, nxt = routes._pick_by_timing(ranked, "next")
+    assert best["entry_date"] == "2026-06-28" and nxt is None
+
+
+def test_analyze_names_the_next_occurrence_when_all_passed(client, monkeypatch):
+    _mock_card_chain(monkeypatch, by_symbol=[_opp(entry="2026-05-13"), _opp(entry="2026-06-20")])
+    card = client.get("/v1/analyze/AAPL?market=2", headers=_hdr()).get_json()["card"]
+    assert card["next_occurrence"]["entry_date"] == "2027-05-13"
+    assert card["next_occurrence"]["exit_date"] == "2027-06-02"          # 21-day hold
+    assert card["next_occurrence"]["days_to_entry"] == 316
+    row = client.get("/v1/analyze/AAPL?market=2&view=table", headers=_hdr()).get_json()["card"]
+    assert row["next_entry_date"] == "2027-05-13"
+
+
+def test_analyze_rejects_unknown_timing(client, monkeypatch):
+    _mock_card_chain(monkeypatch, by_symbol=[_opp()])
+    assert client.get("/v1/analyze/AAPL?market=2&timing=soon", headers=_hdr()).status_code == 400
+
+
 def test_analyze_include_chart_attaches_inline(client, monkeypatch):
     _mock_card_chain(monkeypatch, by_symbol=[_opp()],
                      curve=[{"date": "2026-07-01", "index": 40.0}, {"date": "2026-07-02", "index": 41.0}])

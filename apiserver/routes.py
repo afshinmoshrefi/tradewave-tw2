@@ -937,6 +937,50 @@ def _price_safe_scan_opp(opp):
     safe["ml"] = None
     return safe
 
+_ENTRY_TOLERANCE_DAYS = 3   # the card's entry_window (cards._entry_window)
+
+
+def _pick_by_timing(ranked, timing):
+    """Choose the analyzed setup from edge-ranked setups (TW-TASK-0014 item 6).
+
+    'best' keeps the historical behavior: the highest edge setup of the year, even if its
+    window already passed. 'next' (default) answers "what can I act on from today": the
+    highest-edge setup whose entry is today or later, or opened within the card's entry
+    window (3 days). If every setup this year has passed, the best one is kept and its next
+    occurrence (same month-day next year) is returned so the caller can say when it recurs.
+    Returns (best, next_occurrence or None)."""
+    if timing == "best":
+        return ranked[0], None
+    today = cards.market_today()
+    earliest = today - datetime.timedelta(days=_ENTRY_TOLERANCE_DAYS)
+
+    def entry(o):
+        try:
+            return datetime.date.fromisoformat(str(o.get("entry_date")))
+        except ValueError:
+            return None
+
+    upcoming = [o for o in ranked if entry(o) and entry(o) >= earliest]
+    if upcoming:
+        return upcoming[0], None
+    best = ranked[0]
+    first = entry(best)
+    if not first:
+        return best, None
+    try:
+        again = first.replace(year=first.year + 1)
+    except ValueError:            # Feb 29 -> Feb 28 in a non-leap year
+        again = first.replace(year=first.year + 1, day=28)
+    days = int(best.get("days_out") or 1)
+    return best, {
+        "entry_date": again.isoformat(),
+        "exit_date": (again + datetime.timedelta(days=days - 1)).isoformat(),
+        "days_to_entry": (again - today).days,
+        "note": ("Every detected setup for this symbol has already passed this cycle; this is "
+                 "the best one's next occurrence. The statistics are the same seasonal window."),
+    }
+
+
 def _buy_hold_benchmark(opp, card):
     """Does this window beat simply holding the symbol all year, over the same years?
     Optional evidence: a failed or empty Buy & Hold fetch leaves the card unchanged."""
@@ -1514,6 +1558,10 @@ def analyze_symbol(symbol):
         return scope_err
 
     detect_path = "symbol" if market_bands.path_supported(market, "symbol") else "scan"
+    timing = (request.args.get("timing") or "next").strip().lower()
+    if timing not in ("next", "best"):
+        return _err("invalid_request", "timing must be 'next' (default) or 'best'", 400)
+    next_occurrence = None
     try:
         direction = _direction_arg(request.args.get("direction"))
         pe_cycle = _resolve_pe_cycle(allow_positions=False)        # consecutive | pe (wave-viewer knob)
@@ -1575,7 +1623,7 @@ def analyze_symbol(symbol):
                 o.get("years_tested") if o.get("years_tested") is not None else 0)
             o["_edge"] = prelim
         opps.sort(key=lambda o: o["_edge"], reverse=True)
-        best = opps[0]
+        best, next_occurrence = _pick_by_timing(opps, timing)
 
     best["years"] = yrs   # receipts/curve use the requested lookback (and PE cycle)
 
@@ -1611,6 +1659,10 @@ def analyze_symbol(symbol):
         include_chart=include_chart)
     if resolution_note:
         card["note"] = resolution_note
+    if not pin_entry:
+        card["timing_mode"] = timing
+        if next_occurrence:
+            card["next_occurrence"] = next_occurrence
     benchmark = _buy_hold_benchmark(best, card)
     if benchmark:
         card["benchmark"] = benchmark
@@ -1618,6 +1670,8 @@ def analyze_symbol(symbol):
     card = cards.project_card(card, view)
     if benchmark and view == "table":
         card["beats_buy_hold"] = benchmark["beats_buy_hold"]
+    if next_occurrence and view == "table":
+        card["next_entry_date"] = next_occurrence["entry_date"]
 
     other = [cards.compact_setup(o) for o in opps if o is not best]
     tier_cap = g.customer["entitlements"]["opp_limit"]

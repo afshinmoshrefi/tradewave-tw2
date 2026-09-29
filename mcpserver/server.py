@@ -1276,6 +1276,11 @@ async def analyze_symbol(
     include_chart: Annotated[Optional[bool], Field(description=(
         "Compatibility parameter; the focused analysis always includes TradeWave chart data "
         "and its evidence widget. This value is ignored so users never have to request charts."))] = None,
+    timing: Annotated[Optional[str], Field(description=(
+        "When no window is pinned: 'next' (default) picks the best setup that has NOT passed "
+        "yet (entry today or later, or opened within the 3-day entry window) - the answer to "
+        "'what can I act on from here'; if all have passed it adds next_occurrence (the same "
+        "window next year). 'best' returns the year's highest-edge setup even if it passed."))] = None,
     ctx: Optional[Context] = None,
 ) -> dict[str, Any]:
     _bind_request_key(ctx)
@@ -1300,6 +1305,8 @@ async def analyze_symbol(
         params["period"] = period
     if reverse is not None:
         params["reverse"] = str(reverse).lower()
+    if timing is not None:
+        params["timing"] = timing
     data = await _get(f"/analyze/{_seg(symbol)}", params)
     if _is_upgrade_stub(data):
         return _format_upgrade(data)
