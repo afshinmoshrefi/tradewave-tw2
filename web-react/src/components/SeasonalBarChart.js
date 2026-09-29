@@ -2330,11 +2330,16 @@ const SeasonalBarChart = (props) => {
   //---------------------------------------
   // dynamic styles for mobile
   //---------------------------------------
+  const readableToolbarWrap = !rdd.isMobile && browserW * (props.leftNavWidthPct != null ? (100 - props.leftNavWidthPct) / 100 : 1) < 1250
   let barchartHeight = "92%"
   let barchartControlsHeight = '8%'
   if (props.showToolbarTitles) {
     barchartHeight = '86%'
     barchartControlsHeight = '14%'
+  }
+  if (readableToolbarWrap) {
+    barchartHeight = props.showToolbarTitles ? '78%' : '84%'
+    barchartControlsHeight = props.showToolbarTitles ? '22%' : '16%'
   }
   var navArrowSize = 30
 
@@ -2362,6 +2367,8 @@ const SeasonalBarChart = (props) => {
     height: barchartControlsHeight,
     display: "flex",
     alignItems: "center",
+    flexWrap: readableToolbarWrap ? "wrap" : "nowrap",
+    alignContent: "center",
     backgroundColor: tc.controlBar,
     // fontFamily:'san-serif'
     // justifyContent: "space-between",
@@ -3184,7 +3191,7 @@ const SeasonalBarChart = (props) => {
 
       {/* _______________________________________________container_________________________________________________________ */}
 
-      <div className={'barchart-controls' + (props.showToolbarTitles ? ' barchart-controls--titles' : '')} style={barchartControlsStyle} >
+      <div className={'barchart-controls' + (!rdd.isMobile ? ' barchart-controls--desktop' : '') + (props.showToolbarTitles ? ' barchart-controls--titles' : '')} style={barchartControlsStyle} >
 
         <div className="barchart-controls-div" style={StyleNavDiv} >
 
@@ -3269,7 +3276,7 @@ const SeasonalBarChart = (props) => {
             box stay until the measured slack leaves under 3px per side (bwWide); only then
             drop to the compact undecorated label. */}
         {!rdd.isMobile && oppBySymbolOptions.length > 0 &&
-          <div ref={bwWrapRef} className="tw-toolbar-control" style={{ paddingLeft: '2px', paddingRight: '6px', flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'center' }}>
+          <div ref={bwWrapRef} className="tw-toolbar-control" style={{ paddingLeft: '2px', paddingRight: '6px', flex: '1 0 105px', minWidth: '105px', display: 'flex', justifyContent: 'center' }}>
           {toolbarTitle('Best waves')}
           <SelectBox
             optionList={bwWide ? [{ ...oppBySymbolOptions[0], label: '── Best Waves ──' }, ...oppBySymbolOptions.slice(1)] : oppBySymbolOptions}
@@ -3385,7 +3392,7 @@ const SeasonalBarChart = (props) => {
 
 
 
-        <div style={{ display: "flex", alignItems: "center", height: "90%", backgroundColor: 'transparent' }}>
+        <div className="tw-toolbar-main-controls" style={{ display: "flex", alignItems: "center", height: readableToolbarWrap ? "50%" : "90%", flexBasis: readableToolbarWrap ? "100%" : "auto", justifyContent: "flex-end", backgroundColor: 'transparent' }}>
 
           {props.seasonalBarChartData.length > 0 &&
             <div className='barchart-controls-div tw-toolbar-control' style={StyleLSSquare}>
