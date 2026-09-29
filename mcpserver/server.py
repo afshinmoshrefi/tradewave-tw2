@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
 import copy
 import datetime
 import functools
@@ -86,8 +87,10 @@ MAIN_PUBLIC_URL: str = (
     else f"https://{_main_public_host}"
 )
 
-LEGACY_PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v2.html"
-PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v3.html"
+OLDER_PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v2.html"
+LEGACY_PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v3.html"
+# v4 (TW-TASK-0014 item 5): the widget draws the server's shared-system chart images.
+PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v4.html"
 SCAN_WIDGET_URI = "ui://tradewave/ranked-opportunities-v1.html"
 PATTERN_WIDGET_HTML = (Path(__file__).with_name("pattern_widget.html")).read_text(
     encoding="utf-8"
@@ -627,6 +630,36 @@ def pattern_evidence_widget_v2() -> str:
 
 
 @mcp.resource(
+    OLDER_PATTERN_WIDGET_URI,
+    name="tradewave-pattern-evidence-v2-alias",
+    title="TradeWave Pattern Evidence",
+    description=(
+        "Complete ranked seasonal shortlist plus interactive evidence for the top pattern."
+    ),
+    mime_type="text/html;profile=mcp-app",
+    meta={
+        "ui": {
+            "prefersBorder": True,
+            "csp": {
+                "connectDomains": [],
+                "resourceDomains": [],
+            },
+        },
+        "openai/widgetDescription": (
+            "Shows the complete ranked TradeWave shortlist, normalized seasonal trend, yearly "
+            "MFE/MAE ranges, final returns, key statistics, and exact Wave Viewer links."
+        ),
+        "openai/widgetCSP": {
+            "redirect_domains": [MAIN_PUBLIC_URL],
+        },
+    },
+)
+def pattern_evidence_widget_older() -> str:
+    """Compatibility alias for hosts that cached the v2 outputTemplate URI."""
+    return PATTERN_WIDGET_HTML
+
+
+@mcp.resource(
     SCAN_WIDGET_URI,
     name="tradewave-ranked-opportunities",
     title="TradeWave Ranked Opportunities",
@@ -908,6 +941,38 @@ def _widget_lead(text: str, data: dict[str, Any], handoff: bool = False) -> Call
         content=[TextContent(type="text", text=text)],
         structuredContent=payload,
     )
+
+
+CHART_META_KEY = "tradewave/charts"
+
+
+def _chart_meta(card: Any) -> list[dict[str, str]]:
+    """The shared-system chart PNGs for one card, for the widget only (TW-TASK-0014 item 5).
+
+    They travel in the result's ``_meta`` - which hosts hand to the embedded app, not to the
+    model - so the widget shows the same charts as SMN without spending model tokens.
+    """
+    if not isinstance(card, dict) or not card.get("chart"):
+        return []
+    try:
+        rendered = render_card_charts(card)
+    except Exception as exc:  # noqa: BLE001 - visualization must never fail the tool
+        log.warning("MCP chart rendering failed for %s: %s", card.get("symbol"), exc)
+        return []
+    kinds = ("year_bars", "seasonal_path")
+    return [{"kind": kinds[i] if i < len(kinds) else "chart", "alt": alt,
+             "png": base64.b64encode(png).decode("ascii")}
+            for i, (alt, png) in enumerate(rendered)]
+
+
+async def _attach_chart_images(result: Any, card: Any) -> Any:
+    """Add the widget-only chart images to a widget result, rendered off the event loop."""
+    if not isinstance(result, CallToolResult):
+        return result
+    charts = await asyncio.to_thread(_chart_meta, card)
+    if charts:
+        result.meta = {**(result.meta or {}), CHART_META_KEY: charts}
+    return result
 
 
 def _scan_widget_lead(text: str, data: dict[str, Any], handoff: bool = False) -> CallToolResult:
@@ -1241,12 +1306,14 @@ async def analyze_symbol(
     sym = symbol.upper()
     card = data.get("card") if isinstance(data, dict) else None
     if isinstance(card, dict) and card.get("bias") == "neutral":
-        return _widget_lead(
+        result = _widget_lead(
             f"{sym} has no high-conviction seasonal edge right now - here is the honest read:",
             data,
             handoff=True,
         )
-    return _widget_lead(f"Here is the full seasonal deep-dive on {sym}:", data, handoff=True)
+    else:
+        result = _widget_lead(f"Here is the full seasonal deep-dive on {sym}:", data, handoff=True)
+    return await _attach_chart_images(result, card)
 
 
 # ---------------------------------------------------------------------------

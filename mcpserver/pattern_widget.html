@@ -78,6 +78,7 @@
     .panel-title { font-size: 15px; font-weight: 800; }
     .panel-note { color: var(--muted); font-size: 11px; text-align: right; }
     .chart-wrap { position: relative; width: 100%; min-height: 245px; }
+    .tw-chart { display: block; width: 100%; height: auto; border-radius: 8px; background: #fff; }
     svg { display: block; width: 100%; height: auto; overflow: visible; }
     .grid { stroke: var(--line); stroke-width: 1; opacity: .7; }
     .axis-label { fill: var(--muted); font-size: 10px; }
@@ -388,7 +389,27 @@
         app.appendChild(htmlEl("div", "foot", "TradeWave seasonal statistics are historical and do not guarantee future results."));
       }
 
+      // TW-TASK-0014 item 5: the server sends the shared TradeWave chart images (the SMN
+      // chart system) in the result's _meta, which is for this app, not the model. Draw them
+      // when present; the built-in charts remain the fallback for older servers or a failed image.
+      function chartImages(raw) {
+        const pick = meta => (meta && Array.isArray(meta["tradewave/charts"])) ? meta["tradewave/charts"] : null;
+        return pick(raw?._meta) || pick(raw?.result?._meta) || pick(window.openai?.toolResponseMetadata) || [];
+      }
+
+      function imagePanel(chart, fallback) {
+        const [node, wrap] = panel(chart.kind === "year_bars" ? "Year-by-year results" : "Seasonal path", "");
+        const img = document.createElement("img");
+        img.className = "tw-chart";
+        img.alt = chart.alt || "TradeWave chart";
+        img.addEventListener("error", () => { wrap.replaceChildren(); fallback(wrap); }, { once: true });
+        img.src = "data:image/png;base64," + chart.png;
+        wrap.appendChild(img);
+        return node;
+      }
+
       function render(raw) {
+        const images = chartImages(raw);
         const data = raw?.structuredContent || raw?.result?.structuredContent || raw?.result || raw;
         if (Array.isArray(data?.opportunities) && data.opportunities.length) {
           renderScan(data);
@@ -450,8 +471,19 @@
         const shortlist = rankedShortlist(data?.opportunities, data?.rank_by);
         if (shortlist) app.appendChild(shortlist);
 
+        const drawTrend = wrap => lineChart(wrap, Array.isArray(chart.trend_chart) ? chart.trend_chart : [], setup.hold_days);
+        const drawBars = wrap => evidenceBars(wrap, chart.per_year_bars || []);
+        const bars = images.find(c => c.kind === "year_bars" && c.png);
+        const trend = images.find(c => c.kind === "seasonal_path" && c.png);
+        if (bars && trend) {
+          app.appendChild(imagePanel(bars, drawBars));
+          app.appendChild(imagePanel(trend, drawTrend));
+          app.appendChild(htmlEl("div", "foot", "TradeWave seasonal statistics are historical and do not guarantee future results. Use the exact-pattern link to inspect individual years and stress-test the window."));
+          return;
+        }
+
         const [trendPanel, trendWrap] = panel("Normalized seasonal trend", "The historical path during this exact holding window");
-        lineChart(trendWrap, Array.isArray(chart.trend_chart) ? chart.trend_chart : [], setup.hold_days);
+        drawTrend(trendWrap);
         app.appendChild(trendPanel);
 
         const [barsPanel, barsWrap] = panel("Year-by-year path risk and outcome", "Blue = worst-to-best excursion · orange diamond = final return");

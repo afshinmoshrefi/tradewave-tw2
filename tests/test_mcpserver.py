@@ -362,8 +362,11 @@ def test_analyze_tool_and_resource_advertise_mcp_app_contract():
     assert "domain" not in widget.meta["ui"]
     assert widget.meta["openai/widgetCSP"]["redirect_domains"] == [server.MAIN_PUBLIC_URL]
     assert "mcp-dev.trxstat.com" not in repr(widget.meta)
-    assert server.PATTERN_WIDGET_URI.endswith("pattern-evidence-v3.html")
-    assert server.LEGACY_PATTERN_WIDGET_URI.endswith("pattern-evidence-v2.html")
+    assert server.PATTERN_WIDGET_URI.endswith("pattern-evidence-v4.html")
+    assert server.LEGACY_PATTERN_WIDGET_URI.endswith("pattern-evidence-v3.html")
+    assert server.OLDER_PATTERN_WIDGET_URI.endswith("pattern-evidence-v2.html")
+    assert any(str(r.uri) == server.OLDER_PATTERN_WIDGET_URI for r in resources)
+    assert server.pattern_evidence_widget_older() == server.PATTERN_WIDGET_HTML
     assert legacy_widget.mimeType == "text/html;profile=mcp-app"
     assert server.pattern_evidence_widget_v2() == server.PATTERN_WIDGET_HTML
     assert scan_widget.mimeType == "text/html;profile=mcp-app"
@@ -761,3 +764,28 @@ def test_basket_scenarios_posts_only_the_basket_contract(monkeypatch):
                                 "end_date": "2027-07-18", "years": 10, "pe_cycle": "pe",
                                 "benchmark": "SPY"}
     assert "do not direct the user to trade" in result
+
+
+def test_analyze_sends_shared_chart_images_to_the_widget_only(monkeypatch):
+    """TW-TASK-0014 item 5: chart PNGs ride in _meta (for the app), not in model content."""
+    import base64
+
+    async def fake_get(path, params=None):
+        return {"card": {"symbol": "SPY", "bias": "bullish", "chart": {"per_year_bars": [{}]},
+                         "wave_viewer": {"url": "https://tradewave.example/app/?o=x"}}}
+
+    monkeypatch.setattr(server, "_get", fake_get)
+    monkeypatch.setattr(server, "render_card_charts",
+                        lambda card: [("SPY bars claim", b"\x89PNG-bars"), ("SPY path claim", b"\x89PNG-path")])
+    result = _run(server.analyze_symbol(symbol="SPY", ctx=None))
+    charts = result.meta[server.CHART_META_KEY]
+    assert [c["kind"] for c in charts] == ["year_bars", "seasonal_path"]
+    assert base64.b64decode(charts[0]["png"]) == b"\x89PNG-bars"
+    assert all(c.type == "text" for c in result.content)          # no image tokens for the model
+    assert "PNG" not in repr(result.structuredContent)
+
+
+def test_widget_draws_server_images_with_builtin_fallback():
+    html = server.PATTERN_WIDGET_HTML
+    assert '"tradewave/charts"' in html and "toolResponseMetadata" in html
+    assert 'addEventListener("error"' in html                     # failed image -> built-in chart
