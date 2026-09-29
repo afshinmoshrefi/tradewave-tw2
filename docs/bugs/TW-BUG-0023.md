@@ -1,6 +1,6 @@
 # TW-BUG-0023: Homepage 100-Year Pattern countdown stuck at zero after the window opened
 
-- Status: in-progress
+- Status: withdrawn - superseded by the session "100 year pattern home page update" (Claude session 2a453899), which owns this fix; this record was never added to main
 - Confidence: reproduced
 - Priority: P2 - the public homepage states the window "begins September 27, 2026" and shows 0 days 00 hours 00 minutes after it opened
 - First observed / last updated: 2026-09-29 00:25 UTC (Afshin screenshot) / 2026-09-29 00:40 UTC
@@ -30,3 +30,4 @@ Dev: pending. Staging: not checked. Production: not checked (still shows the sta
 ## History
 
 - 2026-09-29 00:40 UTC, Claude session `c7bd49c6`: reproduced on production; fix in progress.
+- 2026-09-29 00:45 UTC, Claude session `c7bd49c6`: Afshin clarified the report belonged to another session already working on it (its release 469d600c took the dev lock at 00:34:32 and contains all TW-TASK-0014 work). Withdrawn; no rollback run (it would overwrite that release). The other session was told that dev home.html at 00:34:14 came from this branch's template and needs regenerating from its candidate.
