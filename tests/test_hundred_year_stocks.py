@@ -105,6 +105,8 @@ def test_template_and_refresh_wiring():
     generator = (ROOT / "site" / "generate_home_page.py").read_text(encoding="utf-8")
     assert "{% if hy.stocks %}" in template and "data-tw100-tab" in template
     assert "History, not a forecast." in template
+    # A display rule on the list must not defeat the hidden tab panel.
+    assert ".tw100-stock-list[hidden]{display:none}" in template
     assert "site/hundred_year_stocks.py ||" in refresh
     assert refresh.index("hundred_year_stocks.py") < refresh.index("generate_home_page.py")
     assert 'hundred_year["stocks"] = stocks' in generator and "show_opportunities = False" in generator
