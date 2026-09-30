@@ -12,10 +12,11 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0006](TW-TASK-0006.md) | verified | SMN shared Codex/Claude coordination and model-effort review |
 | [TW-TASK-0007](TW-TASK-0007.md) | verified | Controlled six-subject Astra/Sol/Luna quality and usage comparison |
 | [TW-TASK-0008](TW-TASK-0008.md) | verified on dev | SMN publishing dashboard (pins, order, publish/unpublish, schedule, hero) and portfolio Rec Hero/Delete/publish-icon fixes |
-| [TW-TASK-0009](TW-TASK-0009.md) | in-progress | Generator a448719:156 tests; six automated editorial passes, five visual passes; bounded visual recovery and management dashboard qualification in progress; production unchanged |
+| [TW-TASK-0009](TW-TASK-0009.md) | in-progress | Generator66b03d4:170 tests and six complete automated reader passes; dashboard84 tests plus installer10; Dev activation/publication pending, Claude comparison held; production unchanged |
 | [TW-TASK-0010](TW-TASK-0010.md) | verified on dev | Short tooltips for both Avg Gain values when global tips are off |
 | [TW-TASK-0011](TW-TASK-0011.md) | fixed | Portfolio import and historical scenarios live on dev; core browser/engine checks pass; native PDF layout verification pending |
 | [TW-TASK-0012](TW-TASK-0012.md) | verified on dev | Single-row responsive desktop toolbar and persisted General switch |
 | [TW-TASK-0013](TW-TASK-0013.md) | verified on dev | Tara knowledge for recent Wave Viewer controls |
 | [TW-TASK-0014](TW-TASK-0014.md) | in-progress | Strategy Lab MCP Phase 1 live on dev: ETF analysis, buy-and-hold benchmark, same-window compare, basket scenarios, shared SMN-style charts, from-today mode; personal-holdings items blocked on attorney |
 | [TW-TASK-0015](TW-TASK-0015.md) | verified | Caption-backed webinar research, four production study receipts, demo cases and current offer check |
+
