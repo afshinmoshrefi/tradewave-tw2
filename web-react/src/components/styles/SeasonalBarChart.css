@@ -61,6 +61,8 @@
     line-height: 1.2;
     white-space: nowrap;
     text-align: center;
+    text-decoration: underline;
+    text-underline-offset: 3px;
     margin-bottom: 4px;
     pointer-events: none;
 }
@@ -311,8 +313,6 @@
     margin-bottom: 0;
     padding: 2px 3px;
     color: var(--tw-toolbar-heading-color);
-    background: var(--tw-toolbar-heading-bg);
-    border: 1px solid var(--tw-toolbar-heading-border);
 }
 
 .barchart-controls--heading-layout > .barchart-controls-div {
