@@ -2,12 +2,12 @@
 
 ## Underlined title styling follow-up (2026-09-29)
 
-Afshin requested removing the gray title backgrounds and placing an underline beneath each toolbar title. Codex `/root` claims this dev-only styling follow-up in `codex/toolbar-title-underline-20260929`, isolated worktree `C:/Users/afshin/Documents/TradeWave Main Orchestrator/toolbar-title-underline-20260929`, from main `8b4cad757c838b7a192dc6e863347b3bbf891935`. Preserve responsive abbreviations, control layout, settings and title-off behavior. Next: apply the focused CSS change, build, inspect wide and narrow rendered layouts, activate on dev and record evidence.
+Afshin requested removing the gray title backgrounds and placing an underline beneath each toolbar title. Codex `/root` claimed this dev-only styling follow-up in `codex/toolbar-title-underline-20260929`, isolated worktree `C:/Users/afshin/Documents/TradeWave Main Orchestrator/toolbar-title-underline-20260929`, from main `8b4cad757c838b7a192dc6e863347b3bbf891935`. Preserve responsive abbreviations, control layout, settings and title-off behavior. The verified implementation and evidence appear at the end of this record.
 
-- Status: desktop single-row repair verified on dev
+- Status: toolbar title styling verified on dev
 - Confidence: reproduced
 - Priority: P3 - improves control discoverability
-- First observed / last updated: 2026-09-27 22:45 UTC / 2026-09-28 15:11 UTC
+- First observed / last updated: 2026-09-27 22:45 UTC / 2026-09-30 UTC
 - Executor/session: Codex `/root/toolbar_no_wrap_repair`; independent visual/native-Chrome reviewer `/root`. Original implementation and prior failed attempts are retained below.
 - Authorization: User requested implementation and routine dev activation; staging and production excluded.
 
@@ -215,3 +215,11 @@ recorded browsers/viewports, not an exhaustive device audit.
 
 Next action: none for this dev fix. Staging qualification only after explicit
 request. No migrations, environment configuration, or backend restart required.
+
+## Underline styling verified on dev (2026-09-30 UTC)
+
+Source commit `f4d8127a1a6395a3c3c8a0271453b0d95e5762bd` advanced main without force. It changes only `web-react/src/components/styles/SeasonalBarChart.css`: title text gains an underline and offset, while the desktop title fill and border are removed. Existing theme text colors, headings, responsive abbreviations, single-row sizing, controls, and settings logic remain as before. Tara knowledge did not describe title backgrounds, so it required no update. No engine math, backend code, configuration, or migration changed.
+
+The clean source built with `ops/build_react_release.sh` (existing Browserslist/lint notices only). The candidate was rendered with real dev HLT data at a 1046px CSS viewport and actual toolbar widths 623, 782.5 and 831.7px: all 15 titles remained on one row, with transparent backgrounds, zero border width, underlined text, and no control overflow or clipped values. At a 1745px viewport, the 1385px toolbar also kept one row and no overflow. The candidate wide check's optional compact-select interaction assertion did not apply because that wide layout uses a normal select; its layout and styling assertions passed. The narrow candidate interaction check passed Days 140, Best Waves and MFE. With titles off at 1280/1300px, no title row appeared and the toolbar retained its compact height. Screenshots: [live 623px](evidence/TW-TASK-0012-underline-20260929/dev-623.png), [live 783px](evidence/TW-TASK-0012-underline-20260929/dev-783.png), [candidate wide](evidence/TW-TASK-0012-underline-20260929/candidate-wide.png).
+
+Dev frontend pointer is `/home/flask/web-react/releases/build-f4d8127a1a6395a3c3c8a0271453b0d95e5762bd`; previous pointer `/home/flask/web-react/releases/build-79fcba0be29af546cfd2ac01b1042b8405382b60` is retained for rollback. A live nginx/capture-bot browser loaded the served build and repeated the 623/783/820px narrow checks, including title style, one-row geometry and working Days/Best Waves/MFE interactions. `/healthz` reported database/frontend OK; the served CSS hash matched the active artifact. Current main has no `appserver` or `web` source difference from the active backend at `9b02f007d90a26b605e2217b80188109e6f48add`. Dev activation lock was released. Staging and production were not changed or verified. Next action: qualify staging when Afshin requests its deployment.
