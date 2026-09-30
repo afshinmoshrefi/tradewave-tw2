@@ -18,3 +18,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0012](TW-TASK-0012.md) | verified on dev | Single-row responsive desktop toolbar and persisted General switch |
 | [TW-TASK-0013](TW-TASK-0013.md) | verified on dev | Tara knowledge for recent Wave Viewer controls |
 | [TW-TASK-0014](TW-TASK-0014.md) | in-progress | Strategy Lab MCP Phase 1 live on dev: ETF analysis, buy-and-hold benchmark, same-window compare, basket scenarios, shared SMN-style charts, from-today mode; personal-holdings items blocked on attorney |
+| [TW-TASK-0015](TW-TASK-0015.md) | in-progress | TradeWave webinar research, verified video claims and demo evidence |
