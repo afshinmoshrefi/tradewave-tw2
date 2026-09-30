@@ -1,0 +1,168 @@
+YouTube transcript
+Video ID: 76J3RKZ9KkQ
+Language: en
+Captions: auto-generated
+
+[0:00] Right now, 94% of S&P 500 seasonal
+[0:04] patterns are short. But history says
+[0:07] that flips in about 3 weeks. Let me show
+[0:09] [music] you when.
+[0:10] In this video, I'm going to determine if
+[0:13] market is bullish or bearish for the
+[0:16] next 30 days by using one of the most
+[0:19] unique features of Trade Wave. I'm on
+[0:22] Wave Viewer right now and on the left
+[0:24] you see the opportunity table. These are
+[0:26] the list of stocks that have [music]
+[0:29] been found with a pattern that starts
+[0:32] today, which is September [music] 16th,
+[0:35] 2026.
+[0:37] And it's based on the last 10 years with
+[0:40] at least 90% of the years a winner,
+[0:44] whether it's long or short. I also want
+[0:47] you to take a look at the column that
+[0:49] says days. [music]
+[0:50] This is the length of each of the
+[0:53] patterns. Let's go to S&P 500. As you
+[0:56] can see on the bottom, 281 opportunities
+[1:00] were found and 75% of them were longs.
+[1:04] Now, we want to see how about next 30
+[1:07] days. I'm going to filter the number
+[1:10] [music] of days by 0 to 30. Look at the
+[1:13] bottom again. 67 [music]
+[1:15] opportunities were found, four longs and
+[1:18] 63 shorts. 94% of the found patterns
+[1:24] were short for the next 30 days on S&P
+[1:27] 500 stocks.
+[1:29] >> [music]
+[1:29] >> And this is only based on the last 10
+[1:31] years. What happens if I select the last
+[1:33] 20 years? If I go to 17,
+[1:37] I get zero longs, 10 shorts. Again, it
+[1:40] is showing that for next 30 days, stocks
+[1:45] have [music] been bearish based on last
+[1:48] 20 years. How about mid-term election
+[1:51] years?
+[1:52] >> [music]
+[1:52] >> I'm going to select the P plus 2. Now
+[1:55] you see all the patterns on the left
+[1:57] [music]
+[1:58] that are
+[1:59] all based on midterm election years.
+[2:02] [music]
+[2:03] And since I selected 10 years, so means
+[2:06] it's the last 40 years. Let's read
+[2:09] [music] the bottom again.
+[2:10] 37 opportunities were found.
+[2:14] One long. 36 shorts. 97% of the
+[2:18] opportunities are short. Market is
+[2:22] bearish for next 30 days. What [music]
+[2:25] happens after that? First, I'm going to
+[2:28] take a look at the last 10 years
+[2:31] with patterns that are 100% of the time
+[2:35] successful.
+[2:37] 13 per opportunities were found and they
+[2:39] are all long. 30 days from now things
+[2:42] change. [music]
+[2:43] If I select nine out of 10, we get a
+[2:46] much larger
+[2:49] group. 100 opportunities, 87%. [music]
+[2:53] 13 shorts only.
+[2:55] Now, when would I start looking for long
+[2:58] trades? Would be right after September
+[3:02] 27th, which is
+[3:04] >> [music]
+[3:05] >> the date that
+[3:08] Trade Wave has
+[3:09] >> [music]
+[3:09] >> picked as the bottom of the stock
+[3:13] market. As you can see,
+[3:16] >> [clears throat]
+[3:17] >> 11 opportunities, six longs, five
+[3:19] shorts.
+[3:21] Just a few days like right now,
+[3:24] which is 11 days before [music]
+[3:27] uh um almost [clears throat] everything
+[3:30] is short.
+[3:31] But now half of them turned long. If I
+[3:34] go to last day,
+[3:36] September 30th,
+[3:38] look at this.
+[3:40] Seven opportunities, six longs, one
+[3:42] [music] short.
+[3:44] As we move to October,
+[3:46] three longs, one short. And this is
+[3:48] based on 10 of 10 years. I can always
+[3:52] select 90% and get a much longer list.
+[3:55] Look at that, 78% down there.
+[3:58] >> [music]
+[3:59] >> I am just flipping it.
+[4:01] Now, October 3rd, now 85% bullish.
+[4:06] As I go, you can see
+[4:08] >> [music]
+[4:09] >> how things are getting more bullish.
+[4:11] It's 100% now.
+[4:13] 100% of the patterns now.
+[4:16] >> [music]
+[4:20] [music]
+[4:22] >> How about P + 2?
+[4:24] Now, based on the last 10 midterm
+[4:27] election years, 73 opportunities, 72
+[4:31] were long 30 days from now. One issue
+[4:35] with last 10 midterm election years is
+[4:37] that a lot of newer stocks like Nvidia
+[4:40] is not going to be on that list. So, I'm
+[4:43] going to switch to 6 years.
+[4:45] >> [music]
+[4:45] >> Based on last 6 years,
+[4:48] very bullish
+[4:49] 3 days from now.
+[4:51] >> [music]
+[4:51] >> You see, it bottoms right here on
+[4:53] midterm election years.
+[4:55] But, the sample is small for Nvidia.
+[4:58] [music]
+[4:59] There are only six midterm election
+[5:01] years in that.
+[5:02] It's pretty bullish except for 2018.
+[5:06] It dropped [music]
+[5:08] 6%. However, look at MAE, it dropped
+[5:11] minus [music] 25 first.
+[5:14] So,
+[5:15] what's the best time to jump in
+[5:18] Nvidia? [music]
+[5:19] Based on only six samples, the best date
+[5:22] is 11th of October.
+[5:26] Of course, this [music] don't mean it's
+[5:28] exact, but it's very close to that based
+[5:32] on history. [music]
+[5:34] How about if we look at Nvidia
+[5:37] consecutively? [music]
+[5:38] 15% in average. Right, Nvidia dropped
+[5:42] sharply in 2018 [music] and 2008.
+[5:47] And look at 2021. [music]
+[5:49] What's up 60%
+[5:53] in 35 days [music]
+[5:55] and in 2025
+[5:58] it was flat.
+[6:00] It closed up 0.25%
+[6:02] but [music] the MFE is 13% which means
+[6:06] went up 13% first and then closed flat.
+[6:10] >> [music]
+[6:11] >> 2024
+[6:13] was up almost 20%.
+[6:16] So this is a very bullish time
+[6:19] 30 days from now
+[6:21] >> [music]
+[6:21] >> but not now. Not not now until the next
+[6:25] 30 days. [music]
+[6:27] So things are going to change. Stocks
+[6:29] are going to be
+[6:31] >> [music]
+[6:32] >> very bullish soon
+[6:34] if the history repeats itself.
+[6:38] If you want to find these patterns
+[6:39] yourself go to tradewave.ai
+[6:42] and in the next video I'll show you
+[6:44] which stocks I'd look at for the next 6
+[6:47] to 12 months.

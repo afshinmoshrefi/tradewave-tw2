@@ -1,0 +1,488 @@
+1
+00:00:00,230 --> 00:00:06,930
+One S&P 500 stock went up from mid-October
+to mid-July in every midterm cycle
+
+2
+00:00:06,950 --> 00:00:10,850
+since 1986. I'll show you how I found it,
+
+3
+00:00:10,870 --> 00:00:15,563
+and the other stocks I'd look at
+for the next six to twelve months.
+
+4
+00:00:15,583 --> 00:00:17,003
+In my last video,
+
+5
+00:00:17,023 --> 00:00:23,323
+I showed how TradeWave determined that
+the market is very bearish right now,
+
+6
+00:00:23,343 --> 00:00:31,051
+which is September 16th, and
+30 days from now, mid-October,
+
+7
+00:00:31,121 --> 00:00:33,563
+it's going to be bullish.
+
+8
+00:00:33,583 --> 00:00:38,443
+What if we want to buy stocks for
+the next six to twelve months?
+
+9
+00:00:38,463 --> 00:00:42,763
+Which ones So I am on
+Dow 30 stocks right now.
+
+10
+00:00:42,783 --> 00:00:47,323
+We already determined that we
+want to analyze 30 days from now,
+
+11
+00:00:47,343 --> 00:00:49,497
+so this is October 15th.
+
+12
+00:00:49,517 --> 00:00:56,880
+I am going to change my filter
+over here to 180 to 364...
+
+13
+00:00:56,900 --> 00:01:02,863
+366 days, for example. Now let's take a
+look at the patterns that just came up.
+
+14
+00:01:02,883 --> 00:01:05,890
+First of all, 15 opportunities were found,
+
+15
+00:01:05,910 --> 00:01:12,098
+based on the last 10
+years with 90% success,
+
+16
+00:01:12,233 --> 00:01:17,897
+and 100% of the patterns
+that were found are bullish.
+
+17
+00:01:17,917 --> 00:01:20,783
+I can always look at Sharpe ratio.
+
+18
+00:01:20,803 --> 00:01:26,130
+Walmart is the most consistent,
+although it was down one year.
+
+19
+00:01:26,150 --> 00:01:29,647
+Or look at average profit: Apple.
+
+20
+00:01:29,667 --> 00:01:32,512
+Also, a longer term: it's 341
+
+21
+00:01:33,587 --> 00:01:36,945
+days, and the average gain is 28.44%.
+
+22
+00:01:39,880 --> 00:01:45,510
+But remember, this is all based
+on the last 10 consecutive years.
+
+23
+00:01:45,640 --> 00:01:49,263
+If I click this PE plus 2,
+
+24
+00:01:49,283 --> 00:01:54,863
+now this is based on the last
+10 midterm election years,
+
+25
+00:01:54,883 --> 00:01:58,030
+which would span around 40 years.
+
+26
+00:01:58,050 --> 00:02:01,030
+I'm going to select Apple based on that.
+
+27
+00:02:01,050 --> 00:02:04,550
+Now there's a different analysis.
+
+28
+00:02:04,570 --> 00:02:09,830
+Apple actually did quite well in '86.
+
+29
+00:02:09,850 --> 00:02:11,245
+It was up 232%,
+
+30
+00:02:12,650 --> 00:02:14,290
+then it was up 165%
+
+31
+00:02:15,130 --> 00:02:17,492
+in 1990.
+
+32
+00:02:17,530 --> 00:02:19,580
+How about recently?
+
+33
+00:02:19,600 --> 00:02:24,210
+It was up 25% in 2022.
+
+34
+00:02:24,230 --> 00:02:27,933
+Now let's go to the S&P 500.
+
+35
+00:02:27,953 --> 00:02:34,063
+So this is midterm election years,
+six-to-twelve-month patterns.
+
+36
+00:02:34,083 --> 00:02:38,658
+I'd rather have it by
+Sharpe ratio initially,
+
+37
+00:02:38,723 --> 00:02:43,110
+to see what's the most consistent pattern.
+
+38
+00:02:43,130 --> 00:02:44,580
+AMETEK.
+
+39
+00:02:44,600 --> 00:02:46,013
+Look at that.
+
+40
+00:02:46,033 --> 00:02:48,303
+It gained 28.85%
+
+41
+00:02:50,753 --> 00:02:54,393
+every midterm election year from 1986
+
+42
+00:02:55,473 --> 00:02:58,413
+through 2022.
+
+43
+00:02:58,433 --> 00:03:01,513
+40% in 2022.
+
+44
+00:03:01,533 --> 00:03:02,298
+28%
+
+45
+00:03:02,813 --> 00:03:06,390
+in 2018. And what's the date range?
+
+46
+00:03:06,410 --> 00:03:12,765
+It's from the 15th of October
+until the 16th of July.
+
+47
+00:03:12,800 --> 00:03:15,340
+Very close to the 100-Year Pattern.
+
+48
+00:03:15,360 --> 00:03:20,140
+Now let's look at the trend chart to
+see if we can time it even better.
+
+49
+00:03:20,160 --> 00:03:21,340
+Look at the pivot.
+
+50
+00:03:21,360 --> 00:03:27,340
+We want to look at the pivot when the
+average down move ends and the sharp up
+
+51
+00:03:27,360 --> 00:03:30,763
+move starts, which is right there.
+
+52
+00:03:30,783 --> 00:03:36,747
+Look at that: the average
+gain jumped to 31.3%.
+
+53
+00:03:36,767 --> 00:03:45,297
+41% in 2022, and 23% in 2018.
+
+54
+00:03:45,317 --> 00:03:46,307
+AMETEK
+
+55
+00:03:46,757 --> 00:03:53,217
+has been a very bullish stock
+during midterm election years,
+
+56
+00:03:53,237 --> 00:03:57,230
+starting on the 10th of October.
+
+57
+00:03:57,250 --> 00:04:00,697
+I just selected average profit.
+
+58
+00:04:00,717 --> 00:04:02,457
+Oh, look at this: Hubbell.
+
+59
+00:04:02,477 --> 00:04:03,477
+In 1994,
+
+60
+00:04:04,397 --> 00:04:08,143
+this stock made a thousand percent.
+
+61
+00:04:08,163 --> 00:04:12,780
+Wow, that really screws up this analysis.
+
+62
+00:04:12,800 --> 00:04:18,497
+So I'm going to cut these three years
+and just take a look at the last seven.
+
+63
+00:04:18,517 --> 00:04:24,420
+That's a little bit more
+realistic: an average gain of 19%.
+
+64
+00:04:24,440 --> 00:04:29,253
+45% gain in 2022 for Hubbell.
+
+65
+00:04:29,273 --> 00:04:31,148
+It says an SR of 0.37.
+
+66
+00:04:32,313 --> 00:04:34,773
+That's a very low Sharpe ratio,
+
+67
+00:04:34,793 --> 00:04:39,828
+and the real reason for it is
+this incredible inconsistency,
+
+68
+00:04:40,313 --> 00:04:45,763
+because there is this
+massive outlier in 1994.
+
+69
+00:04:45,783 --> 00:04:51,523
+However, Sharpe ratios do jump
+if I switch it to seven years.
+
+70
+00:04:51,543 --> 00:04:56,057
+Just look at the bottom. The
+Sharpe ratio is now above one.
+
+71
+00:04:56,177 --> 00:05:01,347
+So based on the last seven years,
+this is a lot more consistent.
+
+72
+00:05:01,367 --> 00:05:03,622
+In finance, they determine
+
+73
+00:05:04,807 --> 00:05:12,092
+your risk is lower if your expected
+return has been consistent.
+
+74
+00:05:12,247 --> 00:05:18,292
+So as you can see, when it's
+consistent, your Sharpe ratio goes up.
+
+75
+00:05:18,647 --> 00:05:24,927
+Usually I look for Sharpe ratios
+above one, but if it's above two,
+
+76
+00:05:25,207 --> 00:05:27,177
+I prefer it a lot more.
+
+77
+00:05:27,197 --> 00:05:33,928
+Eaton Corporation, with
+average profits of 23.8%.
+
+78
+00:05:33,948 --> 00:05:40,582
+It was up 24% in 2022,
+and only 3% in 2018,
+
+79
+00:05:41,667 --> 00:05:42,432
+27%
+
+80
+00:05:43,347 --> 00:05:46,210
+in 2014.
+
+81
+00:05:46,230 --> 00:05:49,010
+You can see all of these opportunities.
+
+82
+00:05:49,030 --> 00:05:53,763
+These are longer term. How about
+shorter-term opportunities?
+
+83
+00:05:53,783 --> 00:05:55,583
+Just 30 days,
+
+84
+00:05:56,503 --> 00:05:59,163
+starting in the middle of October.
+
+85
+00:05:59,183 --> 00:06:03,810
+As you can see, they are all long
+opportunities, 30 days from there.
+
+86
+00:06:03,830 --> 00:06:08,490
+Franklin Resources is
+better a little earlier.
+
+87
+00:06:08,870 --> 00:06:12,180
+So look at the average gain of 6.37%.
+
+88
+00:06:13,750 --> 00:06:16,163
+I'm going to move this back.
+
+89
+00:06:16,183 --> 00:06:18,388
+The average gain jumped to 10%
+
+90
+00:06:19,063 --> 00:06:25,180
+if you go to start date
+to the 11th of October.
+
+91
+00:06:25,200 --> 00:06:27,880
+Other stocks, like Disney.
+
+92
+00:06:27,900 --> 00:06:34,200
+Disney: average profit of 6%, based
+on the last 10 midterm election years.
+
+93
+00:06:34,220 --> 00:06:41,747
+Disney does well. And look at this:
+Disney goes up to around here,
+
+94
+00:06:41,767 --> 00:06:44,037
+which is next August,
+
+95
+00:06:44,727 --> 00:06:46,202
+August 2027.
+
+96
+00:06:46,727 --> 00:06:51,543
+Then it starts a pretty sharp decline.
+
+97
+00:06:51,563 --> 00:06:56,148
+Disney does this. Disney has a bearish
+
+98
+00:06:56,683 --> 00:07:00,608
+time of the year, and
+it's very consistent.
+
+99
+00:07:01,083 --> 00:07:08,343
+I have the analysis shown in
+The 100-Year Pattern book.
+
+100
+00:07:08,363 --> 00:07:10,680
+Thermo Fisher Scientific.
+
+101
+00:07:10,700 --> 00:07:13,000
+This one starts a little earlier too.
+
+102
+00:07:13,020 --> 00:07:16,480
+Average gain of 7.15%.
+
+103
+00:07:16,500 --> 00:07:21,715
+100% profitable, average around 9.49%,
+
+104
+00:07:23,600 --> 00:07:25,170
+and it's only 33
+
+105
+00:07:25,760 --> 00:07:31,763
+days. So this is how I pick
+stocks to trade or invest in.
+
+106
+00:07:31,783 --> 00:07:35,353
+Now, there are so many
+other analyses we can do
+
+107
+00:07:35,783 --> 00:07:40,030
+here, which I'll have in other videos.
+
+108
+00:07:40,050 --> 00:07:42,530
+So this is how it's done.
+
+109
+00:07:42,550 --> 00:07:45,250
+Try this yourself at TradeWave.ai.
+
+110
+00:07:45,270 --> 00:07:49,330
+And for the full research behind
+these patterns, check out my book,
+
+111
+00:07:49,350 --> 00:07:51,820
+The 100-Year Pattern.
+

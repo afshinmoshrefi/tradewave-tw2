@@ -1,0 +1,1755 @@
+{
+  "tool": "tradewave_production_analyze_symbol",
+  "retrieved_at": "2026-09-30",
+  "request": {
+    "symbol": "AAPL",
+    "market": "2",
+    "period": "sep",
+    "years": 10,
+    "direction": "long",
+    "view": "evidence"
+  },
+  "response": {
+    "primary_action": {
+      "type": "open_exact_pattern",
+      "label": "Open and stress-test this exact pattern in TradeWave",
+      "url": "https://tradewave.ai/app/?o=MnxBQVBMfDIwMjYtMDktMDF8MzB8MTA&view=evidence&direction=long",
+      "instruction": "Show this clickable action in the answer. If asked how to view the setup, repeat this URL instead of navigation steps."
+    },
+    "as_of": "2026-09-30",
+    "card": {
+      "alignment": {
+        "note": "Seasonal edge only - no ML score on this setup to cross-check.",
+        "verdict": "seasonal_only"
+      },
+      "bias": "neutral",
+      "chart": {
+        "note": "trend_chart is the normalized 0-100 seasonal index (one point per day, entry-anchored); per_year_bars are each year's trade return with its favorable (mfe) / adverse (mae) excursion band. Percentages, never prices.",
+        "per_year_bars": [
+          {
+            "mae_pct": -3.94,
+            "mfe_pct": 8.85,
+            "net_pct": 5.92,
+            "result": "win",
+            "year": "2016"
+          },
+          {
+            "mae_pct": -9.08,
+            "mfe_pct": 0.12,
+            "net_pct": -6.24,
+            "result": "loss",
+            "year": "2017"
+          },
+          {
+            "mae_pct": -5.72,
+            "mfe_pct": 0.57,
+            "net_pct": -0.48,
+            "result": "loss",
+            "year": "2018"
+          },
+          {
+            "mae_pct": 0,
+            "mfe_pct": 10.07,
+            "net_pct": 8.88,
+            "result": "win",
+            "year": "2019"
+          },
+          {
+            "mae_pct": -23.16,
+            "mfe_pct": 2.83,
+            "net_pct": -13.69,
+            "result": "loss",
+            "year": "2020"
+          },
+          {
+            "mae_pct": -7.37,
+            "mfe_pct": 3.11,
+            "net_pct": -7.22,
+            "result": "loss",
+            "year": "2021"
+          },
+          {
+            "mae_pct": -12.64,
+            "mfe_pct": 3.99,
+            "net_pct": -12.51,
+            "result": "loss",
+            "year": "2022"
+          },
+          {
+            "mae_pct": -11.53,
+            "mfe_pct": 0.27,
+            "net_pct": -8.29,
+            "result": "loss",
+            "year": "2023"
+          },
+          {
+            "mae_pct": -3.97,
+            "mfe_pct": 4.63,
+            "net_pct": 4.59,
+            "result": "win",
+            "year": "2024"
+          },
+          {
+            "mae_pct": -1.64,
+            "mfe_pct": 12.14,
+            "net_pct": 10.84,
+            "result": "win",
+            "year": "2025"
+          }
+        ],
+        "presentation_order": [
+          "year_by_year_evidence",
+          "seasonal_trend"
+        ],
+        "recommended_charts": [
+          {
+            "chart_type": "range_with_net_marker",
+            "data_ref": "chart.per_year_bars",
+            "id": "year_by_year_evidence",
+            "marker": "net_pct",
+            "purpose": "Show consistency, losing years, realized return, and the favorable/adverse path risk for every completed year.",
+            "range": {
+              "adverse_field": "mae_pct",
+              "favorable_field": "mfe_pct"
+            },
+            "title": "AAPL year-by-year evidence",
+            "x": "year",
+            "y_unit": "percent"
+          },
+          {
+            "chart_type": "line",
+            "data_ref": "chart.trend_chart",
+            "highlight": {
+              "entry_date": "2026-09-01",
+              "exit_date": "2026-09-30"
+            },
+            "id": "seasonal_trend",
+            "purpose": "Show the typical seasonal shape and where the selected hold window begins, peaks, and exits.",
+            "title": "AAPL normalized seasonal trend",
+            "x": "date",
+            "y": "index",
+            "y_unit": "normalized_index_0_100"
+          }
+        ],
+        "rendering_instruction": "Display both TradeWave charts when the client supports charts or images. Lead with the year-by-year evidence, then the seasonal trend. Do not call the normalized seasonal index a price or a return series.",
+        "trend_chart": [
+          {
+            "date": "2026-09-01",
+            "index": 39.54
+          },
+          {
+            "date": "2026-09-02",
+            "index": 38.74
+          },
+          {
+            "date": "2026-09-03",
+            "index": 36.2
+          },
+          {
+            "date": "2026-09-04",
+            "index": 36.61
+          },
+          {
+            "date": "2026-09-05",
+            "index": 34.85
+          },
+          {
+            "date": "2026-09-06",
+            "index": 33.09
+          },
+          {
+            "date": "2026-09-07",
+            "index": 32.31
+          },
+          {
+            "date": "2026-09-08",
+            "index": 30.61
+          },
+          {
+            "date": "2026-09-09",
+            "index": 32.05
+          },
+          {
+            "date": "2026-09-10",
+            "index": 31.38
+          },
+          {
+            "date": "2026-09-11",
+            "index": 32.41
+          },
+          {
+            "date": "2026-09-12",
+            "index": 32.28
+          },
+          {
+            "date": "2026-09-13",
+            "index": 31.22
+          },
+          {
+            "date": "2026-09-14",
+            "index": 30.78
+          },
+          {
+            "date": "2026-09-15",
+            "index": 30.59
+          },
+          {
+            "date": "2026-09-16",
+            "index": 29.67
+          },
+          {
+            "date": "2026-09-17",
+            "index": 29.1
+          },
+          {
+            "date": "2026-09-18",
+            "index": 28.23
+          },
+          {
+            "date": "2026-09-19",
+            "index": 30.17
+          },
+          {
+            "date": "2026-09-20",
+            "index": 29.62
+          },
+          {
+            "date": "2026-09-21",
+            "index": 28.13
+          },
+          {
+            "date": "2026-09-22",
+            "index": 29.41
+          },
+          {
+            "date": "2026-09-23",
+            "index": 27.85
+          },
+          {
+            "date": "2026-09-24",
+            "index": 28.29
+          },
+          {
+            "date": "2026-09-25",
+            "index": 29.07
+          },
+          {
+            "date": "2026-09-26",
+            "index": 29.3
+          },
+          {
+            "date": "2026-09-27",
+            "index": 29.96
+          },
+          {
+            "date": "2026-09-28",
+            "index": 29.92
+          },
+          {
+            "date": "2026-09-29",
+            "index": 28.86
+          },
+          {
+            "date": "2026-09-30",
+            "index": 28.83
+          },
+          {
+            "date": "2026-10-01",
+            "index": 29.02
+          },
+          {
+            "date": "2026-10-02",
+            "index": 27.51
+          },
+          {
+            "date": "2026-10-03",
+            "index": 28.47
+          },
+          {
+            "date": "2026-10-04",
+            "index": 29.04
+          },
+          {
+            "date": "2026-10-05",
+            "index": 28.86
+          },
+          {
+            "date": "2026-10-06",
+            "index": 28.6
+          },
+          {
+            "date": "2026-10-07",
+            "index": 28.84
+          },
+          {
+            "date": "2026-10-08",
+            "index": 29.56
+          },
+          {
+            "date": "2026-10-09",
+            "index": 30.97
+          },
+          {
+            "date": "2026-10-10",
+            "index": 31.37
+          },
+          {
+            "date": "2026-10-11",
+            "index": 31.29
+          },
+          {
+            "date": "2026-10-12",
+            "index": 32.58
+          },
+          {
+            "date": "2026-10-13",
+            "index": 31.59
+          },
+          {
+            "date": "2026-10-14",
+            "index": 32
+          },
+          {
+            "date": "2026-10-15",
+            "index": 33.04
+          },
+          {
+            "date": "2026-10-16",
+            "index": 33.3
+          },
+          {
+            "date": "2026-10-17",
+            "index": 32.38
+          },
+          {
+            "date": "2026-10-18",
+            "index": 32.03
+          },
+          {
+            "date": "2026-10-19",
+            "index": 32.63
+          },
+          {
+            "date": "2026-10-20",
+            "index": 32.81
+          },
+          {
+            "date": "2026-10-21",
+            "index": 33.23
+          },
+          {
+            "date": "2026-10-22",
+            "index": 33.21
+          },
+          {
+            "date": "2026-10-23",
+            "index": 32.75
+          },
+          {
+            "date": "2026-10-24",
+            "index": 31.99
+          },
+          {
+            "date": "2026-10-25",
+            "index": 32.88
+          },
+          {
+            "date": "2026-10-26",
+            "index": 31.48
+          },
+          {
+            "date": "2026-10-27",
+            "index": 31.33
+          },
+          {
+            "date": "2026-10-28",
+            "index": 33.25
+          },
+          {
+            "date": "2026-10-29",
+            "index": 33.05
+          },
+          {
+            "date": "2026-10-30",
+            "index": 31.03
+          },
+          {
+            "date": "2026-10-31",
+            "index": 31.75
+          },
+          {
+            "date": "2026-11-01",
+            "index": 31.47
+          },
+          {
+            "date": "2026-11-02",
+            "index": 29.69
+          },
+          {
+            "date": "2026-11-03",
+            "index": 28.97
+          },
+          {
+            "date": "2026-11-04",
+            "index": 30.36
+          },
+          {
+            "date": "2026-11-05",
+            "index": 31.96
+          },
+          {
+            "date": "2026-11-06",
+            "index": 31.93
+          },
+          {
+            "date": "2026-11-07",
+            "index": 33.34
+          },
+          {
+            "date": "2026-11-08",
+            "index": 33.81
+          },
+          {
+            "date": "2026-11-09",
+            "index": 32.24
+          },
+          {
+            "date": "2026-11-10",
+            "index": 32.15
+          },
+          {
+            "date": "2026-11-11",
+            "index": 33.17
+          },
+          {
+            "date": "2026-11-12",
+            "index": 32.85
+          },
+          {
+            "date": "2026-11-13",
+            "index": 32.83
+          },
+          {
+            "date": "2026-11-14",
+            "index": 32.78
+          },
+          {
+            "date": "2026-11-15",
+            "index": 33.35
+          },
+          {
+            "date": "2026-11-16",
+            "index": 35.12
+          },
+          {
+            "date": "2026-11-17",
+            "index": 34.64
+          },
+          {
+            "date": "2026-11-18",
+            "index": 35.63
+          },
+          {
+            "date": "2026-11-19",
+            "index": 36.14
+          },
+          {
+            "date": "2026-11-20",
+            "index": 34.81
+          },
+          {
+            "date": "2026-11-21",
+            "index": 34.17
+          },
+          {
+            "date": "2026-11-22",
+            "index": 34.48
+          },
+          {
+            "date": "2026-11-23",
+            "index": 34.94
+          },
+          {
+            "date": "2026-11-24",
+            "index": 35.3
+          },
+          {
+            "date": "2026-11-25",
+            "index": 34.25
+          },
+          {
+            "date": "2026-11-26",
+            "index": 33.95
+          },
+          {
+            "date": "2026-11-27",
+            "index": 34.75
+          },
+          {
+            "date": "2026-11-28",
+            "index": 36.4
+          },
+          {
+            "date": "2026-11-29",
+            "index": 35.08
+          },
+          {
+            "date": "2026-11-30",
+            "index": 37.55
+          },
+          {
+            "date": "2026-12-01",
+            "index": 39.03
+          },
+          {
+            "date": "2026-12-02",
+            "index": 38.43
+          },
+          {
+            "date": "2026-12-03",
+            "index": 37.89
+          },
+          {
+            "date": "2026-12-04",
+            "index": 37.59
+          },
+          {
+            "date": "2026-12-05",
+            "index": 38.45
+          },
+          {
+            "date": "2026-12-06",
+            "index": 37.92
+          },
+          {
+            "date": "2026-12-07",
+            "index": 39.01
+          },
+          {
+            "date": "2026-12-08",
+            "index": 40.82
+          },
+          {
+            "date": "2026-12-09",
+            "index": 40.4
+          },
+          {
+            "date": "2026-12-10",
+            "index": 42.23
+          },
+          {
+            "date": "2026-12-11",
+            "index": 41.03
+          },
+          {
+            "date": "2026-12-12",
+            "index": 41.26
+          },
+          {
+            "date": "2026-12-13",
+            "index": 42.72
+          },
+          {
+            "date": "2026-12-14",
+            "index": 41.94
+          },
+          {
+            "date": "2026-12-15",
+            "index": 43.49
+          },
+          {
+            "date": "2026-12-16",
+            "index": 41.75
+          },
+          {
+            "date": "2026-12-17",
+            "index": 41.84
+          },
+          {
+            "date": "2026-12-18",
+            "index": 40.6
+          },
+          {
+            "date": "2026-12-19",
+            "index": 40.46
+          },
+          {
+            "date": "2026-12-20",
+            "index": 40.23
+          },
+          {
+            "date": "2026-12-21",
+            "index": 41
+          },
+          {
+            "date": "2026-12-22",
+            "index": 41.14
+          },
+          {
+            "date": "2026-12-23",
+            "index": 40.34
+          },
+          {
+            "date": "2026-12-24",
+            "index": 41.68
+          },
+          {
+            "date": "2026-12-25",
+            "index": 44.39
+          },
+          {
+            "date": "2026-12-26",
+            "index": 44.39
+          },
+          {
+            "date": "2026-12-27",
+            "index": 43.84
+          },
+          {
+            "date": "2026-12-28",
+            "index": 42.68
+          },
+          {
+            "date": "2026-12-29",
+            "index": 42.58
+          },
+          {
+            "date": "2026-12-30",
+            "index": 41.28
+          },
+          {
+            "date": "2026-12-31",
+            "index": 40.05
+          },
+          {
+            "date": "2027-01-01",
+            "index": 39.65
+          },
+          {
+            "date": "2027-01-02",
+            "index": 39.65
+          },
+          {
+            "date": "2027-01-03",
+            "index": 37.3
+          },
+          {
+            "date": "2027-01-04",
+            "index": 37.77
+          },
+          {
+            "date": "2027-01-05",
+            "index": 37.13
+          },
+          {
+            "date": "2027-01-06",
+            "index": 37
+          },
+          {
+            "date": "2027-01-07",
+            "index": 37.92
+          },
+          {
+            "date": "2027-01-08",
+            "index": 38.77
+          },
+          {
+            "date": "2027-01-09",
+            "index": 37.78
+          },
+          {
+            "date": "2027-01-10",
+            "index": 38.13
+          },
+          {
+            "date": "2027-01-11",
+            "index": 39.07
+          },
+          {
+            "date": "2027-01-12",
+            "index": 39.04
+          },
+          {
+            "date": "2027-01-13",
+            "index": 38.5
+          },
+          {
+            "date": "2027-01-14",
+            "index": 38.27
+          },
+          {
+            "date": "2027-01-15",
+            "index": 38.08
+          },
+          {
+            "date": "2027-01-16",
+            "index": 37.38
+          },
+          {
+            "date": "2027-01-17",
+            "index": 38.09
+          },
+          {
+            "date": "2027-01-18",
+            "index": 38.04
+          },
+          {
+            "date": "2027-01-19",
+            "index": 37.15
+          },
+          {
+            "date": "2027-01-20",
+            "index": 38.38
+          },
+          {
+            "date": "2027-01-21",
+            "index": 39.58
+          },
+          {
+            "date": "2027-01-22",
+            "index": 40.12
+          },
+          {
+            "date": "2027-01-23",
+            "index": 41.35
+          },
+          {
+            "date": "2027-01-24",
+            "index": 40.75
+          },
+          {
+            "date": "2027-01-25",
+            "index": 41.31
+          },
+          {
+            "date": "2027-01-26",
+            "index": 41.28
+          },
+          {
+            "date": "2027-01-27",
+            "index": 40.63
+          },
+          {
+            "date": "2027-01-28",
+            "index": 42.73
+          },
+          {
+            "date": "2027-01-29",
+            "index": 42.65
+          },
+          {
+            "date": "2027-01-30",
+            "index": 43.52
+          },
+          {
+            "date": "2027-01-31",
+            "index": 42.6
+          },
+          {
+            "date": "2027-02-01",
+            "index": 43.42
+          },
+          {
+            "date": "2027-02-02",
+            "index": 44.1
+          },
+          {
+            "date": "2027-02-03",
+            "index": 43.62
+          },
+          {
+            "date": "2027-02-04",
+            "index": 45.13
+          },
+          {
+            "date": "2027-02-05",
+            "index": 45.29
+          },
+          {
+            "date": "2027-02-06",
+            "index": 46.72
+          },
+          {
+            "date": "2027-02-07",
+            "index": 45.64
+          },
+          {
+            "date": "2027-02-08",
+            "index": 45.32
+          },
+          {
+            "date": "2027-02-09",
+            "index": 45.69
+          },
+          {
+            "date": "2027-02-10",
+            "index": 45.26
+          },
+          {
+            "date": "2027-02-11",
+            "index": 45.66
+          },
+          {
+            "date": "2027-02-12",
+            "index": 46.77
+          },
+          {
+            "date": "2027-02-13",
+            "index": 46.57
+          },
+          {
+            "date": "2027-02-14",
+            "index": 47.53
+          },
+          {
+            "date": "2027-02-15",
+            "index": 49.25
+          },
+          {
+            "date": "2027-02-16",
+            "index": 48.66
+          },
+          {
+            "date": "2027-02-17",
+            "index": 47
+          },
+          {
+            "date": "2027-02-18",
+            "index": 45.94
+          },
+          {
+            "date": "2027-02-19",
+            "index": 45.55
+          },
+          {
+            "date": "2027-02-20",
+            "index": 44.78
+          },
+          {
+            "date": "2027-02-21",
+            "index": 44.38
+          },
+          {
+            "date": "2027-02-22",
+            "index": 44.95
+          },
+          {
+            "date": "2027-02-23",
+            "index": 44.26
+          },
+          {
+            "date": "2027-02-24",
+            "index": 44.59
+          },
+          {
+            "date": "2027-02-25",
+            "index": 43.89
+          },
+          {
+            "date": "2027-02-26",
+            "index": 43.32
+          },
+          {
+            "date": "2027-02-27",
+            "index": 44.01
+          },
+          {
+            "date": "2027-02-28",
+            "index": 44.08
+          },
+          {
+            "date": "2027-03-01",
+            "index": 43.76
+          },
+          {
+            "date": "2027-03-02",
+            "index": 43.35
+          },
+          {
+            "date": "2027-03-03",
+            "index": 43.25
+          },
+          {
+            "date": "2027-03-04",
+            "index": 42.69
+          },
+          {
+            "date": "2027-03-05",
+            "index": 40.96
+          },
+          {
+            "date": "2027-03-06",
+            "index": 39.27
+          },
+          {
+            "date": "2027-03-07",
+            "index": 38.13
+          },
+          {
+            "date": "2027-03-08",
+            "index": 36.93
+          },
+          {
+            "date": "2027-03-09",
+            "index": 40.32
+          },
+          {
+            "date": "2027-03-10",
+            "index": 39.78
+          },
+          {
+            "date": "2027-03-11",
+            "index": 38.54
+          },
+          {
+            "date": "2027-03-12",
+            "index": 36.3
+          },
+          {
+            "date": "2027-03-13",
+            "index": 36.64
+          },
+          {
+            "date": "2027-03-14",
+            "index": 36.49
+          },
+          {
+            "date": "2027-03-15",
+            "index": 38.11
+          },
+          {
+            "date": "2027-03-16",
+            "index": 40.26
+          },
+          {
+            "date": "2027-03-17",
+            "index": 40.03
+          },
+          {
+            "date": "2027-03-18",
+            "index": 40
+          },
+          {
+            "date": "2027-03-19",
+            "index": 40.63
+          },
+          {
+            "date": "2027-03-20",
+            "index": 41.34
+          },
+          {
+            "date": "2027-03-21",
+            "index": 40.87
+          },
+          {
+            "date": "2027-03-22",
+            "index": 41.28
+          },
+          {
+            "date": "2027-03-23",
+            "index": 40.4
+          },
+          {
+            "date": "2027-03-24",
+            "index": 42.7
+          },
+          {
+            "date": "2027-03-25",
+            "index": 43.03
+          },
+          {
+            "date": "2027-03-26",
+            "index": 43.12
+          },
+          {
+            "date": "2027-03-27",
+            "index": 43.24
+          },
+          {
+            "date": "2027-03-28",
+            "index": 42.63
+          },
+          {
+            "date": "2027-03-29",
+            "index": 44.54
+          },
+          {
+            "date": "2027-03-30",
+            "index": 44.15
+          },
+          {
+            "date": "2027-03-31",
+            "index": 44.33
+          },
+          {
+            "date": "2027-04-01",
+            "index": 44.33
+          },
+          {
+            "date": "2027-04-02",
+            "index": 46.3
+          },
+          {
+            "date": "2027-04-03",
+            "index": 44.04
+          },
+          {
+            "date": "2027-04-04",
+            "index": 43.34
+          },
+          {
+            "date": "2027-04-05",
+            "index": 41.75
+          },
+          {
+            "date": "2027-04-06",
+            "index": 40.8
+          },
+          {
+            "date": "2027-04-07",
+            "index": 40.93
+          },
+          {
+            "date": "2027-04-08",
+            "index": 40.11
+          },
+          {
+            "date": "2027-04-09",
+            "index": 43.38
+          },
+          {
+            "date": "2027-04-10",
+            "index": 42.35
+          },
+          {
+            "date": "2027-04-11",
+            "index": 43.72
+          },
+          {
+            "date": "2027-04-12",
+            "index": 45.08
+          },
+          {
+            "date": "2027-04-13",
+            "index": 46.65
+          },
+          {
+            "date": "2027-04-14",
+            "index": 45.7
+          },
+          {
+            "date": "2027-04-15",
+            "index": 46.1
+          },
+          {
+            "date": "2027-04-16",
+            "index": 44.56
+          },
+          {
+            "date": "2027-04-17",
+            "index": 45.54
+          },
+          {
+            "date": "2027-04-18",
+            "index": 44.81
+          },
+          {
+            "date": "2027-04-19",
+            "index": 44.46
+          },
+          {
+            "date": "2027-04-20",
+            "index": 43.32
+          },
+          {
+            "date": "2027-04-21",
+            "index": 42.58
+          },
+          {
+            "date": "2027-04-22",
+            "index": 42.63
+          },
+          {
+            "date": "2027-04-23",
+            "index": 44.55
+          },
+          {
+            "date": "2027-04-24",
+            "index": 45.38
+          },
+          {
+            "date": "2027-04-25",
+            "index": 45.43
+          },
+          {
+            "date": "2027-04-26",
+            "index": 43.94
+          },
+          {
+            "date": "2027-04-27",
+            "index": 44.99
+          },
+          {
+            "date": "2027-04-28",
+            "index": 46.74
+          },
+          {
+            "date": "2027-04-29",
+            "index": 46.39
+          },
+          {
+            "date": "2027-04-30",
+            "index": 45.36
+          },
+          {
+            "date": "2027-05-01",
+            "index": 47.16
+          },
+          {
+            "date": "2027-05-02",
+            "index": 47.74
+          },
+          {
+            "date": "2027-05-03",
+            "index": 49
+          },
+          {
+            "date": "2027-05-04",
+            "index": 49.24
+          },
+          {
+            "date": "2027-05-05",
+            "index": 49.28
+          },
+          {
+            "date": "2027-05-06",
+            "index": 50.58
+          },
+          {
+            "date": "2027-05-07",
+            "index": 48.84
+          },
+          {
+            "date": "2027-05-08",
+            "index": 48.65
+          },
+          {
+            "date": "2027-05-09",
+            "index": 49.06
+          },
+          {
+            "date": "2027-05-10",
+            "index": 51.17
+          },
+          {
+            "date": "2027-05-11",
+            "index": 48.46
+          },
+          {
+            "date": "2027-05-12",
+            "index": 46.91
+          },
+          {
+            "date": "2027-05-13",
+            "index": 48.4
+          },
+          {
+            "date": "2027-05-14",
+            "index": 49.19
+          },
+          {
+            "date": "2027-05-15",
+            "index": 49.15
+          },
+          {
+            "date": "2027-05-16",
+            "index": 49.49
+          },
+          {
+            "date": "2027-05-17",
+            "index": 48.85
+          },
+          {
+            "date": "2027-05-18",
+            "index": 46.81
+          },
+          {
+            "date": "2027-05-19",
+            "index": 46.25
+          },
+          {
+            "date": "2027-05-20",
+            "index": 46.91
+          },
+          {
+            "date": "2027-05-21",
+            "index": 47.61
+          },
+          {
+            "date": "2027-05-22",
+            "index": 47.2
+          },
+          {
+            "date": "2027-05-23",
+            "index": 45.04
+          },
+          {
+            "date": "2027-05-24",
+            "index": 45.42
+          },
+          {
+            "date": "2027-05-25",
+            "index": 45.65
+          },
+          {
+            "date": "2027-05-26",
+            "index": 46.58
+          },
+          {
+            "date": "2027-05-27",
+            "index": 47.82
+          },
+          {
+            "date": "2027-05-28",
+            "index": 47.52
+          },
+          {
+            "date": "2027-05-29",
+            "index": 47.31
+          },
+          {
+            "date": "2027-05-30",
+            "index": 47.78
+          },
+          {
+            "date": "2027-05-31",
+            "index": 47.38
+          },
+          {
+            "date": "2027-06-01",
+            "index": 48.4
+          },
+          {
+            "date": "2027-06-02",
+            "index": 49.93
+          },
+          {
+            "date": "2027-06-03",
+            "index": 48.1
+          },
+          {
+            "date": "2027-06-04",
+            "index": 49.51
+          },
+          {
+            "date": "2027-06-05",
+            "index": 50.37
+          },
+          {
+            "date": "2027-06-06",
+            "index": 51.11
+          },
+          {
+            "date": "2027-06-07",
+            "index": 52.22
+          },
+          {
+            "date": "2027-06-08",
+            "index": 52.08
+          },
+          {
+            "date": "2027-06-09",
+            "index": 50.33
+          },
+          {
+            "date": "2027-06-10",
+            "index": 49.18
+          },
+          {
+            "date": "2027-06-11",
+            "index": 49.74
+          },
+          {
+            "date": "2027-06-12",
+            "index": 51.64
+          },
+          {
+            "date": "2027-06-13",
+            "index": 51.53
+          },
+          {
+            "date": "2027-06-14",
+            "index": 51.38
+          },
+          {
+            "date": "2027-06-15",
+            "index": 52.46
+          },
+          {
+            "date": "2027-06-16",
+            "index": 51.2
+          },
+          {
+            "date": "2027-06-17",
+            "index": 52.27
+          },
+          {
+            "date": "2027-06-18",
+            "index": 53.21
+          },
+          {
+            "date": "2027-06-19",
+            "index": 52.91
+          },
+          {
+            "date": "2027-06-20",
+            "index": 53.31
+          },
+          {
+            "date": "2027-06-21",
+            "index": 52.79
+          },
+          {
+            "date": "2027-06-22",
+            "index": 53.5
+          },
+          {
+            "date": "2027-06-23",
+            "index": 54.02
+          },
+          {
+            "date": "2027-06-24",
+            "index": 54
+          },
+          {
+            "date": "2027-06-25",
+            "index": 54.03
+          },
+          {
+            "date": "2027-06-26",
+            "index": 55.47
+          },
+          {
+            "date": "2027-06-27",
+            "index": 55.92
+          },
+          {
+            "date": "2027-06-28",
+            "index": 55.5
+          },
+          {
+            "date": "2027-06-29",
+            "index": 57.3
+          },
+          {
+            "date": "2027-06-30",
+            "index": 58.04
+          },
+          {
+            "date": "2027-07-01",
+            "index": 58.58
+          },
+          {
+            "date": "2027-07-02",
+            "index": 61.08
+          },
+          {
+            "date": "2027-07-03",
+            "index": 62.02
+          },
+          {
+            "date": "2027-07-04",
+            "index": 62.43
+          },
+          {
+            "date": "2027-07-05",
+            "index": 62.43
+          },
+          {
+            "date": "2027-07-06",
+            "index": 62.62
+          },
+          {
+            "date": "2027-07-07",
+            "index": 64.37
+          },
+          {
+            "date": "2027-07-08",
+            "index": 64.35
+          },
+          {
+            "date": "2027-07-09",
+            "index": 64.82
+          },
+          {
+            "date": "2027-07-10",
+            "index": 65.76
+          },
+          {
+            "date": "2027-07-11",
+            "index": 64.15
+          },
+          {
+            "date": "2027-07-12",
+            "index": 65.44
+          },
+          {
+            "date": "2027-07-13",
+            "index": 67
+          },
+          {
+            "date": "2027-07-14",
+            "index": 68.89
+          },
+          {
+            "date": "2027-07-15",
+            "index": 69.86
+          },
+          {
+            "date": "2027-07-16",
+            "index": 68.64
+          },
+          {
+            "date": "2027-07-17",
+            "index": 66.65
+          },
+          {
+            "date": "2027-07-18",
+            "index": 66.54
+          },
+          {
+            "date": "2027-07-19",
+            "index": 67.77
+          },
+          {
+            "date": "2027-07-20",
+            "index": 69.13
+          },
+          {
+            "date": "2027-07-21",
+            "index": 69.08
+          },
+          {
+            "date": "2027-07-22",
+            "index": 69.88
+          },
+          {
+            "date": "2027-07-23",
+            "index": 69.76
+          },
+          {
+            "date": "2027-07-24",
+            "index": 68.92
+          },
+          {
+            "date": "2027-07-25",
+            "index": 69.38
+          },
+          {
+            "date": "2027-07-26",
+            "index": 69.45
+          },
+          {
+            "date": "2027-07-27",
+            "index": 69.17
+          },
+          {
+            "date": "2027-07-28",
+            "index": 68.72
+          },
+          {
+            "date": "2027-07-29",
+            "index": 69.84
+          },
+          {
+            "date": "2027-07-30",
+            "index": 69.53
+          },
+          {
+            "date": "2027-07-31",
+            "index": 71.8
+          },
+          {
+            "date": "2027-08-01",
+            "index": 72.01
+          },
+          {
+            "date": "2027-08-02",
+            "index": 73.1
+          },
+          {
+            "date": "2027-08-03",
+            "index": 71.42
+          },
+          {
+            "date": "2027-08-04",
+            "index": 70.23
+          },
+          {
+            "date": "2027-08-05",
+            "index": 70.15
+          },
+          {
+            "date": "2027-08-06",
+            "index": 71.9
+          },
+          {
+            "date": "2027-08-07",
+            "index": 72.78
+          },
+          {
+            "date": "2027-08-08",
+            "index": 75.71
+          },
+          {
+            "date": "2027-08-09",
+            "index": 75.88
+          },
+          {
+            "date": "2027-08-10",
+            "index": 75.85
+          },
+          {
+            "date": "2027-08-11",
+            "index": 75.86
+          },
+          {
+            "date": "2027-08-12",
+            "index": 78.87
+          },
+          {
+            "date": "2027-08-13",
+            "index": 81.58
+          },
+          {
+            "date": "2027-08-14",
+            "index": 81.38
+          },
+          {
+            "date": "2027-08-15",
+            "index": 81.6
+          },
+          {
+            "date": "2027-08-16",
+            "index": 82.47
+          },
+          {
+            "date": "2027-08-17",
+            "index": 82.69
+          },
+          {
+            "date": "2027-08-18",
+            "index": 81.55
+          },
+          {
+            "date": "2027-08-19",
+            "index": 81.19
+          },
+          {
+            "date": "2027-08-20",
+            "index": 80.57
+          },
+          {
+            "date": "2027-08-21",
+            "index": 81.86
+          },
+          {
+            "date": "2027-08-22",
+            "index": 82.8
+          },
+          {
+            "date": "2027-08-23",
+            "index": 82.47
+          },
+          {
+            "date": "2027-08-24",
+            "index": 82.29
+          },
+          {
+            "date": "2027-08-25",
+            "index": 83.09
+          },
+          {
+            "date": "2027-08-26",
+            "index": 82.55
+          },
+          {
+            "date": "2027-08-27",
+            "index": 82.1
+          },
+          {
+            "date": "2027-08-28",
+            "index": 83.58
+          },
+          {
+            "date": "2027-08-29",
+            "index": 86.42
+          },
+          {
+            "date": "2027-08-30",
+            "index": 86.32
+          },
+          {
+            "date": "2027-08-31",
+            "index": 84.79
+          }
+        ]
+      },
+      "direction": "long",
+      "edge_basis": "win_rate 0.40 x sharpe -0.2 x 10y history",
+      "edge_score": 31,
+      "extend_research": {
+        "blind_to": [
+          "fundamentals",
+          "valuation",
+          "news",
+          "catalysts",
+          "macro/rates",
+          "analyst views",
+          "upcoming earnings",
+          "live price"
+        ],
+        "loop_back": "If your findings change the picture, call analyze_symbol again with a tighter window, compare_opportunities to rank peers, or get_pick_track_record for the live forward-tested record.",
+        "suggested_checks": [
+          "Does an earnings report fall inside the 2026-09-01 to 2026-09-30 window? TradeWave does not track earnings - check your own calendar.",
+          "Any scheduled catalyst (product, FDA, guidance, macro print) during the hold?",
+          "Recent news or price action that would invalidate a long bias on AAPL?",
+          "Is the sector / macro backdrop consistent with a long here?",
+          "What do current fundamentals or valuation say versus this purely seasonal read?"
+        ],
+        "synthesis_rule": "Keep explicit which facts are TradeWave's (this card) versus your own research. Do NOT invent a catalyst to justify the seasonal edge; if there is none, the edge stands on the statistics alone.",
+        "tradewave_provides": "A seasonal + 62-feature-ML statistical edge and the timing for AAPL (long)."
+      },
+      "headline": "AAPL long - no high-conviction seasonal edge right now.",
+      "market": {
+        "id": "2",
+        "name": "S&P 500 STOCKS"
+      },
+      "ml": null,
+      "next_step": {
+        "framing": "TradeWave gives the edge and the timing; you place the trade at your own broker.",
+        "headline": "Nothing to act on here right now."
+      },
+      "rank": 1,
+      "receipts": {
+        "as_of": "2026-09-30",
+        "avg_return_pct": -1.82,
+        "best_year": {
+          "return_pct": 10.84,
+          "year": "2025"
+        },
+        "curve_summary": {
+          "change_pts": -10.7,
+          "peak_day": 0,
+          "shape": "peaks early in the hold; seasonal index falling -11 pts over the hold",
+          "trend": "falling",
+          "trough_day": 22
+        },
+        "historical_win_rate": 0.4,
+        "losses": 6,
+        "median_return_pct": -3.36,
+        "per_year": [
+          {
+            "result": "win",
+            "return_pct": 5.92,
+            "year": "2016"
+          },
+          {
+            "result": "loss",
+            "return_pct": -6.24,
+            "year": "2017"
+          },
+          {
+            "result": "loss",
+            "return_pct": -0.48,
+            "year": "2018"
+          },
+          {
+            "result": "win",
+            "return_pct": 8.88,
+            "year": "2019"
+          },
+          {
+            "result": "loss",
+            "return_pct": -13.69,
+            "year": "2020"
+          },
+          {
+            "result": "loss",
+            "return_pct": -7.22,
+            "year": "2021"
+          },
+          {
+            "result": "loss",
+            "return_pct": -12.51,
+            "year": "2022"
+          },
+          {
+            "result": "loss",
+            "return_pct": -8.29,
+            "year": "2023"
+          },
+          {
+            "result": "win",
+            "return_pct": 4.59,
+            "year": "2024"
+          },
+          {
+            "result": "win",
+            "return_pct": 10.84,
+            "year": "2025"
+          }
+        ],
+        "source": "TradeWave seasonal model, 10y lookback",
+        "wins": 4,
+        "worst_year": {
+          "return_pct": -13.69,
+          "year": "2020"
+        },
+        "years_tested": 10
+      },
+      "setup": {
+        "entry_date": "2026-09-01",
+        "entry_window": "2026-08-29 to 2026-09-04",
+        "exit_date": "2026-09-30",
+        "hold_days": 30,
+        "timing": {
+          "days_to_entry": -29,
+          "status": "hold window in progress; entry was 29 days ago"
+        }
+      },
+      "stats": {
+        "annualized_return_pct": -2.19,
+        "avg_return_pct": -1.82,
+        "cumulative_return_pct": -19.84,
+        "historical_win_rate": 0.4,
+        "median_return_pct": -3.36,
+        "sharpe_ratio": -0.24,
+        "sharpe_ratio_mfe": 1.01,
+        "std_dev_pct": 8.96,
+        "years": "10",
+        "years_tested": 10
+      },
+      "symbol": "AAPL",
+      "tier_notes": "ML score is currently unavailable for this setup. No ML allowance was charged for an undelivered score.",
+      "verdict": "Low conviction - win rate below 55%. No setup worth placing here.",
+      "wave_viewer": {
+        "label": "Open and stress-test this exact pattern in TradeWave",
+        "opens": "Wave Viewer",
+        "pattern": {
+          "direction": "long",
+          "entry_date": "2026-09-01",
+          "hold_days": 30,
+          "market_id": "2",
+          "symbol": "AAPL",
+          "years": "10"
+        },
+        "url": "https://tradewave.ai/app/?o=MnxBQVBMfDIwMjYtMDktMDF8MzB8MTA&view=evidence&direction=long",
+        "value": "Inspect individual years, change the lookback or PE cycle, adjust the window, compare patterns, and save or share the setup."
+      }
+    },
+    "other_setups": [],
+    "view": "evidence",
+    "disclaimer": "Educational seasonal pattern + ML research, not personalized investment advice and not a recommendation to buy or sell. Past performance is not indicative of future results."
+  }
+}

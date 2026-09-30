@@ -1,0 +1,84 @@
+100-YEAR PATTERN VIDEO - SOURCE NOTES
+Research cut-off: September 1, 2026, Eastern Time
+
+TRADEWAVE / BOOK CLAIMS
+
+Primary public record:
+https://tradewave.ai/100-year-pattern
+
+Local book source:
+The 100-Year Pattern  (4).pdf
+
+Claims used:
+- Fixed nominal window: September 27 of a U.S. presidential midterm year through July 18 of the following year, 295 calendar days inclusive.
+- 2026 official calendar window: September 27, 2026 through July 18, 2027. Both endpoints fall on Sunday, so price measurement uses the next available trading days, September 28, 2026 and July 19, 2027. The pattern must always be identified by its official September 27 start, not by the adjusted trading date.
+- 24 completed cycles from 1930 through 2022.
+- 23 of 24 finished positive: 95.83%, commonly rounded to 96%.
+- Mean return: +18.79%.
+- Median return: +18.92%.
+- Narration rounds both figures to "about 19%" so the spoken figure remains consistent with rounded TradeWave displays while the exact values stay documented here.
+- Only loss: 1930, return -23.41%, MFE +2.86%, MAE -35.38%.
+- 21 of 23 winning cycles traded below the entry price before finishing positive.
+- 2018: return +2.78%, MFE +3.56%, MAE -19.47%.
+- 1978: return +0.03%, MFE +4.50%, MAE -9.85%.
+- All 24 completed observations are in-sample. The 2026-2027 cycle is the first new prospective observation under the prepublished fixed rule. This is not described as a test of a TradeWave prediction because TradeWave did not issue one.
+- Working name for the new prospective window: Observation 25.
+
+Related TradeWave explanation and chart references:
+https://www.tradewave.ai/insights/july-before-the-100-year-pattern.html
+
+INDEPENDENT PRIOR ART / CONTEXT
+
+Stock Trader's Almanac describes the broader four-year-cycle "sweet spot" as the fourth quarter of the midterm year through the second quarter of the pre-election year. The TradeWave/book contribution is the exact September 27 to July 18 window, the record beginning in 1930, inclusion of the only failed cycle, and publication of the full row-by-row record.
+https://www.stocktradersalmanac.com/Alert/092718_3.aspx
+
+CURRENT OPENING CLAIMS
+
+U.S. Bureau of Labor Statistics, July 2026 CPI:
+- CPI +3.4% year over year.
+- Energy index +14.7% year over year.
+https://www.bls.gov/news.release/cpi.htm
+
+U.S. Bureau of Labor Statistics, July 2026 employment situation:
+- Unemployment rate 4.1%.
+https://www.bls.gov/news.release/archives/empsit_08072026.htm
+
+Reuters, August 31, 2026 poll reported September 1:
+- Trump approval 33%, with dissatisfaction focused on the economy and Iran war.
+https://au.marketscreener.com/news/trump-s-approval-stuck-at-33-democrats-appear-more-fired-up-for-midterms-reuters-ipsos-poll-finds-ce7858ddd88cf026
+
+Reuters oil report, September 1, 2026:
+- Brent about $92 and WTI about $88 following renewed U.S.-Iran strikes. The narration deliberately says "oil near ninety dollars" because spot prices can change before publication.
+https://www.kitco.com/news/off-the-wire/2026-09-01/oil-around-2-renewed-us-iran-strikes-stoke-supply-fears
+
+Associated Press, September 1, 2026:
+- Renewed U.S.-Iran fighting and market pressure from rising oil prices.
+https://apnews.com/article/b7dea048552afc5a1e91c6a6b8adef65
+https://apnews.com/article/775d7cf741349c7c8e689c0beb57f074
+
+Ukraine war context, Kyiv School of Economics, September 1, 2026:
+- Intensified Russian attacks and worsening risk to Ukraine's productive economy and infrastructure.
+https://kse.ua/about-the-school/news/ukraines-risk-landscape-deteriorates-amid-intensified-attacks-on-the-productive-economy-ukraine-risk-matrix-by-kse-institute/
+
+AI employment-warning context:
+- Recent warnings are real, but nationwide mass unemployment has not yet appeared in the official data. The narration presents an AI jobs collapse as a risk and headline fear, not an established fact.
+https://www.cbsnews.com/news/bill-gates-ai-jobs-warning/
+https://www.pwc.com/gx/en/issues/artificial-intelligence/job-barometer/2026/2026-global-ai-jobs-barometer-full-report.pdf
+
+PRODUCTION / ACCURACY NOTES
+
+- Core positioning: TradeWave is a historical analytics machine, not a prediction machine.
+- TradeWave reports how comparable historical windows behaved. The user must interpret those results alongside current trend, risk, regime, and outside evidence.
+- Do not call 96% the probability that the 2026 cycle will win. It is the historical share of positive completed cycles.
+- Do not describe the result as independently validated. The historical cycles are in-sample.
+- TradeWave searches many possible calendar windows. This creates a multiple-testing or "look-elsewhere" limitation: unusually strong historical results can emerge partly because a very large search was performed.
+- Observation 25 begins to add prospective evidence under a locked rule. One new observation cannot eliminate the look-elsewhere problem or independently validate the historical result.
+- A positive 2026-2027 result would be consistent with the historical baseline; it would not prove that TradeWave predicted the result.
+- A small negative finish would be an ordinary statistical failure and would not, by itself, prove structural change.
+- Do not use the book or TradeWave buy-and-hold comparison in narration. The public methodology explains that the annual-period buy-and-hold figure is not a like-for-like September-to-July benchmark.
+- A drawdown beyond approximately 20% would be outside every prior winning cycle. If the decline were deep and persistent, it could be evidence of a structural regime change; it would not prove another Great Depression.
+- The exact reported worst MAE among the 23 winning cycles is 2018 at -19.47%. The threshold is therefore stated as "roughly minus 20 percent" and explicitly tied to TradeWave's reported record.
+- The fixed exit close determines the official positive or negative result, while MFE and MAE remain essential for interpreting the path.
+- Do not invent personal-story details for drama. The book says the chart was saved, reopened about an hour later, reopened again, and repeatedly checked; it does not say there was a week-long bug hunt.
+- Do not imply that the measured windows themselves included Black Monday, the 2008 crash, or the pandemic crash. Those events occurred during the broader historical span but outside the relevant fixed windows.
+- This content is educational and historical, not investment advice.

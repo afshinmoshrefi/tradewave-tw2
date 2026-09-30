@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The 100-Year Pattern | How Data Science Unlocks Wall Street's Seasonal Calendar</title>
+    <meta name="description" content="By Afshin Moshrefi. Discover the hidden seasonal rhythms that have shaped the S&P 500 for nearly a century. The 2026 edition with updated patterns and data.">
+    <meta name="keywords" content="100 year pattern, seasonal trading, stock market patterns, Afshin Moshrefi, TradeWave, S&P 500 seasonality, market cycles">
+
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <link rel="canonical" href="https://100yearpattern.com/">
+
+    <link rel="icon" href="/assets/100yearpattern_fav.png">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="book">
+    <meta property="og:site_name" content="The 100-Year Pattern">
+    <meta property="og:title" content="The 100-Year Pattern | How Data Science Unlocks Wall Street's Seasonal Calendar">
+    <meta property="og:description" content="By Afshin Moshrefi. Discover the hidden seasonal rhythms that have shaped the S&P 500 for nearly a century.">
+    <meta property="og:image" content="https://100yearpattern.com/assets/2026-3d-100y-pattern.webp">
+    <meta property="og:url" content="https://100yearpattern.com/">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="The 100-Year Pattern">
+    <meta name="twitter:description" content="How Data Science Unlocks Wall Street's Seasonal Calendar. By Afshin Moshrefi.">
+    <meta name="twitter:image" content="https://100yearpattern.com/assets/2026-3d-100y-pattern.webp">
+
+    <!-- Structured Data: Book -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Book",
+        "name": "The 100-Year Pattern",
+        "alternateName": "The 100-Year Pattern: How Data Science Unlocks Wall Street's Seasonal Calendar",
+        "author": {
+            "@type": "Person",
+            "name": "Afshin Moshrefi"
+        },
+        "bookEdition": "2026 Edition",
+        "bookFormat": "https://schema.org/EBook",
+        "isbn": "B0FCX61K4Y",
+        "url": "https://100yearpattern.com/",
+        "image": "https://100yearpattern.com/assets/2026-3d-100y-pattern.webp",
+        "description": "Discover the hidden seasonal rhythms that have shaped the S&P 500 for nearly a century.",
+        "publisher": {
+            "@type": "Organization",
+            "name": "Tara Data Research LLC"
+        },
+        "offers": {
+            "@type": "Offer",
+            "url": "https://www.amazon.com/dp/B0FCX61K4Y",
+            "availability": "https://schema.org/InStock"
+        }
+    }
+    </script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #050816;
+            --bg-secondary: #0a0f1f;
+            --bg-tertiary: #111936;
+            --bg-card: #0c1225;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --accent: #6366f1;
+            --accent-secondary: #8b5cf6;
+            --accent-hover: #818cf8;
+            --accent-glow: rgba(99, 102, 241, 0.25);
+            --accent-glow-strong: rgba(99, 102, 241, 0.5);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --border: #1f2937;
+            --border-light: #374151;
+            --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .gradient-bg {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99,102,241,0.15), transparent),
+                radial-gradient(ellipse 60% 40% at 100% 0%, rgba(139,92,246,0.1), transparent),
+                radial-gradient(ellipse 60% 40% at 0% 100%, rgba(99,102,241,0.08), transparent);
+            pointer-events: none; z-index: 0;
+        }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+        /* Nav */
+        nav {
+            background: rgba(5,8,22,0.85); backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border); padding: 16px 0;
+            position: sticky; top: 0; z-index: 100;
+        }
+        nav .container { display: flex; justify-content: space-between; align-items: center; }
+        .logo {
+            font-size: 24px; font-weight: 800;
+            background: var(--gradient-primary); -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent; background-clip: text;
+            text-decoration: none;
+        }
+        .nav-links { display: flex; gap: 24px; align-items: center; }
+        .nav-links a {
+            color: var(--text-secondary); text-decoration: none;
+            font-weight: 500; font-size: 14px; transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--text-primary); }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 14px 28px; border-radius: 12px; font-weight: 600;
+            font-size: 15px; text-decoration: none; transition: all 0.3s;
+            cursor: pointer; border: none; gap: 8px;
+        }
+        .btn-primary {
+            background: var(--gradient-primary); color: white;
+            box-shadow: 0 4px 20px var(--accent-glow), 0 0 0 1px rgba(255,255,255,0.1) inset;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow-strong), 0 0 0 1px rgba(255,255,255,0.15) inset;
+        }
+        .btn-secondary {
+            background: rgba(99,102,241,0.1); color: var(--accent);
+            border: 1px solid rgba(99,102,241,0.3);
+        }
+        .btn-secondary:hover { background: rgba(99,102,241,0.2); border-color: var(--accent); }
+        .btn-ghost {
+            background: transparent; color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:hover { color: var(--text-primary); border-color: var(--border-light); }
+
+        /* Hero */
+        .hero {
+            padding: 80px 0 60px; position: relative; z-index: 1;
+        }
+        .hero .container {
+            display: flex; align-items: center; gap: 60px;
+        }
+        .hero-image {
+            flex: 0 0 320px;
+        }
+        .hero-image img {
+            width: 100%; max-width: 320px; border-radius: 8px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px var(--accent-glow);
+            transition: transform 0.3s;
+        }
+        .hero-image img:hover { transform: translateY(-4px) scale(1.02); }
+        .hero-text { flex: 1; }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3);
+            color: var(--accent); padding: 8px 20px; border-radius: 100px;
+            font-size: 13px; font-weight: 600; margin-bottom: 24px;
+        }
+        .hero-badge::before {
+            content: ''; width: 8px; height: 8px; background: var(--success);
+            border-radius: 50%; animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.4 } }
+        .hero-text h1 {
+            font-size: 48px; font-weight: 800; line-height: 1.1; margin-bottom: 12px;
+            background: linear-gradient(135deg, #fff 0%, #c7d2fe 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .hero-text .subtitle {
+            font-size: 20px; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500;
+        }
+        .hero-text .author {
+            font-size: 16px; color: var(--accent-hover); margin-bottom: 28px; font-weight: 600;
+        }
+        .hero-text .edition {
+            font-size: 13px; color: var(--text-muted); margin-bottom: 32px;
+        }
+        .hero-buttons { display: flex; gap: 16px; flex-wrap: wrap; }
+
+        /* Section styling */
+        section { padding: 80px 0; position: relative; z-index: 1; }
+        section h2 {
+            font-size: 36px; font-weight: 800; margin-bottom: 16px;
+            background: linear-gradient(135deg, #fff 0%, #c7d2fe 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        section p { color: var(--text-secondary); font-size: 16px; line-height: 1.8; }
+
+        .divider {
+            height: 1px; background: linear-gradient(90deg, transparent, var(--border-light), transparent);
+            margin: 0 auto; max-width: 600px;
+        }
+
+        /* Foreword quote */
+        .foreword-section { background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+        .foreword-quote {
+            max-width: 750px; margin: 0 auto; text-align: center;
+        }
+        .foreword-quote .quote-mark {
+            font-size: 60px; line-height: 1; color: var(--accent);
+            font-family: Georgia, serif; opacity: 0.5;
+        }
+        .foreword-quote blockquote {
+            font-size: 18px; color: var(--text-secondary); line-height: 1.8;
+            font-style: italic; margin: 16px 0 24px;
+        }
+        .foreword-quote .attribution {
+            font-size: 14px; color: var(--text-muted); font-weight: 600;
+        }
+        .foreword-quote .attribution strong { color: var(--text-secondary); }
+
+        /* Correction note */
+        .correction-section .correction-body { max-width: 750px; margin-top: 24px; }
+        .correction-section .correction-body p { margin-bottom: 20px; }
+        .correction-section .correction-body p:last-child { margin-bottom: 0; }
+        .correction-section .correction-date {
+            font-size: 13px; color: var(--text-muted); line-height: 1.7;
+        }
+
+        /* About the book */
+        .about-book .content-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px;
+        }
+        .feature-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; padding: 32px; transition: border-color 0.3s;
+        }
+        .feature-card:hover { border-color: var(--accent); }
+        .feature-card .icon {
+            width: 48px; height: 48px; border-radius: 12px;
+            background: rgba(99,102,241,0.1); display: flex; align-items: center;
+            justify-content: center; margin-bottom: 16px; font-size: 22px;
+        }
+        .feature-card h3 {
+            font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;
+        }
+        .feature-card p { font-size: 14px; color: var(--text-secondary); line-height: 1.7; }
+
+        /* Key date callout */
+        .key-date {
+            background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.08));
+            border: 1px solid rgba(99,102,241,0.2); border-radius: 16px;
+            padding: 40px; text-align: center; margin-top: 48px;
+        }
+        .key-date .date {
+            font-size: 32px; font-weight: 800; color: var(--accent-hover); margin-bottom: 8px;
+        }
+        .key-date p { max-width: 600px; margin: 0 auto; }
+
+        /* Author section */
+        .author-section .author-card {
+            display: flex; gap: 40px; align-items: center;
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; padding: 40px;
+        }
+        .author-avatar {
+            flex: 0 0 160px; width: 160px; height: 160px; border-radius: 50%;
+            object-fit: cover; object-position: center 20%;
+            border: 3px solid var(--accent);
+            box-shadow: 0 0 30px var(--accent-glow);
+        }
+        .author-bio h3 { font-size: 22px; font-weight: 700; margin-bottom: 4px; color: var(--text-primary); }
+        .author-bio .role { font-size: 14px; color: var(--accent-hover); margin-bottom: 16px; font-weight: 600; }
+        .author-bio p { font-size: 15px; color: var(--text-secondary); line-height: 1.8; }
+
+        /* CTA bottom */
+        .cta-section { text-align: center; }
+        .cta-section h2 { margin-bottom: 12px; }
+        .cta-section p { max-width: 550px; margin: 0 auto 32px; }
+        .cta-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+
+        /* Footer */
+        footer {
+            padding: 40px 0; border-top: 1px solid var(--border);
+            position: relative; z-index: 1;
+        }
+        .footer-content {
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
+        }
+        .footer-content p { font-size: 13px; color: var(--text-muted); }
+        .footer-content a { color: var(--accent-hover); text-decoration: none; }
+        .footer-content a:hover { text-decoration: underline; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero .container { flex-direction: column; text-align: center; }
+            .hero-image { flex: 0 0 auto; }
+            .hero-image img { max-width: 240px; }
+            .hero-text h1 { font-size: 32px; }
+            .hero-text .subtitle { font-size: 17px; }
+            .hero-buttons { justify-content: center; }
+            .about-book .content-grid { grid-template-columns: 1fr; }
+            .author-section .author-card { flex-direction: column; text-align: center; }
+            .author-avatar { flex: 0 0 120px; width: 120px; height: 120px; }
+            .nav-links { gap: 16px; }
+            .nav-links a { font-size: 13px; }
+            .key-date .date { font-size: 24px; }
+            section h2 { font-size: 28px; }
+        }
+
+        @media (max-width: 480px) {
+            .hero-text h1 { font-size: 28px; }
+            .btn { padding: 12px 20px; font-size: 14px; }
+            .hero-buttons { flex-direction: column; align-items: center; }
+            .nav-links a.hide-mobile { display: none; }
+            nav .container { flex-wrap: wrap; justify-content: center; gap: 12px; }
+            .nav-links { width: 100%; justify-content: center; gap: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="gradient-bg"></div>
+
+    <!-- Nav -->
+    <nav>
+        <div class="container">
+            <a href="/" class="logo">The 100-Year Pattern</a>
+            <div class="nav-links">
+                <a href="#about">About</a>
+                <a href="#corrections">Corrections</a>
+                <a href="#author" class="hide-mobile">Author</a>
+                <a href="https://www.amazon.com/dp/B0FCX61K4Y" target="_blank" class="btn btn-primary" style="padding: 8px 20px; font-size: 13px;">Buy on Amazon</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-image">
+                <img src="/assets/2026-3d-100y-pattern.webp" alt="The 100-Year Pattern book cover">
+            </div>
+            <div class="hero-text">
+                <div class="hero-badge">2026 Edition, Updated and Expanded</div>
+                <h1>The 100-Year Pattern</h1>
+                <p class="subtitle">How Data Science Unlocks Wall Street's Seasonal Calendar</p>
+                <p class="author">by Afshin Moshrefi</p>
+                <p class="edition">Foreword by David M. Aferiat, Co-Founder of Trade Ideas LLC</p>
+                <div class="hero-buttons">
+                    <a href="https://www.amazon.com/dp/B0FCX61K4Y" target="_blank" class="btn btn-primary">
+                        <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M21.5 12c0 5.25-4.25 9.5-9.5 9.5S2.5 17.25 2.5 12 6.75 2.5 12 2.5s9.5 4.25 9.5 9.5zm-4.3 3.8c-.2-.3-.5-.2-1.8.3-1.3.5-2.7.8-4 .7-2.8-.2-5-1.5-6.6-3.5-.2-.2-.4-.3-.5 0-.1.2 0 .5.2.8 1.8 2.5 4.5 3.8 7.6 3.8 1.8 0 3.8-.5 5.2-1.5.3-.2.3-.4.1-.6zm1.5-1c-.2-.3-.8-.4-1.5-.2s-1.2.6-1.1.8c.1.1.2.1.4 0 .3-.1.8-.3 1.2-.3.4 0 .5.1.4.3-.2.6-1.2 1.5-1.4 1.7-.1.1 0 .2.1.2.6-.3 1.3-.8 1.7-1.4.2-.3.3-.8.2-1.1z"/></svg>
+                        Buy on Amazon
+                    </a>
+                    <a href="/assets/100-year-pattern-preview.pdf" download class="btn btn-secondary">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v2a2 2 0 002 2h14a2 2 0 002-2v-2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                        Free Preview
+                    </a>
+                    <a href="https://tradewave.ai" target="_blank" class="btn btn-ghost">
+                        Explore TradeWave
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- Foreword Quote -->
+    <section class="foreword-section">
+        <div class="container">
+            <div class="foreword-quote">
+                <div class="quote-mark">&ldquo;</div>
+                <blockquote>
+                    Afshin doesn't just describe market patterns. He reveals a hidden structure
+                    that's been shaping price action for over a century. His breakthrough is not
+                    just conceptual, it's practical. Through TradeWave, he gives you access to
+                    the data, the tools, and the time-tested windows that let you map your
+                    trading fingerprint.
+                </blockquote>
+                <p class="attribution">
+                    <strong>David M. Aferiat</strong><br>
+                    Co-Founder, Trade Ideas LLC &middot; Founder &amp; CEO, The Avid Group
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Correction -->
+    <section class="correction-section" id="corrections">
+        <div class="container">
+            <h2>A Note on This Edition</h2>
+            <div class="correction-body">
+                <p>Earlier printings said I could not find anyone who had documented this pattern. That was wrong.</p>
+                <p>Jeffrey Hirsch and the Stock Trader's Almanac have published a quarterly version, which they call the Sweet Spot, for years. I missed it because the Almanac is a print product and the research tools I used do not index print. That is a real limitation, not an excuse.</p>
+                <p>Chapter 7 is corrected and now states what the actual contribution is: the Almanac's tradeable figures begin in 1949, this record begins in 1930 and includes the only cycle that failed, and the window here is measured to the day rather than by quarter.</p>
+                <p>Nobody asked me to make this change.</p>
+                <p>Afshin Moshrefi</p>
+                <p class="correction-date">Corrected in the current printing, August 2026.</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- About the Book -->
+    <section class="about-book" id="about">
+        <div class="container">
+            <h2>What's Inside the Book</h2>
+            <p>This is not a prediction book. It is a probability book. What history gives us is context: what is typical, what is rare, and what deserves special respect.</p>
+
+            <div class="content-grid">
+                <div class="feature-card">
+                    <div class="icon">&#x1F4C8;</div>
+                    <h3>98 Years of S&P 500 Data</h3>
+                    <p>Nearly a century of usable seasonal history. When you have that much data, patterns don't need to be mystical. They either show up repeatedly or they don't.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#x1F50D;</div>
+                    <h3>The 100-Year Pattern</h3>
+                    <p>A seasonal window starting September 27 that has failed once in 24 complete cycles going back to 1930. The book explains what it means and why 2026 matters.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#x1F6E0;</div>
+                    <h3>TradeWave Integration</h3>
+                    <p>Learn how to work with the Opportunity Table, Trend Chart, and TradeWave Ratio (TWR), and how to align these tools with a strategy that suits you.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#x1F4CA;</div>
+                    <h3>5 Data Appendices</h3>
+                    <p>Real-world repetition results, curated high-quality patterns, Buy &amp; Hold vs. seasonal windows, futures &amp; commodities examples, and a shareable opportunity template.</p>
+                </div>
+            </div>
+
+            <div class="key-date">
+                <div class="date">September 27, 2026</div>
+                <p>One of the most important dates in this book. It marks the beginning of the 100-Year Pattern, a seasonal window that has been one of the most consistent rhythms in nearly a century of market data.</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- Author -->
+    <section class="author-section" id="author">
+        <div class="container">
+            <h2>About the Author</h2>
+            <div class="author-card" style="margin-top: 32px;">
+                <img src="/assets/afshin-640.webp" alt="Afshin Moshrefi" class="author-avatar">
+                <div class="author-bio">
+                    <h3>Afshin Moshrefi</h3>
+                    <p class="role">Founder, TradeWave &middot; Tara Data Research LLC</p>
+                    <p>
+                        With a background spanning AI, machine learning, SaaS development, and enterprise systems,
+                        Afshin built TradeWave to answer a simple question: what does history actually tell us about
+                        the market? The 100-Year Pattern is the culmination of years spent observing not just what
+                        markets do, but why most traders fail to engage with them in a way that reflects their own
+                        strengths. His goal is to help you stop guessing in the dark.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- CTA -->
+    <section class="cta-section">
+        <div class="container">
+            <h2>Start Reading Today</h2>
+            <p>Download the free preview including the Introduction and Chapter 7, or get the full book on Amazon.</p>
+            <div class="cta-buttons">
+                <a href="https://www.amazon.com/dp/B0FCX61K4Y" target="_blank" class="btn btn-primary">Buy on Amazon</a>
+                <a href="/assets/100-year-pattern-preview.pdf" download class="btn btn-secondary">Download Free Preview</a>
+                <a href="https://tradewave.ai" target="_blank" class="btn btn-ghost">Visit TradeWave</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2026 Tara Data Research LLC. All rights reserved. TradeWave&reg; is a registered trademark.</p>
+                <p>
+                    <a href="https://tradewave.ai">TradeWave</a> &middot;
+                    <a href="https://www.amazon.com/dp/B0FCX61K4Y" target="_blank">Amazon</a> &middot;
+                    <a href="/assets/100-year-pattern-preview.pdf" download>Free Preview</a>
+                </p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

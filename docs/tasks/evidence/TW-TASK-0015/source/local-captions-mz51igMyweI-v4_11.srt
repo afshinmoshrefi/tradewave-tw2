@@ -1,0 +1,596 @@
+1
+00:00:00,000 --> 00:00:01,040
+Twenty-three out of twenty-four.
+
+2
+00:00:01,980 --> 00:00:05,933
+That is how many times the S&P500 finished higher
+
+3
+00:00:05,933 --> 00:00:07,910
+in this exact midterm window.
+
+4
+00:00:08,840 --> 00:00:11,792
+The only loss began in nineteen thirty, the first
+
+5
+00:00:11,792 --> 00:00:13,760
+full year of the Great Depression.
+
+6
+00:00:15,160 --> 00:00:17,898
+On September twenty-seventh, twenty twenty-six,
+
+7
+00:00:17,898 --> 00:00:19,540
+Observation Twenty-Five begins.
+
+8
+00:00:20,360 --> 00:00:21,260
+War with Iran.
+
+9
+00:00:22,240 --> 00:00:24,200
+Oil recently near ninety dollars.
+
+10
+00:00:25,160 --> 00:00:27,260
+Inflation at three point four percent.
+
+11
+00:00:29,980 --> 00:00:31,580
+Fear that artificial intelligence could replace
+
+12
+00:00:31,580 --> 00:00:32,380
+millions of jobs.
+
+13
+00:00:33,440 --> 00:00:36,265
+And President Trump's approval rating near
+
+14
+00:00:36,265 --> 00:00:39,089
+thirty-three percent, with the midterm elections
+
+15
+00:00:39,089 --> 00:00:39,560
+approaching.
+
+16
+00:00:40,620 --> 00:00:43,433
+By the headlines, twenty twenty-six looks like a
+
+17
+00:00:43,433 --> 00:00:44,840
+difficult time for stocks.
+
+18
+00:00:45,880 --> 00:00:48,420
+Yet the historical record points the other way.
+
+19
+00:00:49,260 --> 00:00:50,200
+That sounds bullish.
+
+20
+00:00:51,080 --> 00:00:54,330
+But the real signal in twenty twenty-six may not be
+
+21
+00:00:54,330 --> 00:00:54,980
+another win.
+
+22
+00:00:55,520 --> 00:00:58,400
+It may be what happens if this pattern breaks.
+
+23
+00:00:58,400 --> 00:01:02,400
+And the number I will be watching is minus twenty
+
+24
+00:01:02,400 --> 00:01:02,800
+percent.
+
+25
+00:01:03,880 --> 00:01:07,385
+If the market falls beyond that line, it will have
+
+26
+00:01:07,385 --> 00:01:09,838
+traveled farther down than every previous winning
+
+27
+00:01:09,838 --> 00:01:11,240
+cycle in this record.
+
+28
+00:01:12,180 --> 00:01:14,480
+Then we would have to ask a much bigger question.
+
+29
+00:01:15,600 --> 00:01:18,600
+Did a pattern fail, or did something in the market
+
+30
+00:01:18,600 --> 00:01:19,200
+itself change?
+
+31
+00:01:20,400 --> 00:01:23,220
+TradeWave is a historical analytics machine.
+
+32
+00:01:23,840 --> 00:01:27,234
+It is a map of what happened in comparable periods.
+
+33
+00:01:27,234 --> 00:01:30,967
+It cannot promise where we will end up, but it can
+
+34
+00:01:30,967 --> 00:01:34,021
+show when the market has moved beyond every previous
+
+35
+00:01:34,021 --> 00:01:34,700
+winning path.
+
+36
+00:01:36,000 --> 00:01:39,728
+Here is the rule. The window runs from September
+
+37
+00:01:39,728 --> 00:01:42,213
+twenty-seventh of a United States midterm-election
+
+38
+00:01:42,213 --> 00:01:45,526
+year through July eighteenth of the following year,
+
+39
+00:01:45,526 --> 00:01:48,840
+a total of two hundred ninety-five calendar days.
+
+40
+00:01:49,880 --> 00:01:53,685
+Because both dates fall on Sunday this cycle,
+
+41
+00:01:53,685 --> 00:01:57,015
+TradeWave records the next trading closes: Monday,
+
+42
+00:01:57,015 --> 00:01:59,393
+September twenty-eighth, and Monday, July
+
+43
+00:01:59,393 --> 00:02:00,820
+nineteenth, twenty twenty-seven.
+
+44
+00:02:01,500 --> 00:02:05,000
+The dates are fixed before we know the result. No
+
+45
+00:02:05,000 --> 00:02:06,400
+moving the goalposts later.
+
+46
+00:02:08,040 --> 00:02:10,802
+When TradeWave first produced this chart, almost
+
+47
+00:02:10,802 --> 00:02:12,380
+every bar was green.
+
+48
+00:02:13,260 --> 00:02:16,320
+My first thought was not, I found something.
+
+49
+00:02:17,320 --> 00:02:20,120
+My first thought was, Something must be wrong.
+
+50
+00:02:21,200 --> 00:02:25,094
+I saved it, moved on, and opened it again about an
+
+51
+00:02:25,094 --> 00:02:28,280
+hour later. Then I checked it again. Same result.
+
+52
+00:02:29,320 --> 00:02:32,588
+These were not twenty-three years in a row. They
+
+53
+00:02:32,588 --> 00:02:34,767
+were twenty-three separate midterm cycles spread
+
+54
+00:02:34,767 --> 00:02:36,220
+across almost a century.
+
+55
+00:02:36,980 --> 00:02:39,513
+Yet the same window finished higher twenty-three
+
+56
+00:02:39,513 --> 00:02:40,960
+times out of twenty-four.
+
+57
+00:02:42,180 --> 00:02:44,993
+That investigation eventually became my book, The
+
+58
+00:02:44,993 --> 00:02:46,600
+One Hundred Year Pattern.
+
+59
+00:02:47,640 --> 00:02:50,740
+The Stock Trader's Almanac had called the broader
+
+60
+00:02:50,740 --> 00:02:53,840
+season the market's Sweet Spot. TradeWave let me
+
+61
+00:02:53,840 --> 00:02:57,328
+narrow it to exact dates and see what happened
+
+62
+00:02:57,328 --> 00:03:00,040
+inside every cycle back to nineteen thirty.
+
+63
+00:03:01,200 --> 00:03:04,065
+And what happened inside those green bars changes
+
+64
+00:03:04,065 --> 00:03:05,140
+the whole story.
+
+65
+00:03:06,240 --> 00:03:08,887
+Across all twenty-four completed windows, the
+
+66
+00:03:08,887 --> 00:03:12,858
+average return and the middle result were both about
+
+67
+00:03:12,858 --> 00:03:13,740
+nineteen percent.
+
+68
+00:03:14,860 --> 00:03:17,399
+But twenty-one of the twenty-three winners fell
+
+69
+00:03:17,399 --> 00:03:19,937
+below their starting price before they finished
+
+70
+00:03:19,937 --> 00:03:20,300
+higher.
+
+71
+00:03:21,460 --> 00:03:23,720
+That is the part a simple green bar hides.
+
+72
+00:03:24,660 --> 00:03:28,876
+TradeWave measures the best and worst point reached
+
+73
+00:03:28,876 --> 00:03:33,620
+inside each window. Traders call them MFE and MAE.
+
+74
+00:03:34,440 --> 00:03:36,780
+You do not need to remember the letters.
+
+75
+00:03:37,820 --> 00:03:41,732
+The final return shows the destination. MFE and MAE
+
+76
+00:03:41,732 --> 00:03:44,340
+show what happened on the road.
+
+77
+00:03:45,060 --> 00:03:48,409
+In twenty eighteen, the market fell nineteen point
+
+78
+00:03:48,409 --> 00:03:50,920
+five percent below its starting price.
+
+79
+00:03:51,940 --> 00:03:54,694
+Then it recovered and finished up two point eight
+
+80
+00:03:54,694 --> 00:03:55,000
+percent.
+
+81
+00:03:55,640 --> 00:04:00,074
+The final bar is green. But that green bar hides a
+
+82
+00:04:00,074 --> 00:04:00,880
+frightening decline.
+
+83
+00:04:01,840 --> 00:04:03,700
+Then there is nineteen thirty.
+
+84
+00:04:04,620 --> 00:04:07,956
+The worst point was more than thirty-five percent
+
+85
+00:04:07,956 --> 00:04:11,292
+below the start. The window finally closed down
+
+86
+00:04:11,292 --> 00:04:12,960
+twenty-three point four percent.
+
+87
+00:04:13,820 --> 00:04:17,228
+So twenty-three green bars do not mean twenty-three
+
+88
+00:04:17,228 --> 00:04:18,080
+easy rides.
+
+89
+00:04:19,080 --> 00:04:22,107
+They give us three very different ways to read
+
+90
+00:04:22,107 --> 00:04:22,780
+Observation Twenty-Five.
+
+91
+00:04:24,260 --> 00:04:27,433
+First, the market could fall, perhaps sharply, then
+
+92
+00:04:27,433 --> 00:04:29,020
+recover and finish higher.
+
+93
+00:04:29,940 --> 00:04:33,021
+That would feel frightening. But it would still fit
+
+94
+00:04:33,021 --> 00:04:35,760
+the old map. Most winners went underwater first.
+
+95
+00:04:36,860 --> 00:04:39,625
+Second, the market could finish a little below its
+
+96
+00:04:39,625 --> 00:04:40,240
+starting price.
+
+97
+00:04:40,240 --> 00:04:43,738
+That would create the second red bar. It would
+
+98
+00:04:43,738 --> 00:04:47,237
+weaken the record, but a pattern can fail once
+
+99
+00:04:47,237 --> 00:04:49,180
+without the whole market changing.
+
+100
+00:04:50,540 --> 00:04:52,040
+The third outcome is different.
+
+101
+00:04:53,240 --> 00:04:54,720
+Remember the line from the beginning.
+
+102
+00:04:55,520 --> 00:04:56,660
+Minus twenty percent.
+
+103
+00:04:56,660 --> 00:04:59,967
+The deepest decline inside any previous winner was
+
+104
+00:04:59,967 --> 00:05:02,860
+nineteen point five percent, in twenty eighteen.
+
+105
+00:05:04,420 --> 00:05:08,243
+If the S&P500 falls more than roughly twenty
+
+106
+00:05:08,243 --> 00:05:11,640
+percent below its September starting price, it will
+
+107
+00:05:11,640 --> 00:05:15,038
+have moved beyond every previous winning path in
+
+108
+00:05:15,038 --> 00:05:15,888
+this record.
+
+109
+00:05:15,940 --> 00:05:19,306
+And if that decline stays deep and the window ends
+
+110
+00:05:19,306 --> 00:05:22,671
+with a meaningful loss, I would treat it as evidence
+
+111
+00:05:22,671 --> 00:05:25,700
+that the market may be playing by different rules.
+
+112
+00:05:26,660 --> 00:05:29,522
+That would not prove another Great Depression had
+
+113
+00:05:29,522 --> 00:05:29,880
+begun.
+
+114
+00:05:30,400 --> 00:05:34,126
+But because the only major loss in this record began
+
+115
+00:05:34,126 --> 00:05:37,479
+in nineteen thirty, I would take the possibility of
+
+116
+00:05:37,479 --> 00:05:40,460
+a much darker market regime far more seriously.
+
+117
+00:05:41,820 --> 00:05:44,240
+The failure itself would become information.
+
+118
+00:05:45,240 --> 00:05:47,640
+Now consider the approaching midterms.
+
+119
+00:05:48,740 --> 00:05:51,384
+Would the Trump administration try hard to support
+
+120
+00:05:51,384 --> 00:05:54,689
+the economy and the market before voters go to the
+
+121
+00:05:54,689 --> 00:05:55,020
+polls?
+
+122
+00:05:56,280 --> 00:05:59,602
+An administration can affect taxes, spending, energy
+
+123
+00:05:59,602 --> 00:06:02,925
+policy, regulation, and confidence. But it cannot
+
+124
+00:06:02,925 --> 00:06:06,722
+order the market higher or control earnings, rates,
+
+125
+00:06:06,722 --> 00:06:08,620
+oil, wars, and investors.
+
+126
+00:06:09,380 --> 00:06:12,832
+That political effort is one more force inside the
+
+127
+00:06:12,832 --> 00:06:15,900
+observation. It is not the answer to it.
+
+128
+00:06:17,220 --> 00:06:19,950
+On Monday, September twenty-eighth, I will record
+
+129
+00:06:19,950 --> 00:06:21,120
+the starting close.
+
+130
+00:06:21,960 --> 00:06:24,480
+From that starting close, I will track the actual
+
+131
+00:06:24,480 --> 00:06:27,280
+best point, the worst point, and the final close on
+
+132
+00:06:27,280 --> 00:06:28,400
+July nineteenth, twenty twenty-seven.
+
+133
+00:06:31,880 --> 00:06:35,700
+Will Observation Twenty-Five join
+the wall of green bars?
+
+134
+00:06:36,980 --> 00:06:39,293
+Will it suffer a frightening decline and recover,
+
+135
+00:06:39,293 --> 00:06:40,160
+like twenty eighteen?
+
+136
+00:06:42,300 --> 00:06:45,720
+Or will it cross the line no previous winner
+
+137
+00:06:45,720 --> 00:06:48,380
+crossed, and possibly become the first meaningful
+
+138
+00:06:48,380 --> 00:06:51,420
+break in this pattern since the Great Depression?
+
+139
+00:06:52,480 --> 00:06:53,820
+We do not know.
+
+140
+00:06:54,540 --> 00:06:56,540
+That is what makes this worth watching.
+
+141
+00:06:57,680 --> 00:07:01,280
+The dates are fixed. The history is visible. And the
+
+142
+00:07:01,280 --> 00:07:03,800
+twenty-fifth result has not been written yet.
+
+143
+00:07:04,780 --> 00:07:07,828
+Subscribe, because I will track the complete journey
+
+144
+00:07:07,828 --> 00:07:10,876
+through July, including the declines that a final
+
+145
+00:07:10,876 --> 00:07:12,400
+green bar could hide.
+
+146
+00:07:13,260 --> 00:07:15,700
+TradeWave shows us what happened.
+
+147
+00:07:16,720 --> 00:07:17,880
+We interpret what it means.
+
+148
+00:07:18,900 --> 00:07:20,240
+Now the market gets to write
+
+149
+00:07:20,240 --> 00:07:22,100
+Observation Twenty-Five.

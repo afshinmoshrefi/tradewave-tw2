@@ -1,0 +1,169 @@
+{
+  "title": "TradeWave webinar research evidence",
+  "research_date_eastern": "2026-09-30",
+  "policy_source_sha": "4ccc5811ac10c7baebe027dea72d29b726ddcc79",
+  "source_files": [
+    {
+      "path": "source/100-year-pattern-cycles.csv",
+      "sha256": "1457250094469a30e8846790b86f66780c28766d016fec0c29e8d7824e64dfcc",
+      "bytes": 3815,
+      "recorded_utc": "2026-09-30T15:06:31.4216151Z"
+    },
+    {
+      "path": "source/100yp-production-source-notes.txt",
+      "sha256": "23bb93f84c01f24f59a6546519c59166574db3abd9637d6dd30faa571657a5d0",
+      "bytes": 6434,
+      "recorded_utc": "2026-09-01T22:06:32.7837217Z"
+    },
+    {
+      "path": "source/captions-73FYiMCrdM4-timed.txt",
+      "sha256": "7080c9be2a508c3718191e40f60a0a4c8965345ab4d2209b4414766798c61d13",
+      "bytes": 3055,
+      "recorded_utc": "2026-09-30T15:10:52.2277548Z"
+    },
+    {
+      "path": "source/captions-76J3RKZ9KkQ-timed.txt",
+      "sha256": "ee5afbadec4f8a3a4d52b45dd8b100c2eff997b8534797f6e20e3d2b1de6d5de",
+      "bytes": 5765,
+      "recorded_utc": "2026-09-30T15:10:42.7961628Z"
+    },
+    {
+      "path": "source/captions-8dt8kEt_wa4-timed.txt",
+      "sha256": "9d4e65384c3252ee07705d7c23696bac6f3be519b61f24bc60623ebb336541a1",
+      "bytes": 7334,
+      "recorded_utc": "2026-09-30T15:09:45.5693105Z"
+    },
+    {
+      "path": "source/channel-inventory.json",
+      "sha256": "a449163b8e96deaeefb4e5c234f09a51ccfe782dbe8f753ffc56605af7d96bae",
+      "bytes": 32221,
+      "recorded_utc": "2026-09-30T15:10:27.0514941Z"
+    },
+    {
+      "path": "source/describe.json",
+      "sha256": "ea83da7f5f8ba7855f7fc41305246189c6c2ab818c497c9fb8235c02281918b3",
+      "bytes": 3456,
+      "recorded_utc": "2026-09-30T15:18:15.0895176Z"
+    },
+    {
+      "path": "source/live_aapl.json",
+      "sha256": "76383ab76043b036fb48008d3ebfa5e50c0c563a70baf962d4e8c38655dc0634",
+      "bytes": 41174,
+      "recorded_utc": "2026-09-30T15:10:27.0494972Z"
+    },
+    {
+      "path": "source/live_ame_consecutive.json",
+      "sha256": "98cfda1fdaa0e4922829cad5d5a2f57411f053415911464b08e27c7db908fb38",
+      "bytes": 41904,
+      "recorded_utc": "2026-09-30T15:12:24.8899998Z"
+    },
+    {
+      "path": "source/live_ame.json",
+      "sha256": "a70f5810798c5169e58974b780e5d8a5be81b66b949f539bd5be26a4e0f3fb9c",
+      "bytes": 41912,
+      "recorded_utc": "2026-09-30T15:10:27.0474718Z"
+    },
+    {
+      "path": "source/live_spx.json",
+      "sha256": "2933b45a2db3cbacd6c81774600a217019ac6672ea5b00e2045fb191d9b8ead5",
+      "bytes": 45844,
+      "recorded_utc": "2026-09-30T15:10:27.0459603Z"
+    },
+    {
+      "path": "source/local-captions-mz51igMyweI-v4_11.srt",
+      "sha256": "f583c77520269bd80acdba105dc79e93cb849bb2895c84d3cf10b717b11542be",
+      "bytes": 11705,
+      "recorded_utc": "2026-09-06T14:54:46.5091875Z"
+    },
+    {
+      "path": "source/local-captions-XUAyS5c3_GE.srt",
+      "sha256": "1f79700ff4606b433c3dfe268b1d2d6406c4066b12d2870d1cea38df6c0038d9",
+      "bytes": 8266,
+      "recorded_utc": "2026-09-16T19:12:51.6638860Z"
+    },
+    {
+      "path": "source/markets.json",
+      "sha256": "0c56964148cdb0532827c33d0514e0abd0043716d3d42cc12f2f0e531f399e77",
+      "bytes": 4163,
+      "recorded_utc": "2026-09-30T15:18:15.0915157Z"
+    },
+    {
+      "path": "source/public-100-year-pattern.html",
+      "sha256": "b69af675dc63f1bafe181cd1158815d82567bb16723b73331c98e79415fe6e97",
+      "bytes": 93837,
+      "recorded_utc": "2026-09-30T15:16:53.1465069Z"
+    },
+    {
+      "path": "source/public-book.html",
+      "sha256": "1a62639d1b2cbf83285a6abd48dc3ee7f84bb96527b7ce45bf363c81495a1e44",
+      "bytes": 24037,
+      "recorded_utc": "2026-09-30T15:16:53.6081449Z"
+    },
+    {
+      "path": "source/public-homepage.html",
+      "sha256": "c5bdd18e550cd1f357e496c2a1b8384e900e92cc410bdf24a1bd66d5b4175650",
+      "bytes": 138193,
+      "recorded_utc": "2026-09-30T15:16:53.3884380Z"
+    },
+    {
+      "path": "source/public-methodology.html",
+      "sha256": "5aa4f5775f5ecdcdb7744405e3229bae9d32794503a186540793e608838c2ac1",
+      "bytes": 23559,
+      "recorded_utc": "2026-09-30T15:16:53.2297571Z"
+    },
+    {
+      "path": "source/transcript-73FYiMCrdM4.json",
+      "sha256": "e0ccf23aeb54bb3d6d8f0385db4648f553155cdebbbeece7941e07ef4ef80c34",
+      "bytes": 2962,
+      "recorded_utc": "2026-09-30T15:07:33.5416990Z"
+    },
+    {
+      "path": "source/transcript-76J3RKZ9KkQ.json",
+      "sha256": "ea741f580daf12920c6599c46f7975308c423d47b33443cde63abd7c1ba4818d",
+      "bytes": 4760,
+      "recorded_utc": "2026-09-30T15:07:33.5386795Z"
+    },
+    {
+      "path": "source/transcript-8dt8kEt_wa4.json",
+      "sha256": "e6e6a92f17d8fab0d8b669860c583949d641cf52d09f827c422b753f1abe81c8",
+      "bytes": 6182,
+      "recorded_utc": "2026-09-30T15:07:33.5371230Z"
+    },
+    {
+      "path": "source/transcript-mz51igMyweI.json",
+      "sha256": "30679bdb42bf4b12aa3a8382658b6823567cec94a588a3a74e7f50eed3ea11d7",
+      "bytes": 6219,
+      "recorded_utc": "2026-09-30T15:07:33.5356116Z"
+    },
+    {
+      "path": "source/transcript-XUAyS5c3_GE.json",
+      "sha256": "b515bb689fb9bef8a9b56c532a7f748391be6e494f71b144dc9f9b5be0505070",
+      "bytes": 4982,
+      "recorded_utc": "2026-09-30T15:07:33.5396910Z"
+    },
+    {
+      "path": "source/youtube-metadata.json",
+      "sha256": "e92fccd8031d07b0234dd90ac2d8da65543240236bce327c628c45adcf6318f9",
+      "bytes": 15248,
+      "recorded_utc": "2026-09-30T15:07:33.5427008Z"
+    }
+  ],
+  "provenance": {
+    "local_caption_sources": {
+      "local-captions-XUAyS5c3_GE.srt": "C:/Users/afshin/Videos/seasonals/chatGPT Youtube Videos/September 16 2026 video/Edited/02 Best Stocks Next 6-12 Months.srt",
+      "local-captions-mz51igMyweI-v4_11.srt": "C:/Users/afshin/Videos/seasonals/chatGPT Youtube Videos/100 year pattern video early september/production/output/100YP_VIDEO2_CAPTIONS_V4_11.srt"
+    },
+    "public_pages": {
+      "public-methodology.html": "https://tradewave.ai/methodology",
+      "public-100-year-pattern.html": "https://tradewave.ai/100-year-pattern",
+      "100-year-pattern-cycles.csv": "https://tradewave.ai/_static/100-year-pattern/100-year-pattern-cycles.csv",
+      "public-book.html": "https://100yearpattern.com/",
+      "public-homepage.html": "https://www.tradewave.ai/"
+    },
+    "videos": "vidIQ channel_videos/get_videos_by_ids/video_transcript. Full captions reviewed, not end-to-end video viewing. YouTube browser exports provide native time-coded captions for three videos; two local SRTs provide separately qualified timing.",
+    "policy_snapshots": "Current repository policy/methodology copies were read locally, are excluded from shared evidence to avoid duplication, and can be recovered with git show at policy_source_sha.",
+    "live_outputs": "Read-only TradeWave Production analyze_symbol calls. Requests and unmodified structured responses retained. as_of is engine-reported; actual last quote date and runtime SHA not exposed."
+  },
+  "browser_check": "Exact SPX viewer link reached normal AuthKit sign-up with study in redirect state. No completed login, viewer rendering, signup or checkout test.",
+  "excluded_actions": "No code/runtime change, deployment, publication, outreach, event scheduling, purchase or trading."
+}
