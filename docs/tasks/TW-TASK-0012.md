@@ -1,5 +1,9 @@
 # TW-TASK-0012: Chart Toolbar Control Titles
 
+## Title spacing refinement claim (2026-09-29)
+
+Afshin requested a cleaner, professional toolbar for new users after reviewing the underlined titles on dev. Codex `/root` claims this dev-only follow-up in `codex/toolbar-title-spacing-20260929`, isolated worktree `C:/Users/afshin/.codex/worktrees/toolbar-title-polish/TradeWave Main Orchestrator`, from main `e9c83d82089b66f5e47daa794072b957abf51d48`. A UI design subagent inspected the screenshot and identified a visually detached title row. Preserve no gray fills, title underlines, responsive aliases, single-row fitting and the existing title-off mode. Next: render and refine title-to-control spacing, then build, activate and verify on dev.
+
 ## Underlined title styling follow-up (2026-09-29)
 
 Afshin requested removing the gray title backgrounds and placing an underline beneath each toolbar title. Codex `/root` claimed this dev-only styling follow-up in `codex/toolbar-title-underline-20260929`, isolated worktree `C:/Users/afshin/Documents/TradeWave Main Orchestrator/toolbar-title-underline-20260929`, from main `8b4cad757c838b7a192dc6e863347b3bbf891935`. Preserve responsive abbreviations, control layout, settings and title-off behavior. The verified implementation and evidence appear at the end of this record.
