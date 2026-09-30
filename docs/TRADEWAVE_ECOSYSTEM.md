@@ -490,6 +490,16 @@ Flask-rendered (static from `/var/www/tradewave/`).
 - **Admin:** Flask-Admin gated on `super_admin` role; `UserAdmin` validates
   `roles` against `models.ROLES`. **Roles single source of truth = `models.py:ROLES`**
   = `{super_admin, user, newsroom_author, service_account}`.
+- **SMN dashboard handoff:** `web/app.py:/smn-dashboard/login` checks the same
+  WorkOS session and `super_admin` role. Logged-out visitors carry a relative
+  route in WorkOS state, because `/auth/callback` rejects absolute redirects.
+  `TW2_SMN_DASHBOARD_SSO_KEY` names the private Ed25519 PEM on the TW2 web box;
+  `TW2_SMN_DASHBOARD_URL` names the HTTPS dashboard root. The route issues a
+  60-second ticket (`iss=tw2-web`, `aud=smn-dashboard`, `env=config.tw2_env`)
+  to that root's `/auth`. SMN `dashboard_auth.py` holds the matching public key,
+  validates the environment/admin claim and rejects replay. This is independent
+  of the portfolio publish-state branch; deployment/configuration status belongs
+  to [TW-TASK-0008](tasks/TW-TASK-0008.md) and [TW-TASK-0009](tasks/TW-TASK-0009.md).
 - **`report_renderer.py`:** renders a static date-range report (HTML + 3 PNGs) to
   `/var/www/tradewave/r/<slug>/`; invoked by the appserver via
   `/internal/render_report` (semaphore-limited to 4 concurrent).

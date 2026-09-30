@@ -10,6 +10,7 @@ from __future__ import annotations
 import importlib
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
+from unittest.mock import MagicMock
 
 import jwt
 import pytest
@@ -42,9 +43,46 @@ def _user(roles):
 
 def test_logged_out_goes_to_tradewave_login(app_module, keys, monkeypatch):
     monkeypatch.setattr(app_module, "get_current_user", lambda: None)
-    monkeypatch.setattr(app_module, "_get_authorization_url", lambda **kw: "https://login.test/")
+    authorize = MagicMock(return_value="https://login.test/")
+    monkeypatch.setattr(app_module, "_get_authorization_url", authorize)
     r = app_module.app.test_client().get("/smn-dashboard/login")
     assert (r.status_code, r.headers["Location"]) == (302, "https://login.test/")
+    authorize.assert_called_once_with(state="/smn-dashboard/login")
+
+
+@pytest.mark.parametrize("roles, expected", [(["super_admin"], 302), (["user"], 403)])
+def test_logged_out_callback_returns_to_dashboard_and_rechecks_role(
+        app_module, keys, monkeypatch, roles, expected):
+    identity = None
+    monkeypatch.setattr(app_module, "get_current_user", lambda: identity)
+    authorize = MagicMock(return_value="https://login.test/")
+    monkeypatch.setattr(app_module, "_get_authorization_url", authorize)
+    client = app_module.app.test_client()
+    assert client.get("/smn-dashboard/login").status_code == 302
+    state = authorize.call_args.kwargs["state"]
+
+    # Exercise the actual callback's redirect validation without external auth/DB writes.
+    result = SimpleNamespace(
+        user=SimpleNamespace(to_dict=lambda: {"id": "unit-user"}, email_verified=False),
+        impersonator=None, access_token="unit-access", refresh_token="unit-refresh")
+    workos = MagicMock()
+    workos.user_management.authenticate_with_code.return_value = result
+    monkeypatch.setattr(app_module, "workos_client", workos)
+    monkeypatch.setattr(app_module, "seal_session_from_auth_response", lambda **kw: "unit-cookie")
+    identity = _user(roles)
+    monkeypatch.setattr(app_module, "lazy_create_user", lambda user: identity)
+    monkeypatch.setattr(app_module, "DBSession", MagicMock())
+    callback = client.get("/auth/callback", query_string={"code": "unit-code", "state": state})
+    assert (callback.status_code, callback.headers["Location"]) == (302, "/smn-dashboard/login")
+    workos.user_management.authenticate_with_code.assert_called_once_with(code="unit-code")
+    handoff = client.get(callback.headers["Location"])
+    assert handoff.status_code == expected
+    if expected == 302:
+        ticket = parse_qs(urlparse(handoff.headers["Location"]).query)["ticket"][0]
+        claims = jwt.decode(ticket, keys, algorithms=["EdDSA"], audience="smn-dashboard", issuer="tw2-web")
+        assert claims["is_admin"] is True
+    else:
+        assert "Location" not in handoff.headers
 
 
 def test_non_admin_is_refused(app_module, keys, monkeypatch):

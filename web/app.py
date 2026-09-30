@@ -789,7 +789,7 @@ def smn_dashboard_login():
     import uuid as _uuid
     u = get_current_user()
     if u is None:
-        return redirect(_get_authorization_url(state=request.url))
+        return redirect(_get_authorization_url(state=request.path))
     if "super_admin" not in (u.roles or []):
         logging.warning("smn_dashboard_login: refused non-admin user=%s", u.email)
         abort(403)
