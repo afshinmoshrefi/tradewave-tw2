@@ -313,6 +313,8 @@
     margin-bottom: 0;
     padding: 2px 3px;
     color: var(--tw-toolbar-heading-color);
+    text-underline-offset: 2px;
+    transform: translateY(11px);
 }
 
 .barchart-controls--heading-layout > .barchart-controls-div {
@@ -344,6 +346,7 @@
     width: 100%;
     padding: 2px 0;
     font-size: 8px;
+    transform: translateY(4px);
 }
 .barchart-controls--heading-layout.barchart-controls--narrow .barchart-controls-div {
     margin: 0;
