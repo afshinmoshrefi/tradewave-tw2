@@ -493,6 +493,8 @@ Flask-rendered (static from `/var/www/tradewave/`).
 - **SMN dashboard handoff:** `web/app.py:/smn-dashboard/login` checks the same
   WorkOS session and `super_admin` role. Logged-out visitors carry a relative
   route in WorkOS state, because `/auth/callback` rejects absolute redirects.
+  The exact `/smn-dashboard/login` nginx location proxies to `tw2_web` with
+  the existing proxy headers; the static catch-all cannot serve this route.
   `TW2_SMN_DASHBOARD_SSO_KEY` names the private Ed25519 PEM on the TW2 web box;
   `TW2_SMN_DASHBOARD_URL` names the HTTPS dashboard root. The route issues a
   60-second ticket (`iss=tw2-web`, `aud=smn-dashboard`, `env=config.tw2_env`)
