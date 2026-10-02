@@ -12,7 +12,7 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0006](TW-TASK-0006.md) | verified | SMN shared Codex/Claude coordination and model-effort review |
 | [TW-TASK-0007](TW-TASK-0007.md) | verified | Controlled six-subject Astra/Sol/Luna quality and usage comparison |
 | [TW-TASK-0008](TW-TASK-0008.md) | verified on dev | SMN publishing dashboard (pins, order, publish/unpublish, schedule, hero) and portfolio Rec Hero/Delete/publish-icon fixes |
-| [TW-TASK-0009](TW-TASK-0009.md) | in-progress | Dev/main b26428a: morning/verified-newsletter settings live and77 Linux tests pass; full6-article publication recovery running within five additional jobs; Resend key and human production cutover pending |
+| [TW-TASK-0009](TW-TASK-0009.md) | in-progress | Dev d6e2b6f: all6 October2 articles live verified; production requested, operator package in preparation; current-day snapshots, subscription login and TW production SSO route required |
 | [TW-TASK-0010](TW-TASK-0010.md) | verified on dev | Short tooltips for both Avg Gain values when global tips are off |
 | [TW-TASK-0011](TW-TASK-0011.md) | fixed | Portfolio import and historical scenarios live on dev; core browser/engine checks pass; native PDF layout verification pending |
 | [TW-TASK-0012](TW-TASK-0012.md) | verified on dev | Single-row responsive desktop toolbar and persisted General switch |
@@ -23,3 +23,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 
 
 | [TW-TASK-0016](TW-TASK-0016.md) | in-progress | October 2 complete Dev release qualification; staging first, production operator/snapshot gates |
+
