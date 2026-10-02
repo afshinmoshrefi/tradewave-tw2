@@ -23,3 +23,5 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 
 
 | [TW-TASK-0016](TW-TASK-0016.md) | in-progress | October 2 complete Dev release qualification; staging first, production operator/snapshot gates |
+
+| [TW-TASK-0017](TW-TASK-0017.md) | in-progress | Direct SMN WorkOS login with existing TradeWave admin authorization; Dev first |
