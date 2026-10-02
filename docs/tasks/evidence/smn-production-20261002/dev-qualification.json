@@ -1,0 +1,99 @@
+{
+  "source_commit": "d6e2b6fd59b15e2a601248df00073c078db24df4",
+  "status": "dev_qualified",
+  "edition_date": "2026-10-02",
+  "target": "dev",
+  "live_verification_sha256": "573505062832cabd006ebd68850b6ed9c1202301eb1052a20a550a303a4b03c6",
+  "publication_receipt_sha256": "9c1df0ed028f5223ccd27f694403f6c97212a06b25fb3f34f10a1722ae83384b",
+  "landing_visual_sha256": "de235d10a0009891e177e844a75d4f8c7b45bfda1a3d1d6d2e65305431385a90",
+  "recovery_completion_sha256": "e497739427fa62db819b2611d49b0a231adb826bae8689735864ef63b003282f",
+  "article_count": 6,
+  "article_layouts": 12,
+  "public_files": 209,
+  "homepage_links": {
+    "desktop": [
+      {
+        "symbol": "MSFT",
+        "url": "https://smn-dev.trxstat.com/editions/2026-10-02/MSFT/article.html",
+        "visible": true,
+        "section": "Latest Patterns"
+      },
+      {
+        "symbol": "SPX",
+        "url": "https://smn-dev.trxstat.com/editions/2026-10-02/SPX/article.html",
+        "visible": true,
+        "section": "Latest Patterns"
+      },
+      {
+        "symbol": "XLK",
+        "url": "https://smn-dev.trxstat.com/editions/2026-10-02/XLK/article.html",
+        "visible": true,
+        "section": "Latest Patterns"
+      },
+      {
+        "symbol": "IWM",
+        "url": "https://smn-dev.trxstat.com/editions/2026-10-02/IWM/article.html",
+        "visible": true,
+        "section": "Latest Patterns"
+      },
+      {
+        "symbol": "FDS",
+        "url": "https://smn-dev.trxstat.com/editions/2026-10-02/FDS/article.html",
+        "visible": true,
+        "section": "Latest Patterns"
+      },
+      {
+        "symbol": "ADP",
+        "url": "https://smn-dev.trxstat.com/editions/2026-10-02/ADP/article.html",
+        "visible": true,
+        "section": "Market Analysis"
+      }
+    ],
+    "mobile": [
+      {
+        "symbol": "MSFT",
+        "url": "https://smn-dev.trxstat.com/editions/2026-10-02/MSFT/article.html",
+        "visible": true,
+        "section": "Latest Patterns"
+      },
+      {
+        "symbol": "SPX",
+        "url": "https://smn-dev.trxstat.com/editions/2026-10-02/SPX/article.html",
+        "visible": true,
+        "section": "Latest Patterns"
+      },
+      {
+        "symbol": "XLK",
+        "url": "https://smn-dev.trxstat.com/editions/2026-10-02/XLK/article.html",
+        "visible": true,
+        "section": "Latest Patterns"
+      },
+      {
+        "symbol": "IWM",
+        "url": "https://smn-dev.trxstat.com/editions/2026-10-02/IWM/article.html",
+        "visible": true,
+        "section": "Latest Patterns"
+      },
+      {
+        "symbol": "FDS",
+        "url": "https://smn-dev.trxstat.com/editions/2026-10-02/FDS/article.html",
+        "visible": true,
+        "section": "Latest Patterns"
+      },
+      {
+        "symbol": "ADP",
+        "url": "https://smn-dev.trxstat.com/editions/2026-10-02/ADP/article.html",
+        "visible": true,
+        "section": "Market Analysis"
+      }
+    ]
+  },
+  "no_work_resume_passed": true,
+  "approved_five_unchanged": true,
+  "new_model_jobs": 5,
+  "production_written": false,
+  "production_activation": "not performed",
+  "private_comparison": "separate unresolved holds; reader publication passed",
+  "reliability_target": 0.999,
+  "reliability_demonstrated": false
+}
