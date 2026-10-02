@@ -897,3 +897,11 @@ their original dates. Restore data at its source; do not bypass this check.
 3. `ssh <box> 'journalctl -u tradewave-<svc> --no-pager -n 50'`
 4. `df -h /` — disk full is the usual culprit if logrotate ever lapses.
 5. Use the recorded dev pointer rollback or, for a qualified release, the exact immutable backend/frontend rollback in its manifest. Do not reset a target checkout or invent rollback after failure.
+
+## SMN direct WorkOS dashboard login (TW-TASK-0017)
+
+Dev verified October2 with SMN5a7d02b and paired TradeWave auth contract. In the existing matching WorkOS environment create a dedicated SMN Dashboard application with exact callback /smn-dashboard/auth/callback and sign-out return /smn-dashboard/signed-out under the SMN hostname. WorkOS Staging serves Dev and staging; WorkOS Production must use its own app and users. No API secret is used: public authorization code with S256 PKCE. Set provider maximum session eight hours.
+
+SMN pub_dashboard environment: SMN_DASHBOARD_LOGIN_PROVIDER=workos, SMN_WORKOS_CLIENT_ID, SMN_WORKOS_CALLBACK_URL, SMN_WORKOS_AUTHORIZATION_URL pointing to the matching TradeWave HTTPS /smn-dashboard/authorize. TradeWave web environment: TW2_SMN_WORKOS_CLIENT_ID and TW2_SMN_WORKOS_ISSUER, verified against that environment's actual issuer (may name its default client). Expose the exact POST authorization route through the existing web upstream. Preserve per-environment ticket signing keys and central local super_admin authority. Preserve TW2_REACT_BUILD_DIR=/home/flask/web-react/build across web restarts.
+
+Activate only the dashboard/web services and associated nginx routes for this login concern; do not activate the daily publisher, generation or newsletter schedules. Inspect existing effective units and public paths first; source staging alone is not runtime activation. Snapshot affected pointer/unit/nginx state and supply automatic rollback before any promotion. Verify anonymous API denial, actual administrator WorkOS callback, signed-out page and subsequent fresh sign-in. Dev currently uses /etc/systemd/system/pub_dashboard.service.d/40-smn-workos.conf and matching tradewave-web drop-in; deployment receipt is /var/lib/tradewave/release-state/smn-workos-login-20261002/receipt.json on each Dev host. Production remains subject to the current release and snapshot/operator gates.

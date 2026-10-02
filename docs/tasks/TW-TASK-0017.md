@@ -39,3 +39,9 @@ Anonymous SMN /api/articles and TradeWave POST /smn-dashboard/authorize each ret
 Activation/rollback receipts and preserved prior configuration: /var/lib/tradewave/release-state/smn-workos-login-20261002/receipt.json on each Dev host. Root activation helper /var/tmp/smn-auth-dev-activation.py supports tw or smn rollback and restores captured pointer/configuration, restarts and verifies service. SMN previous source /opt/smn-daily/releases/d6e2b6fd59b15e2a601248df00073c078db24df4; TradeWave previous backend /home/tradewave-worktrees/tw2-20261002-01. Current pointers target each task worktree.
 
 No WorkOS API key is required, created, or copied. No production environment settings or production runtimes changed. Production needs its own SMN WorkOS application/callback/issuer configuration and qualified staging-to-production release; this Dev result is not production readiness certification.
+
+## Production promotion claim - October 2
+
+Afshin explicitly requested moving the verified dashboard/login to production after the Dev demonstration. Codex smn-workos-login-20261002 owns the dashboard/authentication release, including TradeWave staging qualification and production command preparation; TW-TASK-0009 continues to own daily generator/scheduler cutover. No publishing, newsletter, provider-job or billing activation is included. SMN has Dev and production only; WorkOS Staging serves Dev and TradeWave staging. No third SMN environment will be invented.
+
+Planned release tw2-20261002-02 pairs current TradeWave main with SMN5a7d02bc60d5fdb4832802020a94606e39e5236d. Refresh server drift, preserve existing publisher, qualify immutable artifacts and auth contracts, prepare production SMN WorkOS configuration and rollback. Current-day snapshot evidence and production operator execution remain required; prior release's one-time exception does not transfer. No production writes have been made by this promotion claim.
