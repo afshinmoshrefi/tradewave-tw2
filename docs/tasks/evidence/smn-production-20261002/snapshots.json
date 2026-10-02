@@ -1,0 +1,11 @@
+{
+  "source_commit": "d6e2b6fd59b15e2a601248df00073c078db24df4",
+  "candidate_archive_sha256": "5b2bd2e43e58aaedfbe2d685cc3a930ee2b6816c531088a3d4b75199542cd9d4",
+  "date": "2026-10-02",
+  "approved_by": "Afshin",
+  "confirmed_at_utc": "2026-10-02T18:30:15Z",
+  "production_web_snapshot": "Owner confirmed today's production web-server snapshot in this release conversation",
+  "production_app_snapshot": "Owner confirmed today's production appserver snapshot in this release conversation",
+  "snapshot_provider_ids": null,
+  "confirmation_basis": "Direct Yes to whether today's production web and appserver snapshots have been taken; no provider identifiers supplied"
+}
