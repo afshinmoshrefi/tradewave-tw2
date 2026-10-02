@@ -437,6 +437,11 @@ Flask-rendered (static from `/var/www/tradewave/`).
   the engine ML score (`MLScoreBatch` with the 15/13 study context) and 5 are
   kept per tab. When today's file exists the card shows it and the separate
   Top Patterns table is hidden; otherwise Top Patterns stays.
+  Deployment detail (October2 release): `ops/regen_site.sh` does not call
+  the new stock-list generator. On a qualified promotion, run
+  `hundred_year_stocks.py` before the final `generate_home_page.py --content-only`
+  and verify the file date and nonempty tabs. Preserve `site/data` in rollback
+  together with the static docroot. Release evidence: [TW-TASK-0016](tasks/TW-TASK-0016.md).
   The evidence-page countdown card also offers a no-signup calendar chooser.
   Google and Outlook open a prefilled event; Apple and other calendars receive
   an environment-aware `.ics` file rendered by the same generator. The public

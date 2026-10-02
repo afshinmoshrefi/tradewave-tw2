@@ -22,4 +22,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 
 
 
-| [TW-TASK-0016](TW-TASK-0016.md) | in-progress | October 2 complete Dev release qualification; staging first, production operator/snapshot gates |
+| [TW-TASK-0016](TW-TASK-0016.md) | in-progress | October 2 c25ffd5 verified on staging; identical production artifact ready pending operator and same-day snapshots |
