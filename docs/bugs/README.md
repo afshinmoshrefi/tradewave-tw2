@@ -40,3 +40,5 @@ Status belongs in each record and this index; update both together. Preserve res
 | [TW-BUG-0022](TW-BUG-0022.md) | P3 | deferred | Wave Viewer toolbar text slightly small at preferred zoom |
 
 | [TW-BUG-0023](TW-BUG-0023.md) | P2 | verified on dev | Scenario Studio used a green palette instead of the TradeWave color scheme |
+
+| [TW-BUG-0024](TW-BUG-0024.md) | P2 | open | API scan load qualification fails intermittently after restart; blocks SMN auth promotion |
