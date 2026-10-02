@@ -784,6 +784,29 @@ def auth_callback():
 #   TW2_SMN_DASHBOARD_SSO_KEY  path to the private key (PEM), root-only
 #   TW2_SMN_DASHBOARD_URL      e.g. https://smn-dev.trxstat.com/dashboard
 # ---------------------------------------------------------------------------
+@app.route("/smn-dashboard/authorize", methods=["POST"])
+@csrf.exempt
+def smn_workos_authorize():
+    from smn_workos_authorization import verify_access_token, admin_ticket, Unavailable
+    header = request.headers.get("Authorization", "")
+    if not header.startswith("Bearer "):
+        return jsonify(error="authentication_required"), 401
+    try:
+        claims = verify_access_token(header[7:])
+        u = current_user_from_db(claims["sub"])
+        if u is None or "super_admin" not in (u.roles or []):
+            return jsonify(error="administrator_required"), 403
+        ticket = admin_ticket(u, claims, config.tw2_env)
+    except jwt.InvalidTokenError:
+        return jsonify(error="invalid_identity"), 401
+    except (Unavailable, jwt.PyJWKClientError):
+        return jsonify(error="authorization_unavailable"), 503
+    response = jsonify(ticket=ticket)
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
+
+
 @app.route("/smn-dashboard/login", methods=["GET"])
 def smn_dashboard_login():
     import uuid as _uuid

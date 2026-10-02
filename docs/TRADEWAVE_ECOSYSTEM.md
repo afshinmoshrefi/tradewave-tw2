@@ -502,6 +502,31 @@ Flask-rendered (static from `/var/www/tradewave/`).
   validates the environment/admin claim and rejects replay. This is independent
   of the portfolio publish-state branch; deployment/configuration status belongs
   to [TW-TASK-0008](tasks/TW-TASK-0008.md) and [TW-TASK-0009](tasks/TW-TASK-0009.md).
+- **Direct SMN AuthKit login (TW-TASK-0017; configuration and live verification pending):**
+  SMN may select `SMN_DASHBOARD_LOGIN_PROVIDER=workos`. Its `/login` starts a
+  browser-bound, ten-minute OAuth state plus S256 PKCE flow; `/auth/callback`
+  exchanges the code with WorkOS over HTTPS. SMN then sends only the access token
+  server-to-server to TradeWave `POST /smn-dashboard/authorize`. The latter
+  verifies RS256, issuer, expiry and the dedicated SMN `client_id`, resolves the
+  signed subject through `current_user_from_db`, and requires the existing local
+  `super_admin` role. WorkOS roles or matching email never grant administrator
+  access. A signed, environment-bound ticket binds both WorkOS user and session
+  IDs to the existing TradeWave administrator ID. SMN reuses its eight-hour local
+  session; provider access/refresh tokens are not stored in browser cookies.
+  Logout clears SMN's cookie and attempts to revoke that WorkOS session. As with
+  the existing bridge, admin changes are reflected at the next login, not through
+  continuous central authorization. Existing bridge, API keys and service key remain.
+  Configure a separate SMN application in the SAME WorkOS environment as the
+  corresponding TradeWave users. Hosted branding is environment-wide. Register
+  `https://smn-dev.trxstat.com/smn-dashboard/auth/callback` for Dev. SMN private
+  environment needs `SMN_WORKOS_CLIENT_ID`, `SMN_WORKOS_API_KEY`,
+  `SMN_WORKOS_CALLBACK_URL`, and `SMN_WORKOS_AUTHORIZATION_URL` (the HTTPS TW route).
+  TradeWave needs `TW2_SMN_WORKOS_CLIENT_ID` and `TW2_SMN_WORKOS_ISSUER` (the actual
+  environment issuer, which can name the default app rather than SMN), plus its
+  existing Ed25519 signing key. Require the explicit application claim; do not
+  weaken verification to accept a token from another application. Add an exact
+  nginx `/smn-dashboard/authorize` location using the same `tw2_web` proxy and
+  headers as `/smn-dashboard/login`. Nothing is activated merely by adding code.
 - **`report_renderer.py`:** renders a static date-range report (HTML + 3 PNGs) to
   `/var/www/tradewave/r/<slug>/`; invoked by the appserver via
   `/internal/render_report` (semaphore-limited to 4 concurrent).

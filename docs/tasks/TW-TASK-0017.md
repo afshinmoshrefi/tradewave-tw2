@@ -13,3 +13,11 @@
 - Deployment: Dev not deployed by this task; production not deployed by this task.
 
 Claim updated: 2026-10-02T20:45:07.754845+00:00
+
+## Development checkpoint - October 2
+
+SMN candidate d3786079 pending full SHA receipt (use remote branch) is pushed on codex/smn-workos-login-20261002; not merged or activated. Changed dashboard_workos.py, dashboard_auth.py, pub_dashboard.py and focused tests. TradeWave paired change adds smn_workos_authorization.py and POST /smn-dashboard/authorize, with central database role check and environment/application-bound JWT validation. Architecture and private configuration requirements are in the ecosystem auth section. The feature defaults to the existing TradeWave bridge until explicitly configured.
+
+Focused tests: 22 TradeWave tests passed on .176, including RSA-signed JWT rejection cases and original SSO regressions. 90 SMN unittest checks passed on .180 in isolated /opt/smn-worktrees/smn-workos-login-20261002 using its installed venv, including existing ticket/API/service authentication and direct login, PKCE/state, denial and logout behavior. The count includes inherited regression cases; it is not 90 unique new cases. No tests used customer accounts or sent emails. Provider calls are mocked; no live WorkOS login is claimed.
+
+Pending: owner sign-in to WorkOS MANAGEMENT dashboard (separate from TradeWave website). Chrome tab was opened and retained for that setup. No provider application, credential or redirect configuration has been changed. Once signed in, inspect current environment/application capabilities, configure the dedicated SMN Dev application and securely provision credentials on the server. Confirm actual issuer/client_id claims, then finish tested commits, acquire Dev activation locks, record previous pointers/configuration, integrate and activate the paired changes, and verify actual browser admin login/logout plus denied/unauthenticated API behavior. No production deployment is authorized by this development checkpoint. Existing Dev and production runtimes unchanged by this task.
