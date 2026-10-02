@@ -502,7 +502,7 @@ Flask-rendered (static from `/var/www/tradewave/`).
   validates the environment/admin claim and rejects replay. This is independent
   of the portfolio publish-state branch; deployment/configuration status belongs
   to [TW-TASK-0008](tasks/TW-TASK-0008.md) and [TW-TASK-0009](tasks/TW-TASK-0009.md).
-- **Direct SMN AuthKit login (TW-TASK-0017; Dev live verification pending):**
+- **Direct SMN AuthKit login (TW-TASK-0017; verified on Dev October 2):**
   SMN may select `SMN_DASHBOARD_LOGIN_PROVIDER=workos`. Its `/login` starts a
   browser-bound, ten-minute OAuth state plus S256 PKCE flow; `/auth/callback`
   exchanges the code with WorkOS over HTTPS. SMN then sends only the access token
