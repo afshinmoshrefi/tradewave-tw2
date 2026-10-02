@@ -21,3 +21,5 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0015](TW-TASK-0015.md) | verified | Caption-backed webinar research, four production study receipts, demo cases and current offer check |
 
 
+
+| [TW-TASK-0016](TW-TASK-0016.md) | in-progress | October 2 complete Dev release qualification; staging first, production operator/snapshot gates |
