@@ -1,0 +1,12 @@
+{
+  "status": "production_verified",
+  "scope": "deployed route, configured signing key, unauthenticated redirect; real admin browser verification pending",
+  "dashboard_login_url": "https://tradewave.ai/smn-dashboard/login",
+  "release_sha": "c25ffd562dc3058ab41db5b07e9075dd841fb29b",
+  "verified_by": "Codex under Afshin one-release authorization",
+  "source_route_verified": true,
+  "signing_key_readable_by_service": true,
+  "public_key_sha256": "7d683d15145caabec0a12b1788ab12e28254bdeb237fedd2fab6cc2cf47758da",
+  "checked_at": "2026-10-02T18:54:36.347450+00:00",
+  "unauthenticated_http_status": 302
+}
