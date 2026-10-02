@@ -7,6 +7,7 @@ TODAY=$(date -u +%F)
 
 die() { echo "BLOCKED: $*" >&2; exit 1; }
 sha() { sha256sum "$1" | cut -d' ' -f1; }
+queue_loopback_config() { printf '[Service]\nExecStart=\nExecStart=/home/flask/venv/bin/gunicorn --workers 2 --bind unix:/home/flask/blog/blog_queue.sock --bind 127.0.0.1:7171 -m 0 wsgi:app\n'; }
 root_host() {
   [[ $(id -u) == 0 ]] || die 'run as root on SMN production'
   [[ " $(hostname -I) " == *' 209.182.216.112 '* ]] || die 'wrong host'

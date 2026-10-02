@@ -29,7 +29,15 @@ if [[ $(record_status "$DASH") == active ]]; then
   "$PY" "$RELEASE/blog/install_smn_dashboard.py" rollback "$(dirname "$DASH")"
 fi
 CURRENT=$(sha /home/flask/blog/blog_queue.py)
-if [[ $CURRENT == 715e1876d5e9d047b13abf0b732f604055373e5b5f8d3b1dd18a7939b6ccdcfe ]]; then
+queue_dropin=/etc/systemd/system/blog_queue.service.d/20-dashboard-loopback.conf
+if [[ -e $queue_dropin ]]; then
+  expected=$(queue_loopback_config | sha256sum | cut -d' ' -f1)
+  [[ $(sha "$queue_dropin") == "$expected" ]] || die 'queue loopback binding changed; preserve it'
+  rm "$queue_dropin"
+  rmdir "$(dirname "$queue_dropin")" 2>/dev/null || true
+  systemctl daemon-reload
+fi
+if [[ $CURRENT == 9245384c43ef256a4d51934bac7acb0720b64c05bbe42ac4c911d248aeda37ff ]]; then
   systemctl stop blog_queue.service
   cp -a "$OUT/blog_queue.before.py" /home/flask/blog/blog_queue.py.smn-restore
   mv /home/flask/blog/blog_queue.py.smn-restore /home/flask/blog/blog_queue.py
@@ -48,6 +56,12 @@ for unit in pub_dashboard.service smn-subscription.service smn-weekday-newslette
     rmdir "$(dirname "$dropin")" 2>/dev/null || true
   fi
 done
+start_guard=/etc/systemd/system/smn-subscription.service.d/20-cutover-start.conf
+if [[ -e $start_guard ]]; then
+  [[ -f $OUT/cutover-start.sha256 && $(sha "$start_guard") == $(cat "$OUT/cutover-start.sha256") ]] || die 'cutover start guard changed; preserve it'
+  rm "$start_guard"
+  rmdir "$(dirname "$start_guard")" 2>/dev/null || true
+fi
 systemctl daemon-reload
 if [[ -e /opt/smn-subscription/bin/git ]]; then
   expected=$(printf '#!/bin/sh\nexec /usr/bin/sudo -u flask /usr/bin/git "$@"\n' | sha256sum | cut -d' ' -f1)

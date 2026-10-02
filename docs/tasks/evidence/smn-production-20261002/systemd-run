@@ -1,0 +1,12 @@
+#!/usr/bin/python3
+"""Correct the qualified installer's combined EnvironmentFile argument."""
+import os
+import sys
+
+args = []
+for arg in sys.argv[1:]:
+    if arg == 'EnvironmentFile=/etc/SMN/secrets.env /etc/SMN/dashboard.env':
+        args.extend(['EnvironmentFile=/etc/SMN/secrets.env', '-p', 'EnvironmentFile=/etc/SMN/dashboard.env'])
+    else:
+        args.append(arg)
+os.execv('/usr/bin/systemd-run', ['systemd-run', *args])

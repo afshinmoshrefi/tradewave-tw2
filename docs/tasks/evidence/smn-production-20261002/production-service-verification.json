@@ -1,0 +1,30 @@
+{
+  "health": 200,
+  "articles": 200,
+  "admin_settings_service_role_denied": 403,
+  "schedule": {
+    "daily_generation": {
+      "start_time": "05:30",
+      "target_time": "07:00",
+      "timezone": "America/New_York",
+      "no_start_grace_minutes": null,
+      "stall_minutes": null
+    },
+    "weekday_newsletter": {
+      "time": "07:00",
+      "timezone": "America/New_York"
+    },
+    "sunday_summary": {
+      "enabled": true,
+      "time": "09:00",
+      "timezone": "UTC"
+    }
+  },
+  "alerts_enabled": false,
+  "public_unauthenticated": 401,
+  "queue_tcp": 200,
+  "source_clean": true,
+  "source_sha": "d6e2b6fd59b15e2a601248df00073c078db24df4",
+  "first_day_guard": "[Service]\nExecCondition=/bin/sh -c 'test \"$(/usr/bin/date +%%s)\" -ge 1791000000'\n",
+  "subscriber_smoke_sends": 0
+}
