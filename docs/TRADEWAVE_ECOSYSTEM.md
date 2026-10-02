@@ -861,6 +861,20 @@ and use touch-sized controls. Scenario response copy normalizes em dashes for
 legacy snapshots, web/print and CSV while retaining original stored numeric facts;
 new AI commentary also follows this house punctuation rule. See TW-BUG-0020.
 
+Scenario Studio paints its own self-contained palette. Every color in
+`web-react/src/components/styles/PortfolioScenarios.css` is a literal, and the
+component does not read `themeColors(UITheme)` from `Common.js`, so the studio
+stays a light report surface while the viewer around it may be dark and so the
+print rules keep working. That independence is deliberate, but it also lets the
+file drift off brand: it shipped in a green and gold palette and was recolored to
+the TradeWave scheme on October 2, 2026 (c9a8656). The brand values this file must
+use are `#140f21` for the `TW / RESEARCH` top bar, `#1e1833` for the heading and
+report hero bands, `#EAF0F8` on those dark bands, `#7C5CFF` / `#6d4df2` / `#a98bff`
+purple for accents, active tabs, focus rings and primary buttons, and neutral slate
+greys (`#1b1733` through `#9ea3b6`, borders `#e3e6f0`) for the light body. Gain and
+loss keep their semantic green and red. Any rule added to this file must reuse those
+values; do not reintroduce a per-component palette.
+
 The authenticated routes are registered by `appserver/appserver/portfolio_scenarios.py`:
 `POST /portfolio_holdings/preview`, `POST /portfolio_holdings/<portfolio_id>`,
 `GET/POST /portfolio_scenarios/<portfolio_id>`, and
