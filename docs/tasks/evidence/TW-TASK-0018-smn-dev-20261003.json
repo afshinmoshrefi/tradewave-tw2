@@ -1,17 +1,30 @@
 {
   "task": "TW-TASK-0018",
   "environment": "dev",
-  "recorded_at": "2026-10-03T06:11:25Z",
-  "status": "core_dev_verified_full_scope_in_progress",
-  "final_coordinator_sha_and_smoke": "pending",
+  "recorded_at": "2026-10-03T06:37:07Z",
+  "status": "dev_delivered_provider_dependent_work_blocked",
   "smn": {
-    "verified_core_sha": "9602d3d5e16a92f2bf1f527db70bc2bbbc4d8d37",
-    "active_source": "/opt/smn-worktrees/smn-membership-complete-20261003",
+    "active_source": "/opt/smn-worktrees/smn-membership-delivery-20261003",
     "daily_source_pointer": "/opt/smn-daily/current",
     "daily_pointer_reconciled": true,
     "existing_scheduler_provider_roles_preserved": true,
-    "pending_prompt_candidate_sha": "ece5ff0b67cb79da498544115ec21d1033031804",
-    "no_production_changes": true
+    "no_production_changes": true,
+    "delivered_main_sha": "fd15013dc7a117f2882bc4820d9b016e4d30067b",
+    "daily_pointer_target": "/opt/smn-worktrees/smn-membership-delivery-20261003",
+    "status": "active_verified",
+    "verified_at": "2026-10-03T06:31:13.184363+00:00",
+    "controller_settings_bytes_unchanged": true,
+    "service_restarts": {
+      "smn-reader": 0,
+      "pub_dashboard": 0,
+      "blog_queue": 0,
+      "article_processor": 0
+    },
+    "launch_correction": "zz-membership.conf overrides legacy integrity-release.conf; effective candidate Python/script verified",
+    "final_delivery_receipt": "/var/lib/tradewave/release-state/smn-membership-final-20261003-delivery/receipt.json",
+    "prior_verified_core_sha": "9602d3d5e16a92f2bf1f527db70bc2bbbc4d8d37",
+    "legacy_launch_fix_sha": "78826e806a1b17c2919cad947f88b360aa9029d8",
+    "activation_locks": "released"
   },
   "central": {
     "application_sha": "3cc399a0e451fcb45fedf1ee46ab9a3f3170c921",
@@ -142,7 +155,10 @@
     "revision": "r-b89bdfae310ad5bd04452472166a0cf5",
     "approved_and_published_via_real_admin_ui": true,
     "full_source_unchanged": true,
-    "exact_generated_job_approval_and_export_smoke": "pending"
+    "exact_generated_job_approval_and_export_smoke": "passed",
+    "generated_copy_job": "8e1e63a21af9563606dec231",
+    "generated_copy_approved_via_real_admin_ui": true,
+    "full_financial_text_note": "unchanged modulo revision URLs; native asset bytes verified"
   },
   "daily_briefings": {
     "oct3": {
@@ -272,17 +288,60 @@
         }
       }
     ],
-    "final_timed_import_and_full_media_approval": "pending",
-    "avatar_generated": false
+    "final_timed_import_and_full_media_approval": "all_four_imported_daily_UI_approved_three_archival_article_pilots_pending_media_approval",
+    "avatar_generated": false,
+    "timed_jobs_imported": 4,
+    "artifact_getter_checks": 48,
+    "all_ffmpeg_decoded": true,
+    "exact_speech_script_checked": true,
+    "article_pilots": {
+      "source_qualified_for_current_publication": false,
+      "visibility": "private",
+      "media_review_status": "pending"
+    },
+    "daily_public": {
+      "job_id": "d06d44e8499b61fee940ddf7",
+      "path": "/briefings/2026-10-02-wrap",
+      "video_sha256": "24d56aacd328ca2911f407e1598df00a51cff6b128a86e0e618ede6b67b686bf",
+      "captions_same_job_exact_hash_verified": true,
+      "no_store": true,
+      "browser_decoded": true,
+      "width": 1080,
+      "height": 1920,
+      "duration_seconds": 44.120816,
+      "ready_state": 4,
+      "AI_narration_disclosure": true,
+      "approved_via_Dev_UI": true
+    },
+    "qa_method": [
+      "ASR exact speech text",
+      "measured timing",
+      "sampled frames"
+    ],
+    "qa_not_claimed": [
+      "human full listen",
+      "lip-sync",
+      "likeness"
+    ],
+    "avatar_and_unattended_API": "blocked_missing_new_key_and_unanswered_action_time_browser_permission"
   },
   "exports": {
     "adapters_implemented": true,
-    "live_complete": false,
-    "pending_fixes": [
-      "root-relative canonical URL",
-      "stale job version"
+    "live_complete": true,
+    "pending_fixes": [],
+    "external_dispatch_authorized": false,
+    "social_job": "91b33f1adede527cb0914547",
+    "substack_job": "fd2549bb3416c894360bf696",
+    "both_approved_via_real_admin_UI": true,
+    "review_type": "export_not_media",
+    "verified": [
+      "exact approved source copy/hashes",
+      "HTTPS ADP canonical link",
+      "no private full body",
+      "repeat no-write idempotency",
+      "Playwright correct export review UI"
     ],
-    "external_dispatch_authorized": false
+    "dispatch_status": "disabled"
   },
   "focused_tests": {
     "central": 74,
@@ -295,18 +354,93 @@
     "runtime_media_linux": 49,
     "publisher_isolated": 98,
     "publisher_subtests": 37,
-    "not_total_regression_count": true
+    "not_total_regression_count": true,
+    "final_behavior_core": 52,
+    "final_behavior_sha": "4c3adb811f25bbad8ebf1167aa4625d625874144",
+    "final_behavior_os": [
+      "Windows",
+      "Linux"
+    ]
   },
   "dependencies": [
-    "coordinator final source/parity/smoke receipt",
-    "corrected live export/download proof",
-    "final timed media import/listening/visual approval",
-    "ElevenLabs account API key and explicit action-time browser permissions",
-    "personal avatar/reference and account/model readiness",
+    "new ElevenLabs account API key and unanswered explicit action-time browser permissions",
+    "personal avatar/reference and account/model readiness; no avatar generated",
+    "three archival article pilot current-source qualification/media approval",
+    "human full listening and avatar likeness/lip-sync QA not performed",
     "hosted Stripe test Checkout card entry",
     "future genuine scheduled edition proof",
-    "later staging/production authorization and release gates"
+    "external posting destination/accounts and separate authorization",
+    "later staging/production release gates"
   ],
   "no_secrets_or_auth_tokens": true,
-  "scope_complete": false
+  "scope_complete": false,
+  "final_product_smoke": {
+    "passed": true,
+    "checks": 65,
+    "checked_at": "2026-10-03T06:20:45.495468+00:00",
+    "behavioral_source_sha": "4c3adb811f25bbad8ebf1167aa4625d625874144",
+    "proof": "/var/lib/tradewave/release-state/smn-membership-final-20261003/final-product-smoke.json",
+    "final_followups_scope": "worker launch verification and export review labels only",
+    "final_Playwright_export_and_media_regression": "passed",
+    "neutral_registration_CTA": "verified_free_and_cardless"
+  },
+  "final_UI_review": {
+    "verified_at": "2026-10-03T06:35:10.518100+00:00",
+    "scope": "Real administrator UI review of exact generated copy, two public exports and measured daily media; no external publication",
+    "jobs": [
+      {
+        "id": "8e1e63a21af9563606dec231",
+        "kind": "derivative",
+        "review_status": "approved",
+        "dispatch_status": "disabled",
+        "artifact_hashes": {
+          "copy.json": "ebbbe1b135e8fe2cbf3a7d8b2e504755abf66617a15ceed59d27766b7dad4bfd",
+          "checks.json": "279c988a4cae5454b0fb01bf141e02009dd5391ca7859d61fcc9eed52b52e521"
+        }
+      },
+      {
+        "id": "91b33f1adede527cb0914547",
+        "kind": "social_export",
+        "review_status": "approved",
+        "dispatch_status": "disabled",
+        "artifact_hashes": {
+          "social-public.txt": "53d46f192afa8144ea77662c68b99850348470c021256830b9410d9ba48aca37",
+          "export.receipt.json": "f8b7a209b905bc6275d5109718f578f3a3d160ef12ecc9c7316c0997a5ee0683"
+        }
+      },
+      {
+        "id": "fd2549bb3416c894360bf696",
+        "kind": "substack_export",
+        "review_status": "approved",
+        "dispatch_status": "disabled",
+        "artifact_hashes": {
+          "substack-free.txt": "0c4eee3284df16af8be7c31d3364f4e20c5b15983943cd34958122d3c9282864",
+          "substack-free.html": "fe9fe32bfb6a1a817ab7cb47591ccfc146d85917021d5434b8667a283519adf7",
+          "export.receipt.json": "cbe3f4358ca9075481dec697747c5df1622b6e4523e042e0dd88403e446ec67c"
+        }
+      },
+      {
+        "id": "d06d44e8499b61fee940ddf7",
+        "kind": "daily_briefing",
+        "review_status": "approved",
+        "dispatch_status": "disabled",
+        "artifact_hashes": {
+          "briefing.json": "1b20fb41e402d5c427696a2f03e3982b5946e466db10e2a1c76be44e41785719",
+          "briefing.mp4": "24d56aacd328ca2911f407e1598df00a51cff6b128a86e0e618ede6b67b686bf",
+          "briefing.receipt.json": "6ec411a752ac461c53f0a23194a4b46859bbcb786711f6dd6ae22c0cab94a150",
+          "captions.vtt": "eee06b047fa3f4061b83a702fcbab3a3771351622ff05e49205b21dc400253d2",
+          "card-1.png": "27e82b57138557f4d4a917adc0c2563955ad2a5a153a0a527fefbf7a010c195f",
+          "card-2.png": "9b16c6b9a1c552e96ddb10eb54a4ddd366812eed8635ce22c3818e1ea274d9aa",
+          "card-3.png": "401046a46fa4083fabe4e9d46c322539350df3c7ccf7fb87612139b1370ac214",
+          "narration.alignment.json": "ea25111d2810034e30cf5ffa769de4076ce8a19f26677e4f47f3f75ffbf2138b",
+          "narration.mp3": "ccd3122cc4fcbeef0bc872c17d1e916d4bf963760c3e37b601778f2353f49405",
+          "narration.receipt.json": "6d9c746f03e3c0bae5810f9f85113cf8e0cb05d956c8400fec161206e378f938",
+          "source-review.json": "755b4bdc8e7c0cd41cdec05d66bf45e00f54fe2474ba61f070ef57a4880b1895",
+          "transcript.txt": "86af1b8df443807398abe9dc91b28cb5563a299af621fc4aeea033248b403dff"
+        }
+      }
+    ],
+    "media_review_limit": "Exact transcript comparison, measured caption alignment, sampled frames and full decode; no claim of full human listening or avatar QA",
+    "proof": "/var/lib/tradewave/release-state/smn-membership-final-20261003-delivery/final-review-proof.json"
+  }
 }
