@@ -1,49 +1,45 @@
 # TW-BUG-0025: SMN article editor loses migrated private images and charts
 
-- Status: in-progress
-- Confidence: reproduced by the coordinator in the user's actual Chrome editor; documentation agent has not independently rerun the browser reproduction.
-- Priority: P2 - all five Microsoft article images/charts are broken in the edit window.
-- First observed / last updated: 2026-10-03T10:39:44.243605+00:00
+- Status: verified on dev
+- Confidence: reproduced and fixed in the original genuine user Chrome editor; coordinator performed live verification, implementation agent ran focused tests, documentation agent checked retained receipts.
+- Priority: P2 - all five Microsoft article images/charts were broken in the edit window.
+- Last updated: 2026-10-03T11:01:07.041855+00:00; original claim is retained in Git history `74446f32732f426a747d18cb12740bc952948dfb`.
 - Executor/session/claim time: Codex coordinator `/root` and Sol 6.1 implementation agent `/root/membership_builder`; session `01a0ff6b-e439-79a3-9aa3-9d70763f9e85`; claimed 2026-10-03T10:39:44.243605+00:00. `/root/preview_builder` owns this shared record only.
-- Authorization: fix editor preview asset resolution after private-corpus migration and verify on Dev. Preserve the existing MSFT draft, protected-reader entitlement checks and private assets. No financial/math/provider changes, unrelated edits, public asset exposure or production writes.
+- Authorization: narrow editor preview asset resolution fix and Dev verification. No MSFT draft writes, reader entitlement relaxation, anonymous private assets, financial/math/provider changes or production writes.
 
-## User Impact and Reproduction
+## Reproduction and Confirmed Cause
 
-SMN Dev source/main `2b00e6cbc8ae1ce363fb601cf91a9b0ea1ef6d5b`, active `/opt/smn-worktrees/smn-promotion-links-20261003` on .180. Genuine user Chrome tab `333161940` is editing MSFT draft `517ef29290284f369147fca49e99f50d`, version4, for `/editions/2026-10-02/MSFT/article.html`.
+At SMN main/live `2b00e6cbc8ae1ce363fb601cf91a9b0ea1ef6d5b`, user's Chrome tab `333161940` edited MSFT draft `517ef29290284f369147fca49e99f50d`, version 4, for `/editions/2026-10-02/MSFT/article.html`. All five image elements had `naturalWidth=0`: relative references resolved to old `/editions/2026-10-02/MSFT/assets/...` paths intentionally denied after private migration. The editor rendering path lacked private revision-bound asset resolution. Reopening anonymous raw routes would weaken the intended access policy.
 
-1. Open the Microsoft article edit window through the authenticated publishing dashboard.
-2. Inspect its article preview and image loading.
-3. Expected: all five retained images/charts load from an authorized private revision/draft asset resolver.
-4. Actual: all five image elements have `naturalWidth=0`. Relative asset references resolve to `/editions/2026-10-02/MSFT/assets/...`, where migrated assets are no longer anonymously available.
+## Fix and Regression Verification
 
-Do not save, regenerate, replace, delete or otherwise mutate this user's draft during reproduction or testing.
+SMN pushed/main fix `6f9812d6ad74d9c6d65329c0c3ed91cd95c22bba` changes only `blog/article_editor_routes.py` and `blog/tests/test_editor_private_assets.py`. The owner-only render response embeds verified retained private raster bytes as data URIs. Resolution binds exact canonical/revision/asset SHA/cache-v, including legacy draft-v0 provenance; unresolved/stale/path traversal inputs fail closed. External/data/font references pass through without network fetching or arbitrary filesystem reading. Existing owner authorization, CSP sandbox and no-store remain unchanged; saved draft HTML is not rewritten.
 
-## Evidence and Investigation
+- 32 focused tests passed on Windows and 32 on actual Linux: `test_editor_private_assets`, `test_article_editor`, `test_membership_publication`. Linux used temporary isolated `SMN_DASHBOARD_STATE` and real locks for existing suites; Windows patched only unavailable `posts_lock` platform behavior.
+- Original browser editor was closed/reopened with empty input only. All five images decode with positive dimensions; browser SHA256 values match exact private inventory. Original failure is fixed.
+- Before/after custody is identical for entire draft state, all five HTML revisions, catalog, private manifest/full HTML and all 14 assets. Draft remains version 4/idle with state SHA256 `90fcb0f69d7d65606a794c3b835073f50d0f503d499148f0c625a1f4146f4317`; zero editor jobs ran.
+- Anonymous live local origin (real vhost, no cookies): owner editor preview 401 and old private chart 404. Entitlements/private access remain intact.
 
-Coordinator observed the actual browser failure at the source above. The broken resolved URL and zero image dimensions are confirmed; the exact editor rendering/resolver defect is still under investigation. Private-corpus migration deliberately denies old raw asset routes; reopening those public routes is not an acceptable fix. Related feature: [TW-TASK-0018](../tasks/TW-TASK-0018.md).
+## Evidence
 
-Portable automated regression and sanitized live browser evidence are pending the implementation. No credentials, cookies, tokens or draft article content belong in this record.
+Retained local directory: `C:/Users/afshin/Documents/ChatGPT/Seasonal Market News/artifacts/smn-editor-assets-20261003/` contains `editor-before.png`, `editor-after.png`, `browser-images.json`, `before.json`, `after.json`, `activation.json`, `anonymous-origin.json`. Browser image hashes/dimensions, custody comparison and anonymous HTTP checks are inspectable without credentials. Remote receipt directory: `/var/lib/tradewave/release-state/smn-editor-assets-20261003` on .180; authenticated host access is required.
 
-## Acceptance and Regression Checks
+Safe recreation: open this same draft through authenticated dashboard without saving/generating; inspect all image dimensions and hash decoded raster bytes against retained private manifest, compare read-only custody snapshots, then request owner preview and old private chart without cookies. Do not dump private article content or authentication secrets.
 
-- Original MSFT edit window: all five images/charts render with nonzero natural dimensions in the real browser.
-- Existing draft ID/version/content/dirty state and source assets are preserved; no MSFT draft writes.
-- Relevant authenticated saved/draft/revision preview paths resolve only retained allowlisted assets and preserve version binding.
-- Unknown asset, traversal and stale/unavailable revision handling fail closed. Anonymous access does not acquire private full-body/assets; reader entitlement rules remain intact.
-- Focused tests and actual Dev browser smoke bind exact pushed fix/main/live SHA. Tests have not run yet.
+## Deployment and Handoff
 
-## Implementation and Handoff
+Dev dashboard `active_verified` at 2026-10-03T10:58:29.985179+00:00, running `/opt/smn-worktrees/smn-editor-assets-20261003/blog`, exact fix/main SHA above. Only `pub_dashboard` restarted. Reader/queue/processor PIDs and `/opt/smn-daily/current` remain at prior `2b00e6c` source; this is a deliberate dashboard-only fix, not an all-service source-parity claim. Coordinator's .180 activation lock is released; prior dashboard unit retained for rollback. No editor publish, model jobs or production deployment.
 
-Application repository: SMN. Coordinator prepares code worktree `C:/Users/afshin/Documents/TradeWave Main Orchestrator/smn-editor-assets-20261003`, branch `codex/smn-editor-assets-20261003`, from current SMN `origin/main` (`2b00e6c...`). Implementation ownership is limited to `blog/article_editor_routes.py`, `blog/article_editor.py` and directly related asset-resolver tests only when necessary. Code SHA: pending; activation/browser verification owned by coordinator.
+Implementation branch/worktree: `codex/smn-editor-assets-20261003`, `C:/Users/afshin/Documents/TradeWave Main Orchestrator/smn-editor-assets-20261003`, clean/pushed. Shared docs: `codex/smn-editor-assets-bug-20261003`, `C:/Users/afshin/Documents/smn-editor-assets-bug-record-20261003`. Final docs update changes this record, bug index and one ecosystem implementation fact only; identify its accepted commit with `git log -1 -- docs/bugs/TW-BUG-0025.md`.
 
-Documentation repository: TW2. Fresh worktree `C:/Users/afshin/Documents/smn-editor-assets-bug-record-20261003`, branch `codex/smn-editor-assets-bug-20261003`, from current TW2 main `f9be13c633b94c2008774845cfd229d38ae36fc2`. Initial claim changes this record and bug index only. Claim commit is identified by `git log -1 -- docs/bugs/TW-BUG-0025.md`; acceptance requires nonforced shared-main push and refetch before code edits. No app activation is needed for this claim.
+Next: no code work remains for this reproduction. Preserve draft state and private access; future regressions reopen this same ID with exact source/browser evidence. Related feature [TW-TASK-0018](../tasks/TW-TASK-0018.md) retains its separate provider/media scope.
 
-Next: after shared claim acceptance, implementation agent investigates existing private-store/editor resolver patterns and makes the smallest fix; coordinator activates the exact tested candidate on Dev and repeats original browser and private-access checks. Documentation agent then updates this bug/index and one appropriate ecosystem implementation fact from actual evidence. Preserve unrelated work and all user state.
+## Environment Verification and Limits
 
-## Environment Verification
-
-Dev: original failure reproduced; fix/activation/verification pending. Staging: not deployed/checked by this task. Production: unchanged/not checked.
+Dev: original user browser and anonymous local-origin checks verified at exact fix SHA; focused Windows/Linux suites passed. Staging/production: not deployed or checked. Live browser coverage is this original MSFT draft, not every archived article or mobile device; broader resolver cases are focused automated tests.
 
 ## History
 
-- 2026-10-03T10:39:44.243605+00:00: reproduced editor-only image/chart failure; claimed narrow fix and explicitly preserved MSFT draft and private-reader authority. Shared claim publication/refetch is the immediate next action.
+- Initial claim accepted/refetched on shared main `74446f32732f426a747d18cb12740bc952948dfb`; narrow implementation ownership published before code edits.
+- 2026-10-03T10:54:15.949057+00:00: coordinator activated dashboard-only exact fix candidate after focused tests.
+- 2026-10-03T10:58:29.985179+00:00: original editor images, byte-identical custody and anonymous denial verified; status changed to verified on Dev. Documentation-only handoff requires no further app activation.

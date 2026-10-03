@@ -43,4 +43,4 @@ Status belongs in each record and this index; update both together. Preserve res
 
 | [TW-BUG-0024](TW-BUG-0024.md) | P2 | open | API scan load qualification fails intermittently after restart; blocks SMN auth promotion |
 
-| [TW-BUG-0025](TW-BUG-0025.md) | P2 | in-progress | SMN Microsoft edit-window images/charts broken after private asset migration; user draft preserved |
+| [TW-BUG-0025](TW-BUG-0025.md) | P2 | verified on dev | SMN private editor images/charts restored; original MSFT draft/assets unchanged, anonymous access denied |
