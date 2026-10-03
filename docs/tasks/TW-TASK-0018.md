@@ -1,7 +1,7 @@
 # TW-TASK-0018: SMN Membership Preview and Daily Briefing Foundations
 
 - Status: in-progress
-- Confidence: reproduced (source/policy baseline); agents started implementation
+- Confidence: reproduced (source/policy baseline); offline foundation checkpoint tested; editorial/product qualification incomplete
 - Priority: P2 - authorized product foundations, no production incident
 - First observed / last updated: 2026-10-03T03:07:21.1037656Z
 - Executor/session/claim time: Codex coordinator 01a0ff6b-e439-79a3-9aa3-9d70763f9e85 / 2026-10-03T03:07:21.1037656Z
@@ -30,7 +30,7 @@ Focused offline tests must prove evidence/hash binding, direction and material c
 
 ## Implementation and Handoff
 
-Shared branch codex/smn-membership-kickoff-record-20261002; worktree C:/Users/afshin/Documents/smn-membership-kickoff-record-20261002. Source branches start clean at fetched SMN main. Pushed implementation SHAs/tests: pending. Documentation claim commit identified by git log -1 -- docs/tasks/TW-TASK-0018.md and completion receipt. No config/migrations/build/runtime changes in this claim. Claim 9bb4175f5d52e09818afbe78a8df2850cb6f98b7 was accepted on shared main and refetched. Both child agents have started their independent scopes. Next: checkpoint exact commits/evidence and remaining pilot limits for parent integration/review.
+Shared branch codex/smn-membership-kickoff-record-20261002; worktree C:/Users/afshin/Documents/smn-membership-kickoff-record-20261002. Source branches start clean at fetched SMN main. Pushed implementation SHAs and tests are recorded in the checkpoint below. Documentation claim commit identified by git log -1 -- docs/tasks/TW-TASK-0018.md and completion receipt. No config/migrations/build/runtime changes in this claim. Claim 9bb4175f5d52e09818afbe78a8df2850cb6f98b7 was accepted on shared main and refetched. Both child agents have started their independent scopes. Next: checkpoint exact commits/evidence and remaining pilot limits for parent integration/review.
 
 Knowledge checkpoint: task state and decisions use this canonical record and plan. No new implemented architecture exists to assert in ecosystem documentation; no private memory updates authorized or performed.
 
@@ -44,3 +44,21 @@ Dev: not deployed by this task. Staging: not checked; no SMN staging environment
 Retained fixture discovery: OMC and LEN September17 have passing receipts under smn-review-20260917/engine-editorial. A qualified bearish fixture is missing; the three-article pilot remains partial until one is found and reviewed.
 
 - 2026-10-03T03:11:00.2932050Z, Codex /root/dev_baseline: clarified broad development authorization versus staged first checkpoint; recorded canonical child identifiers and agents-started state. No runtime or scope changes.
+
+## Non-Deployable Foundation Checkpoint - October 3 UTC (October 2 Development)
+
+Status remains in-progress. Combined SMN branch codex/smn-membership-foundations-20261002 is clean and pushed at a965c3b7752b5fa068b44df18ce8e0b173e82fba, based on 1663cecd62e0accf9dc9ff52f7c4a2f16e7f2e4f. [Draft PR #3](https://github.com/afshinmoshrefi/SMN/pull/3) is the review artifact; it is non-deployable, not staging-ready and not a completed implementation plan. No SMN main/runtime integration or Dev activation occurred.
+
+Source commits: preview c8f42de5ab421cb597b0bca464c73ac3828dfa0a; LEN fixture/docs f7c37d7acbb402c2d4ca440446ab6b6b3264dee2; briefing 33f085fc0aea3752bf262613a0ee9b89ea347757. Modules added: blog/public_derivative.py (offline preparation, retained approval/evidence custody, cumulative source budgets), blog/daily_briefing.py (dated grouped claims and private review packaging), blog/elevenlabs_briefing.py (offline readiness holds only), their focused tests/schema and development docs/examples. Existing controllers, publisher, dashboard/auth, engine, scheduler and billing unchanged.
+
+Parent verification at exact combined SHA: from blog, `py -3.12 -m unittest tests.test_public_derivative test_subscription_writer tests.test_daily_briefing tests.test_elevenlabs_briefing` passed 40 tests; git diff --check passed. Independent /root/dev_baseline review identified and builders repaired two concrete findings: recalculated chart/source allowance custody now matches approved mechanical.source_words, and Reuters publication timezone is no longer invented. Final briefing commit independently passed 18 tests under Python 3.12. Held HTML renders unsafe/non-HTTPS source URLs as plain text. Normal packaging rejects held input; explicit --allow-held exports a private artifact that remains held/non-approved; ElevenLabs readiness still rejects the held revision even with otherwise complete operator configuration.
+
+Retained real preview CLI evidence: OMC 97 preview words; LEN 106. Company-source totals OMC 179/200 with zero new derivative words; LEN 193/200 with 19 new words. Private artifacts under the local implementation-plan artifact directory, preview-pilot/omc-prepared-v2, omc-received-v2, len-prepared and len-received. Recreate using docs/preview-development.md and locally retained smn-review-20260917/engine-editorial bundles/jobs; manifests identify article and reviewer inputs. Original evidence is not copied into public artifacts. These mechanical passes do not approve semantic truth or public usefulness.
+
+The committed dated briefing artifact is blog/examples/daily-briefing/review-20261002-held/review.html on the draft branch. Reuters publication timestamp is null with raw display retained and timestamp_status uncertain, so cutoff qualification is held. Editorial review and the full preferred-source scan remain pending. The older ignored builder artifact is preserved but superseded and must not be used. No audio, avatar or video was generated; no real ElevenLabs account/model/voice/likeness qualification is asserted.
+
+Release/claim recheck before this shared checkpoint: active tw2-20261002-02 failed, manager released, main_locked_sha null; Dev activation lock absent. TW-TASK-0009 retains generator/publisher/scheduler recovery; TW-TASK-0017 retains administrator auth/promotion. No config/migrations/secrets/provider charges/external sends/posts or private-memory edits. All environments remain not deployed by this task.
+
+Executable next steps: fetch the exact draft PR branch, run the focused command above under Python 3.12, inspect docs/preview-development.md and docs/daily-briefing-development.md, reproduce the retained OMC/LEN artifacts, locate a genuinely qualified bearish artifact, and perform source-bound semantic review of all three derivatives. Complete P1 generator/reader integration only after that contract is qualified, within separately claimed non-overlapping files; complete actual preferred-source scan/timestamp qualification and ElevenLabs account qualification. These are next stages of authorized development, not a new routine permission boundary. Live commercial activation, unverified provider generation, external sending and production retain their existing requirements and unresolved product decisions.
+
+Knowledge checkpoint: architecture documentation points to these offline modules only on the draft branch; no running service or implemented reader/paywall is claimed. This record owns current task/evidence status.
