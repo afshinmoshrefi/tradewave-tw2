@@ -236,6 +236,13 @@ def handle_event(event, environment, *, session_factory=Session, provider=None):
             receipt = s.query(StripeEvent).filter_by(stripe_event_id=event["id"]).with_for_update().one()
             if receipt.processed_at:
                 return dict(received=True, duplicate=True, product_line="smn")
+        if known is None and customer_known is None:
+            receipt.processed_at = now_utc()
+            receipt.processing_error = "foreign_smn_customer"
+            s.commit()
+            return dict(received=True, ignored="foreign_smn_customer", product_line="smn")
+        if environment == "dev" and event.get("livemode") is True:
+            raise MembershipError("live_event_not_allowed_on_dev", 409)
         if typ.startswith(("charge.refunded", "charge.dispute.")):
             receipt.user_id = customer_known.user_id if customer_known else None
             s.add(AuditLog(actor_label="stripe_smn", action="smn_payment_review_required", target_user_id=receipt.user_id, details={"event_id": event["id"], "event_type": typ}))

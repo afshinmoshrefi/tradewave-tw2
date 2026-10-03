@@ -502,6 +502,34 @@ Flask-rendered (static from `/var/www/tradewave/`).
   validates the environment/admin claim and rejects replay. This is independent
   of the portfolio publish-state branch; deployment/configuration status belongs
   to [TW-TASK-0008](tasks/TW-TASK-0008.md) and [TW-TASK-0009](tasks/TW-TASK-0009.md).
+- **SMN reader membership (TW-TASK-0018):** `web/smn_membership.py` owns
+  subject-bound verified enrollment and exclusive UTC grant expiry;
+  `web/smn_reader_authorization.py` exposes separate `/smn-reader/*` and
+  `/smn-admin/*` service APIs. Opaque authorities stay server-side, are stored
+  as hashes centrally, expire within eight hours and the WorkOS session end,
+  and revalidate verified WorkOS identity/active session on every use. Reader
+  and administrator service keys/kinds are distinct; current `super_admin`
+  and a bound CSRF proof are required for administrator settings writes.
+  Reader signup uses the stable WorkOS subject without email merging or
+  TradeWave reverse-trial, tier, subscription or marketing mutations.
+  Migration `fa8c2d601b93` adds SMN-only memberships, offers, grants, settings
+  and authority tables, and expands Checkout claims to `smn`. Its initial
+  offer is free: verified signup grants open-ended access without Stripe or
+  an invisible trial. Immutable future offers affect new enrollment;
+  existing free grants remain intact. `web/smn_billing.py` uses an isolated
+  StripeClient at API `2026-08-26.dahlia`, existing durable Checkout claims and
+  event receipts, dedicated SMN customer/subscription binding, and paid
+  invoice service-period grants. Unknown Checkout outcomes reuse exact
+  parameters/idempotency; late events cannot cancel a newer subscription or
+  extend an unpaid renewal. Refund/dispute events require administrator
+  review and do not silently revoke unrelated access. Billing defaults off;
+  Dev refuses live keys. Runtime and real sandbox verification are recorded
+  in the task, not inferred from these source contracts. Application rollback
+  preserves membership/payment tables; the migration refuses destructive
+  downgrade. Reader WorkOS application/issuer pinning is explicit; Dev may
+  deliberately reuse the existing SMN client with separately validated
+  PKCE/state/cookies while a dedicated production reader client is retained
+  as a launch requirement.
 - **Direct SMN AuthKit login (TW-TASK-0017; verified on Dev October 2):**
   SMN may select `SMN_DASHBOARD_LOGIN_PROVIDER=workos`. Its `/login` starts a
   browser-bound, ten-minute OAuth state plus S256 PKCE flow; `/auth/callback`
