@@ -73,6 +73,9 @@ server {
     location = /signup    { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
     location = /login     { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
     location = /smn-dashboard/login { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    location = /smn-dashboard/authorize { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    location ^~ /smn-reader/ { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    location ^~ /smn-admin/ { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
     location = /logout    { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
     location = /account   { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
     location /account/    { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
