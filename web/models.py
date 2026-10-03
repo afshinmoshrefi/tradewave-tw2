@@ -185,7 +185,7 @@ class StripeCheckoutClaim(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "product_line IN ('eod','api')",
+            "product_line IN ('eod','api','smn')",
             name="stripe_checkout_claims_product_line_check",
         ),
         CheckConstraint(
@@ -193,6 +193,91 @@ class StripeCheckoutClaim(Base):
             name="stripe_checkout_claims_session_pair_check",
         ),
     )
+
+
+class SmnOffer(Base):
+    __tablename__ = "smn_offers"
+    id = Column(Integer, primary_key=True)
+    mode = Column(Text, nullable=False)
+    currency = Column(Text, nullable=False)
+    monthly_amount = Column(Integer, nullable=False)
+    annual_mode = Column(Text, nullable=False)
+    annual_amount = Column(Integer, nullable=False)
+    annual_discount_bps = Column(Integer)
+    trial_days = Column(Integer, nullable=False)
+    intervals = Column(JSONB, nullable=False)
+    stripe_product_id = Column(Text)
+    stripe_monthly_price_id = Column(Text)
+    stripe_annual_price_id = Column(Text)
+    activated_at = Column(TIMESTAMP(timezone=True))
+    created_by = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"))
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    __table_args__ = (
+        CheckConstraint("mode IN ('free','paid')", name="smn_offer_mode"),
+        CheckConstraint("currency IN ('usd','eur','gbp','cad','aud','jpy')", name="smn_offer_currency"),
+        CheckConstraint("trial_days BETWEEN 0 AND 365", name="smn_offer_trial"),
+        CheckConstraint("monthly_amount >= 0 AND annual_amount >= 0", name="smn_offer_amounts"),
+        CheckConstraint("annual_discount_bps IS NULL OR annual_discount_bps BETWEEN 0 AND 9999", name="smn_offer_discount"),
+        CheckConstraint("annual_mode IN ('explicit','discount')", name="smn_offer_annual_mode"),
+    )
+
+
+class SmnSettings(Base):
+    __tablename__ = "smn_settings"
+    id = Column(Integer, primary_key=True)
+    version = Column(Integer, nullable=False, server_default=sa_text("1"))
+    active_offer_id = Column(Integer, ForeignKey("smn_offers.id"), nullable=False)
+    __table_args__ = (CheckConstraint("id = 1", name="smn_settings_singleton"),)
+
+
+class SmnMembership(Base):
+    __tablename__ = "smn_memberships"
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    enrollment_offer_id = Column(Integer, ForeignKey("smn_offers.id"), nullable=False)
+    verified_at = Column(TIMESTAMP(timezone=True), nullable=False)
+    first_trial_started_at = Column(TIMESTAMP(timezone=True))
+    first_trial_ends_at = Column(TIMESTAMP(timezone=True))
+    suspended_at = Column(TIMESTAMP(timezone=True))
+    stripe_customer_id = Column(Text, unique=True)
+    stripe_subscription_id = Column(Text, unique=True)
+    stripe_subscription_status = Column(Text)
+    subscription_offer_id = Column(Integer, ForeignKey("smn_offers.id"))
+    cancel_at_period_end = Column(Boolean, nullable=False, server_default=sa_text("false"))
+    period_ends_at = Column(TIMESTAMP(timezone=True))
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+
+
+class SmnGrant(Base):
+    __tablename__ = "smn_grants"
+    id = Column(PG_UUID(as_uuid=True), primary_key=True)
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("smn_memberships.user_id", ondelete="CASCADE"), nullable=False)
+    source = Column(Text, nullable=False)
+    source_key = Column(Text, nullable=False, unique=True)
+    offer_id = Column(Integer, ForeignKey("smn_offers.id"), nullable=False)
+    starts_at = Column(TIMESTAMP(timezone=True), nullable=False)
+    ends_at = Column(TIMESTAMP(timezone=True))
+    revoked_at = Column(TIMESTAMP(timezone=True))
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    __table_args__ = (
+        CheckConstraint("source IN ('free_launch','trial','paid','admin')", name="smn_grant_source"),
+        CheckConstraint("ends_at IS NULL OR ends_at >= starts_at", name="smn_grant_period"),
+        Index("ix_smn_grants_user", "user_id"),
+    )
+
+
+class SmnAuthority(Base):
+    __tablename__ = "smn_authorities"
+    token_hash = Column(Text, primary_key=True)
+    kind = Column(Text, nullable=False)
+    csrf_hash = Column(Text)
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    workos_user_id = Column(Text, nullable=False)
+    workos_session_id = Column(Text, nullable=False)
+    environment = Column(Text, nullable=False)
+    expires_at = Column(TIMESTAMP(timezone=True), nullable=False)
+    revoked_at = Column(TIMESTAMP(timezone=True))
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    __table_args__ = (CheckConstraint("kind IN ('reader','admin')", name="smn_authority_kind"),)
 
 
 class CouponUsed(Base):

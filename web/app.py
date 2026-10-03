@@ -203,6 +203,11 @@ workos_client = WorkOSClient(
 )
 
 # Internal: where users return to after WorkOS hosted UI
+from smn_reader_authorization import create_blueprint as _smn_membership_blueprint
+_smn_bp = _smn_membership_blueprint(workos_client, config.tw2_env)
+csrf.exempt(_smn_bp)  # service keys plus bound authorities; admin writes also require CSRF proof
+app.register_blueprint(_smn_bp)
+
 REDIRECT_URI = os.environ.get(
     "TW2_AUTH_CALLBACK_URL",
     f"http://{os.environ.get('TW2_PUBLIC_HOST', '192.168.1.176')}/auth/callback",
@@ -3618,6 +3623,16 @@ def webhook_stripe():
         data_obj = data_raw.to_dict() if hasattr(data_raw, "to_dict") else dict(data_raw)
     else:
         data_obj = data_raw
+
+    # Dispatch SMN before the legacy EOD/API resolver can mutate unrelated tiers.
+    from smn_billing import handle_event as _smn_handle_event
+    from smn_membership import MembershipError as _SmnMembershipError
+    try:
+        smn_result = _smn_handle_event(_json_safe(event), config.tw2_env, session_factory=DBSession)
+    except _SmnMembershipError as exc:
+        return jsonify(error=exc.code), 503  # retain provider retry for unresolved bindings/outages
+    if smn_result is not None:
+        return jsonify(smn_result), 200
 
     s = DBSession()
     try:
