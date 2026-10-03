@@ -1,18 +1,18 @@
 {
   "task": "TW-TASK-0018",
   "environment": "dev",
-  "recorded_at": "2026-10-03T06:37:07Z",
+  "recorded_at": "2026-10-03T08:05:05.856286+00:00",
   "status": "dev_delivered_provider_dependent_work_blocked",
   "smn": {
-    "active_source": "/opt/smn-worktrees/smn-membership-delivery-20261003",
+    "active_source": "/opt/smn-worktrees/smn-promotion-links-20261003",
     "daily_source_pointer": "/opt/smn-daily/current",
     "daily_pointer_reconciled": true,
     "existing_scheduler_provider_roles_preserved": true,
     "no_production_changes": true,
-    "delivered_main_sha": "fd15013dc7a117f2882bc4820d9b016e4d30067b",
-    "daily_pointer_target": "/opt/smn-worktrees/smn-membership-delivery-20261003",
+    "delivered_main_sha": "2b00e6cbc8ae1ce363fb601cf91a9b0ea1ef6d5b",
+    "daily_pointer_target": "/opt/smn-worktrees/smn-promotion-links-20261003",
     "status": "active_verified",
-    "verified_at": "2026-10-03T06:31:13.184363+00:00",
+    "verified_at": "2026-10-03T08:05:05.856286+00:00",
     "controller_settings_bytes_unchanged": true,
     "service_restarts": {
       "smn-reader": 0,
@@ -21,10 +21,13 @@
       "article_processor": 0
     },
     "launch_correction": "zz-membership.conf overrides legacy integrity-release.conf; effective candidate Python/script verified",
-    "final_delivery_receipt": "/var/lib/tradewave/release-state/smn-membership-final-20261003-delivery/receipt.json",
+    "final_delivery_receipt": "C:/Users/afshin/Documents/ChatGPT/Seasonal Market News/artifacts/smn-membership-plan-20261002/promotion-links-release-receipt.json",
     "prior_verified_core_sha": "9602d3d5e16a92f2bf1f527db70bc2bbbc4d8d37",
     "legacy_launch_fix_sha": "78826e806a1b17c2919cad947f88b360aa9029d8",
-    "activation_locks": "released"
+    "activation_locks": "released",
+    "prior_delivery_sha": "fd15013dc7a117f2882bc4820d9b016e4d30067b",
+    "prior_delivery_receipt": "/var/lib/tradewave/release-state/smn-membership-final-20261003-delivery/receipt.json",
+    "controller_settings_sha256": "d07e87776156d332df0f5e679596f9705ab5a488ced892e136562265c619da1f"
   },
   "central": {
     "application_sha": "3cc399a0e451fcb45fedf1ee46ab9a3f3170c921",
@@ -59,7 +62,72 @@
     "proofs": [
       "/var/lib/tradewave/release-state/smn-membership-dev-20261003/billing-readiness-receipt.json",
       "/var/lib/tradewave/release-state/smn-membership-dev-20261003/billing-provider-ledger-proof.json"
-    ]
+    ],
+    "hosted_checkout": {
+      "status": "passed_and_precisely_cleaned",
+      "checked_at": "2026-10-03T06:54:42.451470+00:00",
+      "mode": "test",
+      "synthetic_qa_identity_only": true,
+      "real_user_http_checkout_not_exercised": true,
+      "actual_hosted_test_payment_completed": true,
+      "actual_signed_webhooks_reconciled": true,
+      "period_end_cancel_before_cleanup_proven": true,
+      "snapshot_before": {
+        "User": {
+          "count": 14,
+          "sha256": "d90b36dbcba18354a97e818b90c69fe3da1ac1d55d77abc24b46fa7168f4b39d"
+        },
+        "SmnOffer": {
+          "count": 2,
+          "sha256": "96ddff778ae036829dc7b6256fed8463220c2afe73156dfa2fcb5a2dfa11e07b"
+        },
+        "SmnSettings": {
+          "count": 1,
+          "sha256": "fca3299837cf1937752afad5ac048da61297732bbbf1e1985d5912e22956e71f"
+        },
+        "SmnMembership": {
+          "count": 1,
+          "sha256": "48c99e743b0b188ed7b3f1ead03b67869a96f2000f614a6c4188715858ba1869"
+        },
+        "SmnGrant": {
+          "count": 1,
+          "sha256": "8f5136e8e2ac98db9083a7d1901a3ec023d36ef98d50f44107ff897ad60c78bf"
+        },
+        "active_offer_id": 1,
+        "settings_version": 2
+      },
+      "snapshot_after_cleanup": {
+        "User": {
+          "count": 14,
+          "sha256": "d90b36dbcba18354a97e818b90c69fe3da1ac1d55d77abc24b46fa7168f4b39d"
+        },
+        "SmnOffer": {
+          "count": 2,
+          "sha256": "96ddff778ae036829dc7b6256fed8463220c2afe73156dfa2fcb5a2dfa11e07b"
+        },
+        "SmnSettings": {
+          "count": 1,
+          "sha256": "fca3299837cf1937752afad5ac048da61297732bbbf1e1985d5912e22956e71f"
+        },
+        "SmnMembership": {
+          "count": 1,
+          "sha256": "48c99e743b0b188ed7b3f1ead03b67869a96f2000f614a6c4188715858ba1869"
+        },
+        "SmnGrant": {
+          "count": 1,
+          "sha256": "8f5136e8e2ac98db9083a7d1901a3ec023d36ef98d50f44107ff897ad60c78bf"
+        },
+        "active_offer_id": 1,
+        "settings_version": 2
+      },
+      "existing_users_tiers_roles_readers_free_offer1_draft2_exact_unchanged": true,
+      "services_or_active_source_changed": false,
+      "amount_usd": 1,
+      "invoice_bound_paid_grant_and_duplicate_event_idempotency": "parent reported payment/cancel proof; final receipt confirms cleanup and processed signed events",
+      "proof": "/var/lib/tradewave/release-state/smn-hosted-checkout-20261003/final-receipt.json",
+      "local_proof": "C:/Users/afshin/Documents/ChatGPT/Seasonal Market News/artifacts/smn-membership-plan-20261002/hosted-checkout-final-receipt.json",
+      "receipt_sha256": "8f80dedaa75da478134852f590fe969bb95d1e8bdc206b809dc41ca15ea9154d"
+    }
   },
   "corpus": {
     "catalog_articles_migrated": 705,
@@ -323,7 +391,54 @@
       "lip-sync",
       "likeness"
     ],
-    "avatar_and_unattended_API": "blocked_missing_new_key_and_unanswered_action_time_browser_permission"
+    "avatar_and_unattended_API": "blocked_missing_new_key_and_unanswered_action_time_browser_permission",
+    "current_ADP": {
+      "verified_at": "2026-10-03T07:59:07.175005+00:00",
+      "app_commit": "655453a378cdcfef71a4988f4a288a7d037b113d",
+      "job_id": "e236fa558bd32a1283ede403",
+      "status": "reviewed",
+      "review_status": "approved",
+      "dispatch_status": "disabled",
+      "generation_route": "authenticated_ui",
+      "script_job_id": "77226e89a9af8b44f72d7509",
+      "script_attempts": 2,
+      "deduplicated_automatic_video_child": true,
+      "source_hash": "6408f972fc043162190f3c9949e17b45aa119dc658332c65456aa4685b2b5e47",
+      "copy_sha256": "69fd7ec5e780967140208e911ed8649fd4f2aa688a4b684665f3ce2f18570abe",
+      "chart_sha256": "9dea04fe2fd2b11b63618939253b36d56404810bdde864cad2a3308944e1e423",
+      "retained_source_files_verified": 11,
+      "video_sha256": "cf3279d891a1db2bf30dda57d05de797298bb00e504fea4e053b6a1f9ebb62a9",
+      "video_seconds": 14.106009,
+      "audio_seconds": 14.106063,
+      "audio_sha256": "76089f66cee749eabacb8efa4f52157847410b602ee3e941560bfc6dc7a60c9d",
+      "script_sha256": "0a0620642a5223ae81ac4dd3d9405e9dab7eae6d8f5a55c14a0065a033441e10",
+      "chart_seconds": 6,
+      "artifacts_verified": 14,
+      "caption_timing": "reviewed_local_ASR_sentence_alignment",
+      "checks": {
+        "ffmpeg_decode": true,
+        "all_three_rendered_cards_inspected": true,
+        "actual_video_midpoint_inspected": true,
+        "full_narration_ASR_comparison": true,
+        "native_chart_uncropped": true,
+        "complete_qualifications_visible": true,
+        "exact_saved_media_approved_in_authenticated_admin_UI": true
+      },
+      "qa_limits": "Automated complete ASR and measured caption comparison plus sampled visual inspection; no full human listening, pronunciation, likeness or lip-sync approval.",
+      "actual_credits": 184,
+      "aggregate_credits": 1277,
+      "ceiling": 5000,
+      "remaining_credits": 3723,
+      "avatar_generated": false,
+      "unattended_provider_ready": false,
+      "public_dispatch": false,
+      "proof": "C:/Users/afshin/Documents/ChatGPT/Seasonal Market News/artifacts/smn-membership-plan-20261002/current-adp-media/current-adp-qa.receipt.json",
+      "receipt_sha256": "3c9d9815f0c4c0fe491ca6ec79b75114eddb34c8961fb7349570b0129aafd472",
+      "approved_job": "C:/Users/afshin/Documents/ChatGPT/Seasonal Market News/artifacts/smn-membership-plan-20261002/current-adp-media/approved-job.json",
+      "approval_screenshot": "C:/Users/afshin/Documents/ChatGPT/Seasonal Market News/artifacts/smn-membership-plan-20261002/current-adp-media/dev-media-approved.png"
+    },
+    "settled_credits_total": 1277,
+    "credit_ceiling": 5000
   },
   "exports": {
     "adapters_implemented": true,
@@ -367,10 +482,10 @@
     "personal avatar/reference and account/model readiness; no avatar generated",
     "three archival article pilot current-source qualification/media approval",
     "human full listening and avatar likeness/lip-sync QA not performed",
-    "hosted Stripe test Checkout card entry",
     "future genuine scheduled edition proof",
     "external posting destination/accounts and separate authorization",
-    "later staging/production release gates"
+    "later staging/production release gates",
+    "genuine reader HTTP paid Checkout not exercised; active Free unchanged"
   ],
   "no_secrets_or_auth_tokens": true,
   "scope_complete": false,
@@ -442,5 +557,72 @@
     ],
     "media_review_limit": "Exact transcript comparison, measured caption alignment, sampled frames and full decode; no claim of full human listening or avatar QA",
     "proof": "/var/lib/tradewave/release-state/smn-membership-final-20261003-delivery/final-review-proof.json"
+  },
+  "media_automation": {
+    "sha": "2b00e6cbc8ae1ce363fb601cf91a9b0ea1ef6d5b",
+    "active": true,
+    "status": "deployed_verified_current_article_media_approved",
+    "os": [
+      "Windows",
+      "Linux"
+    ],
+    "linux_isolated_source": "/var/tmp/smn-auto-media-test.kxqxud",
+    "chains": [
+      "reviewed derivative -> reviewed article_script/native chart -> article_video",
+      "approved dated text -> full daily narration -> reviewed media -> daily_avatar"
+    ],
+    "bindings": [
+      "original copy immutable",
+      "exact source/copy/script/chart hashes",
+      "briefing_media_job_id",
+      "durable deterministic successor",
+      "terminal/unknown outcome no blind retry"
+    ],
+    "scope_complete": false,
+    "integration_sha": "a5ee1fbac45d54cc44875fbe3c8fecfee819d12f",
+    "integration_tests": 93,
+    "duration_tests": 51,
+    "duration_preflight": {
+      "words": [
+        24,
+        32
+      ],
+      "characters_max": 195,
+      "numeric_ranges_and_ticker_parentheticals": "rejected",
+      "measured_10_to_15_seconds": "final authority, not yet proven for current ADP"
+    },
+    "full_avatar_compositor": "deployed; complete narration/cards/captions plus exact measured presenter segment",
+    "tariff_security": "verified account/credential/request-bound quotes and credit ceiling; no actual avatar generation",
+    "proof": "C:/Users/afshin/Documents/ChatGPT/Seasonal Market News/artifacts/smn-membership-plan-20261002/promotion-links-release-receipt.json",
+    "local_proof": "C:/Users/afshin/Documents/ChatGPT/Seasonal Market News/artifacts/smn-membership-plan-20261002/promotion-links-release-receipt.json",
+    "receipt_sha256": "3983a242b7c79d69c3af2b77f25cfa45b396fbe05def4d08a5e3ede1782da638",
+    "ADP_script": {
+      "id": "77226e89a9af8b44f72d7509",
+      "attempt1": "UI rejected before TTS charge; original output preserved",
+      "attempt2": "reviewed184character script; sole deduped automatic video child actual UI narration/render reviewed/approved"
+    },
+    "daily_avatar": {
+      "id": "0e9212edeeb7cefeb810bc34",
+      "status": "held_provider_readiness"
+    },
+    "layout_tests": 16,
+    "layout_test_skips": 0,
+    "duration_sha": "e03e40f82e12d17311dd2dedeb643c83d713022d",
+    "linux_fonts": "official fonts-dejavu-core/fonts-dejavu-mono2.37-8",
+    "layout_sha": "655453a378cdcfef71a4988f4a288a7d037b113d",
+    "initial_chain_tests": 52,
+    "initial_chain_sha": "5259fc6ab929c2d76f3a01fb4a045541ad06f706"
+  },
+  "final_UI_readability": {
+    "app_sha": "2b00e6cbc8ae1ce363fb601cf91a9b0ea1ef6d5b",
+    "prior_behavior_sha": "655453a378cdcfef71a4988f4a288a7d037b113d",
+    "change": "two scoped membership_panel CSS declarations only",
+    "verification": "actual genuine Dev admin browser reload; all14 approved ADP artifacts retained; link contrast and spacing inspected",
+    "automated_tests_added": 0,
+    "screenshot": "C:/Users/afshin/Documents/ChatGPT/Seasonal Market News/artifacts/smn-membership-plan-20261002/current-adp-media/dev-media-approved-final.png",
+    "four_services_zero_restarts": true,
+    "settings_unchanged": true,
+    "daily_pointer_matches": true,
+    "public_daily_video_VTT_exact_hashes_retained": true
   }
 }

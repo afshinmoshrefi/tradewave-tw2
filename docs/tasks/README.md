@@ -26,4 +26,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 
 | [TW-TASK-0017](TW-TASK-0017.md) | verified on dev | Direct SMN WorkOS login, central admin permission check and real browser login/logout verified; production unchanged |
 
-| [TW-TASK-0018](TW-TASK-0018.md) | in-progress | Dev delivered/provider work blocked; final SMN main/live fd15013d: 705 gated articles, real identity, free/test offers, approved ADP previews/exports and public daily video; avatar key/browser, archival QA, hosted Checkout and later posting remain |
+| [TW-TASK-0018](TW-TASK-0018.md) | in-progress | Dev delivered/provider work blocked; final SMN main/live 2b00e6cb: 705 gated articles, real identity, free/test offers, approved ADP previews/exports and public daily video; hosted Sandbox payment/webhook/cleanup proven; article/daily successor chains and full avatar compositor deployed; current ADP 14.106s exact clip/admin approval proven; ledger 1277/5000; avatar key/browser, current/archival media QA and later posting remain |
