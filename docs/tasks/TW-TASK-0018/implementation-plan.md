@@ -1,6 +1,6 @@
 # Seasonal Market News: membership, public previews, and article promotion
 
-Status: DEVELOPMENT KICKOFF AUTHORIZED October 2, 2026 - first milestone P0/P1/P10 and P11 readiness only. Afshin authorized starting implementation with appropriate agents. Runnable offline preparation, validation and review artifacts are authorized; paid/provider generation, existing pipeline activation, external posting, reader billing/paywall and production writes remain excluded. Commercial choices below remain undecided. Planning observations retain their original dates. See ../TW-TASK-0018.md for the current shared claim.
+Status: DEVELOPMENT AUTHORIZED October 2, 2026 under this plan with appropriate agents. The coordinator selected P0/P1/P10 plus P11 readiness as the first checkpoint. Reader/paywall/billing coding and later Dev work are outside this first milestone, not a new permission boundary. Live commercial activation, production writes, external sending and unverified provider generation retain existing gates. Prices, launch migration and other commercial choices below remain unresolved. Planning observations retain their original dates. See ../TW-TASK-0018.md for the current shared claim.
 Prepared: October 2, 2026, America/New_York.
 Intended executor: a coding model such as Sol 6.1, working from this document and the current shared project records.
 Owner: Afshin. This document contains the conversation's product decisions and proposed engineering choices; it does not establish a running service, payment offer, publishing authorization, or provider connection.
@@ -48,7 +48,7 @@ These choices make the plan executable without pretending Afshin already selecte
 
 Membership/paywall home before implementing reader billing; currency and actual prices; final trial duration; chosen social accounts and publishing cadence; treatment of launch members when paid enrollment opens; initial archive migration scope; and the tested ElevenLabs model/settings.
 
-Build the stated configuration surfaces and explicit launch gates. Do not make up live prices, promise permanent free access, migrate current members, or turn unresolved options into hardcoded behavior. While these choices remain open, free-mode development and sandbox paid-flow tests can proceed after implementation authorization.
+Build the stated configuration surfaces and explicit launch gates. Do not make up live prices, promise permanent free access, migrate current members, or turn unresolved options into hardcoded behavior. While these choices remain open, free-mode development and sandbox paid-flow tests can proceed under the October 2 development authorization when their dependencies and milestone scope are ready.
 
 ## 2. Evidence and current baseline
 
@@ -440,7 +440,7 @@ Preserve dashboard article order, pins, schedules, search and model-assisted edi
 
 ## 12. Implementation work packages
 
-Do not begin these packages until Afshin authorizes implementation. Each package ends with a small reviewable diff, focused tests, evidence and a shared task checkpoint. The named new files are proposed boundaries; reconcile names with current main once, then keep the approved contracts stable.
+Afshin authorized development under this plan on October 2. The first execution checkpoint is P0/P1/P10 plus P11 readiness; later packages follow their dependencies and existing operational gates. Each package ends with a small reviewable diff, focused tests, evidence and a shared task checkpoint. The named new files are proposed boundaries; reconcile names with current main once, then keep the approved contracts stable.
 
 | Package | Dependencies | Work and likely files | Done when |
 |---|---|---|---|
@@ -453,7 +453,7 @@ Do not begin these packages until Afshin authorizes implementation. Each package
 | P6 - Video worker | P1, authorized provider sample | New video job/renderer module with existing job-state conventions; ElevenLabs adapter and ffmpeg-style deterministic composition | Three source-bound sample clips are actually 10-15 seconds, readable, audible and reviewed; retry/cost limits work |
 | P7 - Promotion dispatch | P2, P5, P6 | New channel adapters and durable promotion job runner; use existing helper only where verified suitable | Draft-only flow first; mocked duplicate/timeout/cancel tests pass; one authorized test per selected channel before unattended activation |
 | P8 - Release and operations | P2-P7 required launch subset | Additive migration, private storage/proxy config, cache rules, archive migration manifest, operational alerts and release receipts | Dev end-to-end evidence passes; launch scopes/terms selected; exact production package and rollback are reviewable |
-| P9 - Later Substack pilot | Regular SMN publication established; approved public derivative and live destination; separate implementation authorization | Free digest/shorter-version draft/export using section 10; verify account, supported publishing method, public assets, CTA, referrals and receipts before any adapter | One reviewable pilot passes the section 10 checks; authorized publication has a verified receipt; automation limits and cadence recorded; no duplicate paid membership created |
+| P9 - Later Substack pilot | Regular SMN publication established; approved public derivative and live destination; later milestone scope | Free digest/shorter-version draft/export using section 10; verify account, supported publishing method, public assets, CTA, referrals and receipts before any adapter | One reviewable pilot passes the section 10 checks; authorized publication has a verified receipt; automation limits and cadence recorded; no duplicate paid membership created |
 | P10 - Daily news narrative pilot | Development authorization; current source access | Reuse current research adapters; add edition/cutoff and grouped-headline records, selection reasons, claim map, written brief and narration/storyboard | One actual dated edition covers the main supported narratives, deduplicates syndication, preserves time context and passes editorial review; no forced ticker/chart slots |
 | P11 - ElevenLabs avatar prototype | P10 reviewed script; verified account, avatar/reference and voice access; authorized provider generation | Use an avatar model within ElevenLabs; generate presenter segments, compose headline/visual sequence, retain settings, media and receipt; verify supported automation route separately | One private playable sample passes full listening and visual review; model/cost/manual steps recorded; no unverified claim of daily automation or external publication |
 
@@ -537,7 +537,7 @@ Keep member/payment records durable through application rollback. An app rollbac
 
 The approved plan and implementation evidence belong in the canonical shared Git task before code work starts. This local document is a review artifact; it has not itself been committed as a shared task or deployed.
 
-The next authorized action is to review the proposed public-version approach and storyboard against the three fixtures, then execute P0/P1 when implementation is requested. No bulk article rewrite, payment creation, ElevenLabs batch, social post or recurring automation has been performed by this planning task.
+The next authorized action is to review the proposed public-version approach and storyboard against the three fixtures, then execute the claimed P0/P1/P10 foundations and P11 readiness under the October 2 development authorization. No bulk article rewrite, payment creation, ElevenLabs batch, social post or recurring automation has been performed by this planning task.
 
 An implementation handoff must contain:
 - User-visible result and exact completed/uncompleted packages.
