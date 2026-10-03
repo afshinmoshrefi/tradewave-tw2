@@ -25,3 +25,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0016](TW-TASK-0016.md) | in-progress | October 2 complete Dev release qualification; staging first, production operator/snapshot gates |
 
 | [TW-TASK-0017](TW-TASK-0017.md) | verified on dev | Direct SMN WorkOS login, central admin permission check and real browser login/logout verified; production unchanged |
+| [TW-TASK-0018](TW-TASK-0018.md) | verified on dev | Owner-only article chat editor with ChatGPT/Claude subscriptions, draft preview, revision history, Undo and explicit publishing; microphone audio untested |
