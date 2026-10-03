@@ -317,7 +317,7 @@ def test_checkout_replay_timeout_recovers_exact_payload_and_key(store, monkeypat
         s.commit()
         live = subscription(member, o)
     provider = Mock()
-    provider.v1.prices.retrieve.return_value = live["items"]["data"][0]["price"]
+    provider.v1.prices.retrieve.side_effect = lambda pid: (live["items"]["data"][0]["price"] if pid == "price_month" else dict(id="price_year", product="prod_smn", currency="usd", unit_amount=6000, recurring=dict(interval="year"), active=True))
     provider.v1.customers.retrieve.return_value = dict(id="cus_smn", metadata=dict(product_line="smn", tw2_user_id=str(user.id)))
     provider.v1.checkout.sessions.create.side_effect = [RuntimeError("unknown outcome"), dict(id="cs_smn", url="https://checkout.stripe.com/test")]
     monkeypatch.setattr(billing, "client", lambda _: provider)
