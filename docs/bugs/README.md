@@ -42,3 +42,5 @@ Status belongs in each record and this index; update both together. Preserve res
 | [TW-BUG-0023](TW-BUG-0023.md) | P2 | verified on dev | Scenario Studio used a green palette instead of the TradeWave color scheme |
 
 | [TW-BUG-0024](TW-BUG-0024.md) | P2 | open | API scan load qualification fails intermittently after restart; blocks SMN auth promotion |
+
+| [TW-BUG-0025](TW-BUG-0025.md) | P2 | in-progress | SMN Microsoft edit-window images/charts broken after private asset migration; user draft preserved |
