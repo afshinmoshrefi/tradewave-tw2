@@ -1,0 +1,312 @@
+{
+  "task": "TW-TASK-0018",
+  "environment": "dev",
+  "recorded_at": "2026-10-03T06:11:25Z",
+  "status": "core_dev_verified_full_scope_in_progress",
+  "final_coordinator_sha_and_smoke": "pending",
+  "smn": {
+    "verified_core_sha": "9602d3d5e16a92f2bf1f527db70bc2bbbc4d8d37",
+    "active_source": "/opt/smn-worktrees/smn-membership-complete-20261003",
+    "daily_source_pointer": "/opt/smn-daily/current",
+    "daily_pointer_reconciled": true,
+    "existing_scheduler_provider_roles_preserved": true,
+    "pending_prompt_candidate_sha": "ece5ff0b67cb79da498544115ec21d1033031804",
+    "no_production_changes": true
+  },
+  "central": {
+    "application_sha": "3cc399a0e451fcb45fedf1ee46ab9a3f3170c921",
+    "active_source": "/home/tradewave-worktrees/smn-membership-dev-sdk-20261003",
+    "migration": "fa8c2d601b93",
+    "four_services_active": true,
+    "react_artifact_preserved": true,
+    "genuine_reader_and_admin_workos": true,
+    "active_offer": {
+      "id": 1,
+      "mode": "free"
+    },
+    "draft_offer": {
+      "id": 2,
+      "mode": "paid",
+      "currency": "usd",
+      "monthly_amount": 1000,
+      "annual_amount": 6000,
+      "annual_discount_bps": 5000,
+      "trial_days": 30
+    },
+    "billing_enabled": true,
+    "stripe_mode": "test",
+    "stripe_test_api": "verified",
+    "signed_existing_endpoint_ledger_delivery": {
+      "status": "verified",
+      "payload": "real Stripe test event payloads",
+      "result": "foreign_smn_customer after disposable test schema rollback",
+      "hosted_card_checkout": false,
+      "automatic_provider_webhook_delivery_not_asserted": true
+    },
+    "proofs": [
+      "/var/lib/tradewave/release-state/smn-membership-dev-20261003/billing-readiness-receipt.json",
+      "/var/lib/tradewave/release-state/smn-membership-dev-20261003/billing-provider-ledger-proof.json"
+    ]
+  },
+  "corpus": {
+    "catalog_articles_migrated": 705,
+    "original_urls": 674,
+    "edition_urls": 31,
+    "live_selected_articles": 46,
+    "selection": "six Oct2 articles plus40 retained",
+    "article_asset_checks": 1036,
+    "live_asset_hashes": 164,
+    "retained_declared_file_hashes": 129,
+    "original_raw_assets_denied": 111,
+    "candidate_only_imports": 20,
+    "proof": "/var/lib/tradewave/release-state/smn-membership-20261003/publisher-corpus-live-proof.json",
+    "limit": "Selected live requests are not an exhaustive request test of all705 rows/assets."
+  },
+  "publisher_transaction": {
+    "symbol": "XLK",
+    "checks": 44,
+    "passed": true,
+    "fault": "withdrawal boundary",
+    "recovered": true,
+    "republished": true,
+    "exact_baseline_restored": [
+      "catalog",
+      "held",
+      "Redis",
+      "home",
+      "search",
+      "pins",
+      "editor DB"
+    ],
+    "proof": "/var/lib/tradewave/release-state/smn-membership-20261003/xlk-transaction-proof/receipt.json",
+    "adp_msft_untouched": true
+  },
+  "adp_generation_historical_import_receipt": {
+    "slug": "adp-subscription-2026-10-02",
+    "canonical": "/editions/2026-10-02/ADP/article.html",
+    "active_revision": "r-29e11bb7b3e4777d4d42086be49e8ee4",
+    "full_html_sha256": "0ca9d49f7979852749b3ea8c648dbaaa23495ad4e9ee5046bfb30e6230d89bb2",
+    "retained_article_sha256": "6408f972fc043162190f3c9949e17b45aa119dc658332c65456aa4685b2b5e47",
+    "prepared_sha256": "7cae027c2c959e438fb1e702a803a249e1800afbbc94dc49f3eb747735d12640",
+    "source_files_verified": 107,
+    "job_id": "8e1e63a21af9563606dec231",
+    "job_status": "generated",
+    "review_status": "pending",
+    "publish": false,
+    "model": "gpt-5.6-sol",
+    "effort": "medium",
+    "job_version": 5,
+    "holds": [],
+    "artifacts": [
+      {
+        "name": "copy.json",
+        "relative_path": "copy.json",
+        "media_type": "application/json",
+        "sha256": "ebbbe1b135e8fe2cbf3a7d8b2e504755abf66617a15ceed59d27766b7dad4bfd",
+        "review_status": "pending"
+      },
+      {
+        "name": "checks.json",
+        "relative_path": "checks.json",
+        "media_type": "application/json",
+        "sha256": "279c988a4cae5454b0fb01bf141e02009dd5391ca7859d61fcc9eed52b52e521",
+        "review_status": "pending"
+      }
+    ],
+    "original_job_id": "f59faa17327bddee8b14d1e7",
+    "original_output_sha256": "063994255d0ed3757f09c4d91c2a6f88d0015228ad9ca160db2e82c4da3dc01e",
+    "prompt_candidate_sha": "49b2372cf22ed29fa17548f2d39cc89078daf3ac",
+    "total_attempt_limit": 2,
+    "imported_draft": {
+      "slug": "adp-subscription-2026-10-02",
+      "revision": "draft-c6272bfe0b8319a960154f20a8a04d91",
+      "review_status": "pending"
+    },
+    "payload_sha256": "26367ee337f3b83da36f99a74db8992ca62eddf1ddce1f11df17f79c9bdcf10c",
+    "mechanical_passed": true,
+    "preview_words": 80,
+    "source_combined_words": {
+      "adp-fy26": 183,
+      "adp-september-employment": 100,
+      "adp-q1-calendar": 157
+    },
+    "billing_source": "subscription",
+    "api_fallback": false,
+    "provider_output_sha256": "f91060700b2dd55f2c39213659c73f9d0cdf72497660263a0e49f6793ff9a302",
+    "model_role": "gpt-5.6-sol",
+    "effort_role": "medium",
+    "runtime_source": "/opt/smn-worktrees/smn-membership-complete-20261003",
+    "active_full_article_unchanged": true
+  },
+  "adp_current_root_ui_publication": {
+    "revision": "r-b89bdfae310ad5bd04452472166a0cf5",
+    "approved_and_published_via_real_admin_ui": true,
+    "full_source_unchanged": true,
+    "exact_generated_job_approval_and_export_smoke": "pending"
+  },
+  "daily_briefings": {
+    "oct3": {
+      "id": "2026-10-03-headline-roundup-pilot",
+      "reviewed_public_hash_prefix": "ba0d736",
+      "headlines": 16,
+      "qualified_sources": [
+        "CNBC RSS",
+        "New York Times RSS"
+      ],
+      "preferred_sources_attempted": 6,
+      "unavailable_sources": 4,
+      "full_stories_read": false,
+      "scope": "headline-only roundup"
+    },
+    "oct2": {
+      "id": "2026-10-02-wrap",
+      "scope": "retained complete-text wrap"
+    },
+    "private_root": "/var/lib/smn/reader/briefings"
+  },
+  "media": {
+    "actual_original_assets": 4,
+    "voice": "afshin-pro",
+    "model": "Eleven v4",
+    "existing_credits": 1093,
+    "new_purchase_or_topup": false,
+    "budget_ledger": "/var/lib/smn/reader/promotion/elevenlabs-budget.json",
+    "original_custody": "/var/lib/smn/reader/prototypes/20261003",
+    "corrected_timing_receipts": [
+      {
+        "name": "OMC",
+        "old_job": "85a4452824de1860aa33154c",
+        "new_job": "4f2a321ffebd3ed37162dd0f",
+        "receipt": {
+          "status": "rendered_pending_audio_visual_review",
+          "created_at": "2026-10-03T05:46:38.676434+00:00",
+          "duration_seconds": 12.133333,
+          "chart_seconds": 6,
+          "chart_sha256": "bdd755b4a24fa9e8e435971edac083250e9767df23294bc82ac15c2db993c499",
+          "audio_sha256": "ed094fcf0942b931333834205180b4ed11c99be98f07cd4394e34f30002f0f40",
+          "video_sha256": "6b417b0c552c0e2849870f89eb6c4354d7ff3063f330a6df00a385765a014ed9",
+          "script_sha256": "1dc8e3b12290eb948259ce5a64c7108186b6e36253da858502d4c84b7f6f5854",
+          "dimensions": [
+            1080,
+            1920
+          ],
+          "decoded": true,
+          "caption_timing": "reviewed_local_ASR_sentence_alignment",
+          "review_status": "pending",
+          "publish": false
+        }
+      },
+      {
+        "name": "LEN",
+        "old_job": "7aa6a8aa3a2986f4f551c4c5",
+        "new_job": "a8d2abb1a49a4a21634b8d46",
+        "receipt": {
+          "status": "rendered_pending_audio_visual_review",
+          "created_at": "2026-10-03T05:46:42.566456+00:00",
+          "duration_seconds": 12.277506,
+          "chart_seconds": 6,
+          "chart_sha256": "32574e76aeeeaf62e848f43817ec0ccccef6e6910e3c61def7b3619d0dc232f3",
+          "audio_sha256": "adaa6f746866d2cf3e390f639ecc2cffdff099a499dc89e079e615e3776841f4",
+          "video_sha256": "c2d5a0070cf3d2b97a960c3900998ecc5eb243713793f80d4590b4081a44e952",
+          "script_sha256": "f7963ec26bbe07b402491f1dd2dc7234159841276fbfb676eeb796be4a97c0bf",
+          "dimensions": [
+            1080,
+            1920
+          ],
+          "decoded": true,
+          "caption_timing": "reviewed_local_ASR_sentence_alignment",
+          "review_status": "pending",
+          "publish": false
+        }
+      },
+      {
+        "name": "KDP",
+        "old_job": "1ebfed97b85170af66230a1a",
+        "new_job": "b2a23601181e28ae948a9744",
+        "receipt": {
+          "status": "rendered_pending_audio_visual_review",
+          "created_at": "2026-10-03T05:46:46.148378+00:00",
+          "duration_seconds": 10.919116,
+          "chart_seconds": 6,
+          "chart_sha256": "f9a8fe833702cad06a8701b90b3e1c31aaebf3a18a33d99f9af06e41c9a706e9",
+          "audio_sha256": "b3d086d801a04ff2486239983888b4fb09d1318f3a475990a2c4e409f1a09564",
+          "video_sha256": "a5e2e1aa4178ed0cc41f043b5a2143d4d9c773d425db8f5574cb8905395f0f96",
+          "script_sha256": "dc2f567bcc514f67570cced412838b77cadc66fc6d8e0f5d71c276d2637124ec",
+          "dimensions": [
+            1080,
+            1920
+          ],
+          "decoded": true,
+          "caption_timing": "reviewed_local_ASR_sentence_alignment",
+          "review_status": "pending",
+          "publish": false
+        }
+      },
+      {
+        "name": "daily",
+        "old_job": "5ba2e0f36f09009828cf6901",
+        "new_job": "d06d44e8499b61fee940ddf7",
+        "receipt": {
+          "status": "rendered_pending_audio_visual_review",
+          "briefing_sha256": "5513c1289e148e663e10a174674c4e0d00b623367ee69e078a72b361b3fb7867",
+          "audio_sha256": "ccd3122cc4fcbeef0bc872c17d1e916d4bf963760c3e37b601778f2353f49405",
+          "video_sha256": "24d56aacd328ca2911f407e1598df00a51cff6b128a86e0e618ede6b67b686bf",
+          "duration_seconds": 44.120816,
+          "dimensions": [
+            1080,
+            1920
+          ],
+          "decoded": true,
+          "avatar_generated": false,
+          "card_timing": {
+            "method": "reviewed_local_ASR_sentence_alignment",
+            "starts": [
+              0,
+              18.86,
+              26.96
+            ]
+          },
+          "caption_timing": "reviewed_local_ASR_sentence_alignment",
+          "review_status": "pending",
+          "publish": false
+        }
+      }
+    ],
+    "final_timed_import_and_full_media_approval": "pending",
+    "avatar_generated": false
+  },
+  "exports": {
+    "adapters_implemented": true,
+    "live_complete": false,
+    "pending_fixes": [
+      "root-relative canonical URL",
+      "stale job version"
+    ],
+    "external_dispatch_authorized": false
+  },
+  "focused_tests": {
+    "central": 74,
+    "derivative_guard_and_budget_prompt": 15,
+    "derivative_os": [
+      "Windows",
+      "Linux"
+    ],
+    "transaction_linux": 71,
+    "runtime_media_linux": 49,
+    "publisher_isolated": 98,
+    "publisher_subtests": 37,
+    "not_total_regression_count": true
+  },
+  "dependencies": [
+    "coordinator final source/parity/smoke receipt",
+    "corrected live export/download proof",
+    "final timed media import/listening/visual approval",
+    "ElevenLabs account API key and explicit action-time browser permissions",
+    "personal avatar/reference and account/model readiness",
+    "hosted Stripe test Checkout card entry",
+    "future genuine scheduled edition proof",
+    "later staging/production authorization and release gates"
+  ],
+  "no_secrets_or_auth_tokens": true,
+  "scope_complete": false
+}

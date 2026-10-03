@@ -5,6 +5,27 @@ Prepared: October 2, 2026, America/New_York.
 Intended executor: a coding model such as Sol 6.1, working from this document and the current shared project records.
 Owner: Afshin. This document contains the conversation's product decisions and proposed engineering choices; it does not establish a running service, payment offer, publishing authorization, or provider connection.
 
+## Current implementation phase matrix - October 3, 2026 UTC
+
+Core Dev is verified at SMN `9602d3d5e16a92f2bf1f527db70bc2bbbc4d8d37`; final prompt/UI/export changes and final parity receipt follow under the coordinator. Central application is `3cc399a0e451fcb45fedf1ee46ab9a3f3170c921`. The [canonical task](../TW-TASK-0018.md) and [sanitized evidence](../evidence/TW-TASK-0018-smn-dev-20261003.json) own current verification and exact paths. The original design and dated planning observations below remain useful requirements, not substitutes for runtime proof.
+
+| Phase | Current state | Concrete next acceptance work |
+|---|---|---|
+| P0 Baseline/fixtures | Verified source/runtime inventory, isolated ownership, retained capsules and current canonical bindings. | Keep future article/source revisions exact; initial missing bearish fixture remains a historical finding. |
+| P1 Public versions | Retained pilots plus genuine ADP server generation/import; 80 words, 107 retained hashes, source caps passed. Root approved/published the ADP preview; source complete body unchanged. | Finish exact generated-copy approval/export proof; record final source-qualified bullish/bearish/news editorial receipts. Tight source budgets permit useful 65-100-word copy without padding. |
+| P2 Private content | All 705 articles migrated; selected live corpus proof and 44-check XLK recovery smoke passed. Protected bodies/assets/datasets remain private and fail closed. | Final exact SHA/parity receipt; future genuine edition publication proof. |
+| P3 Reader identity | Genuine reader/admin WorkOS flows and separate session authority verified on Dev; free signup required. | Dedicated production reader application and later production release gates. |
+| P4 Offers/billing | Active free offer; immutable $10/$60/30-day paid draft. TEST API and signed endpoint ledger delivery proof; central migration/lifecycle/race checks passed. | Hosted card-entry Checkout; final paid launch terms, refund/dispute policy, live Stripe/tax readiness. No real charges. |
+| P5 Dashboard/editor | Membership settings, preview editing/review, dated jobs, pause/readiness/import/download and private editor/journal recovery implemented. | Final prompt/UI smoke and corrected export route/version live checks; never represent a draft as active. |
+| P6 Video | Four real narrated assets, 1,093 existing credits. Corrected article clips 10.92-12.28s and 44.12s wrap; measured captions/cards and decode proof. | Final timed-job import plus full listening/visual review; unattended API key/voice/account readiness. |
+| P7 Promotion | Durable private workers, source/media approvals and draft export adapters implemented; posting disabled. | Root-relative canonical/stale-version export fixes and live downloads; separate authorization/account proof before external dispatch. |
+| P8 Dev operations | Core Dev activation, 705 migration/proxy gate, real identity and transaction/corpus proofs. Daily source pointer reconciled with existing roles/settings/scheduler preserved. | Final source parity and remaining product proofs; observe next scheduled edition. Staging/production not deployed. |
+| P9 Substack | Draft export adapter implemented; live pilot intentionally deferred. | Prove export after integration fixes; later destination/access/posting authorization. Not a regular SMN blocker. |
+| P10 Daily narrative | Reviewed public Oct. 3 headline roundup: 16 CNBC/NYT RSS headlines, stories not read, four preferred sources unavailable. Separate Oct. 2 complete-text wrap. | Keep source/cutoff/coverage limits explicit; broaden supported access before claiming a full preferred-source narrative. |
+| P11 Avatar | API route implemented; no actual avatar generated and no account avatar/library model available. | New ElevenLabs key and explicit browser permissions, personal reference and account/model verification, bounded real generation and QA. |
+
+The full discussed scope remains in progress. Generating/importing copy, approving source claims, reviewing media and publishing externally are distinct actions. No scope is marked complete solely because a route or adapter exists.
+
 ## 1. Outcome and decisions
 
 Build on the existing Seasonal Market News (SMN) publication. Every article should have a useful public version that encourages reading the complete article. The site should support free registered membership initially, configurable trials and monthly/annual paid membership later, and article-derived social content plus an automatically produced 10-15 second video using Afshin's existing ElevenLabs voice. Add a separate daily briefing covering the main market news narratives, with a written version and an avatar video prototype made initially through ElevenLabs.
@@ -202,7 +223,7 @@ Recommended entitlement cache ceiling: 60 seconds, bounded further by grant expi
 
 ### Proposed data additions
 
-These are proposed contracts, not assertions that these tables already exist. Implement additive SQLAlchemy/Alembic migrations in the existing TradeWave database.
+These were the initial proposed contracts. Central additive migration `fa8c2d601b93` and the implemented SMN-only records are now active on Dev; use the canonical task and current source for final names. Preserve the requirements below and existing TradeWave product isolation.
 
 | Record | Required fields/invariants |
 |---|---|
@@ -238,7 +259,7 @@ Public cache identity includes preview revision and active offer version, or act
 
 ## 6. Planned API contracts
 
-Routes below are proposed and may be mounted under the existing deployment prefix. Freeze their final paths in the shared task before coding dependents.
+Routes below preserve the original design sketch. Final Dev contracts are separate `/member/*` reader browser routes, `/smn-reader/*` central session-bound service APIs and `/smn-admin/*` administrator service APIs; the task/current source owns the exact frozen payloads. Never treat a proposed sketch route as a verified runtime endpoint.
 
 | Surface | Contract |
 |---|---|
@@ -461,7 +482,7 @@ The current controller/publisher entry points to reconcile for P1/P2 are blog/sm
 
 Free membership can be released before paid enrollment and distribution, but its protected storage, authentication and preview gates are mandatory. Later packages must not be represented as delivered just because their dashboard controls exist.
 
-P9 is explicitly deferred until regular SMN is off the ground. It does not require paid enrollment, video generation or other social channels, and it is not a dependency of P8. Settle the membership-home recommendation before executing P3/P4 and their associated dashboard work; a different choice requires revising those packages rather than adding a second billing authority.
+P9 live publication is explicitly deferred until regular SMN is off the ground. Its draft export adapter does not require paid enrollment, video generation or other social channels, and P9 is not a dependency of P8. Membership authority is now central TradeWave with a separate SMN reader session/app; a later change requires deliberate contract migration rather than adding a second billing authority.
 
 P10/P11 can be developed independently of paid membership and Substack. Neither blocks the regular article publication. P11 is the initial development prototype requested for the daily briefing; automated distribution remains a separate later activation.
 
@@ -535,9 +556,9 @@ Keep member/payment records durable through application rollback. An app rollbac
 
 ## 15. Final handoff and completion criteria
 
-The approved plan and implementation evidence belong in the canonical shared Git task before code work starts. This local document is a review artifact; it has not itself been committed as a shared task or deployed.
+This plan is committed under the canonical shared task and is the detailed acceptance/design record. Current implemented behavior, environment status and sanitized evidence belong in `../TW-TASK-0018.md`; dated planning observations below remain historical.
 
-The next authorized action is to review the proposed public-version approach and storyboard against the three fixtures, then execute the claimed P0/P1/P10 foundations and P11 readiness under the October 2 development authorization. No bulk article rewrite, payment creation, ElevenLabs batch, social post or recurring automation has been performed by this planning task.
+The next authorized actions are final Dev prompt/UI/export integration and parity proof, exact generated-copy/media approval, hosted sandbox Checkout qualification and credential/browser readiness for a real avatar. Existing daily operation choices remain owned by TW-TASK-0009. Complete articles were migrated to private storage without broad regeneration; real test API/private narration calls are recorded in the task. External social/Substack posts and production changes remain unauthorized.
 
 An implementation handoff must contain:
 - User-visible result and exact completed/uncompleted packages.

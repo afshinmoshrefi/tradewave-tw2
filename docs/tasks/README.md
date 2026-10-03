@@ -26,4 +26,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 
 | [TW-TASK-0017](TW-TASK-0017.md) | verified on dev | Direct SMN WorkOS login, central admin permission check and real browser login/logout verified; production unchanged |
 
-| [TW-TASK-0018](TW-TASK-0018.md) | in-progress | Full SMN development and Dev completion authorized; separate reader/membership/media owners, exact contracts pending |
+| [TW-TASK-0018](TW-TASK-0018.md) | in-progress | Core Dev verified: 705 protected articles, genuine reader/admin, free offer/test billing, current ADP generation and daily headlines; final exports/media/avatar/Checkout acceptance pending |
