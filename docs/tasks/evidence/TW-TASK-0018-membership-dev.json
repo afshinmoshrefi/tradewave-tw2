@@ -1,0 +1,25 @@
+{
+  "task": "TW-TASK-0018",
+  "component": "TradeWave central SMN membership",
+  "source_sha": "3cc399a0e451fcb45fedf1ee46ab9a3f3170c921",
+  "verified_at": "2026-10-03T04:13:54.907722+00:00",
+  "environment": "dev",
+  "active_source": "/home/tradewave-worktrees/smn-membership-dev-sdk-20261003",
+  "migration": "fa8c2d601b93",
+  "focused_tests": {"passed": 74, "deselected": 32, "command": "python -m pytest tests/test_smn_membership.py tests/test_smn_workos_authorization.py tests/test_smn_dashboard_sso.py tests/test_commercial_integrity.py -k 'smn or checkout' -q"},
+  "live_component": ["verified WorkOS active session", "free enrollment and entitlement", "account free offer", "free Checkout requires no Stripe", "reader/admin key separation", "logout revocation", "public edge invalid token rejection", "TradeWave tier/subscription/trial fields unchanged", "all four central services active", "stable React build path retained", "nonforced main parity"],
+  "stripe_sandbox": {
+    "status": "passed",
+    "api_version": "2026-08-26.dahlia",
+    "checks": ["actual product and monthly/annual prices", "monthly Checkout creation and replay", "annual Checkout", "exact remaining trial end", "actual test payment invoice to paid service-period grant", "period-end cancellation and reactivation", "test subscription canceled after verification"],
+    "product_id": "prod_VN4QsViEaikOCh",
+    "monthly_price_id": "price_1UMKI5Is3CeQWow8oCnCtint",
+    "annual_price_id": "price_1UMKI6Is3CeQWow8zqHzu5LA",
+    "subscription_id": "sub_1UMKIBIs3CeQWow8CsPB5KaL",
+    "invoice_id": "in_1UMKIBIs3CeQWow8gwach6Cv",
+    "data_scope": "disposable tradewave_test schema; synthetic identity; actual Stripe test API",
+    "runtime_billing_enabled": false
+  },
+  "limitations": ["parent owns browser OAuth/reader article flow", "hosted Checkout card-entry and provider-signed webhook delivery not asserted", "production unchanged", "paid commercial terms remain draft test fixtures"],
+  "rollback": {"sdk_previous_pointer": "/home/tradewave-worktrees/smn-membership-dev-20261003", "initial_previous_pointer": "/home/tradewave-worktrees/smn-workos-login-20261002", "state_root": "/var/lib/tradewave/release-state/smn-membership-dev-20261003", "database": "retain additive membership and payment authority tables"}
+}
