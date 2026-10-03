@@ -130,6 +130,13 @@ def create_checkout(s, user, data, environment, session_factory=Session):
     customer = plain(provider.v1.customers.retrieve(member.stripe_customer_id))
     if customer.get("deleted") or customer.get("metadata", {}).get("tw2_user_id") != str(user.id) or customer.get("metadata", {}).get("product_line") != "smn":
         raise MembershipError("provider_customer_binding_mismatch", 409)
+    # Reconcile a completed Checkout whose webhook was delayed beyond local
+    # claim expiry. Never create another subscription for an existing purchase.
+    existing = provider.v1.subscriptions.list(params={"customer": member.stripe_customer_id, "status": "all", "limit": 100})
+    for remote in existing.auto_paging_iter():
+        remote = plain(remote)
+        if remote.get("status") not in ("canceled", "incomplete_expired"):
+            raise MembershipError("subscription_already_exists", 409)
     origin = account_origin()
     payload = dict(mode="subscription", customer=member.stripe_customer_id,
         client_reference_id=str(user.id), line_items=[dict(price=price_id, quantity=1)],
@@ -205,6 +212,10 @@ def handle_event(event, environment, *, session_factory=Session, provider=None):
     obj = (event.get("data") or {}).get("object") or {}
     meta = obj.get("metadata") or {}
     sid = obj.get("id") if typ.startswith("customer.subscription.") else subscription_id(obj)
+    if typ.startswith("charge.dispute.") and obj.get("charge") and not obj.get("customer") and readiness(environment)["billing_enabled"]:
+        provider = provider or client(environment)
+        charge = plain(provider.v1.charges.retrieve(obj_id(obj["charge"])))
+        obj = {**obj, "customer": charge.get("customer")}
     with session_factory() as s:
         known = s.query(SmnMembership).filter_by(stripe_subscription_id=sid).one_or_none() if sid else None
         customer = obj_id(obj.get("customer"))

@@ -74,7 +74,8 @@ def active_offer(s):
 
 def enroll(s, provider_user, *, now=None):
     """Subject lock serializes membership and once-only initial grant issuance."""
-    now = now or now_utc()
+    # Stripe's supported trial boundary has whole-second precision.
+    now = (now or now_utc()).replace(microsecond=0)
     subject = provider_user.id
     if not subject or provider_user.email_verified is not True:
         raise MembershipError("verified_email_required", 403)

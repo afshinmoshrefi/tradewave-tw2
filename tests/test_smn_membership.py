@@ -5,8 +5,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 import uuid
+import time
+import threading
 
 from flask import Flask
+from cryptography.hazmat.primitives.asymmetric import rsa
 import jwt
 import pytest
 from sqlalchemy import text
@@ -46,6 +49,32 @@ def test_annual_rounding_and_explicit_amount():
     assert membership.validate_offer(offer(monthly_amount=1, annual_discount_bps=6250))["annual_amount"] == 5
     assert membership.validate_offer(offer(annual_mode="explicit", annual_amount=8000, annual_discount_bps=None))["annual_amount"] == 8000
     assert membership.validate_offer(dict(mode="free"))["trial_days"] == 0
+
+
+@pytest.fixture
+def reader_signer(monkeypatch):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    monkeypatch.setenv("TW2_SMN_READER_WORKOS_CLIENT_ID", "client_reader_dev")
+    monkeypatch.setenv("TW2_SMN_READER_WORKOS_ISSUER", "https://api.workos.com/user_management/client_dev")
+    monkeypatch.setattr(auth, "_keys", lambda _: SimpleNamespace(get_signing_key_from_jwt=lambda _: SimpleNamespace(key=key.public_key())))
+    def sign(**updates):
+        values = dict(iss="https://api.workos.com/user_management/client_dev", sub="user_reader",
+                      sid="session_reader", client_id="client_reader_dev", exp=int(time.time()) + 60, iat=int(time.time()))
+        values.update(updates)
+        return jwt.encode({k: v for k, v in values.items() if v is not None}, key, algorithm="RS256")
+    return sign
+
+
+def test_reader_token_pins_provider_client(reader_signer):
+    assert auth.verify_reader_token(reader_signer())["sub"] == "user_reader"
+
+
+@pytest.mark.parametrize("updates", [dict(client_id="client_dashboard"), dict(client_id=None),
+    dict(iss="https://other.test"), dict(exp=1), dict(exp=None), dict(iat=None), dict(iat=9999999999),
+    dict(sub=""), dict(sid=None), dict(sid=123), dict(act=dict(sub="another")), dict(impersonator=dict(email="another"))])
+def test_reader_wrong_identity_is_rejected(reader_signer, updates):
+    with pytest.raises(jwt.InvalidTokenError):
+        auth.verify_reader_token(reader_signer(**updates))
 
 
 @pytest.fixture
@@ -319,6 +348,7 @@ def test_checkout_replay_timeout_recovers_exact_payload_and_key(store, monkeypat
     provider = Mock()
     provider.v1.prices.retrieve.side_effect = lambda pid: (live["items"]["data"][0]["price"] if pid == "price_month" else dict(id="price_year", product="prod_smn", currency="usd", unit_amount=6000, recurring=dict(interval="year"), active=True))
     provider.v1.customers.retrieve.return_value = dict(id="cus_smn", metadata=dict(product_line="smn", tw2_user_id=str(user.id)))
+    provider.v1.subscriptions.list.return_value = SimpleNamespace(auto_paging_iter=lambda: iter([]))
     provider.v1.checkout.sessions.create.side_effect = [RuntimeError("unknown outcome"), dict(id="cs_smn", url="https://checkout.stripe.com/test")]
     monkeypatch.setattr(billing, "client", lambda _: provider)
     monkeypatch.setenv("TW2_SMN_READER_ORIGIN", "https://smn.test")
@@ -352,3 +382,79 @@ def test_cancel_only_bound_smn_subscription_and_reactivation(store, monkeypatch)
         assert not billing.cancel_subscription(s, s.get(m.User, user.id), dict(cancel_at_period_end=False), "dev")["cancel_at_period_end"]
         assert s.get(m.User, user.id).stripe_subscription_id == "sub_web"
     assert all(c.args[0] == "sub_smn" for c in provider.v1.subscriptions.update.call_args_list)
+
+
+@pytest.mark.db
+def test_trial_zero_never_means_unlimited(store):
+    with store() as s:
+        _, member, _ = paid_member(s)
+        assert member.first_trial_ends_at is None
+        assert not membership.entitlement(s, member)["can_read"]
+
+
+@pytest.mark.db
+def test_paid_checkout_defers_short_trial_and_preserves_exact_boundary(store, monkeypatch):
+    with store() as s:
+        user, member, o = paid_member(s)
+        member.stripe_subscription_id = None
+        member.subscription_offer_id = None
+        member.first_trial_ends_at = membership.now_utc().replace(microsecond=0) + timedelta(hours=24)
+        s.commit()
+    provider = Mock()
+    monkeypatch.setattr(billing, "client", lambda _: provider)
+    with store() as s:
+        with pytest.raises(membership.MembershipError, match="checkout_deferred_until_trial_end"):
+            billing.create_checkout(s, s.get(m.User, user.id), dict(interval="month", offer_version=o.id), "dev", store)
+    provider.v1.checkout.sessions.create.assert_not_called()
+
+
+@pytest.mark.db
+def test_simultaneous_enrollment_and_smn_checkout_singleflight(test_engine):
+    """Separate PostgreSQL connections exercise first-insert and claim races."""
+    schema = "smn_concurrent_" + uuid.uuid4().hex
+    with test_engine.begin() as c:
+        c.execute(text("CREATE SCHEMA " + schema))
+        c.execute(text("SET LOCAL search_path TO " + schema + ", public"))
+        for model in (m.User, m.AuditLog, m.StripeEvent, m.StripeCheckoutClaim, m.SmnOffer, m.SmnSettings, m.SmnMembership, m.SmnGrant, m.SmnAuthority):
+            model.__table__.create(c)
+        c.execute(text("INSERT INTO smn_offers(id,mode,currency,monthly_amount,annual_mode,annual_amount,trial_days,intervals,activated_at) VALUES (1,'paid','usd',1000,'explicit',8000,28,'[\"month\",\"year\"]',now())"))
+        c.execute(text("INSERT INTO smn_settings(id,version,active_offer_id) VALUES (1,1,1)"))
+    engine = test_engine.execution_options(schema_translate_map={None: schema})
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    p = provider_user()
+    barrier = threading.Barrier(2)
+    failures, users = [], []
+    def enroll_worker():
+        try:
+            barrier.wait(timeout=5)
+            with factory() as s:
+                user, _ = membership.enroll(s, p)
+                s.commit()
+                users.append(user.id)
+        except Exception as exc:
+            failures.append(exc)
+    try:
+        threads = [threading.Thread(target=enroll_worker) for _ in range(2)]
+        for t in threads: t.start()
+        for t in threads: t.join(timeout=10)
+        assert failures == [] and len(users) == 2 and users[0] == users[1]
+        with factory() as s:
+            assert s.query(m.User).count() == 1 and s.query(m.SmnGrant).count() == 1
+        from checkout_claims import reserve_checkout, CheckoutClaimBusy
+        barrier = threading.Barrier(2)
+        wins, busy = [], []
+        def checkout_worker():
+            try:
+                barrier.wait(timeout=5)
+                wins.append(reserve_checkout(users[0], "smn", dict(expires_at=int(time.time())+3600, metadata=dict(product_line="smn")), session_factory=factory))
+            except CheckoutClaimBusy:
+                busy.append(True)
+            except Exception as exc:
+                failures.append(exc)
+        threads = [threading.Thread(target=checkout_worker) for _ in range(2)]
+        for t in threads: t.start()
+        for t in threads: t.join(timeout=10)
+        assert failures == [] and len(wins) == 1 and len(busy) == 1
+    finally:
+        with test_engine.begin() as c:
+            c.execute(text("DROP SCHEMA " + schema + " CASCADE"))
