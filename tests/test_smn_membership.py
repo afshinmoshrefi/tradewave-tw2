@@ -11,6 +11,7 @@ import threading
 from flask import Flask
 from cryptography.hazmat.primitives.asymmetric import rsa
 import jwt
+import stripe
 import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
@@ -49,6 +50,14 @@ def test_annual_rounding_and_explicit_amount():
     assert membership.validate_offer(offer(monthly_amount=1, annual_discount_bps=6250))["annual_amount"] == 5
     assert membership.validate_offer(offer(annual_mode="explicit", annual_amount=8000, annual_discount_bps=None))["annual_amount"] == 8000
     assert membership.validate_offer(dict(mode="free"))["trial_days"] == 0
+
+
+def test_actual_sdk_object_conversion_is_recursive():
+    obj = stripe.StripeObject.construct_from(dict(id="sub_test", metadata=dict(product_line="smn"),
+                         items=dict(data=[dict(price=dict(id="price_test"))])), "sk_test_fixture")
+    converted = billing.plain(obj)
+    assert isinstance(converted, dict) and isinstance(converted["metadata"], dict)
+    assert converted["items"]["data"][0]["price"]["id"] == "price_test"
 
 
 @pytest.fixture

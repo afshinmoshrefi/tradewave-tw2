@@ -33,7 +33,9 @@ def client(environment):
 
 
 def plain(obj):
-    return obj.to_dict_recursive() if hasattr(obj, "to_dict_recursive") else obj
+    # SDK 15 exposes recursive conversion through to_dict(), not the older
+    # public to_dict_recursive() method. Real provider objects are not dicts.
+    return obj.to_dict() if isinstance(obj, stripe.StripeObject) else obj
 
 
 def obj_id(value):
