@@ -1,6 +1,6 @@
 # Seasonal Market News: membership, public previews, and article promotion
 
-Status: DEVELOPMENT AUTHORIZED October 2, 2026 under this plan with appropriate agents. The coordinator selected P0/P1/P10 plus P11 readiness as the first checkpoint. Reader/paywall/billing coding and later Dev work are outside this first milestone, not a new permission boundary. Live commercial activation, production writes, external sending and unverified provider generation retain existing gates. Prices, launch migration and other commercial choices below remain unresolved. Planning observations retain their original dates. See ../TW-TASK-0018.md for the current shared claim.
+Status: FULL DISCUSSED DEVELOPMENT AND DEV DEPLOYMENT AUTHORIZED October 2, 2026. Afshin directed completion of the discussed development and deployment to Dev, continuing overnight. The earlier foundation checkpoint was a staged execution choice and no longer limits current scope. Free-launch SMN membership is agreed; monthly/annual prices remain dashboard draft/test fixtures. Routine Dev configuration, sandbox checkout and private video prototypes are authorized as needed. No production writes, real customer charges or external social/newsletter sending. Existing provider/math/admin-auth choices remain intact. Planning observations retain their original dates; see ../TW-TASK-0018.md for current claims/contracts.
 Prepared: October 2, 2026, America/New_York.
 Intended executor: a coding model such as Sol 6.1, working from this document and the current shared project records.
 Owner: Afshin. This document contains the conversation's product decisions and proposed engineering choices; it does not establish a running service, payment offer, publishing authorization, or provider connection.
@@ -440,7 +440,7 @@ Preserve dashboard article order, pins, schedules, search and model-assisted edi
 
 ## 12. Implementation work packages
 
-Afshin authorized development under this plan on October 2. The first execution checkpoint is P0/P1/P10 plus P11 readiness; later packages follow their dependencies and existing operational gates. Each package ends with a small reviewable diff, focused tests, evidence and a shared task checkpoint. The named new files are proposed boundaries; reconcile names with current main once, then keep the approved contracts stable.
+Afshin authorized development under this plan on October 2. The first checkpoint is retained as history; current execution covers the discussed plan through working Dev deployment, following dependencies and existing operational gates. Each package ends with a small reviewable diff, focused tests, evidence and a shared task checkpoint. The named new files are proposed boundaries; reconcile names with current main once, then keep the approved contracts stable.
 
 | Package | Dependencies | Work and likely files | Done when |
 |---|---|---|---|
