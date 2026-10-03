@@ -33,13 +33,14 @@ def validate_offer(data):
     trial = integer(data.get("trial_days", 0), "trial_days", maximum=365)
     annual_mode = data.get("annual_mode", "explicit")
     intervals = data.get("intervals", [])
-    if not isinstance(intervals, list) or len(set(intervals)) != len(intervals) or any(x not in ("month", "year") for x in intervals):
+    if not isinstance(intervals, list) or any(x not in ("month", "year") for x in intervals) or len(set(intervals)) != len(intervals):
         raise MembershipError("invalid_intervals")
     if annual_mode not in ("explicit", "discount"):
         raise MembershipError("invalid_annual_mode")
     bps = data.get("annual_discount_bps")
     if mode == "free":
-        if monthly or data.get("annual_amount", 0) not in (0, None) or bps not in (0, None) or intervals or trial:
+        free_annual = data.get("annual_amount")
+        if monthly or (free_annual is not None and (type(free_annual) is not int or free_annual != 0)) or bps is not None or intervals or trial:
             raise MembershipError("free_offer_must_have_no_price_or_trial")
         annual, bps, annual_mode = 0, None, "explicit"
     elif annual_mode == "discount":
@@ -144,7 +145,7 @@ def settings_snapshot(s, readiness):
 
 def save_draft(s, actor, data):
     setting = s.query(SmnSettings).filter_by(id=1).with_for_update().one()
-    if data.get("expected_version") != setting.version:
+    if type(data.get("expected_version")) is not int or data["expected_version"] != setting.version:
         raise MembershipError("settings_version_conflict", 409)
     values = validate_offer(data.get("offer"))
     offer = SmnOffer(**values, created_by=actor.id)

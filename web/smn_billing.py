@@ -70,7 +70,7 @@ def provision_offer(o, provider):
 
 def activate_offer(s, actor, data, environment):
     setting = s.query(SmnSettings).filter_by(id=1).with_for_update().one()
-    if data.get("expected_version") != setting.version:
+    if type(data.get("expected_version")) is not int or data["expected_version"] != setting.version:
         raise MembershipError("settings_version_conflict", 409)
     draft_id = integer(data.get("draft_id"), "draft_id", minimum=1)
     offer = s.get(SmnOffer, draft_id)
@@ -240,7 +240,10 @@ def handle_event(event, environment, *, session_factory=Session, provider=None):
             member = s.query(SmnMembership).filter_by(user_id=uid).with_for_update().one_or_none()
             offer = s.get(SmnOffer, oid)
             if member is None:
-                raise MembershipError("provider_membership_binding_mismatch", 409)
+                receipt.processed_at = now_utc()
+                receipt.processing_error = "foreign_smn_membership"
+                s.commit()
+                return dict(received=True, ignored="foreign_smn_membership", product_line="smn")
             validate_subscription(live, member, offer)
             receipt.user_id = uid
             if member.stripe_subscription_id != sid:

@@ -3,6 +3,7 @@ from datetime import timedelta
 import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock
 import uuid
 
 from flask import Flask
@@ -195,3 +196,159 @@ def test_free_path_never_calls_stripe(store, monkeypatch):
         user, _ = membership.enroll(s, provider_user())
         with pytest.raises(membership.MembershipError, match="free_membership_requires_no_checkout"):
             billing.create_checkout(s, user, {}, "dev", store)
+
+
+def paid_member(s):
+    o = m.SmnOffer(**membership.validate_offer(offer(trial_days=0)), activated_at=membership.now_utc(),
+                  stripe_product_id="prod_smn", stripe_monthly_price_id="price_month", stripe_annual_price_id="price_year")
+    s.add(o); s.flush()
+    s.get(m.SmnSettings, 1).active_offer_id = o.id
+    user, member = membership.enroll(s, provider_user())
+    user.tier, user.api_tier = "strategist", "business"
+    user.stripe_subscription_id, user.api_stripe_subscription_id = "sub_web", "sub_api"
+    user.reverse_trial_ends_at = membership.now_utc() + timedelta(days=7)
+    member.stripe_customer_id, member.stripe_subscription_id, member.subscription_offer_id = "cus_smn", "sub_smn", o.id
+    s.commit()
+    return user, member, o
+
+
+def subscription(member, offer, **updates):
+    price = dict(id="price_month", product="prod_smn", currency="usd", unit_amount=1000,
+                 recurring=dict(interval="month", interval_count=1), active=True)
+    values = dict(id="sub_smn", customer="cus_smn", status="active", cancel_at_period_end=False,
+                  metadata=billing.metadata(offer, member.user_id),
+                  items=dict(data=[dict(price=price, quantity=1)]), latest_invoice=None)
+    values.update(updates)
+    return values
+
+
+def invoice(**updates):
+    now = int(membership.now_utc().timestamp())
+    values = dict(id="in_paid", customer="cus_smn", subscription="sub_smn", status="paid", paid=True,
+                  amount_paid=1000, currency="usd", lines=dict(data=[dict(price=dict(id="price_month"),
+                  amount=1000, period=dict(start=now, end=now + 30 * 86400))]))
+    values.update(updates)
+    return values
+
+
+@pytest.mark.db
+def test_paid_duplicate_out_of_order_failed_renewal_preserves_tw_and_paid_end(store):
+    with store() as s:
+        user, member, o = paid_member(s)
+        reverse_end = user.reverse_trial_ends_at
+        live = subscription(member, o, latest_invoice=invoice())
+    provider = Mock()
+    provider.v1.subscriptions.retrieve.return_value = live
+    def event(eid, typ="invoice.payment_succeeded", **updates):
+        data = dict(subscription="sub_smn", customer="cus_smn")
+        data.update(updates)
+        return dict(id=eid, type=typ, data=dict(object=data))
+    assert billing.handle_event(event("evt_paid"), "dev", session_factory=store, provider=provider)["received"]
+    assert billing.handle_event(event("evt_paid"), "dev", session_factory=store, provider=provider)["duplicate"]
+    with store() as s:
+        member = s.get(m.SmnMembership, user.id)
+        paid_end = member.period_ends_at
+        assert membership.entitlement(s, member)["can_read"]
+        assert s.query(m.SmnGrant).count() == 1
+    live["status"] = "past_due"
+    live["latest_invoice"] = invoice(id="in_unpaid", status="open", paid=False, amount_paid=0)
+    billing.handle_event(event("evt_failure", "invoice.payment_failed"), "dev", session_factory=store, provider=provider)
+    billing.handle_event(event("evt_old_created", "customer.subscription.created", id="sub_smn"), "dev", session_factory=store, provider=provider)
+    with store() as s:
+        current = s.get(m.SmnMembership, user.id)
+        assert current.period_ends_at == paid_end and s.query(m.SmnGrant).count() == 1
+        assert membership.entitlement(s, current, now=paid_end)["can_read"] is False
+        tw = s.get(m.User, user.id)
+        assert (tw.tier, tw.api_tier, tw.stripe_subscription_id, tw.api_stripe_subscription_id) == ("strategist", "business", "sub_web", "sub_api")
+        assert tw.reverse_trial_ends_at == reverse_end
+
+
+@pytest.mark.db
+@pytest.mark.parametrize("bad", [dict(customer="cus_other"), dict(metadata=dict(product_line="eod")),
+     dict(items=dict(data=[dict(price=dict(id="price_wrong"), quantity=1)]))])
+def test_wrong_customer_product_or_price_never_grants(store, bad):
+    with store() as s:
+        user, member, o = paid_member(s)
+        live = subscription(member, o, latest_invoice=invoice(), **bad)
+    provider = Mock()
+    provider.v1.subscriptions.retrieve.return_value = live
+    evt = dict(id="evt_bad", type="customer.subscription.updated", data=dict(object=dict(id="sub_smn", customer="cus_smn")))
+    with pytest.raises(membership.MembershipError):
+        billing.handle_event(evt, "dev", session_factory=store, provider=provider)
+    with store() as s:
+        assert s.query(m.SmnGrant).count() == 0
+        assert s.get(m.User, user.id).stripe_subscription_id == "sub_web"
+
+
+@pytest.mark.db
+def test_old_subscription_cancellation_cannot_clear_new_subscription(store):
+    with store() as s:
+        user, member, o = paid_member(s)
+        member.stripe_subscription_id = "sub_new"
+        s.commit()
+        live = subscription(member, o, id="sub_old", status="canceled")
+    provider = Mock()
+    provider.v1.subscriptions.retrieve.return_value = live
+    evt = dict(id="evt_old_cancel", type="customer.subscription.deleted", data=dict(object=dict(id="sub_old", customer="cus_smn")))
+    assert billing.handle_event(evt, "dev", session_factory=store, provider=provider)["ignored"] == "noncurrent_subscription"
+    with store() as s:
+        assert s.get(m.SmnMembership, user.id).stripe_subscription_id == "sub_new"
+
+
+@pytest.mark.db
+def test_refund_is_audited_without_changing_other_grants(store):
+    with store() as s:
+        user, member, o = paid_member(s)
+        billing.apply_paid_invoice(s, member, o, "sub_smn", invoice())
+        s.commit()
+    evt = dict(id="evt_refund", type="charge.refunded", data=dict(object=dict(id="ch_smn", customer="cus_smn")))
+    billing.handle_event(evt, "dev", session_factory=store)
+    with store() as s:
+        assert s.query(m.AuditLog).filter_by(action="smn_payment_review_required").count() == 1
+        assert membership.entitlement(s, s.get(m.SmnMembership, user.id))["can_read"]
+
+
+@pytest.mark.db
+def test_checkout_replay_timeout_recovers_exact_payload_and_key(store, monkeypatch):
+    with store() as s:
+        user, member, o = paid_member(s)
+        member.stripe_subscription_id = None
+        member.subscription_offer_id = None
+        s.commit()
+        live = subscription(member, o)
+    provider = Mock()
+    provider.v1.prices.retrieve.return_value = live["items"]["data"][0]["price"]
+    provider.v1.customers.retrieve.return_value = dict(id="cus_smn", metadata=dict(product_line="smn", tw2_user_id=str(user.id)))
+    provider.v1.checkout.sessions.create.side_effect = [RuntimeError("unknown outcome"), dict(id="cs_smn", url="https://checkout.stripe.com/test")]
+    monkeypatch.setattr(billing, "client", lambda _: provider)
+    monkeypatch.setenv("TW2_SMN_READER_ORIGIN", "https://smn.test")
+    data = dict(interval="month", offer_version=o.id)
+    with store() as s:
+        with pytest.raises(membership.MembershipError, match="checkout_provider_unavailable"):
+            billing.create_checkout(s, s.get(m.User, user.id), data, "dev", store)
+    with store() as s:
+        result = billing.create_checkout(s, s.get(m.User, user.id), data, "dev", store)
+        assert result["session_id"] == "cs_smn"
+    calls = provider.v1.checkout.sessions.create.call_args_list
+    assert calls[0].kwargs == calls[1].kwargs
+    with store() as s:
+        assert billing.create_checkout(s, s.get(m.User, user.id), data, "dev", store)["reused"]
+        assert provider.v1.checkout.sessions.create.call_count == 2
+        with pytest.raises(membership.MembershipError, match="checkout_in_progress"):
+            billing.create_checkout(s, s.get(m.User, user.id), dict(interval="year", offer_version=o.id), "dev", store)
+
+
+@pytest.mark.db
+def test_cancel_only_bound_smn_subscription_and_reactivation(store, monkeypatch):
+    with store() as s:
+        user, member, o = paid_member(s)
+        live = subscription(member, o)
+    provider = Mock()
+    provider.v1.subscriptions.retrieve.return_value = live
+    provider.v1.subscriptions.update.side_effect = lambda sid, params, options: {**live, **params}
+    monkeypatch.setattr(billing, "client", lambda _: provider)
+    with store() as s:
+        assert billing.cancel_subscription(s, s.get(m.User, user.id), {}, "dev")["cancel_at_period_end"]
+        assert not billing.cancel_subscription(s, s.get(m.User, user.id), dict(cancel_at_period_end=False), "dev")["cancel_at_period_end"]
+        assert s.get(m.User, user.id).stripe_subscription_id == "sub_web"
+    assert all(c.args[0] == "sub_smn" for c in provider.v1.subscriptions.update.call_args_list)
