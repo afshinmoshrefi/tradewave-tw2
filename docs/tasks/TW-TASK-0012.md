@@ -1,5 +1,14 @@
 # TW-TASK-0012: Chart Toolbar Control Titles
 
+## Mobile title removal claim (2026-10-04)
+
+- Status: in-progress; earlier desktop/title styling verification remains historical below.
+- Executor/session/claim time: Codex `/root/toolbar_titles`, 2026-10-04 UTC.
+- Branch/worktree: `codex/toolbar-mobile-compact-20261004` at `/home/tradewave-worktrees/toolbar-mobile-compact-20261004`, based on `dc2942105f73d414cdfec2601c27d154f4811474`.
+- Authorization: Afshin requested no toolbar titles on mobile while preserving desktop titles and its General switch. Routine dev activation authorized; staging and production excluded.
+- Acceptance: Phone toolbar and expanded second row show zero titles, retain compact height and control behavior. Desktop titles and persisted switch remain as before.
+- Evidence/next step: User screenshot reports phone clutter. Inspect current responsive code, make the smallest change, build, then verify phone and desktop on live dev. No migrations or configuration expected.
+
 ## Title spacing refinement claim (2026-09-29)
 
 Afshin requested a cleaner, professional toolbar for new users after reviewing the underlined titles on dev. Codex `/root` claims this dev-only follow-up in `codex/toolbar-title-spacing-20260929`, isolated worktree `C:/Users/afshin/.codex/worktrees/toolbar-title-polish/TradeWave Main Orchestrator`, from main `e9c83d82089b66f5e47daa794072b957abf51d48`. A UI design subagent inspected the screenshot and identified a visually detached title row. Preserve no gray fills, title underlines, responsive aliases, single-row fitting and the existing title-off mode. Next: render and refine title-to-control spacing, then build, activate and verify on dev.
