@@ -15,7 +15,7 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0009](TW-TASK-0009.md) | in-progress | Dev/main b26428a: morning/verified-newsletter settings live and77 Linux tests pass; full6-article publication recovery running within five additional jobs; Resend key and human production cutover pending |
 | [TW-TASK-0010](TW-TASK-0010.md) | verified on dev | Short tooltips for both Avg Gain values when global tips are off |
 | [TW-TASK-0011](TW-TASK-0011.md) | fixed | Portfolio import and historical scenarios live on dev; core browser/engine checks pass; native PDF layout verification pending |
-| [TW-TASK-0012](TW-TASK-0012.md) | in-progress | Remove mobile toolbar titles; preserve verified desktop title switch |
+| [TW-TASK-0012](TW-TASK-0012.md) | verified on dev | Mobile toolbar compact without titles; desktop title switch retained |
 | [TW-TASK-0013](TW-TASK-0013.md) | verified on dev | Tara knowledge for recent Wave Viewer controls |
 | [TW-TASK-0014](TW-TASK-0014.md) | in-progress | Strategy Lab MCP Phase 1 live on dev: ETF analysis, buy-and-hold benchmark, same-window compare, basket scenarios, shared SMN-style charts, from-today mode; personal-holdings items blocked on attorney |
 | [TW-TASK-0015](TW-TASK-0015.md) | verified | Caption-backed webinar research, four production study receipts, demo cases and current offer check |

@@ -2,12 +2,14 @@
 
 ## Mobile title removal claim (2026-10-04)
 
-- Status: in-progress; earlier desktop/title styling verification remains historical below.
+- Status: verified on dev; earlier desktop/title styling verification remains historical below.
 - Executor/session/claim time: Codex `/root/toolbar_titles`, 2026-10-04 UTC.
 - Branch/worktree: `codex/toolbar-mobile-compact-20261004` at `/home/tradewave-worktrees/toolbar-mobile-compact-20261004`, based on `dc2942105f73d414cdfec2601c27d154f4811474`.
 - Authorization: Afshin requested no toolbar titles on mobile while preserving desktop titles and its General switch. Routine dev activation authorized; staging and production excluded.
 - Acceptance: Phone toolbar and expanded second row show zero titles, retain compact height and control behavior. Desktop titles and persisted switch remain as before.
-- Evidence/next step: User screenshot reports phone clutter. Inspect current responsive code, make the smallest change, build, then verify phone and desktop on live dev. No migrations or configuration expected.
+- Implementation: `SeasonalBarChart.js` applies the persisted title preference only when `!rdd.isMobile`; mobile/tablet height, title classes, headings and portrait second row therefore use the existing compact mode. Desktop preference behavior is unchanged. `docs/TRADEWAVE_ECOSYSTEM.md` now states this rule.
+- Code/main SHA: `6b57fc5ebf895c419011e0d8646d5cd38606054f`; clean task and integration worktrees. React build via `ops/build_react_release.sh` passed with existing lint notices. Live dev frontend `/home/flask/web-react/releases/build-6b57fc5ebf895c419011e0d8646d5cd38606054f`, served `main.9cccd289.js`; previous frontend pointer `/home/flask/web-react/releases/build-c9a865640aeacf6e7fd10dc925ad065e80c0d8ac` retained for rollback. Backend application tree matches current main; no backend restart, migration or configuration change.
+- Dev verification (2026-10-04, Codex): documented dev capture-bot shell with real nginx assets/API in Chromium. Loaded AAPL 15-day pattern showed all 15 desktop accessible titles; General switch off removed titles and reduced height 60 to 33.5px, persisted across reload, and on restored titles. Pixel 5 emulation at 390x844 showed zero titles and no title-layout class, compact 38.5px toolbar, no body overflow, and a working More action exposing five second-row controls with zero titles. This is the requested mobile regression; no broad staging gates run. Staging/production not checked or changed. Next action: staging qualification only on explicit request.
 
 ## Title spacing refinement claim (2026-09-29)
 
