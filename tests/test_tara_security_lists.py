@@ -14,7 +14,7 @@ def row(name=MIDCAP, **extra):
 @pytest.mark.parametrize('question,name',[
  ('show me a list of midcaps',MIDCAP),('mid-cap stocks',MIDCAP),('open S&P MidCap 400',SP400),
  ('list of optionable stocks',STOCKS),('switch to optionable ETFs',FUNDS),('show optionable funds',FUNDS),
- ('how can I select the midcaps list?',MIDCAP),
+ ('how can I select the midcaps list?',MIDCAP),('how about midcaps',MIDCAP),('how about micaps',MIDCAP),('what about optionable stocks',STOCKS),
 ])
 def test_requested_aliases(question,name):
  assert requested_security_list(question)==name
@@ -27,7 +27,8 @@ def test_does_not_intercept_research(question):
 def test_catalog_action_and_manual_instructions(name):
  result=build_security_list_command('show '+name,'authenticated-token',{'user_level':'4'},lambda *a:(200,{'published_lists':[row(name)]}),ACCESS)
  assert result['actions']==[{'type':'set_view','spec':{'market':'11' if name==FUNDS else '4','published_list':name}}]
- assert '2 symbols' in result['reply'] and 'Published Lists' in result['reply'] and 'check the list' in result['reply']
+ assert '2 symbols' in result['reply'] and 'market dropdown at the top left' in result['reply'] and 'scroll to the bottom' in result['reply']
+ assert 'Settings' not in result['reply'] and 'check the list' not in result['reply']
  assert 'snapshot' in result['reply'] and 'detected patterns' in result['reply']
 
 def test_how_to_does_not_move_view():
@@ -84,3 +85,15 @@ def test_authenticated_chat_routes_list_and_acknowledges_exact_name(tmp_path,mon
  assert client.post('/chatbot/action_result',json=acknowledgement).status_code==200
  acknowledgement['observed_view']['published_list']=SP400
  assert client.post('/chatbot/action_result',json=acknowledgement).status_code==409
+
+@pytest.mark.parametrize('question',['how about midcaps','how about micaps','what about midcaps?'])
+def test_follow_up_switches_instead_of_how_to(question):
+ result=build_security_list_command(question,'token',{'user_level':'4'},lambda *a:(200,{'published_lists':[row()]}),ACCESS)
+ assert result['actions']==[{'type':'set_view','spec':{'market':'4','published_list':MIDCAP}}]
+ assert 'market dropdown at the top left' in result['reply']
+
+@pytest.mark.parametrize('question',['how do I select midcaps?','where is the midcaps list?','what are midcaps?'])
+def test_genuine_help_stays_explanation_only(question):
+ result=build_security_list_command(question,'token',{'user_level':'4'},lambda *a:(200,{'published_lists':[row()]}),ACCESS)
+ assert result['actions']==[]
+ assert 'Settings' not in result['reply']

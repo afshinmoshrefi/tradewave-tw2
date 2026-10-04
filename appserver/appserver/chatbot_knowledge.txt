@@ -1193,7 +1193,7 @@ There are two sub-tabs inside Securities Groups:
 - "US Midcap Stocks ($2-10B)" is the broad US-listed $2 billion to $10 billion market-cap snapshot; "S&P MidCap 400" is the separate index-constituent snapshot.
 - "US Optionable Stocks & ADRs" and "US Optionable ETFs & Funds" are separate published optionable universes.
 - "show midcaps", "show S&P MidCap 400", "list of optionable stocks" and "show optionable ETFs" select the accessible list through a catalog-validated Tara action. Tara enables it in the user's dropdown and confirms selection only after the client acknowledges its exact list identity.
-- A "how do I" or "where" question explains the path without changing the view: Settings (gear in the left panel) -> Securities Groups -> Published Lists -> check the named list -> select it in the top-bar securities dropdown.
+- "How about midcaps" (including "micaps") and "what about optionable stocks" are follow-up selection requests and switch the list. Genuine "how do I select" or "where" questions explain without changing the view: click the market dropdown at the top left, scroll to its bottom where the admin-published lists appear, and choose the named list. Do not direct users to Settings to select these lists. Personal watchlists are a separate user-created feature.
 - These are static published snapshots. List-member counts are not detected opportunity counts or a guarantee of data coverage. Disabled/inaccessible lists cannot be selected. Never invent constituents, live option chains or automatic refresh.
 
 ### Published Lists
@@ -1204,7 +1204,7 @@ There are two sub-tabs inside Securities Groups:
 
 If a user asks how to filter the opportunity table to a specific set of symbols, they can either:
 1. Create a personal watchlist and add it to the Securities List (see Watchlist section).
-2. Enable a Published List from Securities Groups settings if one matches their needs.
+2. Click the top-left market dropdown and choose a matching admin-published list near the bottom. Securities Groups settings customize dropdown visibility; they are not the ordinary selection path.
 
 ## What Makes a Strong Pattern
 Use these signals as an evidence checklist; no threshold makes a pattern a recommendation:

@@ -12,7 +12,7 @@ LIST_MARKETS = {MIDCAP: '4', SP400: '4', STOCKS: '4', FUNDS: '11'}
 
 def requested_security_list(question):
     text = re.sub(r'\s+', ' ', question.lower()).strip()
-    mid = bool(re.search(r'\bmid[ -]?caps?\b', text))
+    mid = bool(re.search(r'\b(?:mid[ -]?caps?|micaps?)\b', text))
     optionable = bool(re.search(r'\boptionable\b', text))
     if not (mid or optionable):
         return None
@@ -31,8 +31,9 @@ def build_security_list_command(question, token, claims, read_catalog, market_ac
         return None
     market = LIST_MARKETS[name]
     manual = (
-        'To select it yourself, open Settings (gear icon in the left panel), then Securities Groups. '
-        'choose Published Lists, check the list, then select its name in the securities dropdown.'
+        'To select it yourself, click the market dropdown at the top left, scroll to the bottom '
+        'where the admin-published lists appear, and choose this list by name. '
+        'You can also create your own personal watchlist; that is separate from these published lists.'
     )
     unavailable = {'reply': f'<b>{html.escape(name)}</b> is not available to this account right now. {manual}', 'actions': []}
     if not token:
@@ -61,7 +62,10 @@ def build_security_list_command(question, token, claims, read_catalog, market_ac
         STOCKS: 'US-listed optionable stocks and ADRs; ETFs and funds have a separate list.',
         FUNDS: 'US-listed optionable ETFs and funds; stocks and ADRs have a separate list.',
     }[name]
-    explanation_only = bool(re.search(r'\bhow\b|\bwhere\b|\bwhat (?:is|are|does)\b|\bexplain\b|\bdon.t (?:switch|open|change)\b', question, re.I))
+    # Follow-up requests such as 'how about midcaps' request a switch.
+    # Genuine how-to questions only explain the dropdown steps.
+    follow_up = bool(re.match(r'^\s*(?:how|what)\s+about\b', question, re.I))
+    explanation_only = not follow_up and bool(re.search(r'\bhow\b|\bwhere\b|\bwhat (?:is|are|does)\b|\bexplain\b|\bdon.t (?:switch|open|change)\b', question, re.I))
     actions = [] if explanation_only else [{'type': 'set_view', 'spec': {'market': market, 'published_list': name}}]
     reply = (
         f'<b>{html.escape(name)}</b>: {count:,} symbols. {description} '

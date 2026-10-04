@@ -1,6 +1,6 @@
 # TW-TASK-0019: Published US security lists and Tara selection
 
-- Status: verified-dev
+- Status: in-progress
 - Confidence: verified
 - Priority: P2 - requested list discovery and viewer control
 - First observed / last updated: 2026-10-04 UTC
@@ -40,3 +40,5 @@ Backend routing/catalog/signature tests: 145 passed. Frontend contract/guidance 
 Rollback: preserve the previous backend and React symlink targets, atomically restore them and restart affected services. The published list data is additive and remains independently stored in Redis DB2. Prior catalog backup is retained; no rollback should overwrite unrelated subsequent admin changes.
 
 - 2026-10-04 UTC: Committed and pushed f935057beb4e433010bbe98f8675f5aa5feb226c, activated and verified dev, advanced main non-forced, verified backend/frontend/main parity, released dev activation lock. Rollback pointers are in activation-before.json.
+
+- Owner correction: "how about micaps" must select midcaps. Normal manual selection uses the top-left market dropdown with published lists at its bottom, not Settings. Backend follow-up parsing and guidance corrected; live dev retest pending.
