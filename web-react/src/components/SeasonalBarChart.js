@@ -2330,9 +2330,10 @@ const SeasonalBarChart = (props) => {
   //---------------------------------------
   // dynamic styles for mobile
   //---------------------------------------
+  const showToolbarTitles = props.showToolbarTitles && !rdd.isMobile
   let barchartHeight = "92%"
   let barchartControlsHeight = '8%'
-  if (props.showToolbarTitles) {
+  if (showToolbarTitles) {
     barchartHeight = '86%'
     barchartControlsHeight = '14%'
   }
@@ -2341,29 +2342,29 @@ const SeasonalBarChart = (props) => {
   if (rdd.isMobile) {
     if (rdd.isTablet) {
       if (browserH > browserW) {
-        barchartHeight = props.showToolbarTitles ? '80%' : '88%'
-        barchartControlsHeight = props.showToolbarTitles ? '20%' : '12%'
+        barchartHeight = showToolbarTitles ? '80%' : '88%'
+        barchartControlsHeight = showToolbarTitles ? '20%' : '12%'
       }
     }
     else {
-      barchartHeight = props.showToolbarTitles ? '80%' : '88%'
-      barchartControlsHeight = props.showToolbarTitles ? '20%' : '12%'
+      barchartHeight = showToolbarTitles ? '80%' : '88%'
+      barchartControlsHeight = showToolbarTitles ? '20%' : '12%'
     }
   }
 
   //-----------------------------------------------------------------------------------------------------------
   const barchartStyle = {
-    height: props.showToolbarTitles && !rdd.isMobile ? 'auto' : barchartHeight,
-    flex: props.showToolbarTitles && !rdd.isMobile ? '1 1 0' : undefined,
-    minHeight: props.showToolbarTitles && !rdd.isMobile ? 0 : undefined,
+    height: showToolbarTitles && !rdd.isMobile ? 'auto' : barchartHeight,
+    flex: showToolbarTitles && !rdd.isMobile ? '1 1 0' : undefined,
+    minHeight: showToolbarTitles && !rdd.isMobile ? 0 : undefined,
     backgroundColor: UIcolors(loggedinUser, props.UITheme)['background_barchart'],
     borderLeft: '1px solid ' + tc.border
   }
   //-----------------------------------------------------------------------------------------------------------
   const barchartControlsStyle = {
-    height: props.showToolbarTitles && !rdd.isMobile ? 'auto' : barchartControlsHeight,
-    minHeight: props.showToolbarTitles && !rdd.isMobile ? barchartControlsHeight : undefined,
-    flexShrink: props.showToolbarTitles && !rdd.isMobile ? 0 : undefined,
+    height: showToolbarTitles && !rdd.isMobile ? 'auto' : barchartControlsHeight,
+    minHeight: showToolbarTitles && !rdd.isMobile ? barchartControlsHeight : undefined,
+    flexShrink: showToolbarTitles && !rdd.isMobile ? 0 : undefined,
     '--tw-toolbar-heading-bg': tc.tableHeaderBg,
     '--tw-toolbar-heading-border': tc.border,
     '--tw-toolbar-heading-color': tc.text,
@@ -3195,9 +3196,9 @@ const SeasonalBarChart = (props) => {
     'Cycle filter': ['Cycle', 'Cycle'],
     'Date presets': ['Presets', 'Prsts'],
   }
-  const compactToolbarControls = props.showToolbarTitles && !rdd.isMobile && toolbarMode === 'narrow'
+  const compactToolbarControls = showToolbarTitles && !rdd.isMobile && toolbarMode === 'narrow'
   const toolbarTitle = (title) => {
-    if (!props.showToolbarTitles) return null
+    if (!showToolbarTitles) return null
     const variants = compactToolbarTitles[title]
     const displayTitle = !rdd.isMobile && variants
       ? toolbarMode === 'tight' || toolbarMode === 'narrow' ? variants[1] : toolbarMode === 'compact' ? variants[0] : title
@@ -3225,7 +3226,7 @@ const SeasonalBarChart = (props) => {
 
       {/* _______________________________________________container_________________________________________________________ */}
 
-      <div ref={toolbarRef} className={'barchart-controls' + (props.showToolbarTitles ? ' barchart-controls--titles' : '') + (props.showToolbarTitles && !rdd.isMobile ? ' barchart-controls--heading-layout' : '') + (props.showToolbarTitles && !rdd.isMobile && (toolbarMode === 'tight' || toolbarMode === 'narrow') ? ' barchart-controls--tight' : '') + (props.showToolbarTitles && !rdd.isMobile && toolbarMode === 'narrow' ? ' barchart-controls--narrow' : '')} style={{ ...barchartControlsStyle, '--tw-toolbar-ticker-width': `${Math.max(4, (props.symbol || '').length + 1)}ch` }} >
+      <div ref={toolbarRef} className={'barchart-controls' + (showToolbarTitles ? ' barchart-controls--titles' : '') + (showToolbarTitles && !rdd.isMobile ? ' barchart-controls--heading-layout' : '') + (showToolbarTitles && !rdd.isMobile && (toolbarMode === 'tight' || toolbarMode === 'narrow') ? ' barchart-controls--tight' : '') + (showToolbarTitles && !rdd.isMobile && toolbarMode === 'narrow' ? ' barchart-controls--narrow' : '')} style={{ ...barchartControlsStyle, '--tw-toolbar-ticker-width': `${Math.max(4, (props.symbol || '').length + 1)}ch` }} >
 
         <div className="barchart-controls-div" style={StyleNavDiv} >
 
@@ -3310,16 +3311,16 @@ const SeasonalBarChart = (props) => {
             box stay until the measured slack leaves under 3px per side (bwWide); only then
             drop to the compact undecorated label. */}
         {!rdd.isMobile && oppBySymbolOptions.length > 0 &&
-          <div ref={bwWrapRef} className="tw-toolbar-control tw-toolbar-waves" style={{ paddingLeft: '2px', paddingRight: '6px', flex: props.showToolbarTitles ? '0 0 120px' : '1 1 0', minWidth: props.showToolbarTitles ? '120px' : 0, display: 'flex', justifyContent: 'center' }}>
+          <div ref={bwWrapRef} className="tw-toolbar-control tw-toolbar-waves" style={{ paddingLeft: '2px', paddingRight: '6px', flex: showToolbarTitles ? '0 0 120px' : '1 1 0', minWidth: showToolbarTitles ? '120px' : 0, display: 'flex', justifyContent: 'center' }}>
           {toolbarTitle('Best waves')}
           <SelectBox
-            optionList={props.showToolbarTitles ? [{ ...oppBySymbolOptions[0], label: 'Best Waves' }, ...oppBySymbolOptions.slice(1)] : (bwWide ? [{ ...oppBySymbolOptions[0], label: '── Best Waves ──' }, ...oppBySymbolOptions.slice(1)] : oppBySymbolOptions)}
+            optionList={showToolbarTitles ? [{ ...oppBySymbolOptions[0], label: 'Best Waves' }, ...oppBySymbolOptions.slice(1)] : (bwWide ? [{ ...oppBySymbolOptions[0], label: '── Best Waves ──' }, ...oppBySymbolOptions.slice(1)] : oppBySymbolOptions)}
             value={selectedOppBySymbol}
             name="oppBySymbol"
             ariaLabel="Best waves"
             compactLabel={compactToolbarControls ? 'Waves' : undefined}
             suffix=""
-            widthOverride={props.showToolbarTitles ? '100%' : (bwWide ? '7vw' : undefined)}
+            widthOverride={showToolbarTitles ? '100%' : (bwWide ? '7vw' : undefined)}
             fitContainer
             sbChanged={handleOppBySymbolChanged}
             tooltipContent={props.tooltipSW ? 'b,Best seasonal waves for this ticker sorted by Sharpe Ratio. Select a wave to load it in the viewer.' : ''}
@@ -3389,7 +3390,7 @@ const SeasonalBarChart = (props) => {
           }
         </div>
         {/* absolute position for 2nd layer on smartphone portrait */}
-        <div className={'second-layer-parent' + (props.showToolbarTitles ? ' second-layer-parent--titles' : '')} style={{ display: secondLayerDisplay, top: barchartControlsHeight }}>
+        <div className={'second-layer-parent' + (showToolbarTitles ? ' second-layer-parent--titles' : '')} style={{ display: secondLayerDisplay, top: barchartControlsHeight }}>
           <div className='barchart-controls-div2 tw-toolbar-control' >
             {toolbarTitle('Start date')}
             <TextBox text={props.startDate} width="9" tbBlur={handleBlur} tbEnter={handleEnter} name="date" securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} />
@@ -3447,12 +3448,12 @@ const SeasonalBarChart = (props) => {
 
           <div className='barchart-controls-div tw-toolbar-control' style={StyleMFE}>
             {toolbarTitle('MFE overlay')}
-            <CheckBox tooltipContent={props.tooltipSW ? 'b,MFE: Maximum Favorable Excursion, adds the maximum level the price reached in favor of the trade as light green on bullish and light red on bearish barcharts' : ''} label="MFE" ariaLabel="MFE overlay" hideLabel={props.showToolbarTitles && !rdd.isMobile && (toolbarMode === 'tight' || toolbarMode === 'narrow')} cbChanged={checkboxChanged} checked={props.showMFE} />
+            <CheckBox tooltipContent={props.tooltipSW ? 'b,MFE: Maximum Favorable Excursion, adds the maximum level the price reached in favor of the trade as light green on bullish and light red on bearish barcharts' : ''} label="MFE" ariaLabel="MFE overlay" hideLabel={showToolbarTitles && !rdd.isMobile && (toolbarMode === 'tight' || toolbarMode === 'narrow')} cbChanged={checkboxChanged} checked={props.showMFE} />
           </div>
 
           <div className='barchart-controls-div tw-toolbar-control' style={StyleMAE}>
             {toolbarTitle('MAE overlay')}
-            <CheckBox tooltipContent={props.tooltipSW ? 'b,MAE: Maximum Adverse Excursion, adds the maximum price reached against the trade as light red on bullish and light green on bearish barchars' : ''} label="MAE" ariaLabel="MAE overlay" hideLabel={props.showToolbarTitles && !rdd.isMobile && (toolbarMode === 'tight' || toolbarMode === 'narrow')} cbChanged={checkboxChanged} checked={props.showMAE} />
+            <CheckBox tooltipContent={props.tooltipSW ? 'b,MAE: Maximum Adverse Excursion, adds the maximum price reached against the trade as light red on bullish and light green on bearish barchars' : ''} label="MAE" ariaLabel="MAE overlay" hideLabel={showToolbarTitles && !rdd.isMobile && (toolbarMode === 'tight' || toolbarMode === 'narrow')} cbChanged={checkboxChanged} checked={props.showMAE} />
           </div>
 
           <div className='barchart-controls-div tw-toolbar-control' style={StyleStartDate}>

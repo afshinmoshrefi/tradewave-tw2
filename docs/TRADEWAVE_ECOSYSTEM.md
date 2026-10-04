@@ -1006,9 +1006,10 @@ checks and restart verification are in `ops/OPERATIONS.md` and
 - Features: PE-cycle overlays/filters (`mode=pe`), years selectors, securities
   groups + published lists + watchlists, the `?o=BASE64` shareable pattern param,
   the "Tara" chatbot, wave-viewer charts (bar/cumulative/price).
-- The Wave Viewer toolbar titles are on by default, including its phone portrait
-  second row. Settings > General toggles them with the user-scoped
-  `tw_show_toolbar_titles` localStorage setting; disabling restores compact height.
+- The Wave Viewer toolbar titles are on by default on desktop. Mobile and
+  tablet controls, including the phone portrait second row, always use compact
+  height without titles. Settings > General toggles desktop titles with the
+  user-scoped `tw_show_toolbar_titles` localStorage setting.
   On desktop, `SeasonalBarChart.js` observes the chart toolbar's actual width and
   progressively shortens visible headings while keeping their full hover and
   accessible names. Desktop controls never wrap. Narrow title mode sizes closed
