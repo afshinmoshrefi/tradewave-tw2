@@ -1913,6 +1913,21 @@ the two systemd units + nginx + cloudflared ingress) and `ops/assemble_developer
 
 ### 7C. Tara (in-product chatbot) -> gateway CLIENT (data flow; Phase 1 built 2026-06-02)
 
+**Published security list commands (TW-TASK-0019, October 4):** `tara_security_lists.py`
+resolves midcap/optionable universe requests against the authenticated published catalog.
+The signed `set_view` schema carries only `market` + `published_list` for this action.
+App refreshes the catalog and user preferences, checks market access, enables the list
+without dropping existing preferences, and reuses the manual published-list selection
+cascade. Success requires the exact selected list name and parent market in App state;
+it does not claim every member has a detected pattern. How/where questions explain
+Settings -> Securities Groups -> Published Lists -> check -> securities dropdown
+without actuating. The four dev lists are owner-requested static October 1/2 snapshots:
+1,120 US $2-10B midcaps, 400 S&P MidCap constituents, 3,751 optionable stocks/ADRs,
+2,187 optionable ETFs/funds. Existing admin list APIs/storage remain authoritative.
+Focused regression: `test_tara_security_lists.py`, `test_tara_action_contract.py`,
+`taraActionContract.test.js`, `Chatbot.guidance.test.js`.
+
+
 The wave-viewer assistant "Tara" (`appserver/appserver/chatbot.py`) is a CLIENT of the v1
 gateway: it calls the flagship tools (scan / analyze / symbol-patterns / daily-pick) through
 provider function tools and narrates the gateway's own composed PatternCards, so its numbers

@@ -1189,6 +1189,13 @@ There are two sub-tabs inside Securities Groups:
 - "Reset to Default" restores all groups to visible.
 - Use this to declutter the dropdown by hiding markets you do not trade.
 
+### Published US Midcap and Optionable Lists
+- "US Midcap Stocks ($2-10B)" is the broad US-listed $2 billion to $10 billion market-cap snapshot; "S&P MidCap 400" is the separate index-constituent snapshot.
+- "US Optionable Stocks & ADRs" and "US Optionable ETFs & Funds" are separate published optionable universes.
+- "show midcaps", "show S&P MidCap 400", "list of optionable stocks" and "show optionable ETFs" select the accessible list through a catalog-validated Tara action. Tara enables it in the user's dropdown and confirms selection only after the client acknowledges its exact list identity.
+- A "how do I" or "where" question explains the path without changing the view: Settings (gear in the left panel) -> Securities Groups -> Published Lists -> check the named list -> select it in the top-bar securities dropdown.
+- These are static published snapshots. List-member counts are not detected opportunity counts or a guarantee of data coverage. Disabled/inaccessible lists cannot be selected. Never invent constituents, live option chains or automatic refresh.
+
 ### Published Lists
 - Published Lists are curated symbol lists created by TradeWave.
 - Each published list is tied to a specific securities group (e.g., S&P 500 Stocks) and contains a hand-picked set of symbols from that group.

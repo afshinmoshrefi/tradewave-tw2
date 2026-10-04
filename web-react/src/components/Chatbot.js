@@ -375,7 +375,8 @@ function Chatbot(props) {
       const symbol = state.target?.symbol;
       const confirmation = state.requires_chart_data
         ? `${symbol ? `<b>${symbol}</b> ` : ''}pattern and seasonal graph loaded in the Wave Viewer.`
-        : (requested.market ? 'Market selection updated.' : 'View settings updated.');
+        : (requested.published_list ? 'Securities list selected in the dropdown.'
+          : (requested.market ? 'Market selection updated.' : 'View settings updated.'));
       finalReply = `${pendingViewTransaction.reply || ''}${pendingViewTransaction.reply ? '<br><br>' : ''}${confirmation}`;
       auditStatus = 'succeeded';
       setGuidedQuestions(pendingViewTransaction.guidedQuestions || []);
@@ -606,7 +607,7 @@ function Chatbot(props) {
         if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
         return response.json();
       })
-      .then((data) => {
+      .then(async (data) => {
         if (requestGeneration !== conversationGenerationRef.current) return;
         const reply = data.reply || '';
         const nextGuidedQuestions = normalizeTaraGuidedQuestions(data.suggestions);
@@ -686,7 +687,7 @@ function Chatbot(props) {
             finishRequest();
             return;
           }
-          const accepted = props.BeginTaraViewAction(viewActions, data.turn_id || '');
+          const accepted = await props.BeginTaraViewAction(viewActions, data.turn_id || '');
           if (!accepted || !accepted.ok) {
             const safeReply = "I couldn't validate that chart request, so I haven't changed the chart.";
             if (accepted?.audit) {

@@ -30,3 +30,11 @@ Dev: pending. Staging: not checked. Production: four admin-created lists verifie
 ## History
 
 - 2026-10-04 UTC: Codex claimed task and inspected published-list storage and Tara contract.
+
+## October 4 implementation evidence
+
+The four dev catalogs were seeded through the existing owner's normal generate_ltk -> /login/session -> /create_published_list flow. No account roles or entitlements were changed. All symbol arrays exactly match the production-created snapshots. Before-catalog backup and SHA-256 membership receipt: /var/lib/tradewave/release-state/tara-security-lists-20261004/. Static snapshots use Finviz October2 screening and IJH October1 equity constituent holdings; they do not add missing market-price data or auto-refresh.
+
+Backend routing/catalog/signature tests: 145 passed. Frontend contract/guidance tests: 42 passed. The frontend test initially found a missing async response callback; corrected before activation. Final build/live verification pending. No staging or production code activation.
+
+Rollback: preserve the previous backend and React symlink targets, atomically restore them and restart affected services. The published list data is additive and remains independently stored in Redis DB2. Prior catalog backup is retained; no rollback should overwrite unrelated subsequent admin changes.

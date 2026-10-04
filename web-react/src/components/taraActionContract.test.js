@@ -621,3 +621,23 @@ test('a manual primary-input refetch becomes ready after its matching trend veri
     source_states: { primary: 'succeeded', trend: 'succeeded' },
   });
 });
+
+test('published list action is signed and matches its exact selected identity', () => {
+  const spec = { market: '4', published_list: 'US Midcap Stocks ($2-10B)' };
+  expect(normalizeTaraViewSpec(spec)).toEqual(spec);
+  expect(mergeTaraViewActions([action('a', spec)]).spec).toEqual(spec);
+  expect(taraRequestedSpecMatches({ market: '4', published_list: 'S&P MidCap 400' }, spec)).toBe(false);
+  expect(taraRequestedSpecMatches(spec, spec)).toBe(true);
+  expect(taraActionRequiresChartData(spec, {market:'4',symbol:''})).toBe(false);
+});
+
+test.each([
+  { published_list: 'Midcaps' },
+  { market: '4', published_list: '' },
+  { market: '4', published_list: ' Midcaps' },
+  { market: '4', published_list: 'x'.repeat(121) },
+  { market: '4', published_list: 'é' },
+  { market: '4', published_list: 'Midcaps', symbol: 'MSFT' },
+])('rejects malformed or mixed published list specs %p', spec => {
+  expect(normalizeTaraViewSpec(spec)).toEqual({});
+});

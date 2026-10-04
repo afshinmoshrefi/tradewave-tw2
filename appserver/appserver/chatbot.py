@@ -55,6 +55,8 @@ from tara_gateway import (
     run_chat_with_openai_tools,
     run_chat_with_tools,
 )
+from tara_security_lists import build_security_list_command
+from tara_gateway import _loopback_json
 from tara_answer_planner import (
     build_bottom_slide_command,
     build_excursion_overlay_command,
@@ -837,6 +839,9 @@ def _clean_observed_view(value):
         raw = value.get(key)
         if isinstance(raw, bool):
             out[key] = raw
+    list_name = value.get('published_list')
+    if isinstance(list_name, str) and re.fullmatch(r'[ -~]{1,120}', list_name) and list_name == list_name.strip():
+        out['published_list'] = list_name
     bottom_slide = value.get('bottom_slide')
     if bottom_slide in {'trend_chart', 'wave_stats', 'ai_scores', 'price_chart'}:
         out['bottom_slide'] = bottom_slide
@@ -848,12 +853,14 @@ def _clean_signed_spec(value):
         return None
     allowed = {
         'symbol', 'market', 'entry_date', 'days_out', 'years', 'pe_cycle',
-        'show_mfe', 'show_mae', 'show_tooltips', 'bottom_slide',
+        'show_mfe', 'show_mae', 'show_tooltips', 'bottom_slide', 'published_list',
     }
     if set(value) - allowed:
         return None
     cleaned = _clean_observed_view(value)
     if set(cleaned) != set(value) or cleaned != value:
+        return None
+    if 'published_list' in cleaned and set(cleaned) != {'market', 'published_list'}:
         return None
     has_entry = 'entry_date' in cleaned
     has_days = 'days_out' in cleaned
@@ -2415,6 +2422,16 @@ def chat():
                 provider=provider,
                 analysis_report=analysis_report,
             )
+
+        # Bind catalog access to the token actually authenticated by the decorator.
+        authenticated_token = request.args.get('token') or incoming_data.get('token')
+        list_command = build_security_list_command(
+            user_message, authenticated_token, g.chatbot_jwt, _loopback_json,
+            config.level_access_hierarchy,
+        )
+        if list_command is not None:
+            protocol_trace.append({'event': 'published_security_list', 'action_queued': bool(list_command['actions'])})
+            return finish(list_command['reply'], list_command['actions'])
 
         investor_messages = [
             {

@@ -383,7 +383,7 @@ _VS_PE = {"consecutive": "cons", "cons": "cons", "pe0": "pe0", "pe1": "pe1", "pe
 _VS_BOTTOM_SLIDES = {"trend_chart", "wave_stats", "ai_scores", "price_chart"}
 _VS_FIELDS = {
     "symbol", "market", "entry_date", "days_out", "years", "pe_cycle",
-    "show_mfe", "show_mae", "show_tooltips", "bottom_slide",
+    "show_mfe", "show_mae", "show_tooltips", "bottom_slide", "published_list",
 }
 
 
@@ -477,6 +477,13 @@ def _validate_view_spec(spec, current_view=None):
         if not (isinstance(bottom_slide, str) and bottom_slide in _VS_BOTTOM_SLIDES):
             return {}
         out["bottom_slide"] = bottom_slide
+
+    if "published_list" in spec:
+        name = spec.get("published_list")
+        if (not isinstance(name, str) or not re.fullmatch(r"[ -~]{1,120}", name)
+                or name != name.strip() or set(spec) != {"market", "published_list"}):
+            return {}
+        out["published_list"] = name
 
     has_entry = "entry_date" in out
     has_days = "days_out" in out

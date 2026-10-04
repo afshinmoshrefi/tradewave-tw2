@@ -986,7 +986,46 @@ const App = () => {
   // Accept and apply a server-validated Tara transaction. This function
   // returns "accepted", never "loaded"; SeasonalBarChart owns that terminal
   // decision after the exact ChartData4 request succeeds.
-  const beginTaraViewAction = (actions, turnId) => {
+  const selectPublishedList = (pl) => {
+        const parentGroupName = resourceObj[pl.resource_id] || '';
+
+        oppYearsSelectionOwnedRef.current = true;
+        SetShowActiveOpps(false);
+        SetSelectedSecurity(parentGroupName);
+
+        SetActiveWatchlistFilter({
+          name: pl.name,
+          resourceId: pl.resource_id,
+          parentGroupName: parentGroupName,
+          symbols: new Set(pl.symbols || [])
+        });
+
+        oppYearsSelectionOwnedRef.current = true;
+        const [y1, y2] = getOppYearsForGroup(parentGroupName, showPEOpps);
+
+        SetOppTableYears(-1);
+        SetOppTablePartialYears(-1);
+        SetConsolidatedSeasonalData([]);
+        SetSymbol('');
+        SetOppTableYears(y1.toString());
+        SetOppTablePartialYears(y2.toString());
+        setCookie('selectedSecurity', parentGroupName, 300);
+        SetLastPrice(['', 0]);
+        SetSeasonalBarChartData([]);
+        SetLineChartYear(0);
+        SetOpportunities([]);
+
+        // Clear querystring so stale pattern URL doesn't snap back to the old group
+        if (window.location.search.length > 0) {
+          window.history.replaceState(null, '', window.location.pathname);
+          queryStringLoadedRef.current = true;
+          SetQueryStringApplied(true);
+          historyInitialized.current = false;
+        }
+
+  };
+
+  const beginTaraViewAction = async (actions, turnId) => {
     const normalizedTurnId = typeof turnId === 'string' ? turnId.toLowerCase() : '';
     if (
       !/^[a-f0-9]{32}$/.test(normalizedTurnId)
@@ -1004,6 +1043,42 @@ const App = () => {
     };
 
     const requested = merged.spec;
+    let requestedList = null;
+    if (requested.published_list) {
+      // Refresh the authenticated catalog, including revocations since this tab opened.
+      try {
+        const asURL = appserverURL();
+        const [catalogResponse, prefsResponse] = await Promise.all([
+          twFetch(`${asURL}/get_published_lists?token=${token}`),
+          twFetch(`${asURL}/get_securities_prefs?token=${token}`),
+        ]);
+        if (!catalogResponse.ok || !prefsResponse.ok) throw new Error('list_catalog_unavailable');
+        const catalog = await catalogResponse.json();
+        const prefs = (await prefsResponse.json()).securities_prefs;
+        const candidates = (catalog.published_lists || []).filter(pl => pl.name === requested.published_list);
+        if (candidates.length !== 1) throw new Error('list_unavailable');
+        requestedList = candidates[0];
+        if (requestedList.enabled === false || String(requestedList.resource_id) !== requested.market
+          || !Array.isArray(requestedList.symbols) || !requestedList.symbols.length
+          || !securityTypeList.some(item => item.value === resourceObj[requested.market])) {
+          throw new Error('list_unavailable');
+        }
+        if (!prefs || !Array.isArray(prefs.enabled_published) || !Array.isArray(prefs.hidden_groups)) {
+          throw new Error('list_preferences_unavailable');
+        }
+        const updatedPrefs = { ...prefs, enabled_published: [...new Set([...prefs.enabled_published, requestedList.name])] };
+        const saved = await twFetch(`${asURL}/set_securities_prefs?token=${token}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedPrefs),
+        });
+        if (!saved.ok) throw new Error('list_preferences_unavailable');
+        const savedPrefs = (await saved.json()).securities_prefs;
+        if (!savedPrefs?.enabled_published?.includes(requestedList.name)) throw new Error('list_preferences_unavailable');
+        SetPublishedLists(catalog.published_lists);
+        SetSecuritiesPrefs(savedPrefs);
+      } catch (error) {
+        return { ok: false, reason: 'published_list_unavailable', audit };
+      }
+    }
     const currentMarket = marketIdForName(selectedSecurity);
     const targetMarket = requested.market || currentMarket;
     const targetMarketName = targetMarket ? resourceObj?.[parseInt(targetMarket, 10)] : selectedSecurity;
@@ -1036,7 +1111,7 @@ const App = () => {
     const target = {
       market: targetMarket,
       symbol: requested.symbol || (
-        changingMarket ? '' : String(symbol || '').toUpperCase()
+        (changingMarket || requestedList) ? '' : String(symbol || '').toUpperCase()
       ),
       entry_date: requested.entry_date || startDate,
       days_out: requested.days_out || parseInt(daysOut, 10),
@@ -1105,7 +1180,9 @@ const App = () => {
       }
       SetTaraActionState(transaction);
 
-      if (changingMarket) {
+      if (requestedList) {
+        selectPublishedList(requestedList);
+      } else if (changingMarket) {
         switchMarket(targetMarketName);
       }
       if (changingSymbol) {
@@ -1212,6 +1289,7 @@ const App = () => {
     if (!taraActionState || taraActionState.status !== 'loading' || taraActionState.requires_chart_data) return;
     const observed = {
       market: marketIdForName(selectedSecurity),
+      published_list: activeWatchlistFilter?.name || '',
       symbol: String(symbol || '').toUpperCase(),
       entry_date: startDate,
       days_out: parseInt(daysOut, 10),
@@ -1238,6 +1316,8 @@ const App = () => {
     taraActionState,
     marketIdForName,
     selectedSecurity,
+    activeWatchlistFilter,
+    securitiesPrefs,
     symbol,
     startDate,
     daysOut,
@@ -1553,41 +1633,7 @@ const App = () => {
         const pl = publishedLists.find(p => p.name === plName);
         if (!pl) return;
 
-        const parentGroupName = resourceObj[pl.resource_id] || '';
-
-        oppYearsSelectionOwnedRef.current = true;
-        SetShowActiveOpps(false);
-        SetSelectedSecurity(parentGroupName);
-
-        SetActiveWatchlistFilter({
-          name: plName,
-          resourceId: pl.resource_id,
-          parentGroupName: parentGroupName,
-          symbols: new Set(pl.symbols || [])
-        });
-
-        oppYearsSelectionOwnedRef.current = true;
-        const [y1, y2] = getOppYearsForGroup(parentGroupName, showPEOpps);
-
-        SetOppTableYears(-1);
-        SetOppTablePartialYears(-1);
-        SetConsolidatedSeasonalData([]);
-        SetSymbol('');
-        SetOppTableYears(y1.toString());
-        SetOppTablePartialYears(y2.toString());
-        setCookie('selectedSecurity', parentGroupName, 300);
-        SetLastPrice(['', 0]);
-        SetSeasonalBarChartData([]);
-        SetLineChartYear(0);
-        SetOpportunities([]);
-
-        // Clear querystring so stale pattern URL doesn't snap back to the old group
-        if (window.location.search.length > 0) {
-          window.history.replaceState(null, '', window.location.pathname);
-          queryStringLoadedRef.current = true;
-          SetQueryStringApplied(true);
-          historyInitialized.current = false;
-        }
+        selectPublishedList(pl);
 
         return;
       }

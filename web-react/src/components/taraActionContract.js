@@ -9,7 +9,7 @@ const VALID_MARKETS = new Set(
 const VALID_BOTTOM_SLIDES = new Set(['trend_chart', 'wave_stats', 'ai_scores', 'price_chart']);
 const VALID_FIELDS = new Set([
   'symbol', 'market', 'entry_date', 'days_out', 'years', 'pe_cycle',
-  'show_mfe', 'show_mae', 'show_tooltips', 'bottom_slide',
+  'show_mfe', 'show_mae', 'show_tooltips', 'bottom_slide', 'published_list',
 ]);
 
 export const TARA_ACTION_TIMEOUT_MS = 30000;
@@ -254,6 +254,12 @@ export const normalizeTaraViewSpec = (spec) => {
       return {};
     }
     out.bottom_slide = spec.bottom_slide;
+  }
+  if (Object.prototype.hasOwnProperty.call(spec, 'published_list')) {
+    if (typeof spec.published_list !== 'string' || !/^[ -~]{1,120}$/.test(spec.published_list)
+      || spec.published_list !== spec.published_list.trim()
+      || Object.keys(spec).length !== 2 || !out.market) return {};
+    out.published_list = spec.published_list;
   }
   const hasEntry = Object.prototype.hasOwnProperty.call(out, 'entry_date');
   const hasDays = Object.prototype.hasOwnProperty.call(out, 'days_out');

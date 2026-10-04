@@ -1,0 +1,26 @@
+[
+  {
+    "name": "US Midcap Stocks ($2-10B)",
+    "count": 1120,
+    "resource_id": "4",
+    "symbols_sha256": "8b1cb733540a1ccc3dd8353ec94f7889d27acabdcc132e045c5b942270c9c7af"
+  },
+  {
+    "name": "S&P MidCap 400",
+    "count": 400,
+    "resource_id": "4",
+    "symbols_sha256": "f6c8fb492e439ed4558f3912aed32a85501dfb42f5896f82b05e5bc2f048e788"
+  },
+  {
+    "name": "US Optionable Stocks & ADRs",
+    "count": 3751,
+    "resource_id": "4",
+    "symbols_sha256": "d03f3dec964d12fb4756f7361809cb88d774ae4408dc6dea0351ef6d0dab22b1"
+  },
+  {
+    "name": "US Optionable ETFs & Funds",
+    "count": 2187,
+    "resource_id": "11",
+    "symbols_sha256": "5477ac81fd8882929c6715348ed727c088f070d080dc65c188d73a2acfe307d1"
+  }
+]
