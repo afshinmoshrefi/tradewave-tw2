@@ -28,4 +28,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 
 | [TW-TASK-0018](TW-TASK-0018.md) | in-progress | Dev delivered/provider work blocked; final SMN main/live 2b00e6cb: 705 gated articles, real identity, free/test offers, approved ADP previews/exports and public daily video; hosted Sandbox payment/webhook/cleanup proven; article/daily successor chains and full avatar compositor deployed; current ADP 14.106s exact clip/admin approval proven; ledger 1277/5000; avatar key/browser, current/archival media QA and later posting remain |
 
-| [TW-TASK-0019](TW-TASK-0019.md) | in-progress | Published US security lists on dev and Tara discovery/selection |
+| [TW-TASK-0019](TW-TASK-0019.md) | verified-dev | Published US security lists on dev and Tara discovery/selection |
