@@ -1,6 +1,6 @@
 # TW-TASK-0019: Published US security lists and Tara selection
 
-- Status: in-progress
+- Status: verified-dev
 - Confidence: verified
 - Priority: P2 - requested list discovery and viewer control
 - First observed / last updated: 2026-10-04 UTC
@@ -41,4 +41,4 @@ Rollback: preserve the previous backend and React symlink targets, atomically re
 
 - 2026-10-04 UTC: Committed and pushed f935057beb4e433010bbe98f8675f5aa5feb226c, activated and verified dev, advanced main non-forced, verified backend/frontend/main parity, released dev activation lock. Rollback pointers are in activation-before.json.
 
-- Owner correction: "how about micaps" must select midcaps. Normal manual selection uses the top-left market dropdown with published lists at its bottom, not Settings. Backend follow-up parsing and guidance corrected; live dev retest pending.
+- Owner correction: "how about micaps" must select midcaps. Normal manual selection uses the top-left market dropdown with published lists at its bottom, not Settings. Backend follow-up parsing and guidance corrected; 176 backend/prompt regression checks passed. Live Chrome verified the exact typo follow-up, ordinary midcap follow-up, optionable follow-up and help-only behavior in the owner conversation. Active source e9499d99f33232ab0140b5c61ddae4ce943e1161; main matches; React artifact unchanged because this fix is backend-only. Evidence: followup-verification.json.
