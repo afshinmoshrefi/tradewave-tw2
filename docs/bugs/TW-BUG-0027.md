@@ -1,6 +1,10 @@
 # TW-BUG-0027: October 5 SMN reader edition held
 
 
+## Continuity observer repair checkpoint, October 5
+
+Integration branch now `2a0a5dc` (pushed), including observer `be4c009` and scheduler `d8ec51c` cherry-pick. Observer performs bounded GETs and verifies receipt-bound static HTML or exact public membership preview copy; only the exact observed Cloudflare beacon can normalize static bytes. Stale running child ledgers now trigger configured no-progress detection without a controller receipt. Resend requires a provider ID and persists acceptance separately from delivery; legacy dedupe retained. Continuity needs_attention/held ledgers are actionable. 30 observer tests pass locally, no real alert send. Independent verifier can rerun copied candidate against this pushed branch. Production remains unchanged; publication restart tests and newsletter timezone/state work are still being integrated.
+
 ## Continuity implementation checkpoint and independent review pointers
 
 Integration owner remains session 01a0fcf4-37f1-7d33-bced-ac46999fd9fa. Integration branch `codex/smn-publication-continuity`, worktree `C:/Users/afshin/Documents/TradeWave Main Orchestrator/smn-price-anchor`, checkpoint `5eeb8bd` (not integrated or activated on Dev). Publication branch/worktree `codex/smn-continuity-package` / `smn-continuity-package` owns package/installer/membership/revision adapter. Scheduler branch/worktree `codex/smn-continuity-scheduler` owns bounded progress/deadline delivery and complete-only newsletter eligibility. Newsletter branch `codex/smn-newsletter-state-20261005` now owns only send_smn_emails.py and its tests for explicit timezone and truthful provider status. Root owns fallback/editorial helper, observer freshness and integration. Independent acceptance remains 01a10c07-0aa8-767f-84e3-04f9184b50da, read/test only.
