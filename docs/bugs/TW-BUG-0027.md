@@ -1,6 +1,10 @@
 # TW-BUG-0027: October 5 SMN reader edition held
 
 
+## Integrated Linux checkpoint and reader session, October 5
+
+Candidate branch is `ab0c699` (pushed), with publication `7b51253`, scheduler `d8ec51c`, newsletter `d0433cd` integrated. Linux: 20 continuity, 23 editorial, 23 source, 5 fallback, 30 observer, 11 legacy publication, 16 selected publication, 15 membership pipeline, 1 verified newsletter and 6 newsletter-state tests passed. Follow-up root changes add early publication when all generation completes, observe interrupted continuity progress, and normalize only exact observed Cloudflare beacon plus LF (reject extra whitespace/scripts). Observer now31 local tests. All original negative observer probes were independently confirmed repaired; live false positive newline corrected in0950856. Publication worker is finishing atomic partial-upload recovery, incomplete prepare directory recovery, explicit clean pushed Dev candidate qualification, and missing-visual fallback capsule support. Root real saved-Oct2 six-subject eligibility passes; FDS fallback clone preserves original visual. User completed genuine Dev reader sign-in; central entitlement revalidated via existing QA exporter. No new model jobs/emails or production mutations.
+
 ## Continuity observer repair checkpoint, October 5
 
 Integration branch now `2a0a5dc` (pushed), including observer `be4c009` and scheduler `d8ec51c` cherry-pick. Observer performs bounded GETs and verifies receipt-bound static HTML or exact public membership preview copy; only the exact observed Cloudflare beacon can normalize static bytes. Stale running child ledgers now trigger configured no-progress detection without a controller receipt. Resend requires a provider ID and persists acceptance separately from delivery; legacy dedupe retained. Continuity needs_attention/held ledgers are actionable. 30 observer tests pass locally, no real alert send. Independent verifier can rerun copied candidate against this pushed branch. Production remains unchanged; publication restart tests and newsletter timezone/state work are still being integrated.
