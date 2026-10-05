@@ -1,5 +1,11 @@
 # TW-BUG-0027: October 5 SMN reader edition held
 
+## Latest terminal outcome, October 5 09:53 Eastern
+
+2cc3167 deployed successfully. Its recovery stopped at46/49 before publication: five articles fully approved including NVIDIA; SI fresh review passes all substantive checks, has only one advisory style issue, but a deterministic regex falsely matches "recorded price for the next60 weekdays" inside the accurate phrase "seasonal trend scaled to the last recorded price for the next60 weekdays". The native caption explicitly supplies this anchor convention. Source receipts, original failed root, prior43-job root and four approvals are hash-verified unchanged. Recovery failure is recorded at `2026-10-05/chatgpt-citation-recovery-2cc3167/recovery-failure.json`; controller last-run now points there as held. No publication attempted or newsletter released.
+
+Preparing a narrow direct-price-anchor exception and tests, preserving current SI article and saved review. No further copyedit/research/writer/review job should be needed: SIhero + SIpixels + landing =3 remaining, still cumulative49. The49 allowance and today's snapshots are already approved; only the next exact correction SHA will need direct production approval. Do not describe the recovery as still running. Actual saved-review replay will prove the exception while direct claims of future recorded prices remain blocked.
+
 ## Current: follow-up authorized, production recovery running
 
 October5 09:49Eastern: Afshin approved exact2cc3167 direct production deployment and49 cumulative jobs in coordinating turn01a10c51-2cd9-7800-9e21-1ac6a34c528b; human response read and verified. Same-day snapshots retain prior confirmation. Production guarded upgrade succeeded to2cc3167a435065843bb2b8834a750e7213fb75ec with previous08f8714 pointer/units/config preserved. Receipt `/var/lib/tradewave/release-state/smn-oct5-repair-2cc3167a4350-2026-10-05/receipt.json`. Actual isolated recovery is running as `smn-oct5-citation-recovery.service`, root `2026-10-05/chatgpt-citation-recovery-2cc3167`; original SI restoration and one-phrase receipt-bound copyedit passed mechanical checks, fresh review running. No publication success claimed yet. Earlier pending approval notes below are historical.
