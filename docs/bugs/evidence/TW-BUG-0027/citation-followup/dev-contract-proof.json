@@ -1,0 +1,15 @@
+{
+  "source": "/opt/smn-worktrees/smn-citation-production-2cc3167",
+  "model_jobs_started": 0,
+  "approved": {
+    "XLF": true,
+    "SPY": true,
+    "QQQ": true,
+    "AMZN": true
+  },
+  "nvda_existing_review": true,
+  "silver_original_needs_fresh_quote_review": "Missing material context mc-vault: The LBMA's end-August London silver vault holdings rose from the previous month. This is a holdings observation, not a futures price or return.",
+  "silver_original_restored_without_model": true,
+  "silver_one_phrase_copyedit_passed": true,
+  "silver_fresh_review_required": true
+}

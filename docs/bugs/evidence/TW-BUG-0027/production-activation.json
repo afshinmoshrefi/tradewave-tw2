@@ -1,0 +1,33 @@
+{
+  "source_commit": "08f871493a639a504b49794d78315d223b87a870",
+  "status": "activated_code_only",
+  "previous_pointer": "/opt/smn-subscription/releases/d6e2b6fd59b15e2a601248df00073c078db24df4",
+  "active_timers": [
+    "smn-subscription.timer",
+    "smn-weekday-newsletter.timer"
+  ],
+  "before": {
+    "/etc/SMN/subscription-primary.json": "176d8ab2bb986390f0a38d610001fa63f3caff15f2d0b794ff49cdfcdc82c687",
+    "/etc/systemd/system/smn-subscription.service": "f236587ceeedba921a4fb98846112b73aa8dcd4b4beb3fdf8236c58a7dbd95ac",
+    "/etc/systemd/system/smn-weekday-newsletter.service": "f41a8fe8276e15cdeb80cb67af38cc512ca28c83c3b175b81ed21680ba7656bb"
+  },
+  "after": {
+    "/etc/SMN/subscription-primary.json": "6bfec0372cddffc45170156beb2165f39e8baad3994f9f6ed6b7fd3f7602e62f",
+    "/etc/systemd/system/smn-subscription.service": "43f62db363ab071de4f0840042bfba00b67d19a822a4ab7e3177d75e7fa0e574",
+    "/etc/systemd/system/smn-weekday-newsletter.service": "ff1bec7d168229ca422be2f4aa1713b7a1dfa10bfbd97ecf7403d54702427c9b"
+  },
+  "approval": {
+    "date": "2026-10-05",
+    "source_commit": "08f871493a639a504b49794d78315d223b87a870",
+    "approved_by": "Afshin",
+    "production_web_snapshot": true,
+    "production_app_snapshot": true,
+    "execute_production_repair": true,
+    "max_cumulative_jobs": 46,
+    "ordinary_cap_unchanged": 40,
+    "evidence_thread": "01a0fcf2-f893-74f0-b850-4105ab151511",
+    "evidence_turn": "01a10c26-cd6f-7a62-a18f-4f24c568b241",
+    "user_response": "approved",
+    "scope": "October 5 targeted SI/NVDA recovery and complete edition publication; no private comparison or test email"
+  }
+}

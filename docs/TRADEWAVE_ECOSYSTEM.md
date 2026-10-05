@@ -105,13 +105,16 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
 - **Tickers** (`blog/generate_top10_AI.py` / `top10_jobs_today_to_queue_cron.py`)
   - "AI" here = Sharpe-ranked OppList4, NOT an LLM.
 - **SMN October 5 operational update:** production subscription runtime remains
-  `d6e2b6fd`, with weekday research at 05:30 America/New_York and email after
+  `08f8714`, with weekday research at 05:30 America/New_York and email after
   07:00 only upon verified publication. The October 5 reader edition is held;
   the working production dashboard does not imply successful publication.
   Source-date/retry, reviewer-evidence, complete-lineup and runtime-asset fixes
-  are live on Dev at `6f8ab7b`; narrow production candidate `08f8714` is prepared
-  but not deployed. Retained recovery needs at least46 cumulative jobs (37 used,
-  ordinary cap40), current production authority and snapshots. Observer units
+  are installed in production, but recovery held at43/46 jobs on additional
+  citation-format and SI chart-method prose defects. Citation correction is live
+  on Dev at `afd6f2e`; production candidate `2cc3167` needs new exact release
+  approval and a one-time49 cumulative cap (ordinary40 unchanged). Today's
+  snapshots are already confirmed. Receipt-bound SI copyedit plus fresh review,
+  article visuals and full publication remain pending. Observer units
   and saved alert settings are absent in production. Exact evidence and operator
   handoff: [TW-BUG-0027](bugs/TW-BUG-0027.md). The following July pipeline
   description is historical and does not supersede this subscription runtime.

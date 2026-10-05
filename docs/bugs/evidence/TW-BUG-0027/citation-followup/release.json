@@ -1,0 +1,17 @@
+{
+  "source_commit": "2cc3167a435065843bb2b8834a750e7213fb75ec",
+  "production_baseline": "08f871493a639a504b49794d78315d223b87a870",
+  "dev_main": "afd6f2e650d2155366e6a05508ee1fe7111a60ed",
+  "status": "prepared_not_deployed",
+  "bundle_sha256": "1e4b72e03a7c6cb704362c8df5cf984f7bd328841eddf968200ae3e041d9a750",
+  "linux_tests_passed": 49,
+  "actual_production_review_replay": "passed_on_dev_without_model_jobs",
+  "production_jobs_used": 43,
+  "currently_authorized_cap": 46,
+  "minimum_recovery_jobs": 6,
+  "minimum_cumulative_cap": 49,
+  "ordinary_cap": 40,
+  "full_oct5_edition_verified": false,
+  "snapshot_confirmation": "Afshin confirmed 2026-10-05 in turn 01a10c26-cd6f-7a62-a18f-4f24c568b241",
+  "authorization": "new exact release/direct execution and cumulative 49 allowance pending; same-day snapshots already confirmed"
+}

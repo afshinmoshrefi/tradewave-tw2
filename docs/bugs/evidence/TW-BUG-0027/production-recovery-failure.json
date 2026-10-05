@@ -1,0 +1,49 @@
+{
+  "utc": "2026-10-05T13:15:07.084808+00:00",
+  "status": "held",
+  "source_commit": "08f871493a639a504b49794d78315d223b87a870",
+  "date": "2026-10-05",
+  "jobs_used": 43,
+  "max_jobs": 46,
+  "original_evidence_unchanged": true,
+  "approved_unchanged": {
+    "XLF": true,
+    "SPY": true,
+    "QQQ": true,
+    "AMZN": true
+  },
+  "publication_attempted": false,
+  "result": {
+    "utc": "2026-10-05T13:15:07.081371+00:00",
+    "date": "2026-10-05",
+    "passed": false,
+    "articles": {
+      "XLF": {
+        "status": "passed"
+      },
+      "SI": {
+        "status": "held",
+        "reason": "SI failed review twice: [\"Unresolved factual correction: “Average seasonal path” asserts an averaging method that the supplied chart evidence does not establish.; Missing material context mc-vault: The LBMA's end-August London silver vault holdings rose from the previous month. This is a holdings observation, not a futures price or return.; Missing material context mc-clearing-definition: The clearing series covers a defined group of London physical-metal transfers; it should not be described as"
+      },
+      "SPY": {
+        "status": "passed"
+      },
+      "QQQ": {
+        "status": "passed"
+      },
+      "AMZN": {
+        "status": "passed"
+      },
+      "NVDA": {
+        "status": "held",
+        "reason": "NVDA failed review twice: ['Missing material context nvda-q2-revenue: The latest reported quarter ended July 26, 2026; revenue rose both sequentially and year over year.; Missing material context nvda-data-center: The Data Center section reports $89.0 billion in second-quarter revenue and 117% annual growth.; Missing material context nvda-edge-computing: Edge Computing also grew, although more slowly than Data Center year over year.; Missing material context nvda-management-demand: Management de"
+      }
+    },
+    "passed_count": 4,
+    "held": [
+      "NVDA",
+      "SI"
+    ],
+    "jobs_used": 43
+  }
+}
