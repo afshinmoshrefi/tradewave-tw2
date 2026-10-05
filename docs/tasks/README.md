@@ -30,4 +30,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 
 | [TW-TASK-0019](TW-TASK-0019.md) | verified-dev | Published US security lists on dev and Tara discovery/selection |
 
-| [TW-TASK-0020](TW-TASK-0020.md) | in-progress | Restore mobile bar chart More controls above the chart canvas |
+| [TW-TASK-0020](TW-TASK-0020.md) | complete | Restore mobile bar chart More controls above the chart canvas |

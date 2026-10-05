@@ -45,4 +45,4 @@ Status belongs in each record and this index; update both together. Preserve res
 
 | [TW-BUG-0025](TW-BUG-0025.md) | P2 | verified on dev | SMN private editor images/charts restored; original MSFT draft/assets unchanged, anonymous access denied |
 
-| [TW-BUG-0026](TW-BUG-0026.md) | P2 | in-progress | Mobile bar chart More control does not open extra controls |
+| [TW-BUG-0026](TW-BUG-0026.md) | P2 | verified on Dev | Mobile bar chart More control does not open extra controls |
