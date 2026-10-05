@@ -1,5 +1,9 @@
 # TW-BUG-0027: October 5 SMN reader edition held
 
+## Dev browser compatibility and independent mail health, October 5
+
+Root candidate `3c192ca` includes membership catalog projection fix `9c159d8` and navigation fix `60d4723`, plus independent failed/stalled weekday/Sunday mail observer checks (35 local tests; previous 32 passed Linux). Real 60d4723 notice passed public catalog, navigation, dated coverage and desktop/mobile capture, then failed the first retained member article byte check. Automatic rollback receipt `/var/lib/tradewave/release-state/smn-primary-2026-10-02-70535727d9f4f03d/receipt.json` is rolled_back. Genuine reader entitlement is can_read=true. Playwright member response is HTTP200; reversing the already-supported exact Cloudflare email-link transform matches approved SHA `03a6b9e61b7182224ace360c01cc6f071e5a298164d1f7df9cc448588fe6c2f4`. This is a verifier normalization mismatch, not expired login; no new login required. Worker is applying the same normalization with exact restored-byte matching and raw hash evidence. Diagnostic `/var/tmp/smn-continuity-diagnose-member.cjs`; source approvals remain unchanged. Notice mobile screenshot inspected: dated pending notice and retained archive readable. Production remains2d1 and today's delivered campaign remains untouched. Isolated production policy candidate branch `codex/smn-continuity-production` tip `0ca8f3b` is local-only, pending Linux and transaction qualification; it excludes membership features.
+
 
 ## Authenticated Dev rehearsal checkpoint, October 5 15:30 UTC
 
