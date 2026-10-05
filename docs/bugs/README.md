@@ -46,5 +46,5 @@ Status belongs in each record and this index; update both together. Preserve res
 | [TW-BUG-0025](TW-BUG-0025.md) | P2 | verified on dev | SMN private editor images/charts restored; original MSFT draft/assets unchanged, anonymous access denied |
 
 | [TW-BUG-0026](TW-BUG-0026.md) | P2 | verified on Dev | Mobile bar chart More control does not open extra controls |
-| [TW-BUG-0027](TW-BUG-0027.md) | P1 | in-progress | October 5 edition recovered; exact 32bd869 prevention approved, existing-owner activation pending; alert credential absent |
+| [TW-BUG-0027](TW-BUG-0027.md) | P1 | blocked | October 5 content recovered;32bd869 approved, tested operator Git-adapter amendment awaits exact scope authorization; alerts credential absent |
 | [TW-BUG-0028](TW-BUG-0028.md) | P2 | open | All six October 5 SMN articles omit established site header; separate template repair pending owner reconciliation |

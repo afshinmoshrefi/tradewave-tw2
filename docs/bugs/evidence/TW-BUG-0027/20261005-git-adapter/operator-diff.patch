@@ -1,0 +1,44 @@
+--- approved/cutover-production.py
++++ proposed/cutover-production.py
+@@ -2 +2 @@
+-import argparse,fcntl,hashlib,json,os,re,shutil,stat,subprocess,tarfile,tempfile
++import argparse,fcntl,hashlib,json,os,re,shlex,shutil,stat,subprocess,tarfile,tempfile
+@@ -18,0 +19,3 @@
++GIT_ADAPTER=Path('/opt/smn-subscription/bin/git')
++GIT_ADAPTER_BYTES=b'#!/bin/sh\nexec /usr/bin/sudo -u flask /usr/bin/git \"$@\"\n'
++CONTINUITY_PATH='/opt/smn-subscription/bin:/opt/smn-shadow/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+@@ -24,0 +28,8 @@
++def git_bytes(checkout,*args):return subprocess.check_output(['sudo','-u','flask','git','-C',str(checkout),*args])
++def git_adapter_metadata():
++ value=metadata(GIT_ADAPTER)
++ if (value is None or value['uid']!=0 or value['mode'] & 0o022 or not os.access(GIT_ADAPTER,os.X_OK) or
++     GIT_ADAPTER.read_bytes()!=GIT_ADAPTER_BYTES):
++  raise ValueError('Existing root-owned Flask Git adapter is missing or changed')
++ return value
++def continuity_git_dropin():return UNITS/'smn-continuity@.service.d/10-release-git.conf'
+@@ -38 +49 @@
+- names=subprocess.check_output(['git','-C',str(checkout),'ls-tree','-r','-z','--name-only',SHA])
++ names=git_bytes(checkout,'ls-tree','-r','-z','--name-only',SHA)
+@@ -48 +59 @@
+-   deployed=subprocess.check_output(['git','-C',str(checkout),'show',SHA+':'+name])
++   deployed=git_bytes(checkout,'show',SHA+':'+name)
+@@ -82 +93 @@
+- paths={ACTIVATION,UNITS/'smn-continuity@.service',UNITS/'smn-continuity@.timer'}
++ paths={ACTIVATION,UNITS/'smn-continuity@.service',UNITS/'smn-continuity@.timer',continuity_git_dropin()}
+@@ -105 +116 @@
+- return {'source_commit':OLD,'previous_pointer':os.readlink(CURRENT),'files':{str(p):metadata(p) for p in files()},
++ return {'source_commit':OLD,'existing_git_adapter':git_adapter_metadata(),'previous_pointer':os.readlink(CURRENT),'files':{str(p):metadata(p) for p in files()},
+@@ -182 +193,2 @@
+-  approval.get('baseline_sha256')!=sha(baseline_path) or approval.get('preserved_campaign_id')!='200497784617437041'):
++  approval.get('baseline_sha256')!=sha(baseline_path) or approval.get('preserved_campaign_id')!='200497784617437041' or
++  approval.get('operator_script_sha256')!=sha(__file__) or approval.get('approve_existing_git_adapter_dropin') is not True):
+@@ -217,0 +230 @@
++ if git_adapter_metadata()!=baseline['existing_git_adapter']:raise ValueError('Existing Git adapter changed after preflight')
+@@ -230,0 +244,3 @@
++  environment=dict(item.split('=',1) for item in shlex.split(run('systemctl','show',phase+'.service','-p','Environment','--value')) if '=' in item)
++  if environment.get('PATH')!=CONTINUITY_PATH:
++   raise ValueError('Continuity service does not use the existing Flask Git adapter')
+@@ -290,0 +307,3 @@
++   elif path==continuity_git_dropin():
++    if baseline['files'][text] is not None:raise ValueError('Existing continuity Git drop-in requires separate drift classification')
++    data=('[Service]\nEnvironment=PATH='+CONTINUITY_PATH+'\n').encode()

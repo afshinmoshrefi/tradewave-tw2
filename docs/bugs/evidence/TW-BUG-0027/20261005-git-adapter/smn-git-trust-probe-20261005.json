@@ -1,0 +1,19 @@
+{
+  "checked_utc": "2026-10-05T21:04:27.278079+00:00",
+  "release": "/opt/smn-subscription/releases/2d1de1a9c9f200fa29a2db7f9660f3527727b660",
+  "release_uid": 999,
+  "root_git_exit": 128,
+  "root_git_rejected_dubious_ownership": true,
+  "root_git_error_class": "dubious_ownership",
+  "secret_file_git_configuration_names": [],
+  "root_git_with_secret_file_git_environment_exit": 128,
+  "root_git_with_secret_file_rejected_dubious_ownership": true,
+  "existing_service_git_environment": {
+    "smn-subscription.service": {},
+    "smn-weekday-newsletter.service": {}
+  },
+  "operator_archive_guard_requires_root_git": true,
+  "continuity_unit_has_no_git_environment_in_approved_source": true,
+  "no_secret_values_returned": true,
+  "production_mutations": 0
+}

@@ -1,0 +1,16 @@
+{
+  "status": "prepared_amendment_not_authorized",
+  "application_source_commit": "32bd869c0ffdd6039145bcaee4223dd67fb533ff",
+  "application_candidate_unchanged": true,
+  "original_operator_sha256": "35d1f7a4e478ea58e2d56087494c6784e5040ce55d1da741465b016f4e976329",
+  "proposed_operator_sha256": "56eb12dd53e6b5f7e1df1a9491b41ee30f6f8c67e0974f32aa367f44ebbe6fc3",
+  "new_managed_file": "/etc/systemd/system/smn-continuity@.service.d/10-release-git.conf",
+  "existing_adapter_sha256": "52cb00a36d86e55d69935cf10d654bc657e1148b79c0cc0ffecb38729a599e43",
+  "original_release_manifest_sha256": "2efdfcec15b5bcf983bc8bfd949b7931ce5098203668890866b2a6a5e4746571",
+  "original_bundle_sha256": "b0fe359db87338ae9789844a85c9155e8b6f6e51e8e276f100e192585fd609f2",
+  "original_source_archive_sha256": "47bf80e65b781256b069580da48ac96f2dad074ad8e4f132da365b26ded70c71",
+  "qualification_sha256": "de417fac13e6e114eb3a5bcdc94455d9cefb40e2cbfaa111e98e4d8934f15c22",
+  "operator_diff_sha256": "9415c34e75d0ea3804ed87df280f288c114b9c5a583df28de4625b1d93f5b6e2",
+  "production_written": false,
+  "scope": "Use existing Flask Git adapter; no global trust, credentials, permission, model job, mail, header or application changes."
+}
