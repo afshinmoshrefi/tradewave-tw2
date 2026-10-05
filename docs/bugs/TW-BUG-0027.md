@@ -1,5 +1,11 @@
 # TW-BUG-0027: October 5 SMN reader edition held
 
+## Notice and partial passed; complete transition repair, October 5 16:13 UTC
+
+On6df6c88, actual notice revision1 and partial revision2 both finished live_verified. Partial publishes ADP,FDS,IWM,XLK,SPX with MSFT pending; FDS uses reviewed readable fallback. Browser verified10 desktop/mobile layouts, public catalog, exact member bytes and retained archive; screenshots inspected by root and independent verifier. Complete revision3 stopped in membership `register_sources`: identical approved revisions compare absolute retained capsule paths, so copying the same evidence into the next revision fails. Worker is fixing semantic/hash-equivalent relocation while preserving prior qualified records and derivative-job IDs and rejecting changed bytes/evidence. No rewrite/model job is needed.
+
+Actual complete record `/var/lib/tradewave/release-state/smn-primary-2026-10-02-7ae7fc961b92ce1f/receipt.json` rolled back to verified partial; independent proof confirms all seven public files match backup, all six private registry revisions match expected values, journal rolled_back, lock absent. Root captured exact hashes of five qualified-source records plus five draft-job records at `/var/tmp/smn-continuity-qualified-records-before.json` for unchanged verification after repair. Resume complete/repeat in existing `/var/tmp/smn-continuity-live-replay-6df6c88`, preserving earlier success/failure evidence; no need to rerun unaffected successful phases. Runtime/main remain40e5 and production remains2d1.
+
 ## Final candidate qualification running, October 5 16:00 UTC
 
 Exact Dev candidate `6df6c8898318dbd654b849e1aa324a4b1eb4fecd` is pushed and running saved-evidence notice -> partial5 (FDS readable fallback) -> complete6 -> repeat qualification from `/var/tmp/smn-continuity-live-replay-6df6c88`; logs `/var/tmp/smn-continuity-{notice,partial,complete,repeat}-6df6c88.log`. Capsule now includes the exact-byte CDN helper; actual archive capture/load test passes. Linux12 publication,37 observer,11 newsletter-state tests pass. No model jobs or provider calls. Exact source capsule modules/retained private hashes remain checked. Root owns Dev mutation only; main/runtime pointer promotion awaits all phases and screenshots.
