@@ -1,5 +1,11 @@
 # TW-BUG-0027: October 5 SMN reader edition held
 
+## Current checkpoint: production recovery authorized and running
+
+October5 13:03UTC: Afshin replied "approved" in coordinating chat01a0fcf2-f893-74f0-b850-4105ab151511, turn01a10c26-cd6f-7a62-a18f-4f24c568b241, to the exact request approving08f8714, direct agent execution, today's web/app snapshots and one-time46 cumulative jobs. Approval verified by reading that human turn. Normal cap40 remains unchanged. Guarded upgrade succeeded: production current and both effective service working directories now point to08f871493a639a504b49794d78315d223b87a870; native imports/preflight passed. Rollback receipt: `/var/lib/tradewave/release-state/smn-oct5-repair-08f871493a63-2026-10-05/receipt.json`. Original d6e2 preserved.
+
+Targeted recovery is actually running as `smn-oct5-recovery.service`, from `/var/tmp/smn-oct5-operator/recover-production.py`; source originalchatgpt preserved, targetchatgpt-recovery-08f8714. No publication success claimed yet. Earlier pending-approval notes below are historical and superseded by this checkpoint. Alert setup remains separate and does not block this authorized run.
+
 - Status: in-progress; confidence: reproduced on production d6e2b6fd.
 - Owner: Codex smn-oct5-repair, 2026-10-05; parent session 01a0fcf4-37f1-7d33-bced-ac46999fd9fa.
 - Authorization: Afshin requests fixing the edition and preventing NVIDIA/silver recurrence. Code, focused tests and Dev activation authorized. Friday direct-production exception was release-specific; new production release/snapshot/operator permission remains separate.
