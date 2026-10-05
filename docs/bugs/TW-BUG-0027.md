@@ -1,5 +1,9 @@
 # TW-BUG-0027: October 5 SMN reader edition held
 
+## Price-anchor correction ready, October 5 09:58 Eastern
+
+Exact next candidate `2d1de1a9c9f200fa29a2db7f9660f3527727b660` is2cc3167 plus the narrow directly preceding "scaled to the last" price-anchor exception and tests. Same code live/main Dev40e5a206104be2e40ce305af43ea230b5301a3f8.49 focused Linux tests and actual saved-review replay pass on exact candidate: five verify_complete approvals and SI current review validate unchanged, with its style issue preserved as advisory under existing policy2. No model jobs spent. Production remains2cc3167, held46/49, no publication. Only this new exact release/direct execution approval is pending;49 limit and today's snapshots already confirmed. Three remaining jobs fit49. Prepared reviewed/syntax-checked runbook/scripts and immutable bundle: `C:/Users/afshin/Documents/ChatGPT/Seasonal Market News/artifacts/smn-repair-20261005/operator-final/README.md`. No new copyedit or review requested; clone46-job root and completeSI visuals plus normal six-article publication.
+
 ## Latest terminal outcome, October 5 09:53 Eastern
 
 2cc3167 deployed successfully. Its recovery stopped at46/49 before publication: five articles fully approved including NVIDIA; SI fresh review passes all substantive checks, has only one advisory style issue, but a deterministic regex falsely matches "recorded price for the next60 weekdays" inside the accurate phrase "seasonal trend scaled to the last recorded price for the next60 weekdays". The native caption explicitly supplies this anchor convention. Source receipts, original failed root, prior43-job root and four approvals are hash-verified unchanged. Recovery failure is recorded at `2026-10-05/chatgpt-citation-recovery-2cc3167/recovery-failure.json`; controller last-run now points there as held. No publication attempted or newsletter released.

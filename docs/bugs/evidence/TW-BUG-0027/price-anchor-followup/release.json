@@ -1,0 +1,15 @@
+{
+  "source_commit": "2d1de1a9c9f200fa29a2db7f9660f3527727b660",
+  "production_baseline": "2cc3167a435065843bb2b8834a750e7213fb75ec",
+  "dev_main": "40e5a206104be2e40ce305af43ea230b5301a3f8",
+  "status": "prepared_not_deployed",
+  "bundle_sha256": "41420793846d6c6e7179a769e7f54ceb6cfddff4cbbc55149c811756dde50b73",
+  "linux_tests_passed": 49,
+  "actual_production_review_replay": "five complete approvals and SI existing substantive review pass, unchanged",
+  "production_jobs_used": 46,
+  "authorized_cap": 49,
+  "minimum_remaining_jobs": 3,
+  "ordinary_cap": 40,
+  "full_oct5_edition_verified": false,
+  "authorization": "only new exact release/direct execution pending; current-day snapshots and49 cap already confirmed"
+}

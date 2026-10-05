@@ -1,0 +1,28 @@
+{
+  "previous_pointer": "/opt/smn-worktrees/smn-citation-afd6f2e",
+  "source_commit": "40e5a206104be2e40ce305af43ea230b5301a3f8",
+  "source": "/opt/smn-worktrees/smn-price-anchor-40e5a20",
+  "model_jobs_started": 0,
+  "approved": {
+    "XLF": true,
+    "SPY": true,
+    "QQQ": true,
+    "AMZN": true,
+    "NVDA": true
+  },
+  "si_existing_review": {
+    "version": 1,
+    "article_sha256": "a53820204ada2293d31cdbb7d071fcbb10effb9295e63e8d563b13bdf47db3f7",
+    "context_sha256": "b11cfee743812ae3b91751841bc3f215519aa741d975f086101868e41cb9392a",
+    "review_sha256": "20a3903b279706981cf52ce75960652c5127f8637cbb186a599887fbddbe2453",
+    "passed": true,
+    "acceptance_policy_version": 2,
+    "original_review_passed": false,
+    "advisory_checks": [
+      "michael_brevity_and_clarity"
+    ],
+    "advisory_issue_count": 1
+  },
+  "status": "verified_on_dev",
+  "public_site_unchanged": true
+}
