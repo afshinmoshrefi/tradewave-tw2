@@ -1,5 +1,9 @@
 # TW-BUG-0027: October 5 SMN reader edition held
 
+## Production qualification and operator package ownership, October 5
+
+Production candidate renderer correction is `32bd869` (immutable release renderer and helper path/hash binding, cold process/cache conflict regressions); final offline native/browser replay is in progress. Operator script ownership moved from the provisional `artifacts/smn-continuity-20261005/production-native/cutover-production.py` to `artifacts/smn-continuity-20261005/operator-policy/` in the SMN workspace. The old draft is superseded and must not be executed. Final exact-SHA proof inputs, rollback mail-journal guards across weekday and Sunday entry points, existing scheduler locks, and dead-owner recovery/fault tests are being completed in the replacement. Independent verifier's three concrete guard findings were delivered to that owner. No new production policy writes; production remains working2d1 and today's campaign is preserved.
+
 ## Dev continuity qualified and active, October 5 16:24 UTC
 
 Exact main/runtime `185af5cbec060a41958650c1bc709cfc68f0946d` is verified on Dev. Notice revision1 and partial5 revision2 passed on6df6c88; narrow membership relocation correction185af5c then completed revision3 with all six saved October2 articles. Complete/repeat both return the identical revision3 transaction, with no repeat publication. Browser12 article layouts, desktop/mobile home screenshots, exact member bytes/public preview, 705-entry retained catalog and immutable source bindings pass. Five prior qualified-source records and five derivative-job records are byte-for-byte unchanged; no duplicate draft jobs. Linux16 membership tests cover relocated-evidence reuse and changed review/chart rejection. Original failed attempts and latest-good rollback receipts remain intact.
