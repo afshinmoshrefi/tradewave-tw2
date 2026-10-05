@@ -1,0 +1,44 @@
+{
+  "source_commit": "08f871493a639a504b49794d78315d223b87a870",
+  "production_baseline": "d6e2b6fd59b15e2a601248df00073c078db24df4",
+  "dev_main": "6f8ab7b2dc8b7b48634d0f5b8bb5d558fcc7d1da",
+  "status": "prepared_not_deployed",
+  "bundle_sha256": "a371d330a8ab3500f2576aa44f9c3818cd970349e8985b66bcaf64727372b768",
+  "linux_tests_passed": 99,
+  "native_feed_import": "passed",
+  "article_evidence_contract": {
+    "source": "/opt/smn-worktrees/smn-oct5-production-final",
+    "runtime_assets": {
+      "ticker_motifs_path": "/home/flask/blog/ticker_motif_custom.json",
+      "ticker_motifs_sha256": "a5f6e05fb0bb868de863440d8e633be17cca24c0594a743ead5458c314be97ee"
+    },
+    "approved": {
+      "XLF": true,
+      "SPY": true,
+      "QQQ": true,
+      "AMZN": true
+    },
+    "partial_rejected": "Incomplete selected edition: missing ['NVDA', 'SI']; unexpected []",
+    "budget": {
+      "jobs_used": 37,
+      "minimum_new_jobs": 9,
+      "minimum_total_jobs": 46,
+      "max_jobs": 40,
+      "budget_sufficient": false
+    },
+    "nvda_original_hold_preserved": "Missing material context nvda-q2-revenue: The latest reported quarter ended July 26, 2026; revenue rose both sequentially and year over year.",
+    "nvda_error_type": "ReviewEvidenceError",
+    "silver_sources": [
+      "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm",
+      "https://www.lbma.org.uk/articles/london-gold-and-silver-vault-data-for-august-2026",
+      "https://www.lbma.org.uk/articles/lbma-net-clearing-data-daily-averages-july-2026"
+    ],
+    "silver_source_count": 3,
+    "original_evidence_unchanged": true
+  },
+  "full_oct5_edition_verified": false,
+  "model_jobs_used": 37,
+  "minimum_recovery_jobs": 9,
+  "ordinary_cap": 40,
+  "authorization": "new production exception, current-day snapshots, and one-time cumulative job allowance pending"
+}

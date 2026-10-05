@@ -104,6 +104,17 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   `_static/scorecard.html`. Reads `featured_history.json` + live prices.
 - **Tickers** (`blog/generate_top10_AI.py` / `top10_jobs_today_to_queue_cron.py`)
   - "AI" here = Sharpe-ranked OppList4, NOT an LLM.
+- **SMN October 5 operational update:** production subscription runtime remains
+  `d6e2b6fd`, with weekday research at 05:30 America/New_York and email after
+  07:00 only upon verified publication. The October 5 reader edition is held;
+  the working production dashboard does not imply successful publication.
+  Source-date/retry, reviewer-evidence, complete-lineup and runtime-asset fixes
+  are live on Dev at `6f8ab7b`; narrow production candidate `08f8714` is prepared
+  but not deployed. Retained recovery needs at least46 cumulative jobs (37 used,
+  ordinary cap40), current production authority and snapshots. Observer units
+  and saved alert settings are absent in production. Exact evidence and operator
+  handoff: [TW-BUG-0027](bugs/TW-BUG-0027.md). The following July pipeline
+  description is historical and does not supersede this subscription runtime.
 - **SMN articles** (cron: `select_news_articles.py` 02:00 -> `daily_article_queue.py`
   03:00 -> always-running `article_processor.py`). THIS pipeline DOES use LLMs:
   Grok (`grok-3-mini`) for news extraction + research synthesis (Tavily search
