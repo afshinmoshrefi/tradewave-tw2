@@ -1,0 +1,1497 @@
+{
+  "checked_utc": "2026-10-05T20:50:01.621Z",
+  "root": "/var/tmp/smn-readonly-headers-20261005-snQ8x5",
+  "method": "Headless Chromium; public GET only; third-party hosts blocked; no visible desktop",
+  "pages": [
+    {
+      "symbol": "XLF",
+      "kind": "desktop",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/article.html",
+      "status": 200,
+      "response_sha256": "32aca0e404cfa518d9c58b6b8b184e8f311038154e207a9f9c838011984de073",
+      "htmlFile": "XLF-desktop.html",
+      "title": "How strong is XLF’s seasonal case after the rate rise?",
+      "masthead": [
+        {
+          "class": "masthead",
+          "text": "SeasonalMarketNews\nMARKETS IN CONTEXT",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1440,
+            "height": 72.5
+          },
+          "visible": true
+        }
+      ],
+      "articleHeading": [
+        {
+          "text": "How strong is XLF’s seasonal case after the rate rise?",
+          "rect": {
+            "x": 305,
+            "y": 187.5,
+            "width": 830,
+            "height": 116.625
+          },
+          "visible": true
+        }
+      ],
+      "preArticleLinks": [
+        {
+          "text": "Market analysis",
+          "href": "https://seasonalmarketnews.com/",
+          "visible": true
+        }
+      ],
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "topMarkup": [
+        {
+          "tag": "HEADER",
+          "id": "",
+          "classes": "masthead"
+        },
+        {
+          "tag": "NAV",
+          "id": "",
+          "classes": "reading-nav"
+        }
+      ],
+      "viewport": {
+        "width": 1440,
+        "height": 1050,
+        "scrollWidth": 1440
+      },
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": [
+        "bars",
+        "bars_mae_mfe",
+        "price_projection"
+      ],
+      "images": [
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/assets/hero-b9cceaeaa535.jpg",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/assets/business-context-desktop.png",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/assets/tradewave-bars.png?v=810f0e21de68d4b7",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/assets/tradewave-bars_mae_mfe.png?v=2b11d2db2809acb5",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/assets/tradewave-price_projection.png?v=0ef3a59568cc2b9c",
+          "loaded": true
+        }
+      ],
+      "studyLinks": [
+        "https://tradewave.ai/app/?o=MTF8WExGfDIwMjYtMTAtMjB8MjU2fHBlMi02",
+        "https://tradewave.ai/app/?o=MTF8WExGfDIwMjYtMTAtMjB8MjU2fHBlMi02"
+      ],
+      "sources": [
+        {
+          "text": "JPMORGANCHASE REPORTS SECOND-QUARTER 2026 NET INCOME OF $21.2 BILLION ($7.70 PER SHARE), NET INCOME EXCLUDING SIGNIFICANT ITEMS OF $16.9 BILLION ($6.14 PER SHARE)",
+          "href": "https://www.sec.gov/Archives/edgar/data/19617/000162828026048078/a2q26erfexhibit991narrative.htm"
+        },
+        {
+          "text": "Bank of America Reports 2Q26 Net Income of $9.1 Billion; EPS of $1.21, Up 34% YoY",
+          "href": "https://investor.bankofamerica.com/regulatory-and-other-filings/select-sec-filings/content/0000070858-26-000353/bac06302026ex991.htm"
+        },
+        {
+          "text": "Federal Reserve issues FOMC statement",
+          "href": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm"
+        },
+        {
+          "text": "JPMorganChase to Host Third-Quarter 2026 Earnings Call",
+          "href": "https://www.jpmorganchase.com/ir/news/2026/jpmc-to-host-third-quarter-2026-earnings-call"
+        },
+        {
+          "text": "TradeWave XLF seasonal evidence",
+          "href": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/evidence/xlf-history.json"
+        }
+      ],
+      "bodyTextSha256": "176b62cbec8fe903fb1fb183b95088ed6dfc117ebffa85c6e07820d13b6e4ce9",
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "XLF",
+      "kind": "mobile",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/article.html",
+      "status": 200,
+      "response_sha256": "32aca0e404cfa518d9c58b6b8b184e8f311038154e207a9f9c838011984de073",
+      "htmlFile": "XLF-mobile.html",
+      "title": "How strong is XLF’s seasonal case after the rate rise?",
+      "masthead": [
+        {
+          "class": "masthead",
+          "text": "SeasonalMarketNews",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 390,
+            "height": 61.1875
+          },
+          "visible": true
+        }
+      ],
+      "articleHeading": [
+        {
+          "text": "How strong is XLF’s seasonal case after the rate rise?",
+          "rect": {
+            "x": 19,
+            "y": 162.1875,
+            "width": 352,
+            "height": 116.625
+          },
+          "visible": true
+        }
+      ],
+      "preArticleLinks": [
+        {
+          "text": "Market analysis",
+          "href": "https://seasonalmarketnews.com/",
+          "visible": true
+        }
+      ],
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "topMarkup": [
+        {
+          "tag": "HEADER",
+          "id": "",
+          "classes": "masthead"
+        },
+        {
+          "tag": "NAV",
+          "id": "",
+          "classes": "reading-nav"
+        }
+      ],
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390
+      },
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": [
+        "bars",
+        "bars_mae_mfe",
+        "price_projection"
+      ],
+      "images": [
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/assets/hero-b9cceaeaa535.jpg",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/assets/business-context-mobile.png",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/assets/tradewave-bars-mobile.png?v=741cdc593e3d64f5",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/assets/tradewave-bars_mae_mfe-mobile.png?v=348ebfa86e2df4da",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/assets/tradewave-price_projection-mobile.png?v=e6fb0228fcfd4c37",
+          "loaded": true
+        }
+      ],
+      "studyLinks": [
+        "https://tradewave.ai/app/?o=MTF8WExGfDIwMjYtMTAtMjB8MjU2fHBlMi02",
+        "https://tradewave.ai/app/?o=MTF8WExGfDIwMjYtMTAtMjB8MjU2fHBlMi02"
+      ],
+      "sources": [
+        {
+          "text": "JPMORGANCHASE REPORTS SECOND-QUARTER 2026 NET INCOME OF $21.2 BILLION ($7.70 PER SHARE), NET INCOME EXCLUDING SIGNIFICANT ITEMS OF $16.9 BILLION ($6.14 PER SHARE)",
+          "href": "https://www.sec.gov/Archives/edgar/data/19617/000162828026048078/a2q26erfexhibit991narrative.htm"
+        },
+        {
+          "text": "Bank of America Reports 2Q26 Net Income of $9.1 Billion; EPS of $1.21, Up 34% YoY",
+          "href": "https://investor.bankofamerica.com/regulatory-and-other-filings/select-sec-filings/content/0000070858-26-000353/bac06302026ex991.htm"
+        },
+        {
+          "text": "Federal Reserve issues FOMC statement",
+          "href": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm"
+        },
+        {
+          "text": "JPMorganChase to Host Third-Quarter 2026 Earnings Call",
+          "href": "https://www.jpmorganchase.com/ir/news/2026/jpmc-to-host-third-quarter-2026-earnings-call"
+        },
+        {
+          "text": "TradeWave XLF seasonal evidence",
+          "href": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/evidence/xlf-history.json"
+        }
+      ],
+      "bodyTextSha256": "176b62cbec8fe903fb1fb183b95088ed6dfc117ebffa85c6e07820d13b6e4ce9",
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "SI",
+      "kind": "desktop",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/SI/article.html",
+      "status": 200,
+      "response_sha256": "132fe6044090c38ad732f7758d986d6aa08d57b2e1b0ca9d418c2664d8b33100",
+      "htmlFile": "SI-desktop.html",
+      "title": "Silver’s November window: how convincing is the strength?",
+      "masthead": [
+        {
+          "class": "masthead",
+          "text": "SeasonalMarketNews\nMARKETS IN CONTEXT",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1440,
+            "height": 72.5
+          },
+          "visible": true
+        }
+      ],
+      "articleHeading": [
+        {
+          "text": "Silver’s November window: how convincing is the strength?",
+          "rect": {
+            "x": 305,
+            "y": 187.5,
+            "width": 830,
+            "height": 116.625
+          },
+          "visible": true
+        }
+      ],
+      "preArticleLinks": [
+        {
+          "text": "Market analysis",
+          "href": "https://seasonalmarketnews.com/",
+          "visible": true
+        }
+      ],
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "topMarkup": [
+        {
+          "tag": "HEADER",
+          "id": "",
+          "classes": "masthead"
+        },
+        {
+          "tag": "NAV",
+          "id": "",
+          "classes": "reading-nav"
+        }
+      ],
+      "viewport": {
+        "width": 1440,
+        "height": 1050,
+        "scrollWidth": 1440
+      },
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": [
+        "bars",
+        "bars_mae_mfe",
+        "price_projection"
+      ],
+      "images": [
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SI/assets/hero-f0b7e4043160.jpg",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SI/assets/business-context-desktop.png",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SI/assets/tradewave-bars.png?v=d88af8fdb3521570",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SI/assets/tradewave-bars_mae_mfe.png?v=7e44bd87e456c592",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SI/assets/tradewave-price_projection.png?v=27b78127cd394fee",
+          "loaded": true
+        }
+      ],
+      "studyLinks": [
+        "https://tradewave.ai/app/?o=N3xTSXwyMDI2LTExLTA0fDkxfHBlMi03",
+        "https://tradewave.ai/app/?o=N3xTSXwyMDI2LTExLTA0fDkxfHBlMi03"
+      ],
+      "sources": [
+        {
+          "text": "London Gold and Silver Vault Data for August 2026",
+          "href": "https://www.lbma.org.uk/articles/london-gold-and-silver-vault-data-for-august-2026"
+        },
+        {
+          "text": "LBMA Net Clearing Data (Daily Averages): July 2026",
+          "href": "https://www.lbma.org.uk/articles/lbma-net-clearing-data-daily-averages-july-2026"
+        },
+        {
+          "text": "Federal Reserve issues FOMC statement",
+          "href": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm"
+        },
+        {
+          "text": "TradeWave SI seasonal evidence",
+          "href": "https://seasonalmarketnews.com/editions/2026-10-05/SI/evidence/si-history.json"
+        }
+      ],
+      "bodyTextSha256": "597071ac3006abc495ca51400ad71e1b6680c77b5a7cbaa3d7fe674268cc4dd0",
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "SI",
+      "kind": "mobile",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/SI/article.html",
+      "status": 200,
+      "response_sha256": "132fe6044090c38ad732f7758d986d6aa08d57b2e1b0ca9d418c2664d8b33100",
+      "htmlFile": "SI-mobile.html",
+      "title": "Silver’s November window: how convincing is the strength?",
+      "masthead": [
+        {
+          "class": "masthead",
+          "text": "SeasonalMarketNews",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 390,
+            "height": 61.1875
+          },
+          "visible": true
+        }
+      ],
+      "articleHeading": [
+        {
+          "text": "Silver’s November window: how convincing is the strength?",
+          "rect": {
+            "x": 19,
+            "y": 180.1875,
+            "width": 352,
+            "height": 155.5
+          },
+          "visible": true
+        }
+      ],
+      "preArticleLinks": [
+        {
+          "text": "Market analysis",
+          "href": "https://seasonalmarketnews.com/",
+          "visible": true
+        }
+      ],
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "topMarkup": [
+        {
+          "tag": "HEADER",
+          "id": "",
+          "classes": "masthead"
+        },
+        {
+          "tag": "NAV",
+          "id": "",
+          "classes": "reading-nav"
+        }
+      ],
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390
+      },
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": [
+        "bars",
+        "bars_mae_mfe",
+        "price_projection"
+      ],
+      "images": [
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SI/assets/hero-f0b7e4043160.jpg",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SI/assets/business-context-mobile.png",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SI/assets/tradewave-bars-mobile.png?v=3b0ccc4f002a3ddb",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SI/assets/tradewave-bars_mae_mfe-mobile.png?v=7b5732e577a18e90",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SI/assets/tradewave-price_projection-mobile.png?v=bf84ecb6fa2d53bd",
+          "loaded": true
+        }
+      ],
+      "studyLinks": [
+        "https://tradewave.ai/app/?o=N3xTSXwyMDI2LTExLTA0fDkxfHBlMi03",
+        "https://tradewave.ai/app/?o=N3xTSXwyMDI2LTExLTA0fDkxfHBlMi03"
+      ],
+      "sources": [
+        {
+          "text": "London Gold and Silver Vault Data for August 2026",
+          "href": "https://www.lbma.org.uk/articles/london-gold-and-silver-vault-data-for-august-2026"
+        },
+        {
+          "text": "LBMA Net Clearing Data (Daily Averages): July 2026",
+          "href": "https://www.lbma.org.uk/articles/lbma-net-clearing-data-daily-averages-july-2026"
+        },
+        {
+          "text": "Federal Reserve issues FOMC statement",
+          "href": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm"
+        },
+        {
+          "text": "TradeWave SI seasonal evidence",
+          "href": "https://seasonalmarketnews.com/editions/2026-10-05/SI/evidence/si-history.json"
+        }
+      ],
+      "bodyTextSha256": "597071ac3006abc495ca51400ad71e1b6680c77b5a7cbaa3d7fe674268cc4dd0",
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "SPY",
+      "kind": "desktop",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/article.html",
+      "status": 200,
+      "response_sha256": "094a0679732e223195d7fce3c4c8a3c25fa010fc684ebe8a81f66040d467887e",
+      "htmlFile": "SPY-desktop.html",
+      "title": "SPY’s favorable autumn window meets mixed economic data",
+      "masthead": [
+        {
+          "class": "masthead",
+          "text": "SeasonalMarketNews\nMARKETS IN CONTEXT",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1440,
+            "height": 72.5
+          },
+          "visible": true
+        }
+      ],
+      "articleHeading": [
+        {
+          "text": "SPY’s favorable autumn window meets mixed economic data",
+          "rect": {
+            "x": 305,
+            "y": 187.5,
+            "width": 830,
+            "height": 116.625
+          },
+          "visible": true
+        }
+      ],
+      "preArticleLinks": [
+        {
+          "text": "Market analysis",
+          "href": "https://seasonalmarketnews.com/",
+          "visible": true
+        }
+      ],
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "topMarkup": [
+        {
+          "tag": "HEADER",
+          "id": "",
+          "classes": "masthead"
+        },
+        {
+          "tag": "NAV",
+          "id": "",
+          "classes": "reading-nav"
+        }
+      ],
+      "viewport": {
+        "width": 1440,
+        "height": 1050,
+        "scrollWidth": 1440
+      },
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": [
+        "bars",
+        "bars_mae_mfe",
+        "price_projection"
+      ],
+      "images": [
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/assets/hero-d6fa0116502b.jpg",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/assets/business-context-desktop.png",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/assets/tradewave-bars.png?v=5283bdecef2fa629",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/assets/tradewave-bars_mae_mfe.png?v=81b121116f6c8993",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/assets/tradewave-price_projection.png?v=4ace4189811e8196",
+          "loaded": true
+        }
+      ],
+      "studyLinks": [
+        "https://tradewave.ai/app/?o=MTF8U1BZfDIwMjYtMTAtMjl8MzV8cGUyLTc%3D",
+        "https://tradewave.ai/app/?o=MTF8U1BZfDIwMjYtMTAtMjl8MzV8cGUyLTc%3D"
+      ],
+      "sources": [
+        {
+          "text": "Employment Situation News Release - 2026 M09 Results",
+          "href": "https://www.bls.gov/news.release/archives/empsit_10022026.htm"
+        },
+        {
+          "text": "Personal Income and Outlays, August 2026",
+          "href": "https://bea.gov/index.php/news/2026/personal-income-and-outlays-august-2026"
+        },
+        {
+          "text": "GDP (Third Estimate), Industries, Corporate Profits, State GDP, and State Personal Income, 2nd Quarter 2026; State PCE, 2025",
+          "href": "https://www.bea.gov/news/2026/gdp-third-estimate-industries-corporate-profits-state-gdp-and-state-personal-income-2nd"
+        },
+        {
+          "text": "Federal Reserve issues FOMC statement",
+          "href": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm"
+        },
+        {
+          "text": "TradeWave SPY seasonal evidence",
+          "href": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/evidence/spy-history.json"
+        }
+      ],
+      "bodyTextSha256": "a0e99274db3133cf8e77ab8e15bc8e13cbe06f5ad83c38acf6118eb8e3ab5b10",
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "SPY",
+      "kind": "mobile",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/article.html",
+      "status": 200,
+      "response_sha256": "094a0679732e223195d7fce3c4c8a3c25fa010fc684ebe8a81f66040d467887e",
+      "htmlFile": "SPY-mobile.html",
+      "title": "SPY’s favorable autumn window meets mixed economic data",
+      "masthead": [
+        {
+          "class": "masthead",
+          "text": "SeasonalMarketNews",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 390,
+            "height": 61.1875
+          },
+          "visible": true
+        }
+      ],
+      "articleHeading": [
+        {
+          "text": "SPY’s favorable autumn window meets mixed economic data",
+          "rect": {
+            "x": 19,
+            "y": 162.1875,
+            "width": 352,
+            "height": 116.625
+          },
+          "visible": true
+        }
+      ],
+      "preArticleLinks": [
+        {
+          "text": "Market analysis",
+          "href": "https://seasonalmarketnews.com/",
+          "visible": true
+        }
+      ],
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "topMarkup": [
+        {
+          "tag": "HEADER",
+          "id": "",
+          "classes": "masthead"
+        },
+        {
+          "tag": "NAV",
+          "id": "",
+          "classes": "reading-nav"
+        }
+      ],
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390
+      },
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": [
+        "bars",
+        "bars_mae_mfe",
+        "price_projection"
+      ],
+      "images": [
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/assets/hero-d6fa0116502b.jpg",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/assets/business-context-mobile.png",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/assets/tradewave-bars-mobile.png?v=5ab38643bf8b31b8",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/assets/tradewave-bars_mae_mfe-mobile.png?v=7ed0d739bf2d83a6",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/assets/tradewave-price_projection-mobile.png?v=319f3f9e34f869ed",
+          "loaded": true
+        }
+      ],
+      "studyLinks": [
+        "https://tradewave.ai/app/?o=MTF8U1BZfDIwMjYtMTAtMjl8MzV8cGUyLTc%3D",
+        "https://tradewave.ai/app/?o=MTF8U1BZfDIwMjYtMTAtMjl8MzV8cGUyLTc%3D"
+      ],
+      "sources": [
+        {
+          "text": "Employment Situation News Release - 2026 M09 Results",
+          "href": "https://www.bls.gov/news.release/archives/empsit_10022026.htm"
+        },
+        {
+          "text": "Personal Income and Outlays, August 2026",
+          "href": "https://bea.gov/index.php/news/2026/personal-income-and-outlays-august-2026"
+        },
+        {
+          "text": "GDP (Third Estimate), Industries, Corporate Profits, State GDP, and State Personal Income, 2nd Quarter 2026; State PCE, 2025",
+          "href": "https://www.bea.gov/news/2026/gdp-third-estimate-industries-corporate-profits-state-gdp-and-state-personal-income-2nd"
+        },
+        {
+          "text": "Federal Reserve issues FOMC statement",
+          "href": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm"
+        },
+        {
+          "text": "TradeWave SPY seasonal evidence",
+          "href": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/evidence/spy-history.json"
+        }
+      ],
+      "bodyTextSha256": "a0e99274db3133cf8e77ab8e15bc8e13cbe06f5ad83c38acf6118eb8e3ab5b10",
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "QQQ",
+      "kind": "desktop",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/article.html",
+      "status": 200,
+      "response_sha256": "43c97354cef18334aae45bad8f950745e1c92da6b00a635510ee7f1cc0bb2290",
+      "htmlFile": "QQQ-desktop.html",
+      "title": "QQQ’s autumn window: how much confidence does history offer?",
+      "masthead": [
+        {
+          "class": "masthead",
+          "text": "SeasonalMarketNews\nMARKETS IN CONTEXT",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1440,
+            "height": 72.5
+          },
+          "visible": true
+        }
+      ],
+      "articleHeading": [
+        {
+          "text": "QQQ’s autumn window: how much confidence does history offer?",
+          "rect": {
+            "x": 305,
+            "y": 187.5,
+            "width": 830,
+            "height": 116.625
+          },
+          "visible": true
+        }
+      ],
+      "preArticleLinks": [
+        {
+          "text": "Market analysis",
+          "href": "https://seasonalmarketnews.com/",
+          "visible": true
+        }
+      ],
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "topMarkup": [
+        {
+          "tag": "HEADER",
+          "id": "",
+          "classes": "masthead"
+        },
+        {
+          "tag": "NAV",
+          "id": "",
+          "classes": "reading-nav"
+        }
+      ],
+      "viewport": {
+        "width": 1440,
+        "height": 1050,
+        "scrollWidth": 1440
+      },
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": [
+        "bars",
+        "bars_mae_mfe",
+        "price_projection"
+      ],
+      "images": [
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/assets/hero-dacdcc6efc70.jpg",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/assets/business-context-desktop.png",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/assets/tradewave-bars.png?v=23587a163c8afaf3",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/assets/tradewave-bars_mae_mfe.png?v=9a064600d5aaa162",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/assets/tradewave-price_projection.png?v=a9ea4a078e982d59",
+          "loaded": true
+        }
+      ],
+      "studyLinks": [
+        "https://tradewave.ai/app/?o=MTF8UVFRfDIwMjYtMTAtMjV8MTg0fHBlMi02",
+        "https://tradewave.ai/app/?o=MTF8UVFRfDIwMjYtMTAtMjV8MTg0fHBlMi02"
+      ],
+      "sources": [
+        {
+          "text": "Market outlook Invesco QQQ monthly review",
+          "href": "https://www.invesco.com/qqq-etf/en/etf-insights/qqq-monthly-review.html"
+        },
+        {
+          "text": "Market outlook QQQ quarterly outlook report",
+          "href": "https://www.invesco.com/qqq-etf/en/etf-insights/qqq-quarterly-outlook.html"
+        },
+        {
+          "text": "TradeWave QQQ seasonal evidence",
+          "href": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/evidence/qqq-history.json"
+        }
+      ],
+      "bodyTextSha256": "ae2eb901779e84db41f5e45913404f0fac79b6feb1fdb450b1815f17b13e4cbe",
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "QQQ",
+      "kind": "mobile",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/article.html",
+      "status": 200,
+      "response_sha256": "43c97354cef18334aae45bad8f950745e1c92da6b00a635510ee7f1cc0bb2290",
+      "htmlFile": "QQQ-mobile.html",
+      "title": "QQQ’s autumn window: how much confidence does history offer?",
+      "masthead": [
+        {
+          "class": "masthead",
+          "text": "SeasonalMarketNews",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 390,
+            "height": 61.1875
+          },
+          "visible": true
+        }
+      ],
+      "articleHeading": [
+        {
+          "text": "QQQ’s autumn window: how much confidence does history offer?",
+          "rect": {
+            "x": 19,
+            "y": 180.1875,
+            "width": 352,
+            "height": 155.5
+          },
+          "visible": true
+        }
+      ],
+      "preArticleLinks": [
+        {
+          "text": "Market analysis",
+          "href": "https://seasonalmarketnews.com/",
+          "visible": true
+        }
+      ],
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "topMarkup": [
+        {
+          "tag": "HEADER",
+          "id": "",
+          "classes": "masthead"
+        },
+        {
+          "tag": "NAV",
+          "id": "",
+          "classes": "reading-nav"
+        }
+      ],
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390
+      },
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": [
+        "bars",
+        "bars_mae_mfe",
+        "price_projection"
+      ],
+      "images": [
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/assets/hero-dacdcc6efc70.jpg",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/assets/business-context-mobile.png",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/assets/tradewave-bars-mobile.png?v=d374ff0aac3d747e",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/assets/tradewave-bars_mae_mfe-mobile.png?v=a6b092ce01541e2d",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/assets/tradewave-price_projection-mobile.png?v=ffe3d88db702b122",
+          "loaded": true
+        }
+      ],
+      "studyLinks": [
+        "https://tradewave.ai/app/?o=MTF8UVFRfDIwMjYtMTAtMjV8MTg0fHBlMi02",
+        "https://tradewave.ai/app/?o=MTF8UVFRfDIwMjYtMTAtMjV8MTg0fHBlMi02"
+      ],
+      "sources": [
+        {
+          "text": "Market outlook Invesco QQQ monthly review",
+          "href": "https://www.invesco.com/qqq-etf/en/etf-insights/qqq-monthly-review.html"
+        },
+        {
+          "text": "Market outlook QQQ quarterly outlook report",
+          "href": "https://www.invesco.com/qqq-etf/en/etf-insights/qqq-quarterly-outlook.html"
+        },
+        {
+          "text": "TradeWave QQQ seasonal evidence",
+          "href": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/evidence/qqq-history.json"
+        }
+      ],
+      "bodyTextSha256": "ae2eb901779e84db41f5e45913404f0fac79b6feb1fdb450b1815f17b13e4cbe",
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "AMZN",
+      "kind": "desktop",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/article.html",
+      "status": 200,
+      "response_sha256": "c835a284b07048ad040f2650f7031b6221e947d3edb7bb136bdbff16b7343b85",
+      "htmlFile": "AMZN-desktop.html",
+      "title": "AMZN’s November window: weighing history and profit quality",
+      "masthead": [
+        {
+          "class": "masthead",
+          "text": "SeasonalMarketNews\nMARKETS IN CONTEXT",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1440,
+            "height": 72.5
+          },
+          "visible": true
+        }
+      ],
+      "articleHeading": [
+        {
+          "text": "AMZN’s November window: weighing history and profit quality",
+          "rect": {
+            "x": 305,
+            "y": 187.5,
+            "width": 830,
+            "height": 116.625
+          },
+          "visible": true
+        }
+      ],
+      "preArticleLinks": [
+        {
+          "text": "Market analysis",
+          "href": "https://seasonalmarketnews.com/",
+          "visible": true
+        }
+      ],
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "topMarkup": [
+        {
+          "tag": "HEADER",
+          "id": "",
+          "classes": "masthead"
+        },
+        {
+          "tag": "NAV",
+          "id": "",
+          "classes": "reading-nav"
+        }
+      ],
+      "viewport": {
+        "width": 1440,
+        "height": 1050,
+        "scrollWidth": 1440
+      },
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": [
+        "bars",
+        "bars_mae_mfe",
+        "price_projection"
+      ],
+      "images": [
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/assets/hero-b81f2303c95c.jpg",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/assets/business-context-desktop.png",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/assets/tradewave-bars.png?v=de0a9b0111779d6f",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/assets/tradewave-bars_mae_mfe.png?v=a5c5f4bfd6425c1c",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/assets/tradewave-price_projection.png?v=fbbbefcfc2a15efc",
+          "loaded": true
+        }
+      ],
+      "studyLinks": [
+        "https://tradewave.ai/app/?o=MnxBTVpOfDIwMjYtMTEtMDF8MTczfHBlMi02",
+        "https://tradewave.ai/app/?o=MnxBTVpOfDIwMjYtMTEtMDF8MTczfHBlMi02"
+      ],
+      "sources": [
+        {
+          "text": "Amazon.com Announces Second Quarter Results",
+          "href": "https://ir.aboutamazon.com/news-release/news-release-details/2026/Amazon-com-Announces-Second-Quarter-Results/default.aspx"
+        },
+        {
+          "text": "AMAZON.COM, INC. FORM 10-Q For the Quarterly Period Ended June 30, 2026",
+          "href": "https://www.sec.gov/Archives/edgar/data/1018724/000101872426000026/amzn-20260630.htm"
+        },
+        {
+          "text": "TradeWave AMZN seasonal evidence",
+          "href": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/evidence/amzn-history.json"
+        }
+      ],
+      "bodyTextSha256": "ac068512ad10cf0e50836c053b38915b77d3fd7f3bb0da5fbd330247996608ae",
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "AMZN",
+      "kind": "mobile",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/article.html",
+      "status": 200,
+      "response_sha256": "c835a284b07048ad040f2650f7031b6221e947d3edb7bb136bdbff16b7343b85",
+      "htmlFile": "AMZN-mobile.html",
+      "title": "AMZN’s November window: weighing history and profit quality",
+      "masthead": [
+        {
+          "class": "masthead",
+          "text": "SeasonalMarketNews",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 390,
+            "height": 61.1875
+          },
+          "visible": true
+        }
+      ],
+      "articleHeading": [
+        {
+          "text": "AMZN’s November window: weighing history and profit quality",
+          "rect": {
+            "x": 19,
+            "y": 180.1875,
+            "width": 352,
+            "height": 155.5
+          },
+          "visible": true
+        }
+      ],
+      "preArticleLinks": [
+        {
+          "text": "Market analysis",
+          "href": "https://seasonalmarketnews.com/",
+          "visible": true
+        }
+      ],
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "topMarkup": [
+        {
+          "tag": "HEADER",
+          "id": "",
+          "classes": "masthead"
+        },
+        {
+          "tag": "NAV",
+          "id": "",
+          "classes": "reading-nav"
+        }
+      ],
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390
+      },
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": [
+        "bars",
+        "bars_mae_mfe",
+        "price_projection"
+      ],
+      "images": [
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/assets/hero-b81f2303c95c.jpg",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/assets/business-context-mobile.png",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/assets/tradewave-bars-mobile.png?v=5b53713c79845d73",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/assets/tradewave-bars_mae_mfe-mobile.png?v=500089c108208392",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/assets/tradewave-price_projection-mobile.png?v=ac0f8734579fc76c",
+          "loaded": true
+        }
+      ],
+      "studyLinks": [
+        "https://tradewave.ai/app/?o=MnxBTVpOfDIwMjYtMTEtMDF8MTczfHBlMi02",
+        "https://tradewave.ai/app/?o=MnxBTVpOfDIwMjYtMTEtMDF8MTczfHBlMi02"
+      ],
+      "sources": [
+        {
+          "text": "Amazon.com Announces Second Quarter Results",
+          "href": "https://ir.aboutamazon.com/news-release/news-release-details/2026/Amazon-com-Announces-Second-Quarter-Results/default.aspx"
+        },
+        {
+          "text": "AMAZON.COM, INC. FORM 10-Q For the Quarterly Period Ended June 30, 2026",
+          "href": "https://www.sec.gov/Archives/edgar/data/1018724/000101872426000026/amzn-20260630.htm"
+        },
+        {
+          "text": "TradeWave AMZN seasonal evidence",
+          "href": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/evidence/amzn-history.json"
+        }
+      ],
+      "bodyTextSha256": "ac068512ad10cf0e50836c053b38915b77d3fd7f3bb0da5fbd330247996608ae",
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "NVDA",
+      "kind": "desktop",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/article.html",
+      "status": 200,
+      "response_sha256": "eb37ee61cc959c25bff7ab83595d9da5f172db8b7047323ae8c6427da02305b6",
+      "htmlFile": "NVDA-desktop.html",
+      "title": "NVIDIA’s buyback meets a favorable late-October record",
+      "masthead": [
+        {
+          "class": "masthead",
+          "text": "SeasonalMarketNews\nMARKETS IN CONTEXT",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1440,
+            "height": 72.5
+          },
+          "visible": true
+        }
+      ],
+      "articleHeading": [
+        {
+          "text": "NVIDIA’s buyback meets a favorable late-October record",
+          "rect": {
+            "x": 305,
+            "y": 187.5,
+            "width": 830,
+            "height": 116.625
+          },
+          "visible": true
+        }
+      ],
+      "preArticleLinks": [
+        {
+          "text": "Market analysis",
+          "href": "https://seasonalmarketnews.com/",
+          "visible": true
+        }
+      ],
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "topMarkup": [
+        {
+          "tag": "HEADER",
+          "id": "",
+          "classes": "masthead"
+        },
+        {
+          "tag": "NAV",
+          "id": "",
+          "classes": "reading-nav"
+        }
+      ],
+      "viewport": {
+        "width": 1440,
+        "height": 1050,
+        "scrollWidth": 1440
+      },
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": [
+        "bars",
+        "bars_mae_mfe",
+        "price_projection"
+      ],
+      "images": [
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/assets/hero-9b88122c2173.jpg",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/assets/business-context-desktop.png",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/assets/tradewave-bars.png?v=d995f577898f8cba",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/assets/tradewave-bars_mae_mfe.png?v=7c865efc149e4589",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/assets/tradewave-price_projection.png?v=5c6ceb6c0aac21e2",
+          "loaded": true
+        }
+      ],
+      "studyLinks": [
+        "https://tradewave.ai/app/?o=MnxOVkRBfDIwMjYtMTAtMjl8MTB8cGUyLTY%3D",
+        "https://tradewave.ai/app/?o=MnxOVkRBfDIwMjYtMTAtMjl8MTB8cGUyLTY%3D"
+      ],
+      "sources": [
+        {
+          "text": "NVIDIA Announces Financial Results for Second Quarter Fiscal 2027",
+          "href": "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Announces-Financial-Results-for-Second-Quarter-Fiscal-2027/"
+        },
+        {
+          "text": "NVIDIA Corporation Form 10-Q for the Quarter Ended July 26, 2026",
+          "href": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000075/nvda-20260726.htm"
+        },
+        {
+          "text": "NVIDIA Announces a $150 Billion Share Repurchase Authorization Increase",
+          "href": "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Announces-a-150-Billion-Share-Repurchase-Authorization-Increase/default.aspx"
+        },
+        {
+          "text": "TradeWave NVDA seasonal evidence",
+          "href": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/evidence/nvda-history.json"
+        }
+      ],
+      "bodyTextSha256": "92041de1296f984e0a7382c26e8f31a6abe883c11c75bd5cab055e5c086fddee",
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "NVDA",
+      "kind": "mobile",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/article.html",
+      "status": 200,
+      "response_sha256": "eb37ee61cc959c25bff7ab83595d9da5f172db8b7047323ae8c6427da02305b6",
+      "htmlFile": "NVDA-mobile.html",
+      "title": "NVIDIA’s buyback meets a favorable late-October record",
+      "masthead": [
+        {
+          "class": "masthead",
+          "text": "SeasonalMarketNews",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 390,
+            "height": 61.1875
+          },
+          "visible": true
+        }
+      ],
+      "articleHeading": [
+        {
+          "text": "NVIDIA’s buyback meets a favorable late-October record",
+          "rect": {
+            "x": 19,
+            "y": 180.1875,
+            "width": 352,
+            "height": 116.625
+          },
+          "visible": true
+        }
+      ],
+      "preArticleLinks": [
+        {
+          "text": "Market analysis",
+          "href": "https://seasonalmarketnews.com/",
+          "visible": true
+        }
+      ],
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "topMarkup": [
+        {
+          "tag": "HEADER",
+          "id": "",
+          "classes": "masthead"
+        },
+        {
+          "tag": "NAV",
+          "id": "",
+          "classes": "reading-nav"
+        }
+      ],
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390
+      },
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": [
+        "bars",
+        "bars_mae_mfe",
+        "price_projection"
+      ],
+      "images": [
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/assets/hero-9b88122c2173.jpg",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/assets/business-context-mobile.png",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/assets/tradewave-bars-mobile.png?v=babd938740c58a34",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/assets/tradewave-bars_mae_mfe-mobile.png?v=0eeed8ca3231f71f",
+          "loaded": true
+        },
+        {
+          "src": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/assets/tradewave-price_projection-mobile.png?v=8c45d5d07d30f7c1",
+          "loaded": true
+        }
+      ],
+      "studyLinks": [
+        "https://tradewave.ai/app/?o=MnxOVkRBfDIwMjYtMTAtMjl8MTB8cGUyLTY%3D",
+        "https://tradewave.ai/app/?o=MnxOVkRBfDIwMjYtMTAtMjl8MTB8cGUyLTY%3D"
+      ],
+      "sources": [
+        {
+          "text": "NVIDIA Announces Financial Results for Second Quarter Fiscal 2027",
+          "href": "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Announces-Financial-Results-for-Second-Quarter-Fiscal-2027/"
+        },
+        {
+          "text": "NVIDIA Corporation Form 10-Q for the Quarter Ended July 26, 2026",
+          "href": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000075/nvda-20260726.htm"
+        },
+        {
+          "text": "NVIDIA Announces a $150 Billion Share Repurchase Authorization Increase",
+          "href": "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Announces-a-150-Billion-Share-Repurchase-Authorization-Increase/default.aspx"
+        },
+        {
+          "text": "TradeWave NVDA seasonal evidence",
+          "href": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/evidence/nvda-history.json"
+        }
+      ],
+      "bodyTextSha256": "92041de1296f984e0a7382c26e8f31a6abe883c11c75bd5cab055e5c086fddee",
+      "pageErrors": [],
+      "httpErrors": []
+    }
+  ],
+  "captures": [
+    {
+      "name": "XLF-desktop-header.png",
+      "sha256": "65f60dc6e2cf1dafc6d34b09c8f688664203863a6db06ccb11cb054baf38b84d"
+    },
+    {
+      "name": "XLF-mobile-header.png",
+      "sha256": "bf8d43e9d1137e40c3b423c8799338fb7edf16401e484253d65d555c7a9e68e1"
+    },
+    {
+      "name": "SI-desktop-header.png",
+      "sha256": "dc84c3e4c599605254889d543edcd4db594f807fefda37fab6a9347be7565832"
+    },
+    {
+      "name": "SI-mobile-header.png",
+      "sha256": "a5a0783d748ca9ecdb556185f2725af42f2a95214854164946fce3ff221042c0"
+    },
+    {
+      "name": "SPY-desktop-header.png",
+      "sha256": "2d5329046ecf6555268d9e0185fe78d28e9e6a547306d10a543f43f77651fe28"
+    },
+    {
+      "name": "SPY-mobile-header.png",
+      "sha256": "16a0163af5ccc406933fe03cf4de93afce29cdbc7e3e643d2a37b69b42fd5151"
+    },
+    {
+      "name": "QQQ-desktop-header.png",
+      "sha256": "12f9c1bec1a52d7cd8f115b2f4e85f81a65990e332e8f4a34eb716c0eecd141a"
+    },
+    {
+      "name": "QQQ-mobile-header.png",
+      "sha256": "a5b9d3505ad747cc4fb6c820c39a26263a985656143a4931f7a63665314a4c62"
+    },
+    {
+      "name": "AMZN-desktop-header.png",
+      "sha256": "96078e529557de841430f2edd793c3a0382193f965fba2fe7369ea4ba49598c3"
+    },
+    {
+      "name": "AMZN-mobile-header.png",
+      "sha256": "22b4205365a521368fd9831a3dee43f71bf272a935cc2ec00d49754bde4d6331"
+    },
+    {
+      "name": "NVDA-desktop-header.png",
+      "sha256": "fac96ac1fddf293001ba622470caf4d6c2c455dd553ed00fa5d3bd29c7065b50"
+    },
+    {
+      "name": "NVDA-mobile-header.png",
+      "sha256": "e48fe1ad205e3ac887c857c5cee202ae76f293a2774bcebd7d2fceb1b80f465d"
+    }
+  ]
+}

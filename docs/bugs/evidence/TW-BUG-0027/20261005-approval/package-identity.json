@@ -1,0 +1,24 @@
+{
+  "checked_utc": "2026-10-05T20:46:12.929062+00:00",
+  "candidate": "32bd869c0ffdd6039145bcaee4223dd67fb533ff",
+  "production_base": "2d1de1a9c9f200fa29a2db7f9660f3527727b660",
+  "package": "C:\\Users\\afshin\\Documents\\ChatGPT\\Seasonal Market News\\artifacts\\smn-continuity-20261005\\operator-policy",
+  "operator_sha256": "35d1f7a4e478ea58e2d56087494c6784e5040ce55d1da741465b016f4e976329",
+  "release_manifest_sha256": "2efdfcec15b5bcf983bc8bfd949b7931ce5098203668890866b2a6a5e4746571",
+  "bundle_sha256": "b0fe359db87338ae9789844a85c9155e8b6f6e51e8e276f100e192585fd609f2",
+  "source_archive_sha256": "47bf80e65b781256b069580da48ac96f2dad074ad8e4f132da365b26ded70c71",
+  "git_archive_files_matched": 354,
+  "only_crlf_normalized_files": 347,
+  "qualification_manifest_sha256": "43449158dca28495235532d90e1f52b0b335dcafd599b9a077c02fc89a113852",
+  "non_utf8_crlf_files": [
+    "blog/SMN_SUBSCRIPTION_PRODUCTION.md"
+  ],
+  "screenshot_hashes_verified": 18,
+  "operator_fault_checks_passed": 12,
+  "production_preflight_captured": "2026-10-05T16:57:07.016166+00:00",
+  "preflight_sha256": "60e950d62306535e7bbb51ab64dcbc32cfdb52d4386052c1f7f9b0b08c2c29c0",
+  "approval_template_not_authorized": true,
+  "no_production_mutation": true,
+  "problems": [],
+  "passed": true
+}

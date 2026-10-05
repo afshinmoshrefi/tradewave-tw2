@@ -1,0 +1,79 @@
+{
+  "checked_utc": "2026-10-05T20:48:03.789609+00:00",
+  "edition_date": "2026-10-05",
+  "active_release": "/opt/smn-subscription/releases/2d1de1a9c9f200fa29a2db7f9660f3527727b660",
+  "source_commit": "2d1de1a9c9f200fa29a2db7f9660f3527727b660",
+  "receipt_sha256": "f645c4990e4b19c7693f27f7e4d8661b2402f30be27d28fdb09f19939006bbb9",
+  "frozen_selection_valid": true,
+  "receipt_complete_verified": true,
+  "coverage_status": "complete",
+  "recovery_root": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-05/chatgpt-final-recovery-2d1de1a",
+  "recovery_root_within_day": true,
+  "origin_edition_files_checked": 123,
+  "origin_mismatches": [],
+  "articles": [
+    {
+      "symbol": "XLF",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/article.html",
+      "catalog_current_unique": true,
+      "homepage_link_present": true,
+      "receipt_sha256": "f69b5e6615b836d65a2b5ab52e52b53e4a8a47df5d2a8d11bdd426179995f2c1",
+      "public_sha256": "32aca0e404cfa518d9c58b6b8b184e8f311038154e207a9f9c838011984de073",
+      "content_match": "exact_known_cloudflare_beacon",
+      "passed": true
+    },
+    {
+      "symbol": "SI",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/SI/article.html",
+      "catalog_current_unique": true,
+      "homepage_link_present": true,
+      "receipt_sha256": "394a46c8a7c27bd9729ec7e931d8072623d601186d2efd8af0ed224d78b2006e",
+      "public_sha256": "132fe6044090c38ad732f7758d986d6aa08d57b2e1b0ca9d418c2664d8b33100",
+      "content_match": "exact_known_cloudflare_beacon",
+      "passed": true
+    },
+    {
+      "symbol": "SPY",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/article.html",
+      "catalog_current_unique": true,
+      "homepage_link_present": true,
+      "receipt_sha256": "334e8c0f4ba65de7aea34c7636004d47bd47a9f2cd4dea9c9796dd7030e449e3",
+      "public_sha256": "094a0679732e223195d7fce3c4c8a3c25fa010fc684ebe8a81f66040d467887e",
+      "content_match": "exact_known_cloudflare_beacon",
+      "passed": true
+    },
+    {
+      "symbol": "QQQ",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/article.html",
+      "catalog_current_unique": true,
+      "homepage_link_present": true,
+      "receipt_sha256": "00c4708b3e4077d3568d9969da34912f444638579ad609821c115e35b0647bec",
+      "public_sha256": "43c97354cef18334aae45bad8f950745e1c92da6b00a635510ee7f1cc0bb2290",
+      "content_match": "exact_known_cloudflare_beacon",
+      "passed": true
+    },
+    {
+      "symbol": "AMZN",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/article.html",
+      "catalog_current_unique": true,
+      "homepage_link_present": true,
+      "receipt_sha256": "f7d3dacc6e726d8e96f64bad2b9e72dc765a9137fb3f71951a0ffc79986bdf0b",
+      "public_sha256": "c835a284b07048ad040f2650f7031b6221e947d3edb7bb136bdbff16b7343b85",
+      "content_match": "exact_known_cloudflare_beacon",
+      "passed": true
+    },
+    {
+      "symbol": "NVDA",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/article.html",
+      "catalog_current_unique": true,
+      "homepage_link_present": true,
+      "receipt_sha256": "1be89b8866458895e1fcd51bd1c0a94434e6d8d8ae341a17411916282052d29f",
+      "public_sha256": "eb37ee61cc959c25bff7ab83595d9da5f172db8b7047323ae8c6427da02305b6",
+      "content_match": "exact_known_cloudflare_beacon",
+      "passed": true
+    }
+  ],
+  "newsletter_delivery": "not_assessed",
+  "alert_delivery": "not_assessed",
+  "complete_edition_verified": true
+}
