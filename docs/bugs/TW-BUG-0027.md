@@ -1,5 +1,9 @@
 # TW-BUG-0027: October 5 SMN reader edition held
 
+## Current: follow-up authorized, production recovery running
+
+October5 09:49Eastern: Afshin approved exact2cc3167 direct production deployment and49 cumulative jobs in coordinating turn01a10c51-2cd9-7800-9e21-1ac6a34c528b; human response read and verified. Same-day snapshots retain prior confirmation. Production guarded upgrade succeeded to2cc3167a435065843bb2b8834a750e7213fb75ec with previous08f8714 pointer/units/config preserved. Receipt `/var/lib/tradewave/release-state/smn-oct5-repair-2cc3167a4350-2026-10-05/receipt.json`. Actual isolated recovery is running as `smn-oct5-citation-recovery.service`, root `2026-10-05/chatgpt-citation-recovery-2cc3167`; original SI restoration and one-phrase receipt-bound copyedit passed mechanical checks, fresh review running. No publication success claimed yet. Earlier pending approval notes below are historical.
+
 ## Follow-up ready on Dev, October 5 09:31 Eastern
 
 Production08f8714 deployment succeeded; full publication did not. Recovery is terminal held at43/46, original evidence and four approved articles unchanged, no canonical publication receipt/newsletter marker. The next exact production candidate is `2cc3167a435065843bb2b8834a750e7213fb75ec` (only citation matcher/test over08f8714). Same behavior is live on Dev at `afd6f2e650d2155366e6a05508ee1fe7111a60ed`;49 focused Linux tests passed on both candidates, and captured real production reviews were replayed with zero model jobs. Main/runtime parity and unchanged public Dev catalog/home/search verified. New operator package: `C:/Users/afshin/Documents/ChatGPT/Seasonal Market News/artifacts/smn-repair-20261005/operator-citations/README.md`.
