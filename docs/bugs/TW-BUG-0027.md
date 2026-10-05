@@ -1,0 +1,19 @@
+# TW-BUG-0027: October 5 SMN reader edition held
+
+- Status: in-progress; confidence: reproduced on production d6e2b6fd.
+- Owner: Codex smn-oct5-repair, 2026-10-05; parent session 01a0fcf4-37f1-7d33-bced-ac46999fd9fa.
+- Authorization: Afshin requests fixing the edition and preventing NVIDIA/silver recurrence. Code, focused tests and Dev activation authorized. Friday direct-production exception was release-specific; new production release/snapshot/operator permission remains separate.
+- Scope: source retrieval resilience, required-context handoff, stable runtime asset lookup, exact selected-lineup publication and bounded held-run recovery. Preserve four approved articles, all original receipts and engine outputs. No new provider settings, email tests or raised job cap.
+
+## Evidence
+Production 2026-10-05 root /var/lib/tradewave/smn-daily/subscription-primary/2026-10-05: XLF/SPY/QQQ/AMZN passed; SI has insufficient accessible primary pages (CME timeout and CFTC publication-date rejection); NVIDIA rereview claims quarterly context omitted. Actual text must be checked before accepting the latter diagnosis. Reader ledger 37 jobs against ordinary 40. Publisher built four-entry package despite six selected symbols, then failed importing cwd-relative ticker_motif_custom.json. No successful production activation/receipt. Original candidate and all failed evidence retained. Local readonly evidence copy: Seasonal Market News/artifacts/smn-repair-20261005/evidence.
+
+## Executable plan and claims
+1. Parent owns blog/smn_subscription_publish.py, subscription_publication.py, install_smn_primary_edition.py, runtime motif preflight/tests and new recovery command/tests. Worktree TradeWave Main Orchestrator/smn-oct5-publication, branch codex/smn-oct5-publication, base current SMN main 6f9812d. Reject missing/extra/held subjects before package/prepare/activation, including stale four-entry packages. Reuse the existing current-main stable motif resolver rather than duplicate a fix; test real release cwd and preflight required assets.
+2. Source agent owns blog/smn_primary_sources.py and dedicated tests in smn-oct5-sources. Diagnose captured errors; bounded retry transient fetches; preserve successful cache/evidence and verify dated primary fallback candidates without invented facts or weakened source validation.
+3. Context agent owns research/writer/reviewer handoff helpers and dedicated tests in smn-oct5-context (coordinate any smn_daily.py edits first). Verify NVDA receipt vs prose, then carry required source-backed context into repair prompts and check coverage without requiring exact prose quotations. Preserve source/financial gates.
+4. Parent integrates exact pushed commits, tests changed paths on Linux and Dev runtime, preserves current unrelated membership changes, then records SHA and live contract proofs. No model jobs until cumulative ledger and minimum recovery budget verified; never reuse altered approval or silently raise cap.
+5. Prepare immutable targeted recovery from original evidence using locks and cumulative budget, preserving four finalized article trees. Require all six approved before publication-only package and desktop/mobile/live checks. Produce concrete operator commands for the exact repair; if current authority/cap prevents production execution, record exact blockers after all independent work is complete.
+
+## Acceptance and rollback
+Tests reproduce cwd failure, 4/6 and stale-package rejection before writes, valid 6/6 acceptance, transient retry/no permanent-cache poisoning, required-context propagation, selected held-only recovery with preserved successes and hard cumulative cap. Dev activation snapshots previous release pointers and restores them on failed contract smoke. Production stays on d6e2 until separately authorized and current-day snapshots confirmed. No claim of 99.9% reliability from a single recovery.
