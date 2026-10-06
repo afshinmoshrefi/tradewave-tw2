@@ -1,5 +1,14 @@
 # TW-BUG-0027: October 5 SMN reader edition held
 
+## October 6 Edition and Newsletter Terminal Evidence
+
+Retained recovery proof confirms the six fresh correct October 6 articles (CPRT, APH, XLK, IBM, MSFT, COST) published at **10:48:51 UTC / 06:48:51 Eastern**, before the 07:00 Eastern target. Exact public bodies, dated unique catalog/home links and 123 origin files were independently verified; installed checks covered 12 layouts and 214 public files. See the existing October 6 recovery evidence below. This checkpoint makes no new production observation or deployment.
+
+The earlier newsletter hold is superseded for October 6 by an explicitly authorized once-only MailerLite release. Actual campaign **200578330583369260** records **137 sent and 137 delivered**, start **11:37:03 UTC**, finish **11:37:49 UTC / 07:37:49 Eastern**. The exact existing SMN-DAILY group and six published articles were used. Journal and date marker are completed; six slugs were reserved once. Recovery resolution now records the campaign and `newsletter_released=true`. The original failed reader tree and absent canonical publication receipt were preserved. Provider delivery does not guarantee inbox placement or opening. [Sanitized provider proof](evidence/TW-BUG-0027/20261006-newsletter/delivery.json), [detailed retained handoff](evidence/TW-BUG-0027/20261006-newsletter/handoff.md).
+
+Production application stayed **2d1de1a9c9f200fa29a2db7f9660f3527727b660**. This model task made no send, regeneration, credentials change, CLI upgrade or production write. Permanent quotation/budget and recovery-to-newsletter integration, the pending continuity/watchdog release, alert transport and separate TW-BUG-0028 header repair remain unfinished; keep this incident's durable-prevention status blocked. Follow the existing owners. The isolated model draft is separately recorded in [TW-TASK-0006](../tasks/TW-TASK-0006.md); its unqualified defaults must not interfere with daily publication.
+
+
 ## Guarded Takeover Evaluated; Operator Amendment Required, October 5 21:16 UTC
 
 Dorothy's supported attempt to resume release owner `01a0fcf4-37f1-7d33-bced-ac46999fd9fa` returned `CloudThreadNotFoundError`; she requested evaluating a guarded takeover of the same approved 32bd869 action. Independent executor `01a10c07-0aa8-767f-84e3-04f9184b50da` checked current shared state and production: all three real controller/scheduler/newsletter locks are free, no activation lock or transaction exists, no publisher/mail service is active, candidate checkout is absent, and source/package/edition/ledgers are unchanged. Original owner worktrees and package remain untouched. Ownership is no longer the concrete blocker to proceeding under the parent's takeover delegation.

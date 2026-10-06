@@ -1,0 +1,42 @@
+{
+  "status": "blocked_before_execution",
+  "updated_utc": "2026-10-06T12:18:18.863947+00:00",
+  "requested_model": "gpt-6.1-sol",
+  "requested_effort": "medium",
+  "candidate_commit": "7ff4b8dc99fdfe4210ddfdd967939607b7cca5e0",
+  "candidate_pr": "https://github.com/afshinmoshrefi/SMN/pull/4",
+  "model_in_full_catalog": false,
+  "cli_starts": 0,
+  "completed_model_turns": 0,
+  "actual_response_model": null,
+  "actual_model_usage": null,
+  "facts_grade": null,
+  "numbers_grade": null,
+  "unsupported_claims_grade": null,
+  "instruction_following_grade": null,
+  "live_output_schema_qualified": false,
+  "original_article_sha256": "dc1128ab7c5f4e0c4c037d940631e33192a68984e9995da4476fd835fc1fe31f",
+  "prompt_bytes": 36311,
+  "automatic_approval_review_rejected": true,
+  "rejection_reason": "User-authored authorization for transmitting the retained fixture to a remote subscription model was not found.",
+  "approval_requested": true,
+  "approval_answer_received": false,
+  "offline_tests": {
+    "baseline": 13,
+    "candidate": 16,
+    "passed": true,
+    "command": "cd blog; python -B -m unittest -v test_subscription_writer",
+    "observed_result": "Ran 16 tests in 0.857s; OK"
+  },
+  "prior_offline_fixture_tests": {
+    "passed": true,
+    "count": 6,
+    "model_turns": 0
+  },
+  "paid_api_calls": 0,
+  "paid_fallback": false,
+  "deployment": false,
+  "production_changes": 0,
+  "newsletter_sends": 0,
+  "peer_consensus": false
+}

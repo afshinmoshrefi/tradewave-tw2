@@ -1,0 +1,15 @@
+{
+  "tests_run": 6,
+  "passed": true,
+  "failures": 0,
+  "errors": 0,
+  "fixture_preserved": true,
+  "baseline_source_sha256": "a3ec8beeaae07559a74ce105a9175e346f74657ff3e8135f70744030a4c13a75",
+  "candidate_allowlist_only_in_isolated_module": true,
+  "real_provider_processes": 0,
+  "model_turns": 0,
+  "production_changes": 0,
+  "synthetic_model_receipts": 0,
+  "actual_cli_model_availability_qualified": false,
+  "actual_6_1_output_quality_qualified": false
+}

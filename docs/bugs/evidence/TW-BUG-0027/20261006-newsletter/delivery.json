@@ -1,0 +1,19 @@
+{
+  "id": "200578330583369260",
+  "name": "SMN-Daily-2026-10-06",
+  "status": "sent",
+  "started_at": "2026-10-06 11:37:03",
+  "finished_at": "2026-10-06 11:37:49",
+  "stats": {
+    "sent": 137,
+    "deliveries_count": 137,
+    "hard_bounces_count": 0,
+    "soft_bounces_count": 0
+  },
+  "content_sha256": "d54e9931319f4bc06a031ffdf1803cc08c40880d888ac730a972dcc2a866643d",
+  "group_id": "179755084579604160",
+  "source": "retained actual MailerLite terminal read",
+  "original_provider_read_sha256": "642011f095f8c6e55e23a9e32f543bc677f081976909e69b065b03ba02e654ec",
+  "delivery_limit": "Provider delivery, not inbox or open guarantee",
+  "additional_sends_by_model_task": 0
+}
