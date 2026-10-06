@@ -1,0 +1,9 @@
+{
+  "guard_sha256": "a5d625a913bf089bb5ccae04d23615c03d58e7217bcfd0bd5b118cfd6609a106",
+  "runner_sha256": "452b4b04cc2c0286253edec327e41d2b942823234f0131f12efc123f686d22b9",
+  "inputs_sha256": "f70ca62e3888f38baa59e99326476a322b46627bfa12b9351d1646f7add01a2e",
+  "baseline_receipts": 40,
+  "linux_tests": 16,
+  "linux_passed": true,
+  "approved_additional_starts": 6
+}
