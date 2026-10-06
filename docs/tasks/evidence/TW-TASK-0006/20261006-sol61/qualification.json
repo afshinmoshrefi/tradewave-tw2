@@ -1,12 +1,12 @@
 {
-  "status": "blocked_before_execution",
-  "updated_utc": "2026-10-06T12:18:18.863947+00:00",
+  "status": "backend_model_unsupported",
+  "updated_utc": "2026-10-06T13:01:04.354940+00:00",
   "requested_model": "gpt-6.1-sol",
   "requested_effort": "medium",
-  "candidate_commit": "7ff4b8dc99fdfe4210ddfdd967939607b7cca5e0",
+  "candidate_commit": "4e45a581b7869ba24f1858aa402aa891f7b6d93f",
   "candidate_pr": "https://github.com/afshinmoshrefi/SMN/pull/4",
   "model_in_full_catalog": false,
-  "cli_starts": 0,
+  "cli_starts": 1,
   "completed_model_turns": 0,
   "actual_response_model": null,
   "actual_model_usage": null,
@@ -17,10 +17,8 @@
   "live_output_schema_qualified": false,
   "original_article_sha256": "dc1128ab7c5f4e0c4c037d940631e33192a68984e9995da4476fd835fc1fe31f",
   "prompt_bytes": 36311,
-  "automatic_approval_review_rejected": true,
-  "rejection_reason": "User-authored authorization for transmitting the retained fixture to a remote subscription model was not found.",
   "approval_requested": true,
-  "approval_answer_received": false,
+  "approval_answer_received": true,
   "offline_tests": {
     "baseline": 13,
     "candidate": 16,
@@ -38,5 +36,90 @@
   "deployment": false,
   "production_changes": 0,
   "newsletter_sends": 0,
-  "peer_consensus": false
+  "peer_consensus": false,
+  "tested_code_commit": "7ff4b8dc99fdfe4210ddfdd967939607b7cca5e0",
+  "approval": {
+    "source": "User question reply in the active task",
+    "date": "2026-10-06",
+    "question_item_id": [
+      "request_user_input_async",
+      "call_6hOZLrGJ0y59E688c6nSTLwz",
+      0
+    ],
+    "answer": "Approve one subscription call",
+    "scope": "One GPT-6.1-Sol medium qualification on Dev through the existing ChatGPT subscription using the retained XLK fixture. No paid API fallback, production changes, article regeneration or newsletter send."
+  },
+  "initial_approval_review_block": {
+    "resolved_by_explicit_user_reply": true,
+    "evidence": "pre-approval-block.json"
+  },
+  "backend_error": {
+    "type": "error",
+    "status": 400,
+    "error": {
+      "type": "invalid_request_error",
+      "message": "The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account."
+    }
+  },
+  "fresh_allowance_check_passed": true,
+  "attempt_receipt": {
+    "model_requested": "gpt-6.1-sol",
+    "effort_requested": "medium",
+    "model_reported_by_events": null,
+    "auth_type": "chatgpt",
+    "billing_source": "subscription",
+    "cli_starts": 1,
+    "completed_model_turns": 0,
+    "returncode": 1,
+    "timed_out": false,
+    "seconds": 6.413,
+    "usage": [],
+    "tool_calls": [
+      "error"
+    ],
+    "schema_passed": false,
+    "schema_error": null,
+    "output_sha256": null,
+    "evidence_sha256": "84755dd73bef5743f3e7c5639c95962c94dba650e84fcdd244e19143f55cde25",
+    "input_hashes": {
+      "prompt.txt": "90d75ef83288a0893fdbf4ef12e3c9a5e0f572b47ab2193e5df4fbd90de93fad",
+      "schema.json": "073ce1cb20861a61d0f2440c960c2101e61cd1d2794cb3b7cabdf36625d627ef"
+    },
+    "original_article_sha256": "dc1128ab7c5f4e0c4c037d940631e33192a68984e9995da4476fd835fc1fe31f",
+    "publish": false,
+    "catalog_advertises_model": false,
+    "paid_api_fallback": false,
+    "automatic_retry": false,
+    "user_authorization": "Approve one subscription call; explicit question reply on 2026-10-06",
+    "finished_utc": "2026-10-06T12:28:24.796889+00:00"
+  },
+  "fixture_preserved": true,
+  "quality_status": "No output: facts, numbers, unsupported claims and instruction following cannot be scored.",
+  "executed_tool_calls": 0,
+  "native_error_item_types": [
+    "error"
+  ],
+  "attempt_budget_consumed": true,
+  "further_model_calls": 0,
+  "compatibility": {
+    "diagnosis_status": "read_only_complete; upgrade and new generation not performed",
+    "installed_cli": "0.155.0-alpha.16",
+    "documented_catalog_support_release": "0.159.1",
+    "proposed_isolated_cli": "0.160.1",
+    "requested_identifier_matches_official_docs": true,
+    "official_rollout_includes_pro": true,
+    "confirmed": "Installed client predates documented 6.1-Sol bundled-catalog support.",
+    "inference": "Outdated client/catalog is a likely contributor to the single rejection.",
+    "unknown": "Whether a newer client alone restores this specific saved account access.",
+    "plan_exclusion_proven": false,
+    "cli_upgrade_performed": false,
+    "further_model_calls": 0,
+    "old_attempt_terminal": true,
+    "new_trial_requires_new_explicit_budget": true,
+    "evidence": "compatibility-and-next-step.md",
+    "installed_metadata": "installed-cli-metadata.json",
+    "terminal_proof": "terminal-seal-proof.json"
+  },
+  "attempt_receipt_sha256": "df879009af8ffc70daa727477d615fb4cbc65f22204d504bc019156656c7c1e7",
+  "trial_state": "failed_needs_review"
 }

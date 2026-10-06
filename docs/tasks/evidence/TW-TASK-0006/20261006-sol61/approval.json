@@ -1,0 +1,11 @@
+{
+  "source": "User question reply in the active task",
+  "date": "2026-10-06",
+  "question_item_id": [
+    "request_user_input_async",
+    "call_6hOZLrGJ0y59E688c6nSTLwz",
+    0
+  ],
+  "answer": "Approve one subscription call",
+  "scope": "One GPT-6.1-Sol medium qualification on Dev through the existing ChatGPT subscription using the retained XLK fixture. No paid API fallback, production changes, article regeneration or newsletter send."
+}

@@ -1,0 +1,49 @@
+{
+  "root": "/var/tmp/smn-sol61-subscription-20261006-1rs79f6g",
+  "job": "/var/tmp/smn-sol61-subscription-20261006-1rs79f6g/jobs/XLK-20261006-sol61-single-qualification",
+  "receipt": {
+    "model_requested": "gpt-6.1-sol",
+    "effort_requested": "medium",
+    "model_reported_by_events": null,
+    "auth_type": "chatgpt",
+    "billing_source": "subscription",
+    "cli_starts": 1,
+    "completed_model_turns": 0,
+    "returncode": 1,
+    "timed_out": false,
+    "seconds": 6.413,
+    "usage": [],
+    "tool_calls": [
+      "error"
+    ],
+    "schema_passed": false,
+    "schema_error": null,
+    "output_sha256": null,
+    "evidence_sha256": "84755dd73bef5743f3e7c5639c95962c94dba650e84fcdd244e19143f55cde25",
+    "input_hashes": {
+      "prompt.txt": "90d75ef83288a0893fdbf4ef12e3c9a5e0f572b47ab2193e5df4fbd90de93fad",
+      "schema.json": "073ce1cb20861a61d0f2440c960c2101e61cd1d2794cb3b7cabdf36625d627ef"
+    },
+    "original_article_sha256": "dc1128ab7c5f4e0c4c037d940631e33192a68984e9995da4476fd835fc1fe31f",
+    "publish": false,
+    "catalog_advertises_model": false,
+    "paid_api_fallback": false,
+    "automatic_retry": false,
+    "user_authorization": "Approve one subscription call; explicit question reply on 2026-10-06",
+    "finished_utc": "2026-10-06T12:28:24.796889+00:00"
+  },
+  "output": null,
+  "diagnostic_tail": "",
+  "error_events": [
+    {
+      "type": "error",
+      "message": "{\"type\":\"error\",\"status\":400,\"error\":{\"type\":\"invalid_request_error\",\"message\":\"The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account.\"}}"
+    },
+    {
+      "type": "turn.failed",
+      "error": {
+        "message": "{\"type\":\"error\",\"status\":400,\"error\":{\"type\":\"invalid_request_error\",\"message\":\"The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account.\"}}"
+      }
+    }
+  ]
+}

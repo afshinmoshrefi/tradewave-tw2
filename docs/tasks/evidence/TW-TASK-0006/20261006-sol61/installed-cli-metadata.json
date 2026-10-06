@@ -1,0 +1,82 @@
+{
+  "cli_path": "/opt/smn-codex-0.155.0-alpha.16/node_modules/.bin/codex",
+  "resolved_cli_path": "/opt/smn-codex-0.155.0-alpha.16/node_modules/@openai/codex/bin/codex.js",
+  "version_exit": 0,
+  "version": "codex-cli 0.155.0-alpha.16",
+  "invocation": {
+    "argv": [
+      "/opt/smn-codex-0.155.0-alpha.16/node_modules/.bin/codex",
+      "exec",
+      "--ignore-user-config",
+      "-c",
+      "model_provider=\"openai\"",
+      "-c",
+      "forced_login_method=\"chatgpt\"",
+      "-c",
+      "apps._default.enabled=false",
+      "-c",
+      "agents.enabled=false",
+      "-c",
+      "features.shell_tool=false",
+      "-c",
+      "features.unified_exec=false",
+      "-c",
+      "web_search=\"disabled\"",
+      "--ephemeral",
+      "--skip-git-repo-check",
+      "--sandbox",
+      "read-only",
+      "-c",
+      "model_reasoning_effort=\"medium\"",
+      "--model",
+      "gpt-6.1-sol",
+      "--json",
+      "--color",
+      "never",
+      "--output-schema",
+      "/var/tmp/smn-sol61-subscription-20261006-1rs79f6g/jobs/XLK-20261006-sol61-single-qualification/schema.json",
+      "--output-last-message",
+      "/var/tmp/smn-sol61-subscription-20261006-1rs79f6g/jobs/XLK-20261006-sol61-single-qualification/output.json",
+      "--cd",
+      "/var/tmp/smn-sol61-subscription-20261006-1rs79f6g/jobs/XLK-20261006-sol61-single-qualification",
+      "-"
+    ],
+    "catalog_advertises_model": false,
+    "auth_type": "chatgpt",
+    "billing_source": "saved ChatGPT subscription",
+    "paid_api_fallback": false,
+    "automatic_retry": false
+  },
+  "state": {
+    "status": "failed_needs_review",
+    "reason": "Native HTTP400: requested model unsupported with this ChatGPT account",
+    "automatic_retry": false,
+    "publish": false,
+    "qualification_allowance_consumed": true,
+    "cli_starts": 1,
+    "completed_model_turns": 0,
+    "attempt_receipt_sha256": "df879009af8ffc70daa727477d615fb4cbc65f22204d504bc019156656c7c1e7"
+  },
+  "attempt_receipt_sha256": "df879009af8ffc70daa727477d615fb4cbc65f22204d504bc019156656c7c1e7",
+  "nonce": {
+    "model": "gpt-6.1-sol",
+    "effort": "medium",
+    "starts_allowed": 1,
+    "automatic_retry": false,
+    "started_utc": "2026-10-06T12:28:18.362347+00:00"
+  },
+  "model_turns_generated_by_this_read": 0,
+  "production_access": false,
+  "package": {
+    "name": "@openai/codex",
+    "version": "0.155.0-alpha.16",
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/openai/codex.git",
+      "directory": "codex-cli"
+    }
+  },
+  "observed_on": "2026-10-06",
+  "recorded_utc": "2026-10-06T13:01:04.354940+00:00",
+  "source_artifact_sha256": "b73f07deab29fb69e239635380ede3394243dad9af34315e95b46a696e3d4264"
+}
