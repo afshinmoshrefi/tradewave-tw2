@@ -1,0 +1,9 @@
+{
+  "all_nine_retained_fixture_hashes_match": true,
+  "fixture_manifest_sha256": "55c9874a093edda98699edbb159c35c82cc3da8bb0fdc2e2e50b1b2f4cf692c3",
+  "immutable_input_hashes": {
+    "smn-sol61-single-trial-payload-20261006.json": "dd2d2509d30df45e3c1b3244ce8e4aa5bf0f9257e3649d8199549370971b1556",
+    "smn-sol61-new-cli-native-result-20261006.json": "396e5af7b80f2809dc758106c6eda170b2d249ed34fce925e1ba7588f088626c",
+    "smn-sol61-single-trial-result-20261006.json": "e9bd0abac1f4129e2efcdf34409592322d2e064aed255a2ccc807f57e755ae31"
+  }
+}

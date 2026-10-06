@@ -1,0 +1,8 @@
+# Preserve the exact bytes of the new copied receipts and hashed offline inputs.
+additional-*.json -text
+isolated-install.json -text
+quality-audit.json -text
+latest-status.json -text
+offline-correction/*.json -text
+offline-correction/*prompt.txt -text
+offline-correction/*.py -text

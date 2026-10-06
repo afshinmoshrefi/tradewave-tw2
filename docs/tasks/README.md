@@ -9,7 +9,7 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0003](TW-TASK-0003.md) | in-progress | Reusable dev MCP release authentication and complete staging promotion |
 | [TW-TASK-0004](TW-TASK-0004.md) | verified | Michael editorial refinements and September 17 SMN Dev edition |
 | [TW-TASK-0005](TW-TASK-0005.md) | verified on dev | September24 six articles live on primary Dev;686 retained articles, pins preserved and daily07:00 automation repaired |
-| [TW-TASK-0006](TW-TASK-0006.md) | verified (setup); experiment blocked | Shared coordination; one 6.1-Sol trial rejected on outdated CLI, isolated qualification plan prepared; defaults unactivated |
+| [TW-TASK-0006](TW-TASK-0006.md) | verified (setup); quality hold | Shared coordination; isolated 6.1-Sol compatibility passed, required causal support held; corrected offline packet/tests complete, defaults unactivated |
 | [TW-TASK-0007](TW-TASK-0007.md) | verified | Controlled six-subject Astra/Sol/Luna quality and usage comparison |
 | [TW-TASK-0008](TW-TASK-0008.md) | verified on dev | SMN publishing dashboard (pins, order, publish/unpublish, schedule, hero) and portfolio Rec Hero/Delete/publish-icon fixes |
 | [TW-TASK-0009](TW-TASK-0009.md) | in-progress | Dev/main b26428a: morning/verified-newsletter settings live and77 Linux tests pass; full6-article publication recovery running within five additional jobs; Resend key and human production cutover pending |

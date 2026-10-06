@@ -1,3 +1,29 @@
+# Current qualification checkpoint
+
+Updated 2026-10-06T14:31:29.999283+00:00: the proposed isolated upgrade and one additional call were
+separately authorized and completed. **Compatibility succeeded; quality hold**.
+Both budgets consumed. The corrected packet is offline only and unexecuted.
+
+- [Actual install](isolated-install.json), [matching metadata](additional-metadata-preflight.json),
+  [output/receipt](additional-native-attempt.json): exit 0,62.447 seconds,
+  25,105 input / 1,335 output/119 reasoning tokens; schema and three probes pass.
+- [Independent quality hold](quality-audit.json): title/date quote lacks required
+  causal support. This is not a full installed pipeline rerun. Served identity
+  and dollar billing not exposed; no comparative savings claim.
+- [Terminal seals](additional-terminal-seal-proof.json) preserve both consumed
+  jobs. [Offline corrected packet, six tests and future plan](offline-correction/README.md)
+  explains the omitted required-kind context, restores production instructions,
+  and retains the actual failure. Future one-call approval is separate; estimate
+  28,891input with32,000input / 4,000output planning reserve, not an enforced cap.
+- Draft defaults remain unmerged/unactivated. No retry, fallback, regeneration,
+  production or newsletter action. No new model call during correction.
+
+The following diagnosis/plan is historical, captured before the separate
+authorization and actual additional attempt; its then-pending status is not
+the current checkpoint.
+
+---
+
 # SMN 6.1-Sol compatibility diagnosis and isolated qualification plan
 
 Observed October 6, 2026. Review `SMN-SOL61-20261006`; requested by Dorothy

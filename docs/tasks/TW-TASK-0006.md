@@ -204,3 +204,48 @@ Documentation checkpoint in SMN is `4e45a581b7869ba24f1858aa402aa891f7b6d93f`; t
 - Recipient: Dorothy and existing SMN owners. Status: `proposed next step`; read-only diagnosis complete, experiment still unqualified, no peer agreement claimed. The captured invocation uses the correct documented `gpt-6.1-sol` identifier and existing subscription route. Installed CLI 0.155.0-alpha.16 predates the official 0.159.1 catalog addition. This confirms an outdated client; its role in the HTTP 400 is a likely contributor, not a proven sole cause. Official rollout includes Pro, so general plan exclusion is not established. [Canonical diagnosis and proposed plan](evidence/TW-TASK-0006/20261006-sol61/compatibility-and-next-step.md).
 - The existing failed job is sealed as `failed_needs_review`; the actual adapter refuses it before account probing. Original receipt and one-start nonce are preserved. [Terminal proof](evidence/TW-TASK-0006/20261006-sol61/terminal-seal-proof.json), [installed CLI metadata](evidence/TW-TASK-0006/20261006-sol61/installed-cli-metadata.json). Qualification starts remain one, completed model turns zero. Non-generative version/catalog reads are not extra qualification calls.
 - Desktop/cloud task model selection does not change the explicit SMN runner arguments or immutable manifests. A proposed newer isolated CLI needs account/catalog checks before generation; account rollout remains unknown. Older 6-Sol writing is a separately scoped option with retained xhigh benchmark defects, not qualified medium writing or an automatic fallback. See the canonical plan and TW-TASK-0007. No installation, credential change, paid provider call, production change or newsletter action occurred in this diagnosis.
+
+## SMN-SOL61-20261006 - Actual additional call and offline correction, 2026-10-06T14:31:29.999283+00:00
+
+- Status: `isolated compatibility success; quality hold`. Recipient: Dorothy and
+  existing SMN owners. Both approved one-start budgets consumed; no further call
+  authorized. Candidate remains [draft SMN #4](https://github.com/afshinmoshrefi/SMN/pull/4),
+  unmerged/unactivated. Tested app code remains `7ff4b8dc99fdfe4210ddfdd967939607b7cca5e0`.
+- Parent-relayed user "Yes" at 13:37 UTC authorized isolated official CLI 0.160.1
+  and one additional subscription review. [Verified install](evidence/TW-TASK-0006/20261006-sol61/isolated-install.json),
+  [matching catalog/auth preflight](evidence/TW-TASK-0006/20261006-sol61/additional-metadata-preflight.json).
+  No global CLI pointer, credential or production configuration changed.
+- [Actual native result](evidence/TW-TASK-0006/20261006-sol61/additional-native-attempt.json):
+  completed `2026-10-06T13:56:58.693522+00:00`, one additional start/one completed
+  turn, exit 0,62.447 seconds, input 25,105 / cached 0 / output 1,335 / reasoning 119 tokens,
+  valid schema, zero tools, three probes rejected and six material coverage
+  rows binding correctly. Actual served model and dollar billing not exposed.
+  Compatibility applies to this isolated controlled runner; different transport/
+  retry settings prevent attributing success solely to CLI version.
+- [Quality hold](evidence/TW-TASK-0006/20261006-sol61/quality-audit.json): all
+  seven model checks self-passed, but `sections.1.paragraphs.2` quoted only a
+  call title/date, not support for attributed growth/margin causes. Continuous
+  literal presence is insufficient. Hash-verified retained gate components
+  plus independent semantic reading were used; full installed pipeline not rerun.
+- [Terminal seal proof](evidence/TW-TASK-0006/20261006-sol61/additional-terminal-seal-proof.json)
+  records quality_hold, real adapter and exclusive nonce refusal, unchanged
+  actual receipt/output/nonce, preserved original failed trial and zero extra
+  starts after sealing. No fallback, regeneration, mail or production action.
+- The compact helper never loaded production prompt/context; typed required
+  kinds, full audit RULES and calendar/cohort instructions were omitted. This
+  prevents a model-only quality conclusion. Parent requested offline correction
+  only. [Separate corrected packet and minimal plan](evidence/TW-TASK-0006/20261006-sol61/offline-correction/README.md)
+  restores exact verified context/instructions without changing article,
+  engine evidence, excerpts, ledger, probes or schema. No expected answer or
+  corrected output is supplied. Six focused regressions pass, including the
+  real title/date counterexample and missing independent assessment holding.
+- Corrected packet has not run. Prompt 47,670 bytes, estimated 28,891 input tokens;
+  planning reserve 32,000 input / 4,000 output, approximate, not an enforced token cap.
+  Only new explicit approval could permit one corrected 6.1-Sol/medium subscription
+  review with a new immutable job/nonce, matching metadata and no retry/fallback.
+  No benchmark cascade. Writing/research and permanent-runner qualification,
+  independent quality gates, existing-owner recovery verification and exact
+  release/rollback approval remain gates for production migration.
+- Release `01a0fcf4-37f1-7d33-bced-ac46999fd9fa`, schedule
+  `01a0fcf2-f893-74f0-b850-4105ab151511` retain incident/prevention work.
+  Dorothy owns weekday checks/user updates. No peer consensus is claimed.

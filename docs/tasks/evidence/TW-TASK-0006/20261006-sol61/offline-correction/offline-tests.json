@@ -1,0 +1,24 @@
+{
+  "source": "Completed local exec_command, python -B -m unittest -v test_corrected_packet",
+  "exit_code": 0,
+  "tests_run": 6,
+  "tests_passed": 6,
+  "unittest_seconds": 0.044,
+  "test_names": [
+    "restores_typed_requirements_and_full_production_instructions",
+    "context_and_article_hash_drift_are_rejected",
+    "same_article_evidence_probes_schema_and_bounded_sources",
+    "literal_title_date_and_self_pass_cannot_replace_causal_support",
+    "absent_or_mismatched_independent_assessment_fails_closed",
+    "unexecuted_new_packet_cannot_reuse_consumed_trial"
+  ],
+  "new_model_calls": 0,
+  "full_installed_pipeline_rerun": false,
+  "all_nine_fixture_hashes_match": true,
+  "retained_rules_equal_frozen_production_RULES": true,
+  "old_actual_inputs_and_output_hashes_still_match": true,
+  "test_file_sha256": "abf20431754923cbfed96d401fd170c2903699deb3458c86e206d2e7d86f9f28",
+  "builder_sha256": "c4cadb6508b37c57852bf7c984d84c648171fe6e1bf51f28d77e4378e0a09f75",
+  "recorded_utc": "2026-10-06T14:34:37.081228+00:00",
+  "corrected_prompt_file_hash_verified": true
+}

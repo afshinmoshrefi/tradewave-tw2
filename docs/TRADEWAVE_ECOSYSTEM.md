@@ -3212,6 +3212,21 @@ SMN `chartkit.record_bars` measures the 11-point median label in display pixels.
 Tara published-list follow-ups such as "how about midcaps" and "how about micaps" select the list; genuine how-to requests explain direct selection from the top-left market dropdown, with admin-published lists at the bottom and personal watchlists treated separately.
 
 
-**SMN subscription dispatch and recovery handoff, October 6, 2026:** Installed production `2d1de1a` still uses the ChatGPT profile (Astra/high write, 6-Sol/medium research/review, Luna/low image checks). Current SMN main `185af5c` already allowlists 6.1-Sol and 5.6-Sol, but allowlisting is not availability: `subscription_writer.run_job` checks the native account catalog and supported effort before dispatch and fails without substitution. Prepared manifests and completed receipts retain their original identity. The pinned Dev CLI `0.155.0-alpha.16` did not advertise 6.1-Sol in its complete catalog at the October 6 probe. After explicit user approval, one isolated native subscription attempt returned HTTP 400 saying 6.1-Sol is unsupported with a ChatGPT account, with zero completed model turns or output. This is the observed pinned CLI/account outcome. Read-only installed metadata confirms the client predates official CLI 0.159.1 bundled-catalog support; a newer isolated 0.160.1 qualification is proposed, not installed. The explicit job model/effort and `--ignore-user-config` mean desktop/cloud task selection cannot rewrite the manifest or runner. No extra model call occurred; the failed one-start job is sealed. Account rollout remains unproven. The 6.1 default candidate remains unqualified and unactivated; [TW-TASK-0006](tasks/TW-TASK-0006.md) owns the draft and blocker.
+**SMN subscription dispatch and recovery handoff, October 6, 2026:**
+Installed production `2d1de1a` retains Astra/high write, 6-Sol/medium research/review
+and Luna/low image checks. Main `185af5c` allowlists 6.1-Sol/5.6-Sol but native
+catalog/effort guards remain authoritative; explicit manifests cannot be changed
+by desktop/cloud task selection. One approved attempt on pinned 0.155.0-alpha.16
+failed HTTP 400 and is sealed. A separately approved isolated official 0.160.1
+subscription call completed one turn with schema success, 25,105 input / 1,335 output
+tokens and three probes rejected. It is a quality hold: its required causal
+quote supports only call title/date. Actual served identity/dollar billing were
+not exposed. The compact test had omitted typed required kinds/full audit
+instructions; a separate corrected offline packet restores them, passes six
+regressions, and has not run. Both budgets consumed; no further call authorized.
+The default candidate remains draft/unmerged/unactivated; writing/research and
+permanent-worker quality/compatibility are unqualified. Runtime pointers,
+credentials, production and newsletter were untouched by qualification.
+[TW-TASK-0006](tasks/TW-TASK-0006.md) owns exact evidence and migration gates.
 
 Installed normal newsletter eligibility requires the canonical reader publication receipt and does not consume a recovery resolution. October 6's approved once-only recovery release reused the real recovered receipt and recorded completed journal/date-marker/deduplication state after actual provider delivery, without fabricating the original canonical receipt or changing installed source. This is terminal evidence for that release, not a general automatic recovery fix. [TW-BUG-0027](bugs/TW-BUG-0027.md) owns the durable integration and incident evidence; never resend a completed day as part of model or continuity work.

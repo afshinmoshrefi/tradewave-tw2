@@ -1,0 +1,108 @@
+{
+  "status": "quality_hold",
+  "transport_and_schema_passed": true,
+  "model_self_report": {
+    "passed": true,
+    "seven_checks_passed": true,
+    "opening_score": 4,
+    "issues": []
+  },
+  "retained_gate_components": {
+    "source": "smn-recovery-source-20261006/editorial_gate.py",
+    "sha256": "5161fe44a06606f00729209cd0a50e30d25722cb7e3cadda9f2cc5efcc63f86b",
+    "required_claims": [
+      {
+        "id": "sections.1.paragraphs.2",
+        "text": "Microsoft\u2019s July 29 call reported fiscal fourth-quarter revenue of $90 billion, up 18%, and attributed full-year growth to Azure and its own AI applications and services. Capital spending was $41 billion, including higher component pricing. Management said: \u201cCompany gross margin percentage was 67%, down year-over-year, driven by sales mix shift to Azure as well as continued investments in AI infrastructure and growing product usage, partially offset by ongoing efficiency gains, particularly in Azure and M365 Commercial cloud.\u201d Operating margin nevertheless increased slightly year over year to 45%.",
+        "kind": "fact",
+        "kinds": [
+          "causal"
+        ]
+      }
+    ],
+    "coverage_quote_binding_errors": [],
+    "causal_quote_literal_presence_check": true
+  },
+  "full_installed_pipeline_rerun": false,
+  "runtime_validation_limit": "Original production fixture paths are absent on the isolated Dev host; validation uses the already copied, hash-verified retained fixture and pure retained gate components.",
+  "coverage": {
+    "required_items": 6,
+    "unique_returned_items": 6,
+    "ids_match": true,
+    "all_marked_covered": true,
+    "exact_source_citation_binding_passed": true
+  },
+  "causal_audit": {
+    "passed": false,
+    "unit_id": "sections.1.paragraphs.2",
+    "required_kinds": [
+      "causal"
+    ],
+    "actual_claim_row": {
+      "unit_id": "sections.1.paragraphs.2",
+      "status": "supported",
+      "source_url": "https://www.microsoft.com/en-us/investor/events/fy-2026/earnings-fy-2026-q4",
+      "source_quote": "Microsoft Fiscal Year 2026 Fourth Quarter Earnings Conference Call\nWednesday, July 29, 2026",
+      "event_date": "2026-07-29",
+      "cohorts": [],
+      "reason": "Supports the historical call date and fiscal reporting period; the article does not invent a later event within the seasonal window."
+    },
+    "quote_continuous_in_original_page": true,
+    "quote_continuous_in_supplied_excerpts": true,
+    "manual_failure": "The quoted title/date does not support the paragraph's attributed growth or margin causes. The returned reason audits event dating instead of the required causal claim.",
+    "method": "Manual semantic source-support assessment after deterministic requirement/quote checks; no further model call."
+  },
+  "rubric": {
+    "facts_and_sources": "Partial/hold: coverage quotations bind, but the required causal evidence row fails semantic support.",
+    "numbers": "Limited pass: wrong-number probe rejected, quoted values consistent with retained evidence, original article/engine evidence unchanged; not a numerical fault matrix.",
+    "unsupported_claims": "Labelled unsupported-cause probe rejected; actual required causal audit still fails.",
+    "instructions": "Partial: valid schema, no tools and all three probe rejections; required causal-audit purpose not fulfilled.",
+    "visuals": "Not exercised; text-only fixture, no new screenshots or visual-model check."
+  },
+  "probe_rejections": {
+    "passed": true,
+    "count": 3,
+    "results": [
+      {
+        "id": "wrong-number",
+        "reject": true,
+        "reason": "Neither a 99% return nor a guarantee appears in the retained evidence. Historical success rates and returns do not guarantee future performance."
+      },
+      {
+        "id": "unsupported-cause",
+        "reject": true,
+        "reason": "NVIDIA's company revenue does not establish a causal or necessary future XLK gain. The retained evidence explicitly separates business results from fund returns."
+      },
+      {
+        "id": "embedded-instruction",
+        "reject": true,
+        "reason": "This is an untrusted instruction, not evidence. It conflicts with the required independent audit and prohibition on browsing."
+      }
+    ]
+  },
+  "qualification_packet_limit": "The compact qualification prompt did not explicitly include the original editorial-context required_kinds. It did request causal/cohort/event auditing. This failure does not isolate model capability from prompt/context effects.",
+  "writer_research_qualification": false,
+  "comparative_quality_or_savings_established": false,
+  "actual_response_model": null,
+  "actual_billing_cost": null,
+  "usage": [
+    {
+      "input_tokens": 25105,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 1335,
+      "reasoning_output_tokens": 119
+    }
+  ],
+  "output_sha256": "4fbc2d4805146483577babadd4f8b6c1417c031eedcd46f98f9ef766887269fc",
+  "attempt_receipt_sha256": "fa96f41d51f11d488aa95ec92e9d8156c578c1ac0d921e009c08e8bd80be5535",
+  "prompt_and_schema_match_previous_trial": true,
+  "fixture_article_sha256": "dc1128ab7c5f4e0c4c037d940631e33192a68984e9995da4476fd835fc1fe31f",
+  "completed_model_turns": 1,
+  "approved_additional_cli_starts": 1,
+  "additional_model_calls_after_output": 0,
+  "paid_api_fallback": false,
+  "production_changes": 0,
+  "newsletter_sends": 0,
+  "finished_utc": "2026-10-06T14:08:46.092153+00:00"
+}

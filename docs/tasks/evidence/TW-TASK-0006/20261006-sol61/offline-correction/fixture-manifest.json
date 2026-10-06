@@ -1,0 +1,38 @@
+{
+  "job.json": {
+    "original_path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-06/chatgpt-recovery-six-20261006/jobs/XLK-20261006-reinspect-review/job.json",
+    "sha256": "866bbacd1f3761ef4ad97f53baf7e889081e15278f12083924eab992b91a8c57"
+  },
+  "prompt.txt": {
+    "original_path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-06/chatgpt-recovery-six-20261006/jobs/XLK-20261006-reinspect-review/prompt.txt",
+    "sha256": "3cacbba7979cde3c23c0fd80d81cec55bcf9e89a6e6ec0ef6c046e75533f1d4f"
+  },
+  "schema.json": {
+    "original_path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-06/chatgpt-recovery-six-20261006/jobs/XLK-20261006-reinspect-review/schema.json",
+    "sha256": "12c89740ef21d06d185c9fbf120761bab3e9d39975beade7f48f1403bde2681e"
+  },
+  "output.json": {
+    "original_path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-06/chatgpt-recovery-six-20261006/jobs/XLK-20261006-reinspect-review/output.json",
+    "sha256": "0ca2f481ee18e966c73ef89711c76f3e8c5aeef573ec09f0b3f23123f4954953"
+  },
+  "receipt.json": {
+    "original_path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-06/chatgpt-recovery-six-20261006/jobs/XLK-20261006-reinspect-review/receipt.json",
+    "sha256": "03019fb1df55330319cdfe06f497441fcaaee8e0407f7900d6e92edade209465"
+  },
+  "article.json": {
+    "original_path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-06/chatgpt-recovery-six-20261006/results/XLK/article.json",
+    "sha256": "dc1128ab7c5f4e0c4c037d940631e33192a68984e9995da4476fd835fc1fe31f"
+  },
+  "writer-evidence.json": {
+    "original_path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-06/chatgpt-recovery-six-20261006/results/XLK/writer-evidence.json",
+    "sha256": "f983611f56a4a7b92601e0d57acf99f005254fc4dbe3de4b22f14f0fce8c1c54"
+  },
+  "primary.txt": {
+    "original_path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-06/chatgpt-recovery-six-20261006/primary/XLK.txt",
+    "sha256": "bdd21a1763d7bea0f1807f125cdf2400f2a4f746ba7fc7c22289fd78d9eec519"
+  },
+  "primary.receipt.json": {
+    "original_path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-06/chatgpt-recovery-six-20261006/primary/XLK.receipt.json",
+    "sha256": "69a7af2802ca9e5b027cccac8597c026928b86e7ef15b35ab7e89a35a0054073"
+  }
+}
