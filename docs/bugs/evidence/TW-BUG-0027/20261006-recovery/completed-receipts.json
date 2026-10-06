@@ -1,0 +1,171 @@
+{
+  "checked_utc": "2026-10-06T10:49:57.224797+00:00",
+  "result": {
+    "attempts": 6,
+    "cumulative_jobs": 46,
+    "edition_date": "2026-10-06",
+    "mail_journal_unchanged": true,
+    "newsletter_released": false,
+    "original_failed_edition_unchanged": true,
+    "original_root": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-06/chatgpt",
+    "publication_receipt_sha256": "b3f921aa83b5b1421c26dfa3f6778480d2ca6ee55df3c43c2027a07ff4516e63",
+    "recovery_root": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-06/chatgpt-recovery-six-20261006",
+    "source_commit": "2d1de1a9c9f200fa29a2db7f9660f3527727b660",
+    "status": "live_verified",
+    "urls": [
+      "https://seasonalmarketnews.com/editions/2026-10-06/COST/article.html",
+      "https://seasonalmarketnews.com/editions/2026-10-06/MSFT/article.html",
+      "https://seasonalmarketnews.com/editions/2026-10-06/IBM/article.html",
+      "https://seasonalmarketnews.com/editions/2026-10-06/XLK/article.html",
+      "https://seasonalmarketnews.com/editions/2026-10-06/APH/article.html",
+      "https://seasonalmarketnews.com/editions/2026-10-06/CPRT/article.html"
+    ],
+    "utc": "2026-10-06T10:48:51.440085+00:00"
+  },
+  "attempts": [
+    {
+      "job_id": "COST-20261006-hero-check",
+      "stage": "hero-check",
+      "model": "gpt-6-luna",
+      "effort": "low",
+      "billing_source": "subscription",
+      "api_fallback": false,
+      "external_provider_calls": 0,
+      "started_utc": "2026-10-06T10:46:48.664681+00:00",
+      "finished_utc": "2026-10-06T10:46:52.867181+00:00",
+      "usage": {
+        "input_tokens": 10838,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 36,
+        "reasoning_output_tokens": 0
+      },
+      "receipt_sha256": "281912bc85add7f09a5b4b972f7dc26878c32121f14ef49612f34466d5894ac4",
+      "completion_matches": true
+    },
+    {
+      "job_id": "COST-20261006-visual",
+      "stage": "visual",
+      "model": "gpt-6-luna",
+      "effort": "low",
+      "billing_source": "subscription",
+      "api_fallback": false,
+      "external_provider_calls": 0,
+      "started_utc": "2026-10-06T10:46:54.773157+00:00",
+      "finished_utc": "2026-10-06T10:47:01.610892+00:00",
+      "usage": {
+        "input_tokens": 29890,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 19,
+        "reasoning_output_tokens": 0
+      },
+      "receipt_sha256": "eb099529671598579a6a8a4474b4ab5d607b9f6966f9dcecf6eb492ccc8a0f3b",
+      "completion_matches": true
+    },
+    {
+      "job_id": "EDITION-20261006-landing-visual",
+      "stage": "landing-visual",
+      "model": "gpt-6-luna",
+      "effort": "low",
+      "billing_source": "subscription",
+      "api_fallback": false,
+      "external_provider_calls": 0,
+      "started_utc": "2026-10-06T10:48:42.024594+00:00",
+      "finished_utc": "2026-10-06T10:48:47.846324+00:00",
+      "usage": {
+        "input_tokens": 15513,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 19,
+        "reasoning_output_tokens": 0
+      },
+      "receipt_sha256": "606516d4ef7cd4d49b649d29139bf4ffa87d2da5c587dc521f4ad9405b4a97af",
+      "completion_matches": true
+    },
+    {
+      "job_id": "XLK-20261006-hero-check",
+      "stage": "hero-check",
+      "model": "gpt-6-luna",
+      "effort": "low",
+      "billing_source": "subscription",
+      "api_fallback": false,
+      "external_provider_calls": 0,
+      "started_utc": "2026-10-06T10:47:56.454583+00:00",
+      "finished_utc": "2026-10-06T10:48:02.227020+00:00",
+      "usage": {
+        "input_tokens": 10842,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 28,
+        "reasoning_output_tokens": 0
+      },
+      "receipt_sha256": "c89d5b83937beec775312b2c1a3c81740f0d0f962d696f43dbb396b66352909b",
+      "completion_matches": true
+    },
+    {
+      "job_id": "XLK-20261006-reinspect-review",
+      "stage": "reinspect-review",
+      "model": "gpt-6-sol",
+      "effort": "medium",
+      "billing_source": "subscription",
+      "api_fallback": false,
+      "external_provider_calls": 0,
+      "started_utc": "2026-10-06T10:47:05.796504+00:00",
+      "finished_utc": "2026-10-06T10:47:51.773181+00:00",
+      "usage": {
+        "input_tokens": 35480,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2422,
+        "reasoning_output_tokens": 1034
+      },
+      "receipt_sha256": "03019fb1df55330319cdfe06f497441fcaaee8e0407f7900d6e92edade209465",
+      "completion_matches": true
+    },
+    {
+      "job_id": "XLK-20261006-visual",
+      "stage": "visual",
+      "model": "gpt-6-luna",
+      "effort": "low",
+      "billing_source": "subscription",
+      "api_fallback": false,
+      "external_provider_calls": 0,
+      "started_utc": "2026-10-06T10:48:03.915202+00:00",
+      "finished_utc": "2026-10-06T10:48:10.535842+00:00",
+      "usage": {
+        "input_tokens": 30124,
+        "cached_input_tokens": 6912,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 19,
+        "reasoning_output_tokens": 0
+      },
+      "receipt_sha256": "0aa871b610e7e1d8a3b9a71335a6254f0fa3797ef68794eb0f1ba1c8d98631ae",
+      "completion_matches": true
+    }
+  ],
+  "attempt_count": 6,
+  "guard_stop_exists": false,
+  "guard_lease_exists": false,
+  "all_six_finalized": true,
+  "original_failed_edition_unchanged": true,
+  "mail_journal_unchanged": true,
+  "canonical_receipt_absent": true,
+  "newsletter_day_marker_absent": true,
+  "last_run": {
+    "date": "2026-10-06",
+    "status": "recovered",
+    "reader_publication_status": "live_verified",
+    "recovery_root": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-06/chatgpt-recovery-six-20261006",
+    "newsletter_released": false
+  },
+  "live_proof": {
+    "passed": true,
+    "article_layout_count": null,
+    "public_file_count": 214,
+    "all_public_files_passed": true
+  },
+  "source_unchanged": true,
+  "publication_record": null,
+  "publication_receipt_sha256": "b3f921aa83b5b1421c26dfa3f6778480d2ca6ee55df3c43c2027a07ff4516e63"
+}

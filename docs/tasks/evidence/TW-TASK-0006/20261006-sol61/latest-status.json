@@ -1,0 +1,31 @@
+{
+  "updated_utc": "2026-10-06T14:31:29.999283+00:00",
+  "status": "isolated_compatibility_success_quality_hold",
+  "requested_model": "gpt-6.1-sol",
+  "requested_effort": "medium",
+  "actual_served_model": null,
+  "actual_billing_cost": null,
+  "additional_cli_starts": 1,
+  "additional_completed_turns": 1,
+  "usage": [
+    {
+      "input_tokens": 25105,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 1335,
+      "reasoning_output_tokens": 119
+    }
+  ],
+  "duration_seconds": 62.447,
+  "required_causal_support_passed": false,
+  "three_probes_passed": true,
+  "corrected_packet_executed": false,
+  "corrected_offline_tests": 6,
+  "new_calls_during_correction": 0,
+  "approved_cli_starts_remaining": 0,
+  "estimated_corrected_input_tokens": 28891,
+  "planning_reserve_input_tokens": 32000,
+  "planning_reserve_output_tokens": 4000,
+  "production_activation": false,
+  "writer_research_qualified": false
+}

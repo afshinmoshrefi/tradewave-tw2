@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-06",
+  "baseline_per_article": 6,
+  "shared_landing_job": 1,
+  "six_article_baseline": 37,
+  "before_recovery_completed": {
+    "CPRT": 8,
+    "APH": 8,
+    "XLK": 6,
+    "IBM": 6,
+    "MSFT": 6,
+    "COST": 6
+  },
+  "after_recovery_completed": {
+    "CPRT": 8,
+    "APH": 8,
+    "XLK": 9,
+    "IBM": 6,
+    "MSFT": 6,
+    "COST": 8
+  },
+  "recovery_attempts": 6,
+  "final_total_including_landing": 46,
+  "recovery_models": {
+    "gpt-6-sol medium": 1,
+    "gpt-6-luna low": 5,
+    "gpt-6-astra": 0
+  },
+  "recovery_receipt_usage": {
+    "input_tokens": 132687,
+    "cached_input_tokens": 6912,
+    "output_tokens": 2543,
+    "reasoning_output_tokens": 1034
+  },
+  "usage_scope": "Only these six subscription job receipts; excludes coordinator task, original morning jobs, Claude comparison and earlier image-provider activity. Cached input is included in input; reasoning output is not added again. Dollar cost and plan quota conversion are not available.",
+  "counter_definition": "Prepared job directories plus failed-attempt directories. Transient-attempt directories, hero-image generation, browser work and tool calls are outside the directory counter. Claude comparison is a separate root with its own 40-job default."
+}

@@ -1,0 +1,37 @@
+{
+  "checked_utc": "2026-10-05T21:03:08.489289+00:00",
+  "locks": [
+    {
+      "path": "/var/lib/tradewave/smn-daily/subscription-primary/controller.lock",
+      "exists": true,
+      "free": true
+    },
+    {
+      "path": "/var/lib/smn-dashboard/schedule-runs/scheduler.lock",
+      "exists": true,
+      "free": true
+    },
+    {
+      "path": "/var/lib/smn-dashboard/schedule-runs/newsletter.lock",
+      "exists": true,
+      "free": true
+    }
+  ],
+  "activation_lock_absent": true,
+  "candidate_record_absent": true,
+  "candidate_checkout_exists": false,
+  "root_git_current_read_success": false,
+  "root_git_current_commit": null,
+  "root_git_safe_directories": [
+    "/home/flask/blog"
+  ],
+  "flask_can_write_releases": true,
+  "publication_receipt": {
+    "status": "live_verified",
+    "edition_date": "2026-10-05",
+    "publication_policy": null,
+    "source_commit": "2d1de1a9c9f200fa29a2db7f9660f3527727b660"
+  },
+  "existing_continuity_progress": null,
+  "guard_note": "Advisory locks checked then released; apply must reacquire all locks atomically and recheck state."
+}

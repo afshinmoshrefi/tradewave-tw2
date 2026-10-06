@@ -1,0 +1,156 @@
+{
+  "fault_tests": {
+    "captured_at_utc": "2026-10-05T21:14:19.599380+00:00",
+    "source_sha256": "56eb12dd53e6b5f7e1df1a9491b41ee30f6f8c67e0974f32aa367f44ebbe6fc3",
+    "isolated_linux_files": true,
+    "all_external_calls_mocked": true,
+    "production_actions": false,
+    "checks": [
+      {
+        "name": "changed_journal_holds_legacy_mail",
+        "passed": true,
+        "details": {
+          "journal_preserved": true,
+          "legacy_mail_paths_held": true
+        }
+      },
+      {
+        "name": "peer_file_change_is_preserved",
+        "passed": true,
+        "details": {
+          "refused_peer_drift_without_stopping_services": true
+        }
+      },
+      {
+        "name": "live_peer_lock_is_preserved",
+        "passed": true,
+        "details": {
+          "live_peer_preserved": true
+        }
+      },
+      {
+        "name": "report_dead_owner_recovery",
+        "passed": true,
+        "details": {
+          "dead_owner_recovered": true
+        }
+      },
+      {
+        "name": "no_interrupt_between_check_and_timer_stop",
+        "passed": true,
+        "details": {
+          "active_send_not_interrupted": true,
+          "refusal": "ValueError: Active service after timer stop"
+        }
+      },
+      {
+        "name": "legacy_ledger_change_holds_both_mail_paths",
+        "passed": true,
+        "details": {
+          "ledger_only_uncertainty_holds_both_entrypoints": true
+        }
+      },
+      {
+        "name": "held_scheduler_locks_block_cutover",
+        "passed": true,
+        "details": {
+          "real_linux_flock_contention_refused": [
+            "scheduler.lock",
+            "newsletter.lock"
+          ]
+        }
+      },
+      {
+        "name": "killed_process_recovers_exact_transaction",
+        "passed": true,
+        "details": {
+          "sigkill_exit_code": -9,
+          "exact_files_metadata_pointer_restored": true,
+          "dead_lock_recovered": true
+        }
+      },
+      {
+        "name": "pointer_failure_rolls_back",
+        "passed": true,
+        "details": {
+          "post_pointer_failure_restored_exact_baseline": true,
+          "journal_preserved": true
+        }
+      },
+      {
+        "name": "changed_proof_is_rejected",
+        "passed": true,
+        "details": {
+          "changed_qualification_refused_before_mutation": true
+        }
+      },
+      {
+        "name": "final_content_failure_rolls_back_before_new_timers",
+        "passed": true,
+        "details": {
+          "failed_content_rolls_back": true,
+          "no_new_timer_enabled_or_started": true
+        }
+      },
+      {
+        "name": "final_content_success_precedes_new_timers",
+        "passed": true,
+        "details": {
+          "new_timers_start_only_after_bound_content_pass": true,
+          "content_result_recorded": true,
+          "note": "Checker process response mocked; the checker itself has eight separate false-success tests."
+        }
+      },
+      {
+        "name": "changed_git_adapter_is_refused_before_mutation",
+        "passed": true,
+        "details": {
+          "writable_and_changed_adapter_refused_before_mutation": true
+        }
+      },
+      {
+        "name": "missing_service_adapter_rolls_back_before_timers",
+        "passed": true,
+        "details": {
+          "bad_effective_path_rolls_back_before_enabling_continuity": true
+        }
+      },
+      {
+        "name": "new_git_dropin_is_managed_and_rolled_back",
+        "passed": true,
+        "details": {
+          "added_git_dropin_owned_by_transaction_and_removed_on_rollback": true
+        }
+      },
+      {
+        "name": "peer_git_dropin_change_is_preserved",
+        "passed": true,
+        "details": {
+          "peer_git_dropin_preserved_and_explicit_rollback_required": true
+        }
+      },
+      {
+        "name": "original_approval_cannot_authorize_amended_operator",
+        "passed": true,
+        "details": {
+          "original_approval_refused_before_mutation": true
+        }
+      }
+    ],
+    "passed": true
+  },
+  "actual_git_archive": {
+    "operator_sha256": "56eb12dd53e6b5f7e1df1a9491b41ee30f6f8c67e0974f32aa367f44ebbe6fc3",
+    "isolated_linux_fixture": true,
+    "direct_root_git_reproduced_dubious_ownership": true,
+    "archive_read_as_flask_passed": {
+      "files": 2,
+      "crlf_normalized": 2
+    },
+    "changed_blob_rejected": true,
+    "production_actions": false,
+    "passed": true
+  },
+  "fixture_root": "/var/tmp/smn-operator-git-qualification-2pttz2ti",
+  "passed": true
+}

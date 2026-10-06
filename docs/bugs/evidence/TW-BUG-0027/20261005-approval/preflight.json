@@ -1,0 +1,92 @@
+{
+  "captured_utc": "2026-10-05T20:47:10.758949+00:00",
+  "state": {
+    "source_commit": "2d1de1a9c9f200fa29a2db7f9660f3527727b660",
+    "previous_pointer": "/opt/smn-subscription/releases/2d1de1a9c9f200fa29a2db7f9660f3527727b660",
+    "files": {
+      "/etc/SMN/subscription-primary.json": {
+        "sha256": "d36b773fb19eb255f6daf2d2d6434c5ad3dea319bd5403878a59fd2f2ffddf00",
+        "mode": 420,
+        "uid": 0,
+        "gid": 0
+      },
+      "/etc/systemd/system/smn-continuity@.service": null,
+      "/etc/systemd/system/smn-continuity@.timer": null,
+      "/etc/systemd/system/smn-subscription.service": {
+        "sha256": "4ff26effd344a04d1b65ee00c0b954b6154e96a1b0b3cdffc6bff249c2875387",
+        "mode": 420,
+        "uid": 0,
+        "gid": 0
+      },
+      "/etc/systemd/system/smn-subscription.service.d/10-release-git.conf": {
+        "sha256": "92f004daa182e970b82806e97f9b3d4356edd406068edccb7008bd7f622997d5",
+        "mode": 420,
+        "uid": 0,
+        "gid": 0
+      },
+      "/etc/systemd/system/smn-subscription.service.d/20-cutover-start.conf": {
+        "sha256": "944bda4f0441fe4983127681f1927412b75de0076a45e3670eebd5166562d116",
+        "mode": 420,
+        "uid": 0,
+        "gid": 0
+      },
+      "/etc/systemd/system/smn-weekday-newsletter.service": {
+        "sha256": "6157fa78847771ce6f95f0f5bdfbc7ff39706e54488572d8980fbd09ba849249",
+        "mode": 420,
+        "uid": 0,
+        "gid": 0
+      },
+      "/etc/systemd/system/smn-weekday-newsletter.service.d/10-release-git.conf": {
+        "sha256": "92f004daa182e970b82806e97f9b3d4356edd406068edccb7008bd7f622997d5",
+        "mode": 420,
+        "uid": 0,
+        "gid": 0
+      }
+    },
+    "units": {
+      "smn-subscription": {
+        "WorkingDirectory": "/opt/smn-subscription/releases/2d1de1a9c9f200fa29a2db7f9660f3527727b660/blog",
+        "User": "",
+        "FragmentPath": "/etc/systemd/system/smn-subscription.service",
+        "DropInPaths": "/etc/systemd/system/smn-subscription.service.d/10-release-git.conf /etc/systemd/system/smn-subscription.service.d/20-cutover-start.conf"
+      },
+      "smn-weekday-newsletter": {
+        "WorkingDirectory": "/opt/smn-subscription/releases/2d1de1a9c9f200fa29a2db7f9660f3527727b660/blog",
+        "User": "",
+        "FragmentPath": "/etc/systemd/system/smn-weekday-newsletter.service",
+        "DropInPaths": "/etc/systemd/system/smn-weekday-newsletter.service.d/10-release-git.conf"
+      }
+    },
+    "timers": {
+      "smn-subscription.timer": {
+        "enabled": true,
+        "active": true
+      },
+      "smn-weekday-newsletter.timer": {
+        "enabled": true,
+        "active": true
+      },
+      "smn-continuity@progress.timer": {
+        "enabled": false,
+        "active": false
+      },
+      "smn-continuity@deliver.timer": {
+        "enabled": false,
+        "active": false
+      },
+      "smn-continuity@reconcile.timer": {
+        "enabled": false,
+        "active": false
+      }
+    },
+    "catalog_sha256": "cde71bd9c5316e0b0f096f0c0ebfcf3dc5b72ca15b3fc1657812ffa6deb51278",
+    "oct5_receipt_sha256": "f645c4990e4b19c7693f27f7e4d8661b2402f30be27d28fdb09f19939006bbb9",
+    "mail_state_sha256": "a5ea891051273d78d884499fbb27bb2a9b92ed288919b4cc70cba8a3026c4d91",
+    "mail_ledgers": {
+      "/var/lib/smn-dashboard/schedule-runs/production-weekday_newsletter-2026-10-05.json": "531db2b6985845bf0881f66b10faef0fdaf9cd5e4660e095ca3e0a7d4b5a6c2a",
+      "/var/lib/smn-dashboard/schedule-runs/production-sunday_summary-2026-10-04.json": "26b4297e654e4b39ecaaffbc8639a2fe15a80a1ed5584db0a21464fb3df6ec91"
+    },
+    "preserved_campaign_id": "200497784617437041",
+    "publication_policy": null
+  }
+}

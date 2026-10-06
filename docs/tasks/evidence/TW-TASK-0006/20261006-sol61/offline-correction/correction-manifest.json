@@ -1,0 +1,46 @@
+{
+  "status": "offline_prepared_not_executed",
+  "model_calls": 0,
+  "approved_cli_starts_remaining": 0,
+  "prompt_bytes": 47670,
+  "original_prompt_bytes": 36311,
+  "estimated_future_input_tokens": 28891,
+  "planning_reserve_input_tokens": 32000,
+  "planning_reserve_output_tokens": 4000,
+  "estimate_method": "Observed 25105 input tokens for old packet, plus UTF-8 byte delta / 3; approximate, not an enforced token cap.",
+  "typed_requirements": [
+    {
+      "id": "sections.1.paragraphs.2",
+      "text": "Microsoft\u2019s July 29 call reported fiscal fourth-quarter revenue of $90 billion, up 18%, and attributed full-year growth to Azure and its own AI applications and services. Capital spending was $41 billion, including higher component pricing. Management said: \u201cCompany gross margin percentage was 67%, down year-over-year, driven by sales mix shift to Azure as well as continued investments in AI infrastructure and growing product usage, partially offset by ongoing efficiency gains, particularly in Azure and M365 Commercial cloud.\u201d Operating margin nevertheless increased slightly year over year to 45%.",
+      "kind": "fact",
+      "kinds": [
+        "causal"
+      ]
+    }
+  ],
+  "restored": [
+    "Exact production opening/calendar/source-budget instructions",
+    "Full mandatory audit RULES",
+    "Exact typed requirements and cohort lists",
+    "Continuous source-quotation reinspection instruction",
+    "Independent semantic acceptance requirement"
+  ],
+  "preserved": [
+    "Article",
+    "TradeWave engine evidence",
+    "Captured source excerpts",
+    "Material ledger",
+    "Three probes",
+    "Seven-check review schema",
+    "Actual old output, receipts and consumed nonces"
+  ],
+  "input_hashes": {
+    "prompt.txt": "51378bc1d1f02d8782c50f54b72d111bce78586e2e5957059d27a249bb1116ec",
+    "schema_canonical_sha256": "eb49a40dd5bd404d60863fd3d30fc6a209e9e614beba918d7cb35581b3b12fed"
+  },
+  "original_production_prompt_sha256": "3cacbba7979cde3c23c0fd80d81cec55bcf9e89a6e6ec0ef6c046e75533f1d4f",
+  "retained_production_context_sha256": "839509bbe92440be800d0c0f7ec7cd12dbe7999bd9736a2918f1c9c42789653e",
+  "compact_editorial_context_sha256": "26e56a9597a54c602123da49a556d34b0f4ad81a45d4250edf5c9a6259b36bfb",
+  "additional_call_output_sha256": "4fbc2d4805146483577babadd4f8b6c1417c031eedcd46f98f9ef766887269fc",
+  "additional_attempt_receipt_sha256": "fa96f41d51f11d488aa95ec92e9d8156c578c1ac0d921e009c08e8bd80be5535"
+}

@@ -1,0 +1,54 @@
+{
+  "checked_utc": "2026-10-05T20:48:03.861909+00:00",
+  "secret_presence_only": {
+    "exists": true,
+    "symlink": false,
+    "usable_key_present": false,
+    "root_owned": true,
+    "mode": "0o600"
+  },
+  "settings": {
+    "exists": false
+  },
+  "units": {
+    "smn-operational-alerts.service": {
+      "WorkingDirectory": "",
+      "LoadState": "not-found",
+      "ActiveState": "inactive",
+      "SubState": "dead",
+      "FragmentPath": ""
+    },
+    "smn-operational-alerts.timer": {
+      "LoadState": "not-found",
+      "ActiveState": "inactive",
+      "SubState": "dead",
+      "FragmentPath": ""
+    },
+    "smn-continuity@progress.timer": {
+      "LoadState": "not-found",
+      "ActiveState": "inactive",
+      "SubState": "dead",
+      "FragmentPath": ""
+    },
+    "smn-continuity@deliver.timer": {
+      "LoadState": "not-found",
+      "ActiveState": "inactive",
+      "SubState": "dead",
+      "FragmentPath": ""
+    },
+    "smn-continuity@reconcile.timer": {
+      "LoadState": "not-found",
+      "ActiveState": "inactive",
+      "SubState": "dead",
+      "FragmentPath": ""
+    }
+  },
+  "observer_receipts_present": {
+    "/var/lib/smn-dashboard/operational-alerts-status.json": false,
+    "/var/lib/tradewave/smn-daily/subscription-primary/operational-alerts-state.json": false,
+    "/var/lib/tradewave/release-state/smn-operational-alerts-activation.json": false
+  },
+  "production_activation_lock_present": false,
+  "provider_calls": 0,
+  "production_mutations": 0
+}

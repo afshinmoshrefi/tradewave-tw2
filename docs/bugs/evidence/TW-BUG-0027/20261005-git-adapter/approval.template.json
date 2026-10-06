@@ -1,0 +1,14 @@
+{
+  "date": "2026-10-05",
+  "source_commit": "32bd869c0ffdd6039145bcaee4223dd67fb533ff",
+  "publication_policy": "continuity-v1",
+  "approved_by": null,
+  "execute_production_continuity": false,
+  "production_web_snapshot": true,
+  "production_app_snapshot": true,
+  "baseline_sha256": "fe05730e4649a80b245aa82f61cdc027bc686a4b9a21272948d9c2352ded5ce5",
+  "preserved_campaign_id": "200497784617437041",
+  "operator_script_sha256": "56eb12dd53e6b5f7e1df1a9491b41ee30f6f8c67e0974f32aa367f44ebbe6fc3",
+  "approve_existing_git_adapter_dropin": false,
+  "note": "Pending approval of the specified operator amendment only; existing same-day snapshot and application approval are retained. Refresh baseline at execution. No production writes occurred."
+}

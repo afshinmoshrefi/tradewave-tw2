@@ -3210,3 +3210,23 @@ historical files. This doc supersedes the collective memory content.
 SMN `chartkit.record_bars` measures the 11-point median label in display pixels. It reserves a right gutter clear of the final bar and verifies the rendered bounds; excessive width falls back to a dashed-line key below the subtitle. This is presentation geometry only. Existing TradeWave medians and study values pass through unchanged. For retained static-asset repairs, preserve original article receipts/provenance, overlay only hash-bound chart assets on an immutable copy of the current Dev web tree, and record renderer source plus old/new hashes in `chart-repair-provenance.json`. Use the existing guarded installer activation, rollback and finalization; do not regenerate approved articles or reset their immutable daily receipts. See the bug record for exact tested/live evidence.
 
 Tara published-list follow-ups such as "how about midcaps" and "how about micaps" select the list; genuine how-to requests explain direct selection from the top-left market dropdown, with admin-published lists at the bottom and personal watchlists treated separately.
+
+
+**SMN subscription dispatch and recovery handoff, October 6, 2026:**
+Installed production `2d1de1a` retains Astra/high write, 6-Sol/medium research/review
+and Luna/low image checks. Main `185af5c` allowlists 6.1-Sol/5.6-Sol but native
+catalog/effort guards remain authoritative; explicit manifests cannot be changed
+by desktop/cloud task selection. One approved attempt on pinned 0.155.0-alpha.16
+failed HTTP 400 and is sealed. A separately approved isolated official 0.160.1
+subscription call completed one turn with schema success, 25,105 input / 1,335 output
+tokens and three probes rejected. It is a quality hold: its required causal
+quote supports only call title/date. Actual served identity/dollar billing were
+not exposed. The compact test had omitted typed required kinds/full audit
+instructions; a separate corrected offline packet restores them, passes six
+regressions, and has not run. Both budgets consumed; no further call authorized.
+The default candidate remains draft/unmerged/unactivated; writing/research and
+permanent-worker quality/compatibility are unqualified. Runtime pointers,
+credentials, production and newsletter were untouched by qualification.
+[TW-TASK-0006](tasks/TW-TASK-0006.md) owns exact evidence and migration gates.
+
+Installed normal newsletter eligibility requires the canonical reader publication receipt and does not consume a recovery resolution. October 6's approved once-only recovery release reused the real recovered receipt and recorded completed journal/date-marker/deduplication state after actual provider delivery, without fabricating the original canonical receipt or changing installed source. This is terminal evidence for that release, not a general automatic recovery fix. [TW-BUG-0027](bugs/TW-BUG-0027.md) owns the durable integration and incident evidence; never resend a completed day as part of model or continuity work.

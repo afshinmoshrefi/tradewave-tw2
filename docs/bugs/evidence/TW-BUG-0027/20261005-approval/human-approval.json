@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-05",
+  "source_commit": "32bd869c0ffdd6039145bcaee4223dd67fb533ff",
+  "publication_policy": "continuity-v1",
+  "approved_by": "Afshin Moshrefi; explicit approval relayed by Dorothy",
+  "execute_production_continuity": true,
+  "production_web_snapshot": true,
+  "production_app_snapshot": true,
+  "baseline_sha256": "0ad536f834738bd85294dacaa98a745b1d2fa234345bd2c6ac5ed29e4571d543",
+  "preserved_campaign_id": "200497784617437041",
+  "approved_executor_thread": "01a0fcf4-37f1-7d33-bced-ac46999fd9fa",
+  "approval_provenance": {
+    "parent_thread": "01a0f25f-c964-7675-91ca-caa44db7c0c4",
+    "relayed_date": "2026-10-05",
+    "human_response": "Okay, approve it",
+    "scope": "Exact32bd869 prevention deployment with automatic rollback and failure alerts to afshinmoshrefi@gmail.com; no generation, newsletter resend, unrelated template release or unapproved credential action.",
+    "snapshots": "Same-day human confirmation already recorded at13:03UTC in TW-BUG-0027; do not re-ask solely for this candidate."
+  },
+  "execution_note": "Prepared for the existing owner only. No deployment performed. Refresh preflight and bind that exact file if live state changes; do not change candidate or transfer this approval."
+}

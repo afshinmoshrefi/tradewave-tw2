@@ -1,0 +1,271 @@
+{
+  "root": "/var/tmp/smn-readonly-headers-20261005-snQ8x5",
+  "checked_utc": "2026-10-05T20:50:01.621Z",
+  "captures": 12,
+  "pages": [
+    {
+      "symbol": "XLF",
+      "kind": "desktop",
+      "status": 200,
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "h1Visible": true,
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": 3,
+      "imagesLoaded": true,
+      "sources": 5,
+      "overflow": false,
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "XLF",
+      "kind": "mobile",
+      "status": 200,
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "h1Visible": true,
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": 3,
+      "imagesLoaded": true,
+      "sources": 5,
+      "overflow": false,
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "SI",
+      "kind": "desktop",
+      "status": 200,
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "h1Visible": true,
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": 3,
+      "imagesLoaded": true,
+      "sources": 4,
+      "overflow": false,
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "SI",
+      "kind": "mobile",
+      "status": 200,
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "h1Visible": true,
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": 3,
+      "imagesLoaded": true,
+      "sources": 4,
+      "overflow": false,
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "SPY",
+      "kind": "desktop",
+      "status": 200,
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "h1Visible": true,
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": 3,
+      "imagesLoaded": true,
+      "sources": 5,
+      "overflow": false,
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "SPY",
+      "kind": "mobile",
+      "status": 200,
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "h1Visible": true,
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": 3,
+      "imagesLoaded": true,
+      "sources": 5,
+      "overflow": false,
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "QQQ",
+      "kind": "desktop",
+      "status": 200,
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "h1Visible": true,
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": 3,
+      "imagesLoaded": true,
+      "sources": 3,
+      "overflow": false,
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "QQQ",
+      "kind": "mobile",
+      "status": 200,
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "h1Visible": true,
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": 3,
+      "imagesLoaded": true,
+      "sources": 3,
+      "overflow": false,
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "AMZN",
+      "kind": "desktop",
+      "status": 200,
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "h1Visible": true,
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": 3,
+      "imagesLoaded": true,
+      "sources": 3,
+      "overflow": false,
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "AMZN",
+      "kind": "mobile",
+      "status": 200,
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "h1Visible": true,
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": 3,
+      "imagesLoaded": true,
+      "sources": 3,
+      "overflow": false,
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "NVDA",
+      "kind": "desktop",
+      "status": 200,
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "h1Visible": true,
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": 3,
+      "imagesLoaded": true,
+      "sources": 4,
+      "overflow": false,
+      "pageErrors": [],
+      "httpErrors": []
+    },
+    {
+      "symbol": "NVDA",
+      "kind": "mobile",
+      "status": 200,
+      "headerNavigationPresent": false,
+      "topTradeWaveLinkPresent": false,
+      "h1Visible": true,
+      "bodyRoles": [
+        "opening",
+        "current_context",
+        "seasonal_record",
+        "risk",
+        "comparison",
+        "outlook"
+      ],
+      "nativeCharts": 3,
+      "imagesLoaded": true,
+      "sources": 4,
+      "overflow": false,
+      "pageErrors": [],
+      "httpErrors": []
+    }
+  ]
+}
