@@ -50,4 +50,4 @@ Status belongs in each record and this index; update both together. Preserve res
 
 | [TW-BUG-0028](TW-BUG-0028.md) | P2 | complete candidate privately verified; activation blocked | Webinar notification signup drops published Zoom link; scoped release provenance required |
 
-| [TW-BUG-0029](TW-BUG-0029.md) | P3 | in progress on dev | Wave Viewer direction square sits low and heading should be Bias |
+| [TW-BUG-0029](TW-BUG-0029.md) | P3 | in progress on dev | Wave Viewer Bias square and Help icon sit low |

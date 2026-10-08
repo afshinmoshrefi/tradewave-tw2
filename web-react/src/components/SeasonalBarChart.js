@@ -2486,6 +2486,7 @@ const SeasonalBarChart = (props) => {
     height: LSsquareSize,
     backgroundColor: props.barChartLongOrShort === 'long' ? 'green' : 'red',
     marginRight: "5px",
+    transform: showToolbarTitles ? "translateY(-4px)" : undefined,
 
     // display:"flex"
   }
@@ -3192,7 +3193,7 @@ const SeasonalBarChart = (props) => {
     'Start date': ['Start date', 'Start'],
     'Days hold': ['Days', 'Days'],
     'Years': ['Years', 'Yrs'],
-    'Direction': ['Direction', 'Dir'],
+    'Bias': ['Bias', 'Bias'],
     'Cycle filter': ['Cycle', 'Cycle'],
     'Date presets': ['Presets', 'Prsts'],
   }
@@ -3207,7 +3208,7 @@ const SeasonalBarChart = (props) => {
     'Best waves': 'Best seasonal waves for this ticker sorted by Sharpe Ratio. Select a wave to load it in the viewer.',
     'Ticker': 'Ticker Symbol to analyze. Ticker must be a part of current securities group',
     'Date range': 'Date Range for the Wave strategy',
-    'Direction': 'Color of square can be red or green.  WaveViewer determines if the current date range should be analyzed as bullish or bearish.  Bullish trade have at least 50% of years as bullish.  The only special condition is for Buy & Hold - Buy and Hold is always analyzed as bullish even if there are more losing years than winning years.',
+    'Bias': 'Color of square can be red or green.  WaveViewer determines if the current date range should be analyzed as bullish or bearish.  Bullish trade have at least 50% of years as bullish.  The only special condition is for Buy & Hold - Buy and Hold is always analyzed as bullish even if there are more losing years than winning years.',
     'MFE overlay': 'MFE: Maximum Favorable Excursion, adds the maximum level the price reached in favor of the trade as light green on bullish and light red on bearish barcharts',
     'MAE overlay': 'MAE: Maximum Adverse Excursion, adds the maximum price reached against the trade as light red on bullish and light green on bearish barchars',
     'Start date': 'Start Date to analyze a Wave. Use arrows to shift start date while keeping end date fixed.',
@@ -3457,7 +3458,7 @@ const SeasonalBarChart = (props) => {
 
           {props.seasonalBarChartData.length > 0 &&
             <div className='barchart-controls-div tw-toolbar-control' style={StyleLSSquare}>
-              {toolbarTitle('Direction')}
+              {toolbarTitle('Bias')}
               <Tippy disabled={!props.tooltipSW || showToolbarTitles} placement={'bottom'} content={
                 <div theme="tw" >
                   {props.tooltipSW ? 'Color of square can be red or green.  WaveViewer determines if the current date range should be analyzed as bullish or bearish.  Bullish trade have at least 50% of years as bullish.  The only special condition is for Buy & Hold - Buy and Hold is always analyzed as bullish even if there are more losing years than winning years.' : ''}
@@ -3613,7 +3614,7 @@ const SeasonalBarChart = (props) => {
 
         <div className="tw-toolbar-control" style={{ width: questionDivWidth, height: '100%', display: displayElement[13], alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' }}>
           {toolbarTitle('Help')}
-          <BsQuestionCircle size={questionSize} style={{ fill: "white" }} onClick={handleHelpClicked} />
+          <BsQuestionCircle size={questionSize} style={{ fill: "white", transform: showToolbarTitles ? "translateY(-4px)" : undefined }} onClick={handleHelpClicked} />
         </div>
 
 
