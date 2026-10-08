@@ -63,6 +63,45 @@ def test_writes_disabled_makes_no_http_call(email_utils, monkeypatch):
     request.assert_not_called()
 
 
+@pytest.mark.parametrize("environment", ["dev", "staging", "prod"])
+def test_webinar_switch_is_prod_only_and_does_not_enable_other_writes(
+    email_utils, monkeypatch, environment,
+):
+    request = Mock()
+    monkeypatch.setattr(email_utils.config, "tw2_env", environment)
+    monkeypatch.setattr(email_utils.config, "MAILERLITE_OUTBOUND_ENABLED", False)
+    monkeypatch.setattr(email_utils.config, "MAILERLITE_WEBINAR_REGISTRATION_ENABLED", True)
+    monkeypatch.setattr(email_utils.requests, "request", request)
+    assert email_utils._mailerlite_write_allowed(scope="webinar_registration") is (environment == "prod")
+    assert email_utils._mailerlite_write_allowed() is False
+    assert email_utils._mailerlite_write_allowed(scope="unknown") is False
+    assert email_utils.sync_mailerlite_lifecycle_groups(
+        "person@example.com", "trial_started", create_if_missing=True,
+    ) == "skip:writes-disabled"
+    assert email_utils.mailerlite_subscribe("person@example.com") is False
+    request.assert_not_called()
+
+
+def test_webinar_scope_reconciles_only_requested_groups_with_global_writes_off(
+    email_utils, monkeypatch,
+):
+    monkeypatch.setattr(email_utils.config, "tw2_env", "prod")
+    monkeypatch.setattr(email_utils.config, "MAILERLITE_OUTBOUND_ENABLED", False)
+    monkeypatch.setattr(email_utils.config, "MAILERLITE_WEBINAR_REGISTRATION_ENABLED", True)
+    request = Mock(side_effect=[
+        subscriber(groups=()), Response(204), Response(204),
+        subscriber(groups=("g-webinar", "g-dated")),
+    ])
+    monkeypatch.setattr(email_utils.requests, "request", request)
+    result = email_utils._reconcile_managed_groups(
+        "person@example.com", {"g-webinar", "g-dated"}, {"g-webinar", "g-dated"},
+        create_if_missing=True, label="webinar-groups", write_scope="webinar_registration",
+    )
+    assert result == "reconciled:add=2 remove=0"
+    assert [call.args[0] for call in request.call_args_list] == ["GET", "POST", "POST", "GET"]
+    assert {call.args[1].rsplit("/", 1)[-1] for call in request.call_args_list if call.args[0] == "POST"} == {"g-webinar", "g-dated"}
+
+
 def test_transient_429_retries_then_succeeds(email_utils, monkeypatch):
     request = Mock(side_effect=[
         Response(429, headers={"Retry-After": "0"}),

@@ -803,6 +803,12 @@ MAILERLITE_OUTBOUND_ENABLED = (
     and os.environ.get('MAILERLITE_OUTBOUND_ENABLED', '').strip().lower()
         in ('1', 'true', 'yes', 'on')
 )
+# Public webinar registrations opt in separately from application/lifecycle writes.
+MAILERLITE_WEBINAR_REGISTRATION_ENABLED = (
+    tw2_env == 'prod'
+    and os.environ.get('MAILERLITE_WEBINAR_REGISTRATION_ENABLED', '').strip().lower()
+        in ('1', 'true', 'yes', 'on')
+)
 # Shared secret that authenticates the MailerLite unsubscribe/complaint/bounce webhook
 # (web/app.py:mailerlite_webhook). REQUIRED on staging/prod - the endpoint fails CLOSED
 # there when this is empty. Send it as the X-Webhook-Secret header or a ?secret= query

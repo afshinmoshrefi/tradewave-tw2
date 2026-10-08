@@ -177,6 +177,28 @@ Durable stage definitions and known limits live in the ecosystem doc's
 "Free-report acquisition and attribution" entry. No report email, billing event,
 production configuration change, or historical backfill is part of the DEV smoke.
 
+### Webinar listing and registration
+
+The existing hourly web cron runs `site/generate_webinar_page.py --force` as
+`flask` after loading `/etc/tradewave/secrets.env`. To refresh the listing,
+run only that generator; it emits `/webinars/`, the public JSON feed and the
+`/webinar/` compatibility redirect. No whole-site regeneration is needed.
+
+The TW-BUG-0028 registration candidate accepts the Google source's `zoom url`
+header while retaining `Webinar Link` precedence. Its separate web-runtime
+setting `MAILERLITE_WEBINAR_REGISTRATION_ENABLED=1` opts in only public webinar
+registration writes and is ignored outside production. It defaults off.
+`MAILERLITE_OUTBOUND_ENABLED` remains unchanged and controls all existing
+application/lifecycle writes. No MailerLite credentials or groups need replacing.
+The new setting requires a restart of the affected `tradewave-web` process.
+
+This candidate is not activated or staging-qualified. The current release,
+snapshot, exact-artifact and human production-operator gates still apply.
+Do not copy four files into production, enable the global switch, or promote
+unrelated main changes as a shortcut. The exact tested commit, configuration
+requirement, target availability and pending gates belong to
+`docs/bugs/TW-BUG-0028.md`.
+
 ### Static Regeneration and Release Coordination
 
 Static-site regeneration remains fail-closed for generator, authentication, and

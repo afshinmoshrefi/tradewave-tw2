@@ -425,9 +425,12 @@ Flask-rendered (static from `/var/www/tradewave/`).
   `POST /api/webinar/register` uses the dated session ID and server schedule,
   reconciles general plus dated MailerLite notification groups, and sets
   `webinar_date`, `webinar_time`, and `webinar_url` subscriber fields.
-  Registration shares `MAILERLITE_OUTBOUND_ENABLED` with other application
-  writes, including the lifecycle outbox. Do not enable that global switch
-  merely to repair webinar registration. Current defect and environment
+  `MAILERLITE_WEBINAR_REGISTRATION_ENABLED` is a separate production-only,
+  default-off opt-in for this registration path; the internal reconciliation
+  scope is `webinar_registration`. All existing application, lifecycle and
+  generic subscription calls keep their default scope and existing
+  `MAILERLITE_OUTBOUND_ENABLED` guard. Never enable that global switch merely
+  to repair webinar registration. Current defect and environment
   verification belong to [TW-BUG-0028](bugs/TW-BUG-0028.md).
 
 - **100-Year Pattern public evidence page:**

@@ -107,7 +107,7 @@ def register_webinar_subscriber(
     if (
         _is_placeholder(api_key)
         or _is_placeholder(general_group_id)
-        or not _mailerlite_write_allowed()
+        or not _mailerlite_write_allowed(scope="webinar_registration")
     ):
         return "disabled"
 
@@ -140,6 +140,7 @@ def register_webinar_subscriber(
         create_if_missing=True,
         name=first_name,
         label="webinar-groups",
+        write_scope="webinar_registration",
     )
     if reconciliation.startswith("unsub("):
         return "inactive"
@@ -190,6 +191,7 @@ def register_webinar_subscriber(
         _reconcile_managed_groups(
             email, desired_groups, set(), create_if_missing=False,
             label="webinar-groups-race-cleanup",
+            write_scope="webinar_registration",
         )
         return "suppressed"
     return "success"

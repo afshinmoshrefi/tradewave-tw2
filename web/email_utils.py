@@ -41,9 +41,17 @@ def _is_placeholder(val: str) -> bool:
     return 'PLACEHOLDER' in val
 
 
-def _mailerlite_write_allowed() -> bool:
+def _mailerlite_write_allowed(*, scope: str = "application") -> bool:
     """Return True only when this environment explicitly permits ML writes."""
-    return bool(getattr(config, 'MAILERLITE_OUTBOUND_ENABLED', False))
+    outbound = bool(getattr(config, 'MAILERLITE_OUTBOUND_ENABLED', False))
+    if scope == "application":
+        return outbound
+    if scope == "webinar_registration":
+        return outbound or (
+            getattr(config, 'tw2_env', '') == 'prod'
+            and bool(getattr(config, 'MAILERLITE_WEBINAR_REGISTRATION_ENABLED', False))
+        )
+    return False
 
 
 def _retry_delay(response, attempt: int) -> float:
@@ -220,12 +228,13 @@ def _get_mailerlite_subscriber(email: str, headers: dict):
 
 def _reconcile_managed_groups(email: str, managed_ids: set, desired_ids: set,
                               *, create_if_missing: bool, name: str = None,
-                              dry_run: bool = False, label: str = "groups") -> str:
+                              dry_run: bool = False, label: str = "groups",
+                              write_scope: str = "application") -> str:
     """Reconcile one mutually-exclusive family and verify the final membership."""
     api_key = getattr(config, 'MAILERLITE_API_KEY', '')
     if _is_placeholder(api_key):
         return "skip:no-api-key"
-    if not dry_run and not _mailerlite_write_allowed():
+    if not dry_run and not _mailerlite_write_allowed(scope=write_scope):
         return "skip:writes-disabled"
 
     managed_ids = {str(group_id) for group_id in managed_ids if group_id}
