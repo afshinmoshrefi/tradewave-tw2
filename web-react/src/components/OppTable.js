@@ -1864,6 +1864,7 @@ const OppTable = (props) => {
     height: oppTableControlsHeight,
     backgroundColor: tc.titleBar,
     color: tc.text,
+    '--tw-toolbar-heading-color': tc.text,
   }
   const oppTableSearchStyle = {
     height: oppTableSearchHeight,

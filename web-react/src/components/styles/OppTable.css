@@ -198,7 +198,7 @@
 }
 
 .opp-table-controls--titles .tw-toolbar-title {
-    color: white;
+    color: var(--tw-toolbar-heading-color);
     font-size: clamp(8px, 0.65vw, 10px);
     font-weight: 600;
     line-height: 1.2;
