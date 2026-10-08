@@ -43,6 +43,24 @@ def test_specific_scope_and_true_preserved_frontend_provenance_are_valid():
     assert validator.validate_manifest(scoped(), SCHEMA) == []
 
 
+def test_isolated_dev_records_real_checks_without_fabricating_browser_success():
+    value = scoped()
+    dev = value['environments']['dev']
+    dev.update(state='isolated_verified', release_sha=SHA)
+    for name in ('runtime_identity', 'service_routes', 'contract_check'):
+        dev['checks'][name] = {'required': True, 'ran': True, 'passed': True, 'evidence': ['real isolated process']}
+    assert dev['checks']['browser_check']['ran'] is False
+    assert validator.validate_manifest(value, SCHEMA) == []
+    dev['checks']['contract_check']['passed'] = False
+    assert validator.validate_manifest(value, SCHEMA)
+
+
+def test_isolated_state_is_not_a_generic_or_staging_bypass():
+    value = scoped()
+    value['environments']['staging']['state'] = 'isolated_verified'
+    assert validator.validate_manifest(value, SCHEMA)
+
+
 @pytest.mark.parametrize('field', ['baseline_sha', 'archive_sha256', 'repair_files', 'approval_event', 'global_outbound_enabled'])
 def test_scope_identity_and_permission_cannot_be_broadened(field):
     value = scoped()

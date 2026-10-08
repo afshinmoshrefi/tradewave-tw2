@@ -17,6 +17,11 @@ Canonical repair/control source is still integrated and locked on main; its
 four repair hashes must match. Qualification uses an isolated dev web instance,
 preserving the shared dev activation owner, then actual live staging. The
 unchanged frontend records its real baseline source SHA and hashes.
+The scoped dev environment uses typed `isolated_verified` evidence for the real
+private process, health, source identity and non-sending API contract; it does
+not fabricate a browser pass for a loopback-only instance. Required authenticated
+and rendered browser checks still run on actual staging and production before
+either target is marked verified.
 
 All other applicable regression, authentication/browser/contract, target-drift,
 snapshot, approval-binding and rollback gates remain required. This approval

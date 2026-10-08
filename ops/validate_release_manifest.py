@@ -112,6 +112,19 @@ def semantic_errors(manifest: dict[str, Any]) -> list[str]:
             coordination.get("release_sha") != release_sha or not coordination.get("evidence")
         ):
             errors.append("isolated dev qualification requires exact source and evidence")
+        dev = environments.get("dev") or {}
+        if dev.get("state") == "isolated_verified":
+            if coordination.get("state") != "isolated":
+                errors.append("isolated dev runtime requires isolated coordination")
+            for name in ("runtime_identity", "service_routes", "contract_check"):
+                gate = (dev.get("checks") or {}).get(name) or {}
+                if not (gate.get("required") and gate.get("ran") and gate.get("passed") is True and gate.get("evidence")):
+                    errors.append("isolated dev requires passed " + name)
+        if _state(manifest, "approvals", "dev") == "approved" and dev.get("state") not in {"isolated_verified", "verified"}:
+            errors.append("scoped dev approval requires qualified isolated runtime")
+    for name, environment in environments.items():
+        if environment.get("state") == "isolated_verified" and (not scoped or name != "dev"):
+            errors.append("isolated verification is restricted to scoped dev")
 
     if _state(manifest, "approvals", "staging") == "approved":
         if _state(manifest, "approvals", "dev") != "approved":

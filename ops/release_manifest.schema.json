@@ -477,7 +477,7 @@
       ],
       "properties": {
         "state": {
-          "enum": ["not_started", "preflight", "active", "verified", "failed", "rollback_required", "rolled_back"]
+          "enum": ["not_started", "preflight", "active", "verified", "isolated_verified", "failed", "rollback_required", "rolled_back"]
         },
         "release_sha": { "$ref": "#/$defs/shaOrNull" },
         "runtime_paths": { "type": "array", "items": { "type": "string" } },
