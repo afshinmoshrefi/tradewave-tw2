@@ -209,3 +209,21 @@
     margin-bottom: 4px;
     cursor: help;
 }
+
+.opp-table-controls--titles {
+    container: opp-table-controls / inline-size;
+}
+
+.opp-years-title--full {
+    display: none;
+}
+
+@container opp-table-controls (min-width: 400px) {
+    .opp-years-title--full {
+        display: inline;
+    }
+
+    .opp-years-title--compact {
+        display: none;
+    }
+}

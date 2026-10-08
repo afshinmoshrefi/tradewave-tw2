@@ -2191,7 +2191,7 @@ const OppTable = (props) => {
 
         {(rdd.isMobile & !rdd.isTablet & browserH > browserW) | (rdd.isMobile & rdd.isTablet & browserH < browserW)
           ? <div className='opp-table-controls-items'><SelectBox optionList={seasonalYearsOptionsList} value={props.oppTableYears} suffix=" yrs" name="years" sbChanged={props.selectboxChanged} /></div>
-          : <div className='opp-table-controls-items'>{tableTitle('Years', yearsTooltip)}<SelectBox tooltipContent={props.tooltipSW && !showTableTitles ? 'b,' + yearsTooltip : ''} optionList={seasonalYearsOptionsList} value={props.oppTableYears} suffix=" years" name="years" sbChanged={props.selectboxChanged} /></div>
+          : <div className='opp-table-controls-items'>{tableTitle(<><span className='opp-years-title--full'>Years analyzed</span><span className='opp-years-title--compact'>Years</span></>, yearsTooltip, 'Years analyzed')}<SelectBox tooltipContent={props.tooltipSW && !showTableTitles ? 'b,' + yearsTooltip : ''} optionList={seasonalYearsOptionsList} value={props.oppTableYears} suffix=" years" name="years" sbChanged={props.selectboxChanged} /></div>
         }
 
         {/* number of partial years selection  */}

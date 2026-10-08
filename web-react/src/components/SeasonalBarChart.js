@@ -3192,7 +3192,7 @@ const SeasonalBarChart = (props) => {
     'MAE overlay': ['MAE', 'MAE'],
     'Start date': ['Start date', 'Start'],
     'Days hold': ['Days', 'Days'],
-    'Years': ['Years', 'Yrs'],
+    'Years analyzed': ['Years analyzed', 'Years'],
     'Bias': ['Bias', 'Bias'],
     'Cycle filter': ['Cycle', 'Cycle'],
     'Date presets': ['Presets', 'Prsts'],
@@ -3214,7 +3214,7 @@ const SeasonalBarChart = (props) => {
     'Start date': 'Start Date to analyze a Wave. Use arrows to shift start date while keeping end date fixed.',
     'Days hold': 'Wave Viewer Control: Select number of days for the date range. Changes the end date while keeping the start date fixed',
     'End date': 'End Date to analyze a Wave',
-    'Years': 'Select how many matching years to include: if Cycle Filter is Consecutive, “10 years” means the last 10 calendar years; if Cycle Filter is PE/PE+1/PE+2/PE+3, “10 years” means the most recent 10 years in that cycle category (for example, the last 10 PE+2 years).',
+    'Years analyzed': 'Select how many matching years to include: if Cycle Filter is Consecutive, “10 years” means the last 10 calendar years; if Cycle Filter is PE/PE+1/PE+2/PE+3, “10 years” means the most recent 10 years in that cycle category (for example, the last 10 PE+2 years).',
     'Cycle filter': 'Choose which years are included: Consecutive uses the last N years in a row, while PE/PE+1/PE+2/PE+3 uses only years matching that Presidential Election cycle phase.',
     'Analysis': 'Run an analysis using the currently loaded pattern.',
     'Date presets': 'Choose a month, quarter, season, Year to Date, or Today to Year End. The selected shortcut replaces the current date range.',
@@ -3440,7 +3440,7 @@ const SeasonalBarChart = (props) => {
           </div>
 
           <div className='barchart-controls-div2 tw-toolbar-control' >
-            {toolbarTitle('Years')}
+            {toolbarTitle('Years analyzed')}
             <SelectBox optionList={includeSelectedWindowOption(seasonalYearsList, props.seasonalYears, 999)} value={props.seasonalYears} suffix=" years" name="years" ariaLabel="Years" compactLabel={compactToolbarControls ? true : undefined} suppressNativeTitle={showToolbarTitles} sbChanged={selectboxChanged} />
           </div>
           
@@ -3516,7 +3516,7 @@ const SeasonalBarChart = (props) => {
 
 
           <div className='barchart-controls-div tw-toolbar-control' style={StyleSeasonalYears}>
-            {toolbarTitle('Years')}
+            {toolbarTitle('Years analyzed')}
             <SelectBox tooltipContent={!showToolbarTitles && props.tooltipSW ? 'b,Select how many matching years to include: if Cycle Filter is Consecutive, “10 years” means the last 10 calendar years; if Cycle Filter is PE/PE+1/PE+2/PE+3, “10 years” means the most recent 10 years in that cycle category (for example, the last 10 PE+2 years).' : ''} optionList={includeSelectedWindowOption(seasonalYearsList, props.seasonalYears, 999)} value={props.seasonalYears} suffix=" years" name="years" ariaLabel="Years" compactLabel={compactToolbarControls ? true : undefined} suppressNativeTitle={showToolbarTitles} sbChanged={selectboxChanged} />
           </div>
           <div className='barchart-controls-div tw-toolbar-control' style={StylePEselection} >
