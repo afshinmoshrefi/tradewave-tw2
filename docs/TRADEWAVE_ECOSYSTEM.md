@@ -1055,8 +1055,10 @@ checks and restart verification are in `ops/OPERATIONS.md` and
   dropdown options keep full labels, including nonnumeric options such as All.
   When titles are visible, chart and Opportunity-table control headings own their
   explanatory tooltips; when titles are off, the controls own them. The global
-  tooltip switch suppresses both. Opportunity headings share the desktop title
-  setting, while mobile and tablet remain title-free. Absolutely positioned
+  tooltip switch suppresses both. The colored long/short indicator is headed
+  Bias, and it and the Help icon align with desktop inputs in title mode.
+  Opportunity headings share the desktop title setting, while mobile and
+  tablet remain title-free. Absolutely positioned
   native selects avoid
   imposing their longest option's intrinsic width on the compact display; visible
   carets preserve discoverability. Title-off and phone paths retain their layout.
