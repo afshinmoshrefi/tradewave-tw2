@@ -1,5 +1,14 @@
 # TW-TASK-0012: Chart Toolbar Control Titles
 
+## Toolbar and Opportunity heading/tooltips follow-up (2026-10-08)
+
+- Status: in progress on dev; staging and production excluded.
+- Executor/session: Codex `/root/toolbar_titles`, 2026-10-08 UTC.
+- Branch/worktree: `codex/toolbar-tooltip-targets-20261008` at `/home/tradewave-worktrees/toolbar-tooltip-targets-20261008`, based on `af9c687085b10fa2efbe8198cd3bd276392dfc51`.
+- Authorization: Afshin requested toolbar tooltip hover on titles when visible and controls when titles are off, while honoring the global tooltip switch. He also requested matching headings over the Opportunity table's current PE, month, day, years and probability-years controls under the same persisted switch. Mobile titles remain off. Routine dev activation authorized.
+- Acceptance: Desktop title-on tooltips trigger from headings alone; title-off tooltips trigger from controls; global off suppresses both. Opportunity control headings use the same setting/style, are usable at narrow widths, and mobile remains title-free. No calculation/engine behavior changes.
+- Next: implement, focused build and live dev smoke, then record exact SHA and evidence.
+
 ## Mobile title removal claim (2026-10-04)
 
 - Status: verified on dev; earlier desktop/title styling verification remains historical below.
