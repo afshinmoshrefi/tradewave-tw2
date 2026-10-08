@@ -1,9 +1,9 @@
 # TW-BUG-0028: Webinar signup drops the published Zoom link
 
-- Status: candidate tested on isolated task branch; runtime activation blocked
+- Status: candidate verified with isolated staging tests; live activation blocked
 - Confidence: read-only production loader inspection reproduced the missing link; owner reported "This webinar is no longer available"; no real test registration submitted
 - Priority: P2 - notification signup for the October 9 webinar cannot complete
-- First observed / last updated: 2026-10-08 13:47 UTC / 2026-10-08 14:23 UTC
+- First observed / last updated: 2026-10-08 13:47 UTC / 2026-10-08 14:50 UTC
 - Executor/session/claim time: Codex / webinar-zoom-field-20261008 / 2026-10-08 13:55 UTC
 - Authorization: targeted signup repair and qualification reported by parent; no subscriber campaign, unrelated entry, global lifecycle enablement or broader production deployment
 
@@ -58,7 +58,7 @@ No production signup or notification delivery is claimed.
 
 - Branch: `codex/webinar-zoom-field-20261008`.
 - Worktree: `/home/tradewave-worktrees/webinar-zoom-field-20261008` on dev.
-- First mapping commit: `abd82eea19d4a1792153953073e4ddd166e1a2fd`; final candidate identity is `git log -1 --format=%H` on this branch.
+- First mapping commit: `abd82eea19d4a1792153953073e4ddd166e1a2fd`. Tested runtime candidate: `0ed01f68201623f4f2e55bd32827fca10479bb1a`; later documentation-only commits preserve its runtime file hashes.
 - Four runtime files: `webinar_schedule.py`, `config.py`, `web/email_utils.py`, `web/webinar_registration.py`. Against the recorded production baseline these contain only this concern: 23 insertions / 6 deletions.
 - Required activation configuration: only `MAILERLITE_WEBINAR_REGISTRATION_ENABLED=1` in the qualified production web environment; preserve the existing false global switch and all unrelated flags.
 - No React build, schema migration, replacement credentials, cron or firewall change required. Restart only affected web service once its qualified source/configuration is activated.
@@ -67,11 +67,40 @@ No production signup or notification delivery is claimed.
 
 ## Environment Verification and Blockers
 
-Dev: not activated; shared October 5 activation lock is preserved. Staging:
-qualification blocked before writes. `185.53.209.8:4369` refuses SSH from
-Windows and dev; existing prod jump to documented `10.0.0.94` returns "No route
-to host". `https://tw2-stage.trxstat.com/healthz` returns HTTP 530 / Cloudflare
-1033. No alternate target, tunnel/firewall change or credentials were invented.
+Dev: not activated; shared October 5 activation lock is preserved. The earlier
+staging connectivity failure is resolved. At 14:41 UTC both staging servers
+answer SSH and public `/healthz` returns HTTP 200 with DB/frontend healthy.
+Both live checkouts are clean at `c25ffd562dc3058ab41db5b07e9075dd841fb29b`.
+Web runs `/home/flask/web`; its unchanged frontend pointer is
+`/home/flask/web-react/releases/build-c25ffd562dc3`, index SHA-256
+`cd190cbaf8b4771778ea6fdff05c15ec3b8ab02b0e0cad6b0730560b4460187f`.
+
+Exact candidate `0ed01f68201623f4f2e55bd32827fca10479bb1a` is preserved on
+staging web in `/home/tradewave-webinar-qa/0ed01f68201623f4f2e55bd32827fca10479bb1a`.
+There, all 48 unit tests pass (2.07 seconds); two database tests are deselected
+because no dedicated local `tradewave_test` database exists on staging web or
+app. The earlier unfiltered staging attempt reports 48 passed / 2 fixture
+errors from connection refusal to local test Postgres, never the application DB.
+Those two DB tests passed on dev in the 50-test focused result above.
+
+At 14:50 UTC, an additional isolated actual-Flask-route check reads the real
+published Google feed directly without touching its shared cache. It verifies
+the October 9 13:00-04:00 session and exact source Zoom URL. With subscriber HTTP
+fully mocked and only in-process configuration simulating the webinar production
+opt-in, the route returns 200, confirms general plus dated membership and correct
+date/time/URL fields, and proves lifecycle HTTP calls remain zero. Live staging
+flags are unchanged; no real registration, subscriber or email operation occurs.
+
+Four-file runtime archive:
+`/home/tradewave-webinar-qa/webinar-signup-runtime-0ed01f682016.tar`, SHA-256
+`aee361de6d6bccc657684c95f5f4e0c31baa67a30b9dfe7564e004674a9587f7`.
+This is a tested scoped candidate, not a staging-approved immutable release.
+No public staging service/pointer was activated. Full qualification/promotion
+still requires canonical main/dev parity and the exact qualified manifest;
+`ops/deploy.sh` enforces origin/main and updates both tiers, frontend, static
+pages and other services. Using it would include unrelated current-main changes.
+Do not bypass that gate or copy the four files into a live checkout. A reviewed
+narrow promotion path must resolve that conflict before live activation.
 
 Production: existing listing sync verified, signup candidate not deployed.
 Read-only inspection finds local rollback snapshots dated October 2 on both
@@ -91,3 +120,4 @@ no further child source attempt should be made.
 
 - 2026-10-08 13:55 UTC, Codex: isolated loader mapping fix; dirty shared checkout and dev lock preserved.
 - 2026-10-08 14:23 UTC, Codex: separate webinar permission and mocked actual-route tests complete; 50 pass. Staging connectivity, current-day production snapshot and source OAuth scope blockers recorded; no runtime activation.
+- 2026-10-08 14:50 UTC, Codex: owner reports staging on; fresh SSH and public health confirm recovery. Exact candidate passes 48 staging unit tests and mocked actual-route check against the real source. Scoped archive hash recorded; live release path and production prerequisites remain blocked.
