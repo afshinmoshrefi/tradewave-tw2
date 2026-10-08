@@ -316,13 +316,6 @@
     color: var(--tw-toolbar-heading-color);
 }
 
-.barchart-controls--heading-layout .tw-notify-btn {
-    transform: translateY(calc(11px - 1.35vh));
-}
-.barchart-controls--heading-layout.barchart-controls--narrow .tw-notify-btn {
-    transform: translateY(calc(10px - 1.35vh));
-}
-
 .barchart-controls--heading-layout > .barchart-controls-div {
     height: 52px !important;
     flex-shrink: 0;
@@ -422,6 +415,10 @@
     min-width: 30px;
     padding: 0 4px;
     height: 20px;
+}
+.barchart-controls--heading-layout .tw-notify-btn {
+    height: 2.7vh;
+    box-sizing: border-box;
 }
 
 .barchart-controls--narrow .tw-select-compact-label::after {
