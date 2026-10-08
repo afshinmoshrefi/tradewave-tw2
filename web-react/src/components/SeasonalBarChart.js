@@ -3197,13 +3197,37 @@ const SeasonalBarChart = (props) => {
     'Date presets': ['Presets', 'Prsts'],
   }
   const compactToolbarControls = showToolbarTitles && !rdd.isMobile && toolbarMode === 'narrow'
+  const toolbarTooltip = {
+    'Save wave': 'Click the Plus icon to save the Date-Range-Opportunity to your portfolio.  All saved opportunities also generate a comprehensive Web Report that can be viewed and shared.  Your portfolio can be accessed by Clicking the Opportunities Manager icon, that looks like a clipboard with a pencil',
+    'Reminder': reminderSet
+      ? `Reminder set - this pattern is saved in your "${reminderInfo.portfolio}" portfolio. Click to view or edit it.`
+      : reminderInfo?.saved
+        ? `This pattern is saved in your "${reminderInfo.portfolio}" portfolio - one click adds Google Calendar reminders for its start and end dates.`
+        : 'One click adds Google Calendar reminders for this pattern’s start and end dates, and saves it to your current portfolio. Customize times later via the Portfolio Manager’s calendar icon.',
+    'Best waves': 'Best seasonal waves for this ticker sorted by Sharpe Ratio. Select a wave to load it in the viewer.',
+    'Ticker': 'Ticker Symbol to analyze. Ticker must be a part of current securities group',
+    'Date range': 'Date Range for the Wave strategy',
+    'Direction': 'Color of square can be red or green.  WaveViewer determines if the current date range should be analyzed as bullish or bearish.  Bullish trade have at least 50% of years as bullish.  The only special condition is for Buy & Hold - Buy and Hold is always analyzed as bullish even if there are more losing years than winning years.',
+    'MFE overlay': 'MFE: Maximum Favorable Excursion, adds the maximum level the price reached in favor of the trade as light green on bullish and light red on bearish barcharts',
+    'MAE overlay': 'MAE: Maximum Adverse Excursion, adds the maximum price reached against the trade as light red on bullish and light green on bearish barchars',
+    'Start date': 'Start Date to analyze a Wave. Use arrows to shift start date while keeping end date fixed.',
+    'Days hold': 'Wave Viewer Control: Select number of days for the date range. Changes the end date while keeping the start date fixed',
+    'End date': 'End Date to analyze a Wave',
+    'Years': 'Select how many matching years to include: if Cycle Filter is Consecutive, “10 years” means the last 10 calendar years; if Cycle Filter is PE/PE+1/PE+2/PE+3, “10 years” means the most recent 10 years in that cycle category (for example, the last 10 PE+2 years).',
+    'Cycle filter': 'Choose which years are included: Consecutive uses the last N years in a row, while PE/PE+1/PE+2/PE+3 uses only years matching that Presidential Election cycle phase.',
+    'Analysis': 'Run an analysis using the currently loaded pattern.',
+    'Date presets': 'Choose a month, quarter, season, Year to Date, or Today to Year End. The selected shortcut replaces the current date range.',
+  }
   const toolbarTitle = (title) => {
     if (!showToolbarTitles) return null
     const variants = compactToolbarTitles[title]
     const displayTitle = !rdd.isMobile && variants
       ? toolbarMode === 'tight' || toolbarMode === 'narrow' ? variants[1] : toolbarMode === 'compact' ? variants[0] : title
       : title
-    return <span className="tw-toolbar-title" title={title} aria-label={title}>{displayTitle}</span>
+    const heading = <span className="tw-toolbar-title" aria-label={title}>{displayTitle}</span>
+    return toolbarTooltip[title]
+      ? <Tippy disabled={!props.tooltipSW} placement="bottom" content={<div theme="tw">{toolbarTooltip[title]}</div>}>{heading}</Tippy>
+      : heading
   }
   // Best Waves keeps its "── Best Waves ──" decoration until the wide box, centered in the
   // measured slack, would have under 3px of air per side - only then drop to the compact
@@ -3243,7 +3267,7 @@ const SeasonalBarChart = (props) => {
         {
           props.seasonalBarChartData.length > 0 &&
 
-          <Tippy disabled={!props.tooltipSW} placement={'bottom'} content={
+          <Tippy disabled={!props.tooltipSW || showToolbarTitles} placement={'bottom'} content={
             <div theme="tw" >
               {props.tooltipSW ? 'Click the Plus icon to save the Date-Range-Opportunity to your portfolio.  All saved opportunities also generate a comprehensive Web Report that can be viewed and shared.  Your portfolio can be accessed by Clicking the Opportunities Manager icon, that looks like a clipboard with a pencil' : ''}
             </div>
@@ -3265,7 +3289,7 @@ const SeasonalBarChart = (props) => {
             unset, filled purple = set). First-visit pulse (localStorage-gated)
             makes it discoverable; suppressed once set. */}
         {props.seasonalBarChartData.length > 0 &&
-          <Tippy disabled={!props.tooltipSW} placement={'bottom'} content={
+          <Tippy disabled={!props.tooltipSW || showToolbarTitles} placement={'bottom'} content={
             <div theme="tw" >
               {props.tooltipSW ? (reminderSet
                 ? `Reminder set - this pattern is saved in your "${reminderInfo.portfolio}" portfolio. Click to view or edit it.`
@@ -3318,12 +3342,12 @@ const SeasonalBarChart = (props) => {
             value={selectedOppBySymbol}
             name="oppBySymbol"
             ariaLabel="Best waves"
-            compactLabel={compactToolbarControls ? 'Waves' : undefined}
+            compactLabel={compactToolbarControls ? 'Waves' : undefined} suppressNativeTitle={showToolbarTitles}
             suffix=""
             widthOverride={showToolbarTitles ? '100%' : (bwWide ? '7vw' : undefined)}
             fitContainer
             sbChanged={handleOppBySymbolChanged}
-            tooltipContent={props.tooltipSW ? 'b,Best seasonal waves for this ticker sorted by Sharpe Ratio. Select a wave to load it in the viewer.' : ''}
+            tooltipContent={!showToolbarTitles && props.tooltipSW ? 'b,Best seasonal waves for this ticker sorted by Sharpe Ratio. Select a wave to load it in the viewer.' : ''}
           />
           </div>
         }
@@ -3341,7 +3365,7 @@ const SeasonalBarChart = (props) => {
             {!rdd.isMobile &&
               <span className="tw-toolbar-control" style={{ position: 'relative', display: 'flex', alignItems: 'center', marginRight: '6px' }} onFocus={handleSymbolFocus} onBlur={handleSymbolBlur}>
                 {toolbarTitle('Ticker')}
-                <TextBox securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} tooltipContent={props.tooltipSW ? 'b,Ticker Symbol to analyze.  Ticker must be a part of current securities group' : ''} text={props.symbol} width={barchartControlTickerWidth} tbBlur={handleBlur} tbEnter={handleEnter} name="symbol" syncNonce={symbolBoxSyncNonce} qparams={props.qparams} />
+                <TextBox securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} tooltipContent={!showToolbarTitles && props.tooltipSW ? 'b,Ticker Symbol to analyze.  Ticker must be a part of current securities group' : ''} text={props.symbol} width={barchartControlTickerWidth} tbBlur={handleBlur} tbEnter={handleEnter} name="symbol" syncNonce={symbolBoxSyncNonce} qparams={props.qparams} />
                 {watchlistDropdownOpen && props.defaultWatchlistItems && props.defaultWatchlistItems.length > 0 &&
                   <div className='watchlist-dropdown' style={{ position: 'absolute', top: '100%', left: 0, zIndex: 9000, backgroundColor: tc.panelBg, border: '1px solid ' + tc.border, maxHeight: '200px', overflowY: 'auto', minWidth: '100px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
                     {props.defaultWatchlistItems.map((sym, idx) => (
@@ -3354,7 +3378,7 @@ const SeasonalBarChart = (props) => {
               </span>
             }
 
-            <Tippy placement={'bottom'} disabled={!props.tooltipSW} content={
+            <Tippy placement={'bottom'} disabled={!props.tooltipSW || showToolbarTitles} content={
                 <div theme="tw" >
                   {props.tooltipSW ? 'Date Range for the Wave strategy' : ''}
                 </div>
@@ -3411,17 +3435,17 @@ const SeasonalBarChart = (props) => {
 
           <div className='barchart-controls-div2 tw-toolbar-control' >
             {toolbarTitle('Days hold')}
-            <SelectBox optionList={daysOutList} value={props.daysOut} suffix=" days" name="daysout" ariaLabel="Days hold" compactLabel={compactToolbarControls ? true : undefined} sbChanged={selectboxChanged} />
+            <SelectBox optionList={daysOutList} value={props.daysOut} suffix=" days" name="daysout" ariaLabel="Days hold" compactLabel={compactToolbarControls ? true : undefined} suppressNativeTitle={showToolbarTitles} sbChanged={selectboxChanged} />
           </div>
 
           <div className='barchart-controls-div2 tw-toolbar-control' >
             {toolbarTitle('Years')}
-            <SelectBox optionList={includeSelectedWindowOption(seasonalYearsList, props.seasonalYears, 999)} value={props.seasonalYears} suffix=" years" name="years" ariaLabel="Years" compactLabel={compactToolbarControls ? true : undefined} sbChanged={selectboxChanged} />
+            <SelectBox optionList={includeSelectedWindowOption(seasonalYearsList, props.seasonalYears, 999)} value={props.seasonalYears} suffix=" years" name="years" ariaLabel="Years" compactLabel={compactToolbarControls ? true : undefined} suppressNativeTitle={showToolbarTitles} sbChanged={selectboxChanged} />
           </div>
           
           <div className='barchart-controls-div2 tw-toolbar-control' >
             {toolbarTitle('Cycle filter')}
-            <SelectBox optionList={PEselectionList} value={props.PEselected} suffix="" name="PEselection" ariaLabel="Cycle filter" compactLabel={compactToolbarControls ? true : undefined} sbChanged={selectboxChanged} />
+            <SelectBox optionList={PEselectionList} value={props.PEselected} suffix="" name="PEselection" ariaLabel="Cycle filter" compactLabel={compactToolbarControls ? true : undefined} suppressNativeTitle={showToolbarTitles} sbChanged={selectboxChanged} />
           </div>
 
 
@@ -3434,7 +3458,7 @@ const SeasonalBarChart = (props) => {
           {props.seasonalBarChartData.length > 0 &&
             <div className='barchart-controls-div tw-toolbar-control' style={StyleLSSquare}>
               {toolbarTitle('Direction')}
-              <Tippy disabled={!props.tooltipSW} placement={'bottom'} content={
+              <Tippy disabled={!props.tooltipSW || showToolbarTitles} placement={'bottom'} content={
                 <div theme="tw" >
                   {props.tooltipSW ? 'Color of square can be red or green.  WaveViewer determines if the current date range should be analyzed as bullish or bearish.  Bullish trade have at least 50% of years as bullish.  The only special condition is for Buy & Hold - Buy and Hold is always analyzed as bullish even if there are more losing years than winning years.' : ''}
                 </div>
@@ -3448,22 +3472,22 @@ const SeasonalBarChart = (props) => {
 
           <div className='barchart-controls-div tw-toolbar-control' style={StyleMFE}>
             {toolbarTitle('MFE overlay')}
-            <CheckBox tooltipContent={props.tooltipSW ? 'b,MFE: Maximum Favorable Excursion, adds the maximum level the price reached in favor of the trade as light green on bullish and light red on bearish barcharts' : ''} label="MFE" ariaLabel="MFE overlay" hideLabel={showToolbarTitles && !rdd.isMobile && (toolbarMode === 'tight' || toolbarMode === 'narrow')} cbChanged={checkboxChanged} checked={props.showMFE} />
+            <CheckBox tooltipContent={!showToolbarTitles && props.tooltipSW ? 'b,MFE: Maximum Favorable Excursion, adds the maximum level the price reached in favor of the trade as light green on bullish and light red on bearish barcharts' : ''} label="MFE" ariaLabel="MFE overlay" hideLabel={showToolbarTitles && !rdd.isMobile && (toolbarMode === 'tight' || toolbarMode === 'narrow')} cbChanged={checkboxChanged} checked={props.showMFE} />
           </div>
 
           <div className='barchart-controls-div tw-toolbar-control' style={StyleMAE}>
             {toolbarTitle('MAE overlay')}
-            <CheckBox tooltipContent={props.tooltipSW ? 'b,MAE: Maximum Adverse Excursion, adds the maximum price reached against the trade as light red on bullish and light green on bearish barchars' : ''} label="MAE" ariaLabel="MAE overlay" hideLabel={showToolbarTitles && !rdd.isMobile && (toolbarMode === 'tight' || toolbarMode === 'narrow')} cbChanged={checkboxChanged} checked={props.showMAE} />
+            <CheckBox tooltipContent={!showToolbarTitles && props.tooltipSW ? 'b,MAE: Maximum Adverse Excursion, adds the maximum price reached against the trade as light red on bullish and light green on bearish barchars' : ''} label="MAE" ariaLabel="MAE overlay" hideLabel={showToolbarTitles && !rdd.isMobile && (toolbarMode === 'tight' || toolbarMode === 'narrow')} cbChanged={checkboxChanged} checked={props.showMAE} />
           </div>
 
           <div className='barchart-controls-div tw-toolbar-control' style={StyleStartDate}>
             {toolbarTitle('Start date')}
-            <TextBoxInc securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} tooltipContent={props.tooltipSW ? 'b,Start Date to analyze a Wave. Use arrows to shift start date while keeping end date fixed.' : ''} text={props.startDate} width={barchartControlDateWidth} tbBlur={handleBlur} tbEnter={handleEnter} name="date" onLeftClick={() => handleDateNudge(-1)} onRightClick={() => handleDateNudge(1)} />
+            <TextBoxInc securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} tooltipContent={!showToolbarTitles && props.tooltipSW ? 'b,Start Date to analyze a Wave. Use arrows to shift start date while keeping end date fixed.' : ''} text={props.startDate} width={barchartControlDateWidth} tbBlur={handleBlur} tbEnter={handleEnter} name="date" onLeftClick={() => handleDateNudge(-1)} onRightClick={() => handleDateNudge(1)} />
           </div>
 
           <div className='barchart-controls-div tw-toolbar-control' style={{...StyleSymbol, position: 'relative'}} onFocus={handleSymbolFocus} onBlur={handleSymbolBlur}>
             {toolbarTitle('Ticker')}
-            <TextBox securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} tooltipContent={props.tooltipSW ? 'b,Ticker Symbol to analyze.  Ticker must be a part of current securities group' : ''} text={props.symbol} width={barchartControlTickerWidth} tbBlur={handleBlur} tbEnter={handleEnter} name="symbol" syncNonce={symbolBoxSyncNonce} qparams={props.qparams} />
+            <TextBox securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} tooltipContent={!showToolbarTitles && props.tooltipSW ? 'b,Ticker Symbol to analyze.  Ticker must be a part of current securities group' : ''} text={props.symbol} width={barchartControlTickerWidth} tbBlur={handleBlur} tbEnter={handleEnter} name="symbol" syncNonce={symbolBoxSyncNonce} qparams={props.qparams} />
             {watchlistDropdownOpen && props.defaultWatchlistItems && props.defaultWatchlistItems.length > 0 &&
               <div className='watchlist-dropdown' style={{ position: 'absolute', top: '100%', left: 0, zIndex: 9000, backgroundColor: tc.panelBg, border: '1px solid ' + tc.border, maxHeight: '200px', overflowY: 'auto', minWidth: '100px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
                 {props.defaultWatchlistItems.map((sym, idx) => (
@@ -3477,14 +3501,14 @@ const SeasonalBarChart = (props) => {
 
           <div className='barchart-controls-div tw-toolbar-control' style={StyleDaysOut}>
             {toolbarTitle('Days hold')}
-            <SelectBox tooltipContent={props.tooltipSW ? 'b,Wave Viewer Control: Select number of days for the date range. Changes the end date while keeping the start date fixed' : ''} optionList={daysOutList} value={props.daysOut} suffix=" days" name="daysout" ariaLabel="Days hold" compactLabel={compactToolbarControls ? true : undefined} sbChanged={selectboxChanged} />
+            <SelectBox tooltipContent={!showToolbarTitles && props.tooltipSW ? 'b,Wave Viewer Control: Select number of days for the date range. Changes the end date while keeping the start date fixed' : ''} optionList={daysOutList} value={props.daysOut} suffix=" days" name="daysout" ariaLabel="Days hold" compactLabel={compactToolbarControls ? true : undefined} suppressNativeTitle={showToolbarTitles} sbChanged={selectboxChanged} />
           </div>
 
           {/* date2 is only shown on desktop for now  */}
           {showDate2 &&
             <div className='barchart-controls-div tw-toolbar-control' style={StyleStartDate}>
               {toolbarTitle('End date')}
-              <TextBox securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} tooltipContent={props.tooltipSW ? 'b,End Date to analyze a Wave' : ''} text={dateEnd} width={barchartControlDateWidth} tbBlur={handleBlur} tbEnter={handleEnter} name="date2" />
+              <TextBox securityTypeList2={props.securityTypeList2} selectedSecurity={props.selectedSecurity} tooltipContent={!showToolbarTitles && props.tooltipSW ? 'b,End Date to analyze a Wave' : ''} text={dateEnd} width={barchartControlDateWidth} tbBlur={handleBlur} tbEnter={handleEnter} name="date2" />
             </div>
           }
 
@@ -3492,19 +3516,19 @@ const SeasonalBarChart = (props) => {
 
           <div className='barchart-controls-div tw-toolbar-control' style={StyleSeasonalYears}>
             {toolbarTitle('Years')}
-            <SelectBox tooltipContent={props.tooltipSW ? 'b,Select how many matching years to include: if Cycle Filter is Consecutive, “10 years” means the last 10 calendar years; if Cycle Filter is PE/PE+1/PE+2/PE+3, “10 years” means the most recent 10 years in that cycle category (for example, the last 10 PE+2 years).' : ''} optionList={includeSelectedWindowOption(seasonalYearsList, props.seasonalYears, 999)} value={props.seasonalYears} suffix=" years" name="years" ariaLabel="Years" compactLabel={compactToolbarControls ? true : undefined} sbChanged={selectboxChanged} />
+            <SelectBox tooltipContent={!showToolbarTitles && props.tooltipSW ? 'b,Select how many matching years to include: if Cycle Filter is Consecutive, “10 years” means the last 10 calendar years; if Cycle Filter is PE/PE+1/PE+2/PE+3, “10 years” means the most recent 10 years in that cycle category (for example, the last 10 PE+2 years).' : ''} optionList={includeSelectedWindowOption(seasonalYearsList, props.seasonalYears, 999)} value={props.seasonalYears} suffix=" years" name="years" ariaLabel="Years" compactLabel={compactToolbarControls ? true : undefined} suppressNativeTitle={showToolbarTitles} sbChanged={selectboxChanged} />
           </div>
           <div className='barchart-controls-div tw-toolbar-control' style={StylePEselection} >
             {toolbarTitle('Cycle filter')}
-            <SelectBox optionList={PEselectionList} value={props.PEselected} suffix="" name="PEselection" ariaLabel="Cycle filter" compactLabel={compactToolbarControls ? true : undefined} sbChanged={selectboxChanged} tooltipContent={props.tooltipSW ? 'b,Choose which years are included: Consecutive uses the last N years in a row, while PE/PE+1/PE+2/PE+3 uses only years matching that Presidential Election cycle phase.)' : ''} />
+            <SelectBox optionList={PEselectionList} value={props.PEselected} suffix="" name="PEselection" ariaLabel="Cycle filter" compactLabel={compactToolbarControls ? true : undefined} suppressNativeTitle={showToolbarTitles} sbChanged={selectboxChanged} tooltipContent={!showToolbarTitles && props.tooltipSW ? 'b,Choose which years are included: Consecutive uses the last N years in a row, while PE/PE+1/PE+2/PE+3 uses only years matching that Presidential Election cycle phase.)' : ''} />
           </div>
           <div className='barchart-controls-div tw-toolbar-actions' style={{ ...StyleMQtrs, alignItems: 'center', gap: '3px', flexShrink: 0 }}>
             <div className="tw-toolbar-control">
               {toolbarTitle('Analysis')}
             <SelectBox
               ariaLabel="Analysis"
-              compactLabel={compactToolbarControls ? true : undefined}
-              tooltipContent={props.tooltipSW ? 'b,Run an analysis using the currently loaded pattern.' : ''}
+              compactLabel={compactToolbarControls ? true : undefined} suppressNativeTitle={showToolbarTitles}
+              tooltipContent={!showToolbarTitles && props.tooltipSW ? 'b,Run an analysis using the currently loaded pattern.' : ''}
               optionList={analysisActionsMenu}
               name="analysisActions"
                 value="Analysis"
@@ -3573,8 +3597,8 @@ const SeasonalBarChart = (props) => {
               {toolbarTitle('Date presets')}
             <SelectBox
               ariaLabel="Months and Quarters"
-              compactLabel={compactToolbarControls ? 'Presets' : undefined}
-              tooltipContent={props.tooltipSW ? 'b,Choose a month, quarter, season, Year to Date, or Today to Year End. The selected shortcut replaces the current date range.' : ''}
+              compactLabel={compactToolbarControls ? 'Presets' : undefined} suppressNativeTitle={showToolbarTitles}
+              tooltipContent={!showToolbarTitles && props.tooltipSW ? 'b,Choose a month, quarter, season, Year to Date, or Today to Year End. The selected shortcut replaces the current date range.' : ''}
               optionList={monthsAndQtrsMenu}
               name="monthsAndQtrs"
               value="Months & Qtrs"

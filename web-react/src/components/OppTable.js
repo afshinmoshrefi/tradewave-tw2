@@ -1854,6 +1854,12 @@ const OppTable = (props) => {
 
 
 
+  const showTableTitles = props.showToolbarTitles && !rdd.isMobile
+  if (showTableTitles) {
+    oppTableControlsHeight = '52px'
+    oppTableHeight = 'calc(100% - 112px)'
+  }
+
   const oppTableControlsStyle = {
     height: oppTableControlsHeight,
     backgroundColor: tc.titleBar,
@@ -2086,14 +2092,23 @@ const OppTable = (props) => {
 
   // const marginRight = browserH > browserW ? '3vw' : '2vw';
   const marginRight = browserH > browserW ? (peMetaAvailable ? '3vw' : '8.5vw') : '2vw';
-  const pe_tooltip = `  Show only opportunities that occur in the ${PELabel} presidential election-cycle year.`;
+  const pe_tooltip = `Show only opportunities that occur in the ${PELabel} presidential election-cycle year.`
+  const monthTooltip = 'Change Opportunities Month to see active trades, for backtesting or future analysis'
+  const dayTooltip = 'Change opportunities day of the month to see active trades, for backtesting or future analysis'
+  const yearsTooltip = 'You can change the number of analysis years for the TradeWave opportunities. Current Historical Years Setting ' + props.oppTableYears + ' years'
+  const probabilityTooltip = 'TradeWave Probability: Select minimum # of years to filter opportunities in the list. This changes the probability of profitability in the list of opportunities. Currently set to : ' + (parseInt(props.oppTablePartialYears) > 0 && parseInt(props.oppTableYears) > 0 ? Math.round((100 * parseInt(props.oppTablePartialYears) / parseInt(props.oppTableYears))).toString() + '%' : '')
+  const tableTitle = (title, tooltip, fullTitle = title) => showTableTitles && (
+    <Tippy placement="bottom" disabled={!props.tooltipSW} content={<div theme="tw">{tooltip}</div>}>
+      <span className="tw-toolbar-title" aria-label={fullTitle}>{title}</span>
+    </Tippy>
+  )
 
   //-------------------------------------------------------------------------------------------------------
   return (
 
     <div className='opp-container' style={{ backgroundColor: tc.panelBg }}>
 
-      <div className='opp-table-controls' style={oppTableControlsStyle}>
+      <div className={'opp-table-controls' + (showTableTitles ? ' opp-table-controls--titles' : '')} style={oppTableControlsStyle}>
 
         {/* if on mobile put the security selection pull down in oppTable otherwise its on desktoplayout.js */}
         <div style={{ backgroundColor: "transparent", width: "100%", height: "100%", display: "flex", alignItems: "center" }}>
@@ -2142,10 +2157,11 @@ const OppTable = (props) => {
 
 
           <div className='opp-table-controls-items' style={{ backgroundColor: 'transparent' }}>
+            {tableTitle('Election cycle', pe_tooltip)}
             <CheckBox
               label={PELabel}
               checked={props.showPEOpps}
-              tooltipContent={props.tooltipSW ? pe_tooltip : ''}
+              tooltipContent={props.tooltipSW && !showTableTitles ? 'b,' + pe_tooltip : ''}
               cbChanged={PElabelClicked}
             />
           </div>
@@ -2164,22 +2180,23 @@ const OppTable = (props) => {
         {/* mobile portrait takes adavtage of short suffixes */}
         {(rdd.isMobile & rdd.isTablet & browserH < browserW) | (rdd.isMobile & !rdd.isTablet & browserH > browserW)
           ? <div className='opp-table-controls-items' ><SelectBox optionList={monthsOptionsListS} value={props.oppTableMonth} suffix="" name="months" sbChanged={props.selectboxChanged} /></div>
-          : <div className='opp-table-controls-items' ><SelectBox tooltipContent={props.tooltipSW ? 'b,Change Opportunities Month to see active trades, for backtesting or future analytis' : ''} optionList={monthsOptionsList} value={props.oppTableMonth} suffix="" name="months" sbChanged={props.selectboxChanged} /></div>
+          : <div className='opp-table-controls-items' >{tableTitle('Month', monthTooltip)}<SelectBox tooltipContent={props.tooltipSW && !showTableTitles ? 'b,' + monthTooltip : ''} optionList={monthsOptionsList} value={props.oppTableMonth} suffix="" name="months" sbChanged={props.selectboxChanged} /></div>
         }
 
         {/* day of the month 4/29/2022  */}
 
-        <div className='opp-table-controls-items'><SelectBox tooltipContent={props.tooltipSW ? 'b,Change opportunities day of the month to see active trades, for backtesting or future analysis' : ''} optionList={props.daysOfMonthList} value={props.dayOfTheMonth} suffix=" " name="day" sbChanged={props.selectboxChanged} /></div>
+        <div className='opp-table-controls-items'>{tableTitle('Day', dayTooltip)}<SelectBox tooltipContent={props.tooltipSW && !showTableTitles ? 'b,' + dayTooltip : ''} optionList={props.daysOfMonthList} value={props.dayOfTheMonth} suffix=" " name="day" sbChanged={props.selectboxChanged} /></div>
 
 
         {(rdd.isMobile & !rdd.isTablet & browserH > browserW) | (rdd.isMobile & rdd.isTablet & browserH < browserW)
           ? <div className='opp-table-controls-items'><SelectBox optionList={seasonalYearsOptionsList} value={props.oppTableYears} suffix=" yrs" name="years" sbChanged={props.selectboxChanged} /></div>
-          : <div className='opp-table-controls-items'><SelectBox tooltipContent={props.tooltipSW ? 'b,You can change the number of analysis years for the TradeWave opportunities. Current Historical Years Setting  ' + props.oppTableYears + ' years' : ''} optionList={seasonalYearsOptionsList} value={props.oppTableYears} suffix=" years" name="years" sbChanged={props.selectboxChanged} /></div>
+          : <div className='opp-table-controls-items'>{tableTitle('Years', yearsTooltip)}<SelectBox tooltipContent={props.tooltipSW && !showTableTitles ? 'b,' + yearsTooltip : ''} optionList={seasonalYearsOptionsList} value={props.oppTableYears} suffix=" years" name="years" sbChanged={props.selectboxChanged} /></div>
         }
 
         {/* number of partial years selection  */}
         <div className='opp-table-controls-items' style={{ marginRight: "12px" }} >
-          <SelectBox tooltipContent={'r,' + (props.tooltipSW ? 'TradeWave Probability: Select minimum # of years to filter opportunities in the list. This changes the probability of profitability in the list of opportunities. Currently set to : ' : '') + (parseInt(props.oppTablePartialYears) > 0 && parseInt(props.oppTableYears) > 0 ? Math.round((100 * parseInt(props.oppTablePartialYears) / parseInt(props.oppTableYears))).toString() + '%' : '')} optionList={partialSeasonalYearsOptionsList} value={props.oppTablePartialYears} suffix={oppTablePartialYearsSuffix} name="partialYears" sbChanged={(e) => { userPickedPYearsRef.current = String(e.target.value); props.selectboxChanged(e); }} />
+          {tableTitle('Prob. years', probabilityTooltip, 'Probability years')}
+          <SelectBox tooltipContent={props.tooltipSW && !showTableTitles ? 'r,' + probabilityTooltip : ''} optionList={partialSeasonalYearsOptionsList} value={props.oppTablePartialYears} suffix={oppTablePartialYearsSuffix} name="partialYears" sbChanged={(e) => { userPickedPYearsRef.current = String(e.target.value); props.selectboxChanged(e); }} />
         </div>
 
         <div style={{ paddingRight: '0%', display: questionDisplay, width: '10%', alignItems: 'center' }}>
