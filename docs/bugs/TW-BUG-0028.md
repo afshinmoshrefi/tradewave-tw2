@@ -3,7 +3,7 @@
 - Status: candidate verified with isolated staging tests; live activation blocked
 - Confidence: read-only production loader inspection reproduced the missing link; owner reported "This webinar is no longer available"; no real test registration submitted
 - Priority: P2 - notification signup for the October 9 webinar cannot complete
-- First observed / last updated: 2026-10-08 13:47 UTC / 2026-10-08 14:50 UTC
+- First observed / last updated: 2026-10-08 13:47 UTC / 2026-10-08 15:27 UTC
 - Executor/session/claim time: Codex / webinar-zoom-field-20261008 / 2026-10-08 13:55 UTC
 - Authorization: targeted signup repair and qualification reported by parent; no subscriber campaign, unrelated entry, global lifecycle enablement or broader production deployment
 
@@ -62,7 +62,7 @@ No production signup or notification delivery is claimed.
 - Four runtime files: `webinar_schedule.py`, `config.py`, `web/email_utils.py`, `web/webinar_registration.py`. Against the recorded production baseline these contain only this concern: 23 insertions / 6 deletions.
 - Required activation configuration: only `MAILERLITE_WEBINAR_REGISTRATION_ENABLED=1` in the qualified production web environment; preserve the existing false global switch and all unrelated flags.
 - No React build, schema migration, replacement credentials, cron or firewall change required. Restart only affected web service once its qualified source/configuration is activated.
-- Do not deploy whole main: it differs from production in 61 files. This branch is supporting candidate evidence, not an approved immutable release artifact. The existing qualified promotion process still requires canonical main/dev parity and a frozen exact artifact.
+- Do not deploy whole main: it differs from production in 61 files. The complete immutable scoped artifact below is supporting candidate evidence, not an approved qualified release. The existing promotion process still requires canonical main/dev parity and explicit support for scoped artifact provenance.
 - Preserve previous source/runtime/frontend pointers and hashes plus web configuration. Rollback must restore the qualified previous source/pointer and webinar setting, restart only affected web service, rerun only the webinar generator and verify health/content. No `git reset --hard` or unclassified overwrite.
 
 ## Environment Verification and Blockers
@@ -112,6 +112,53 @@ states: "If either confirmation is absent, stop before every production write".
 `docs/RELEASE_PROCESS.md` additionally requires staging approval of the identical
 SHA/artifact, a qualified manifest and human execution of production writes.
 
+## Complete Immutable Candidate and Release Review
+
+`ops/webinar_artifact.py` implements candidate-only `build`, `verify`,
+`materialize` and `plan`; no action activates a service. It reconstructs the
+entire committed baseline plus exactly four pinned tested repair files, rejects
+extra/tampered files and changed scope, refuses output overwrites and source
+checkout writes, and preserves identical archive bytes during transport.
+`ops/check_webinar_artifact.py` cold-imports the actual complete web runtime and
+uses a private cache and fully forbidden/mocked subscriber HTTP for QA.
+The preparation controls have 14 focused integrity/scope unit checks.
+The final combined six-file focused suite passes **64 tests in 4.78 seconds** on
+dev, including both dedicated-test-DB cases; `git diff --check` passes.
+
+Complete package on dev and staging web:
+`/home/tradewave-webinar-artifacts/20261008-baseline-c25ffd-repair-0ed01f`.
+Its committed production baseline is `c25ffd562dc3058ab41db5b07e9075dd841fb29b`;
+repair source is `0ed01f68201623f4f2e55bd32827fca10479bb1a`. Of 2,697 tracked
+files, 2,693 are preserved exactly and only the four tested paths are replaced.
+
+- Complete archive SHA-256: `4e40858ac16075c68799a0086a853a890aaffb5c7ef254e95a7fe04164eb7e5f`.
+- Complete inventory SHA-256: `4029a3514beeabf83ab736c755ae843a967aa59759671bcd7364547b763b4a29`.
+- Actual complete-payload staging tests: **48 passed, 2 deselected in 1.93 seconds**.
+  The dedicated staging test DB is absent; the two DB cases passed on dev.
+- Fresh cold-process probe at **15:27:01 UTC**: app and all repair modules load
+  from that payload; actual source group/date/offset/Zoom URL match. The disabled
+  valid registration reaches **503 with subscriber HTTP forbidden**, followed
+  by **200 under fully mocked provider HTTP** with correct general/dated groups
+  and fields. Global lifecycle permission stays off, lifecycle HTTP calls and
+  real subscriber writes are zero, and no shared cache is touched.
+- Frontend startup preflight: all 21 live frontend files copied privately with
+  identical before/copy/after inventories. Payload checker passes with
+  "React shell and manifest assets ready" against that private copy. Inventory
+  SHA-256 `3ca22b93e72e16f7b3bca78f79904ed2b800b25b4ddce2751564867b0dcf9284`;
+  staging receipt `/home/tradewave-webinar-artifacts/frontend-qa-receipt-20261008.json`.
+  Live frontend pointer, web unit/process and clean baseline remain unchanged.
+
+Independent review confirms the existing manifest semantic validator requires
+promotion source to equal canonical locked main and every frontend `source_sha`
+to equal that release SHA. There is no typed scoped baseline/overlay mode for
+this complete candidate and preserved older frontend. Canonical source
+integration and an explicit reviewed scoped provenance/process addition are
+still required before any live activation. Do not relabel the older frontend's
+source, loosen global gates, fabricate approval, or deploy unrelated main work.
+Concrete `plan` output supplies the proposed web drop-in and rollback boundaries
+but marks execution disallowed. Current-day snapshot confirmations and human
+production execution remain required. See `docs/WEBINAR_SCOPED_CANDIDATE.md`.
+
 The source correction independently needs the parent Google Drive connection
 to regain Sheets editing scopes. Its approval already exists in the parent;
 no further child source attempt should be made.
@@ -121,3 +168,4 @@ no further child source attempt should be made.
 - 2026-10-08 13:55 UTC, Codex: isolated loader mapping fix; dirty shared checkout and dev lock preserved.
 - 2026-10-08 14:23 UTC, Codex: separate webinar permission and mocked actual-route tests complete; 50 pass. Staging connectivity, current-day production snapshot and source OAuth scope blockers recorded; no runtime activation.
 - 2026-10-08 14:50 UTC, Codex: owner reports staging on; fresh SSH and public health confirm recovery. Exact candidate passes 48 staging unit tests and mocked actual-route check against the real source. Scoped archive hash recorded; live release path and production prerequisites remain blocked.
+- 2026-10-08 15:27 UTC, Codex: complete baseline-plus-four-file immutable candidate transported and independently verified on staging; complete-payload unit/cold-import/no-sending and private frontend checks pass. Candidate preparation tools added without changing release policy, main, shared pointers or live runtime. Exact scoped provenance and snapshot/operator blockers retained.

@@ -432,6 +432,12 @@ Flask-rendered (static from `/var/www/tradewave/`).
   `MAILERLITE_OUTBOUND_ENABLED` guard. Never enable that global switch merely
   to repair webinar registration. Current defect and environment
   verification belong to [TW-BUG-0028](bugs/TW-BUG-0028.md).
+  `ops/webinar_artifact.py` can prepare a complete immutable production-baseline
+  candidate with only the four hash-pinned repair files overlaid. Its verifier
+  reconstructs every payload file from Git; transport preserves archive bytes.
+  This candidate tooling has no live activation action and does not waive
+  canonical release or snapshot gates. See
+  [candidate preparation](WEBINAR_SCOPED_CANDIDATE.md).
 
 - **100-Year Pattern public evidence page:**
   `site/generate_100_year_pattern.py` publishes the framework-free source at

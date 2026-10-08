@@ -199,6 +199,15 @@ unrelated main changes as a shortcut. The exact tested commit, configuration
 requirement, target availability and pending gates belong to
 `docs/bugs/TW-BUG-0028.md`.
 
+Complete candidate preparation is supported by `ops/webinar_artifact.py`:
+`build`, `verify` and `materialize` bind a committed production baseline to the
+exact four tested repair file hashes and preserve every other tracked file.
+`plan` produces web-only activation/rollback review material with execution
+explicitly disabled. `ops/check_webinar_artifact.py` cold-imports that complete
+payload and verifies real-source/no-sending and mocked-provider route behavior.
+These tools do not authorize live activation or change the existing deployment
+gates. See `docs/WEBINAR_SCOPED_CANDIDATE.md` for actual commands and boundaries.
+
 ### Static Regeneration and Release Coordination
 
 Static-site regeneration remains fail-closed for generator, authentication, and
