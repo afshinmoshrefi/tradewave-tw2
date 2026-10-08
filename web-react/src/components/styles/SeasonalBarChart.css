@@ -316,6 +316,10 @@
     color: var(--tw-toolbar-heading-color);
 }
 
+.barchart-controls--heading-layout .tw-notify-btn {
+    transform: translateY(-2px);
+}
+
 .barchart-controls--heading-layout > .barchart-controls-div {
     height: 52px !important;
     flex-shrink: 0;
