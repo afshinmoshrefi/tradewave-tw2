@@ -39,11 +39,31 @@ def test_upcoming_filter_sorts_and_excludes_past_or_other_ids():
     assert sessions[0]["datetime"].tzinfo == EASTERN
 
 
-def test_public_feed_never_exposes_meeting_url_or_datetime_object():
+@pytest.mark.parametrize("link_field", ["Webinar Link", "zoom url"])
+def test_public_feed_never_exposes_meeting_url_or_datetime_object(link_field):
+    row = _row("2026-07-22")
+    row[link_field] = row.pop("Webinar Link")
     sessions = get_upcoming_webinars(
-        [_row("2026-07-22")],
+        [row],
         now=datetime(2026, 7, 19, 12, 0, tzinfo=EASTERN),
     )
     public = public_sessions(sessions)
     assert "webinar_url" not in public[0]
     assert "datetime" not in public[0]
+
+
+@pytest.mark.parametrize("link_fields,expected", [
+    ({"zoom url": "https://zoom.example/published"}, "https://zoom.example/published"),
+    ({"Webinar Link": "https://zoom.example/legacy", "zoom url": "https://zoom.example/published"}, "https://zoom.example/legacy"),
+    ({"Webinar Link": "", "zoom url": "https://zoom.example/published"}, "https://zoom.example/published"),
+    ({}, ""),
+])
+def test_published_sheet_meeting_link_mapping(link_fields, expected):
+    row = _row("2026-10-09T04:00:00.000Z", "1:00 PM EST")
+    row.pop("Webinar Link")
+    row.update(link_fields)
+    session, = get_upcoming_webinars(
+        [row], now=datetime(2026, 10, 8, 9, 0, tzinfo=EASTERN),
+    )
+    assert session["webinar_url"] == expected
+    assert session["start_iso"] == "2026-10-09T13:00:00-04:00"

@@ -416,6 +416,20 @@ DB backups. (Source: installed `tradewave-*.service`, `migrate_app_port_to_80.sh
 Handles auth, the `/app/` shell, account/billing, admin. Marketing pages are NOT
 Flask-rendered (static from `/var/www/tradewave/`).
 
+
+- **Webinar notification signup:** `site/generate_webinar_page.py --force`
+  refreshes the published Google Apps Script schedule hourly and writes
+  `/webinars/`, its JSON feed, and `/webinar/` compatibility redirect.
+  `webinar_schedule.py` accepts legacy `Webinar Link` first, then the source's
+  `zoom url` header; meeting URLs stay out of public JSON. The anonymous
+  `POST /api/webinar/register` uses the dated session ID and server schedule,
+  reconciles general plus dated MailerLite notification groups, and sets
+  `webinar_date`, `webinar_time`, and `webinar_url` subscriber fields.
+  Registration shares `MAILERLITE_OUTBOUND_ENABLED` with other application
+  writes, including the lifecycle outbox. Do not enable that global switch
+  merely to repair webinar registration. Current defect and environment
+  verification belong to [TW-BUG-0028](bugs/TW-BUG-0028.md).
+
 - **100-Year Pattern public evidence page:**
   `site/generate_100_year_pattern.py` publishes the framework-free source at
   `site/100-year-pattern/100-year-pattern.html` to

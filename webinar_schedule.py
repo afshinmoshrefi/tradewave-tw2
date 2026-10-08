@@ -87,7 +87,7 @@ def get_upcoming_webinars(data, *, now: datetime | None = None, limit: int = MAX
             "start_iso": start.isoformat(),
             "title": str(item.get("Title") or item.get("Webinar Title") or "TradeWave Webinar").strip(),
             "description": str(item.get("Description") or item.get("Webinar Description") or "").strip(),
-            "webinar_url": str(item.get("Webinar Link") or "").strip(),
+            "webinar_url": str(item.get("Webinar Link") or item.get("zoom url") or "").strip(),
         })
     upcoming.sort(key=lambda session: session["start_iso"])
     return upcoming[:limit]

@@ -19,14 +19,14 @@ class Response:
         return self._data
 
 
-def _row():
+def _row(link_field="Webinar Link"):
     return {
         "Webinar ID": "wb001",
         "Date": "2026-07-22",
         "Time": "2:00 PM",
         "Title": "TradeWave Live",
         "Description": "A live walkthrough.",
-        "Webinar Link": "https://zoom.example/private",
+        link_field: "https://zoom.example/private",
     }
 
 
@@ -59,6 +59,19 @@ def test_invalid_or_past_session_never_touches_mailerlite(registration, monkeypa
     assert called == []
 
 
+def test_session_without_meeting_link_never_touches_mailerlite(registration, monkeypatch):
+    row = _row()
+    row.pop("Webinar Link")
+    called = []
+    monkeypatch.setattr(registration, "_get_mailerlite_subscriber", lambda *_args: called.append(True))
+    result = registration.register_webinar_subscriber(
+        "person@example.com", "Alex", "wb001_2026-07-22_0200PM",
+        data=[row], now=datetime(2026, 7, 19, tzinfo=EASTERN),
+    )
+    assert result == "invalid_session"
+    assert called == []
+
+
 def test_inactive_subscriber_is_not_reactivated(registration, monkeypatch):
     monkeypatch.setattr(
         registration, "_get_mailerlite_subscriber",
@@ -74,14 +87,19 @@ def test_inactive_subscriber_is_not_reactivated(registration, monkeypatch):
     assert ensured == []
 
 
-def test_success_uses_server_schedule_fields_and_verified_groups(registration, monkeypatch):
+@pytest.mark.parametrize("link_field", ["Webinar Link", "zoom url"])
+def test_success_uses_server_schedule_fields_and_verified_groups(registration, monkeypatch, link_field):
     subscribers = iter([
         (Response(404), None),
         (Response(200), _subscriber()),
     ])
     monkeypatch.setattr(registration, "_get_mailerlite_subscriber", lambda *_args: next(subscribers))
     monkeypatch.setattr(registration, "_ensure_group", lambda *_args: "dated")
-    monkeypatch.setattr(registration, "_reconcile_managed_groups", lambda *_args, **_kwargs: "created")
+    reconciliations = []
+    monkeypatch.setattr(
+        registration, "_reconcile_managed_groups",
+        lambda *args, **kwargs: reconciliations.append((args, kwargs)) or "created",
+    )
     writes = []
     monkeypatch.setattr(
         registration, "_mailerlite_request",
@@ -89,9 +107,13 @@ def test_success_uses_server_schedule_fields_and_verified_groups(registration, m
     )
     result = registration.register_webinar_subscriber(
         "person@example.com", "Alex", "wb001_2026-07-22_0200PM",
-        data=[_row()], now=datetime(2026, 7, 19, tzinfo=EASTERN),
+        data=[_row(link_field)], now=datetime(2026, 7, 19, tzinfo=EASTERN),
     )
     assert result == "success"
+    assert reconciliations == [(
+        ("person@example.com", {"general", "dated"}, {"general", "dated"}),
+        {"create_if_missing": True, "name": "Alex", "label": "webinar-groups"},
+    )]
     payload = writes[0][2]
     assert payload["fields"] == {
         "name": "Alex",
