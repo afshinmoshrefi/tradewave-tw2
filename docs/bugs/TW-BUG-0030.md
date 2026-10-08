@@ -1,10 +1,13 @@
 # TW-BUG-0030: Desktop Reminder button sits low in titled toolbar
 
-- Status: in progress on dev
+- Status: verified on live dev
 - Priority: P3
 - Executor/session: Codex `/root/toolbar_titles`, 2026-10-08 UTC
 - Branch/worktree: `codex/reminder-button-align-20261008` at `/home/tradewave-worktrees/reminder-button-align-20261008`, based on `b2da55c5353405cf99d8b0effcc1e898b84c0613`.
 - Authorization: Afshin requested aligning the desktop Reminder pill/bell with adjacent controls. Routine dev-only activation authorized; staging and production excluded.
 - Acceptance: in desktop title mode, full and icon-only Reminder buttons are aligned without changing their internal bell/text spacing or pulse. Title-off and mobile layouts, interactions and tooltip routing remain unchanged.
-- Next: apply the smallest scoped CSS adjustment, build, verify actual live geometry and interaction on dev.
+- Implementation: one title-mode-scoped CSS rule sets the desktop Reminder button to the same `2.7vh` border-box height as neighboring fields. It follows viewport-height changes, including the narrow icon-only variant, without moving the heading or changing bell-to-text spacing and pulse. Title-off and mobile styles are unchanged.
+- Code/main SHA: `86bc5524f31533395974b3b444e84a257591b0d4`; clean task/integration worktrees. React release build passed with existing lint warnings. Live dev frontend `/home/flask/web-react/releases/build-86bc5524f31533395974b3b444e84a257591b0d4` serves `main.ff0730eb.js` plus `main.3fbbf036.css`. The pre-task `build-39a01a03d8bbb837cf36b36c55e8376db1620352` remains the safe rollback pointer; the interim fixed-offset artifact was replaced after viewport-height verification.
+- Live verification (2026-10-08): authenticated capture-bot Chromium through real nginx/API loaded an AAPL pattern. Full button and bell centers exactly matched ticker/Days field centers at 1745x777 (107.52px) and 1745x931 (105.84px), with no content overflow. Icon-only button was within 0.5px at 1280x777 and 1280x931. The button remained the unobscured hit target. Title-off used its original sizing; Pixel 5 remained title-free with the mobile Reminder unchanged. Screenshots: `docs/bugs/evidence/TW-BUG-0030/live-full-1745x777.png` and `live-compact-1280x931.png`. The capture-bot Reminder was not clicked because an unsaved click can publish a portfolio report and launch Google Calendar authorization; no click handler changed.
+- Main/frontend parity: nonforced main push, served bundle stamp and React tree agree. Pre-existing unrelated backend source drift (active `e9499d99` versus main webinar/config changes) remains; this frontend-only fix did not restart backend services. Activation lock released. Staging and production untouched.
 
