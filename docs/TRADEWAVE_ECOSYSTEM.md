@@ -1052,8 +1052,12 @@ checks and restart verification are in `ops/OPERATIONS.md` and
   accessible names. Desktop controls never wrap. Narrow title mode sizes closed
   select displays to their visible labels, omits redundant day/year suffixes under
   their headings, and scales control text with the toolbar container. Native
-  dropdown options and selected-value hover text keep full labels, including
-  nonnumeric options such as All. Absolutely positioned native selects avoid
+  dropdown options keep full labels, including nonnumeric options such as All.
+  When titles are visible, chart and Opportunity-table control headings own their
+  explanatory tooltips; when titles are off, the controls own them. The global
+  tooltip switch suppresses both. Opportunity headings share the desktop title
+  setting, while mobile and tablet remain title-free. Absolutely positioned
+  native selects avoid
   imposing their longest option's intrinsic width on the compact display; visible
   carets preserve discoverability. Title-off and phone paths retain their layout.
   See `docs/tasks/TW-TASK-0012.md` for measured dev widths and verification limits.

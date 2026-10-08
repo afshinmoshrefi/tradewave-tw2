@@ -2,12 +2,15 @@
 
 ## Toolbar and Opportunity heading/tooltips follow-up (2026-10-08)
 
-- Status: in progress on dev; staging and production excluded.
+- Status: frontend verified on live dev; staging and production excluded.
 - Executor/session: Codex `/root/toolbar_titles`, 2026-10-08 UTC.
 - Branch/worktree: `codex/toolbar-tooltip-targets-20261008` at `/home/tradewave-worktrees/toolbar-tooltip-targets-20261008`, based on `af9c687085b10fa2efbe8198cd3bd276392dfc51`.
 - Authorization: Afshin requested toolbar tooltip hover on titles when visible and controls when titles are off, while honoring the global tooltip switch. He also requested matching headings over the Opportunity table's current PE, month, day, years and probability-years controls under the same persisted switch. Mobile titles remain off. Routine dev activation authorized.
 - Acceptance: Desktop title-on tooltips trigger from headings alone; title-off tooltips trigger from controls; global off suppresses both. Opportunity control headings use the same setting/style, are usable at narrow widths, and mobile remains title-free. No calculation/engine behavior changes.
-- Next: implement, focused build and live dev smoke, then record exact SHA and evidence.
+- Implementation SHA: `cc20d0d3fabcee82ac93841f47223b03f33cc0cf` on main. React release build passed with existing lint warnings; active dev frontend is `/home/flask/web-react/releases/build-cc20d0d3fabcee82ac93841f47223b03f33cc0cf` (served `main.0c361733.js`). Previous frontend pointer `build-ae0aa6fe695fa241d98ddb6c19dfb0713fb3b627` is retained.
+- Live dev verification (2026-10-08): documented capture-bot Chromium shell using actual nginx assets and API, AAPL 15-day pattern. At 1440px and 1280px desktop, all 15 chart headings and five Opportunity headings appeared; 1280px Opportunity groups ended at x372 inside the 384px left bar. Hovering a heading showed its Tippy description, while hovering its control did not; title-off inverted both chart and Opportunity tooltip targets. The global tooltip switch suppressed tooltips with titles both on and off. Pixel 5 at 390px had zero chart and Opportunity headings. Final screenshot: `docs/tasks/evidence/TW-TASK-0012-tooltips-20261008/live-desktop.png`.
+- Main/frontend parity: nonforced main push and clean task/integration worktrees; live frontend stamp matches the implementation SHA. The active backend points to older `e9499d99` and differs from main in unrelated webinar files/config, a pre-existing dev drift. This UI task did not restart or change backend services. No claim of full backend/application parity or staging qualification is made. The stale Oct 5 activation lock was preserved in a named archive and this task's lock released.
+- Next: resolve pre-existing backend parity through its owning release workflow before staging qualification; no further action for this UI behavior on dev.
 
 ## Mobile title removal claim (2026-10-04)
 
