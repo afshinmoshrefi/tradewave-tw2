@@ -32,4 +32,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 
 | [TW-TASK-0020](TW-TASK-0020.md) | complete | Restore mobile bar chart More controls above the chart canvas |
 
-| [TW-TASK-0021](TW-TASK-0021.md) | in-progress | Adaptive historical years headings in Wave Viewer and Opportunity table |
+| [TW-TASK-0021](TW-TASK-0021.md) | verified on dev | Adaptive historical years headings in Wave Viewer and Opportunity table |
