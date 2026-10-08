@@ -51,3 +51,5 @@ Status belongs in each record and this index; update both together. Preserve res
 | [TW-BUG-0028](TW-BUG-0028.md) | P2 | complete candidate privately verified; activation blocked | Webinar notification signup drops published Zoom link; scoped release provenance required |
 
 | [TW-BUG-0029](TW-BUG-0029.md) | P3 | verified on dev | Wave Viewer Bias square and Help icon aligned |
+
+| [TW-BUG-0030](TW-BUG-0030.md) | P3 | in progress on dev | Desktop Reminder pill and bell sit low in titled toolbar |
