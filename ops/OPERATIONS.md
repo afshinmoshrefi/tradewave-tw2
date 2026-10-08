@@ -208,6 +208,17 @@ payload and verifies real-source/no-sending and mocked-provider route behavior.
 These tools do not authorize live activation or change the existing deployment
 gates. See `docs/WEBINAR_SCOPED_CANDIDATE.md` for actual commands and boundaries.
 
+For the explicitly owner-approved `tw2-20261008-webinar-01` release only,
+`ops/activate_webinar_release.py {activate|verify|finalize|rollback} --repo
+<private-source-repo> --manifest <qualified-release.json>` implements the bounded
+web-service operation. It checks canonical main/control hashes, the full pinned
+artifact, exact clean target baseline and unchanged frontend before activation.
+It enables only production webinar writes, preserves the default global switch,
+and arms a 20-minute rollback watchdog. `finalize` requires a valid manifest with
+all external environment gates passed before disarming the watchdog. Policy and
+operator approval are recorded in `docs/RELEASE_PROCESS.md`; other releases
+retain the ordinary procedure and operator boundary.
+
 ### Static Regeneration and Release Coordination
 
 Static-site regeneration remains fail-closed for generator, authentication, and

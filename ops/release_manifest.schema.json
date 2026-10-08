@@ -28,7 +28,7 @@
     "schema_version": { "const": 3 },
     "release_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
     "release_kind": {
-      "enum": ["baseline-reconciliation", "standard", "hotfix", "rollback", "parity-audit"]
+      "enum": ["baseline-reconciliation", "standard", "hotfix", "rollback", "parity-audit", "webinar-scoped"]
     },
     "manager": {
       "type": "object",
@@ -93,6 +93,7 @@
       "additionalProperties": false,
       "required": ["manifest_sha256", "frontend", "backend_fingerprint"],
       "properties": {
+        "scoped_webinar": { "$ref": "#/$defs/scopedWebinar" },
         "manifest_sha256": {
           "$ref": "#/$defs/sha256OrNull",
           "description": "Composite release identity hash used for every approval, including backend-only releases; it is not a hash of this release.json file."
@@ -161,6 +162,11 @@
     }
   },
   "allOf": [
+    {
+      "if": { "properties": { "release_kind": { "const": "webinar-scoped" } }, "required": ["release_kind"] },
+      "then": { "properties": { "artifacts": { "required": ["scoped_webinar"] } } },
+      "else": { "properties": { "artifacts": { "not": { "required": ["scoped_webinar"] } }, "dev_coordination": { "properties": { "state": { "not": { "const": "isolated" } } } } } }
+    },
     {
       "if": {
         "required": ["approvals"],
@@ -290,13 +296,30 @@
         "properties": {
           "dev_coordination": {
             "required": ["state"],
-            "properties": { "state": { "enum": ["locked", "released"] } }
+            "properties": { "state": { "enum": ["locked", "released", "isolated"] } }
           }
         }
       }
     }
   ],
   "$defs": {
+    "scopedWebinar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline_sha", "overlay_sha", "archive_sha256", "inventory_sha256", "repair_files", "approval_event", "approved_at", "qualification_mode", "executor", "global_outbound_enabled"],
+      "properties": {
+        "baseline_sha": { "const": "c25ffd562dc3058ab41db5b07e9075dd841fb29b" },
+        "overlay_sha": { "const": "0ed01f68201623f4f2e55bd32827fca10479bb1a" },
+        "archive_sha256": { "const": "4e40858ac16075c68799a0086a853a890aaffb5c7ef254e95a7fe04164eb7e5f" },
+        "inventory_sha256": { "const": "4029a3514beeabf83ab736c755ae843a967aa59759671bcd7364547b763b4a29" },
+        "repair_files": { "const": ["config.py", "web/email_utils.py", "web/webinar_registration.py", "webinar_schedule.py"] },
+        "approval_event": { "const": "Sentinel_de3245e3870481919c42ac162704ea57" },
+        "approved_at": { "const": "2026-10-08T16:08:07Z" },
+        "qualification_mode": { "const": "isolated-dev-then-live-staging" },
+        "executor": { "const": "Codex explicitly designated webinar-only operator" },
+        "global_outbound_enabled": { "const": false }
+      }
+    },
     "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "shaOrNull": { "anyOf": [{ "$ref": "#/$defs/sha" }, { "type": "null" }] },
@@ -336,7 +359,7 @@
       "additionalProperties": false,
       "required": ["state", "lock_path", "lock_owner", "release_sha", "announced_at", "released_at", "evidence"],
       "properties": {
-        "state": { "enum": ["not_started", "announced", "locked", "released"] },
+        "state": { "enum": ["not_started", "announced", "locked", "released", "isolated"] },
         "lock_path": { "const": "/var/lib/tradewave/release-state/dev-activation.lock" },
         "lock_owner": { "type": ["string", "null"], "minLength": 1 },
         "release_sha": { "$ref": "#/$defs/shaOrNull" },

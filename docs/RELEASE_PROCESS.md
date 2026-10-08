@@ -1,5 +1,33 @@
 # TradeWave release process
 
+## Approved October 8 webinar-only release exception
+
+Afshin approved the scoped release mode and designated Codex to execute this
+specific deployment at 2026-10-08 16:08:07 UTC, event
+`Sentinel_de3245e3870481919c42ac162704ea57`. Today's production web/app snapshots
+were explicitly confirmed at 16:03:37 UTC. These permissions apply only to
+`tw2-20261008-webinar-01` and its pinned baseline-plus-four-file artifact.
+
+The typed `webinar-scoped` manifest replaces whole-tree dev/main parity for
+this release with independently reconstructed composite source identity:
+baseline `c25ffd562dc3058ab41db5b07e9075dd841fb29b`, four exact tested file hashes
+from `0ed01f68201623f4f2e55bd32827fca10479bb1a`, archive
+`4e40858ac16075c68799a0086a853a890aaffb5c7ef254e95a7fe04164eb7e5f`.
+Canonical repair/control source is still integrated and locked on main; its
+four repair hashes must match. Qualification uses an isolated dev web instance,
+preserving the shared dev activation owner, then actual live staging. The
+unchanged frontend records its real baseline source SHA and hashes.
+
+All other applicable regression, authentication/browser/contract, target-drift,
+snapshot, approval-binding and rollback gates remain required. This approval
+explicitly overrides the human-operator boundary only for this named deployment;
+it does not change the default boundary for any other release. The guarded
+`ops/activate_webinar_release.py` changes only the web service through a separate
+task-owned drop-in, keeps global MailerLite writes off, enables only the scoped
+webinar permission in production, and arms rollback until final verification.
+Neither application tier is reset, and unrelated main changes are excluded.
+See `docs/WEBINAR_SCOPED_CANDIDATE.md` for artifact identity and verification.
+
 This is the shared policy for Codex, Claude, and human operators. ops/OPERATIONS.md contains commands and server details. This document defines ownership, evidence, gates, and approval boundaries.
 
 ## The operating model

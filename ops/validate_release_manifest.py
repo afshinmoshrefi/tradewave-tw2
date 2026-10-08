@@ -36,6 +36,8 @@ def composite_release_hash(manifest: dict[str, Any]) -> str:
         "backend_fingerprint": artifacts.get("backend_fingerprint"),
         "frontend": frontend,
     }
+    if artifacts.get("scoped_webinar") is not None:
+        payload["scoped_webinar"] = artifacts["scoped_webinar"]
     encoded = json.dumps(
         payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).encode("utf-8")
@@ -57,6 +59,7 @@ def semantic_errors(manifest: dict[str, Any]) -> list[str]:
     identity_hash = artifacts.get("manifest_sha256")
     status = manifest.get("status")
     target = manifest.get("requested_target")
+    scoped = artifacts.get("scoped_webinar") if manifest.get("release_kind") == "webinar-scoped" else None
 
     if identity_hash and identity_hash != composite_release_hash(manifest):
         errors.append("artifacts.manifest_sha256 does not match canonical release identity")
@@ -92,10 +95,23 @@ def semantic_errors(manifest: dict[str, Any]) -> list[str]:
             errors.append(f"environments.{name}.release_sha does not equal git.release_sha")
 
     for index, artifact in enumerate(artifacts.get("frontend") or []):
-        if artifact.get("source_sha") != release_sha:
+        expected_source = scoped["baseline_sha"] if scoped else release_sha
+        if artifact.get("source_sha") != expected_source:
             errors.append(
-                f"artifacts.frontend[{index}].source_sha does not equal git.release_sha"
+                f"artifacts.frontend[{index}].source_sha does not equal "
+                + ("scoped baseline" if scoped else "git.release_sha")
             )
+
+    if scoped:
+        if artifacts.get("backend_fingerprint") != scoped["inventory_sha256"]:
+            errors.append("scoped backend fingerprint must equal complete inventory")
+        if not artifacts.get("frontend"):
+            errors.append("scoped release must preserve recorded frontend provenance")
+        coordination = manifest.get("dev_coordination") or {}
+        if coordination.get("state") == "isolated" and (
+            coordination.get("release_sha") != release_sha or not coordination.get("evidence")
+        ):
+            errors.append("isolated dev qualification requires exact source and evidence")
 
     if _state(manifest, "approvals", "staging") == "approved":
         if _state(manifest, "approvals", "dev") != "approved":
