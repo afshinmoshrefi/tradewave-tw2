@@ -53,3 +53,5 @@ Status belongs in each record and this index; update both together. Preserve res
 | [TW-BUG-0029](TW-BUG-0029.md) | P3 | verified on dev | Wave Viewer Bias square and Help icon aligned |
 
 | [TW-BUG-0030](TW-BUG-0030.md) | P3 | verified on dev | Desktop Reminder pill and bell aligned across viewport heights |
+
+| [TW-BUG-0031](TW-BUG-0031.md) | P1 | in-progress | Daily pick silently stalls on the V2 scorer since 2026-09-16 |
