@@ -649,5 +649,23 @@
     "release_authority_or_approvals_changed": false,
     "subscriber_or_campaign_writes": 0,
     "zoom_calendar_or_smn_changes": 0
+  },
+  "baseline_signed_in_staging_readiness": {
+    "verified_date": "2026-10-09",
+    "url": "https://tw2-stage.trxstat.com/app/",
+    "existing_session_authenticated": true,
+    "clicked_opportunity": {
+      "market": "INDX",
+      "symbol": "DJT",
+      "entry_date": "2026-10-09",
+      "days": 56
+    },
+    "canvas_count": 1,
+    "loading_overlay_count": 0,
+    "live_baseline_only": true,
+    "repaired_release_activated": false,
+    "level_1_verified": false,
+    "current_tier_not_revalidated": true,
+    "required_post_restart_browser_check_still_pending": true
   }
 }

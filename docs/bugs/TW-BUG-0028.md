@@ -84,6 +84,8 @@ app services are running at their original CWDs. Nginx routes/docroots were
 inventoried without edits. No task drop-in is active. Staging CWD, drop-ins and
 frontend pointer/hash inventory still match its immutable rollback baseline.
 
+The existing authenticated staging browser session is freshly checked on the restored baseline: clicking the October 9 DJT opportunity loads one chart canvas and clears the loading overlay. Current tier was not revalidated. This is readiness evidence, not a level-1 pass or repaired-release post-restart qualification.
+
 Staging activation on October 8 was automatically rolled back at
 16:59:30 UTC; today's staging is restored baseline. Production was not activated.
 No current live-staging success or level-1 pass is claimed.
