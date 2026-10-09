@@ -46,7 +46,7 @@ Status belongs in each record and this index; update both together. Preserve res
 | [TW-BUG-0025](TW-BUG-0025.md) | P2 | verified on dev | SMN private editor images/charts restored; original MSFT draft/assets unchanged, anonymous access denied |
 
 | [TW-BUG-0026](TW-BUG-0026.md) | P2 | verified on Dev | Mobile bar chart More control does not open extra controls |
-| [TW-BUG-0027](TW-BUG-0027.md) | P1 | in-progress; partial publication and timer handoff verified | October 9 XLF/DJI/RPM live; canonical 40-job receipt handoff and normal timers restored; all-six digest, new policy release, allowance and alerts remain |
+| [TW-BUG-0027](TW-BUG-0027.md) | P1 | in-progress; partial publication and timer handoff verified | October 9 XLF/DJI/RPM live; direct blanket repair authority and daily60 ceiling recorded; deployment guard correction, remaining articles, all-six digest and verified alerts remain |
 
 | [TW-BUG-0028](TW-BUG-0028.md) | P2 | complete candidate privately verified; activation blocked | Webinar notification signup drops published Zoom link; scoped release provenance required |
 

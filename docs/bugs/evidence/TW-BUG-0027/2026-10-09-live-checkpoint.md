@@ -1,5 +1,7 @@
 # October 9 SMN incident checkpoint
 
+Current checkpoint: direct blanket repair/deployment authority and a 60-job daily ceiling are recorded below. Historic pending 47-job requests are superseded. Three articles remain public; no new completion or newsletter is claimed.
+
 Executor: Codex, task `01a117d1-cc86-737e-a3f1-28b9a724802e`.
 Parent: `01a113a7-f3d3-77f1-a6b8-b856d5a1400c`.
 Scope: direct owner instruction to publish today's articles and restore the working workflow.
@@ -62,6 +64,22 @@ Application activation proof: `smn-deployment-b61b37f-20261009-v3/owned-finaliza
 New policy source and qualification: `smn-essential-advisory-20261009/` and `smn-essential-advisory-20261009-proof/`.
 
 This document preserves the useful production result while the remaining work continues. It does not mark the incident resolved or claim a full unattended workflow.
+
+## Direct blanket authority and deployment guard diagnosis, 16:13 UTC
+
+Afshin's exact direct message was: "approved - don't ask for approval anymore - you have a blanket approval - I have no restrictions for 40 jobs - you can do up to 60 jobs daily - and report the failures and fix them". It followed the explanation of the remaining deployment, recovery allowance and isolated Linux qualification gates. The local authority record was written at `2026-10-09T15:48:24Z`; the user-message clock is unavailable and is not represented as that record timestamp. This supersedes the former 40/47-job permission gates. No further routine approval request is required within the publication and repair scope. All actual failures and receipts still count; no budget reset or false factcheck is authorized.
+
+Two subsequent guarded app-refresh attempts refused before any mutation with `Fresh read-only preflight drift; no mutation`. The exact baseline comparison identified raw systemd `ExecStart` hashes changing on normal minute invocations because the display includes PID, start/stop timestamps and exit metadata. Native progress/delivery worker files also contain normal worker-start/finish updates that were not yet narrowly classified. This is a deployment-operator defect, not a new human approval hold. A separate new operator version is being prepared to compare exact configuration and retain raw execution evidence, while rejecting substantive source, content, result, receipt, owner, command and timer drift.
+
+The read-only native capture at `2026-10-09T16:13:54.846501Z` confirmed the source remains b61, the proposed 678 release and V2 app transaction do not exist, and the partial-three receipt remains in use. There were zero model calls, mail calls or production writes in the diagnosis. Local evidence: `smn-deployment-guard-diagnosis-20261009/stdout.json`, SHA-256 `66de837c14e0af5b893c320fd86c6602758a522aebabe6890685147698d73cc8`.
+
+The separate pushed daily60 candidate `9cb7539b5768f5fec100e4a9f1e29e8802275102`, exact parent 678, has 171 selected author-performed Linux source mock tests passed with no failures, errors, skips or network/model/process/outside-write/source-write violations. Twelve new budget tests cover 59/60/61, retained failed attempts, receipt reuse and limited terminal-budget recovery. One obsolete comparison fixture still fails separately on both pristine 678 and the candidate. The source test fixtures substitute fcntl; these 171 passes are not native lock qualification. Independent review and exact new operator qualification remain separate. Candidate: [SMN draft PR 6](https://github.com/afshinmoshrefi/SMN/pull/6). No deployment of 678 or 9cb is claimed.
+
+The DAL/QQQ recovery package is being rebased into a separate exact-source version with direct 60-job authority, shared daily attempt identity counting, retained old forty receipts/STOP records, source/controller exclusion and explicit SPY visual headroom. No additional actual article job has dispatched in this checkpoint.
+
+Failure reporting and repair are directly authorized by the same message. Alert delivery remains technically unconfigured/unverified: the previous heartbeat surface was unsupported and no ready recipient/credential route or notification receipt exists. Four automatic approval review refusals also prevented the delegated recovery native-fixture tests before process creation; the final refusal treated the child's quoted local approval record as untrusted evidence. No host fixture, payload or native pass resulted. These technical limitations are retained; they are not described as a pending owner approval or solved by a claimed alert.
+
+The proposed partial-digest policy and acceptance cases are [recorded separately](partial-digest-policy-review-20261009.md). It is not implemented or activated; the existing sender still requires all six. Today's article recovery continues independently.
 
 ## Canonical handoff and real scheduled delivery, 15:31 UTC
 
