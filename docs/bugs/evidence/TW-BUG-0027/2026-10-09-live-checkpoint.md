@@ -1,13 +1,39 @@
 # October 9 SMN incident checkpoint
 
-Current production source: `fc5d93c22ff26a9f09c13ee277246e18a3c85a74`. Five articles are verified public, DAL remains pending, and canonical adoption retains 46 actual completed jobs. The incident remains in progress; no mail was sent. Latest publication evidence: `2026-10-09T17:53:45.992215Z`; latest five-timer check: `2026-10-09T16:58:11.084905Z`.
+Current production source: `fc5d93c22ff26a9f09c13ee277246e18a3c85a74`. All six October 9 articles are verified public, canonical adoption retains 49 actual completed jobs, and the normal newsletter campaign is provider-sent (136 sent; delivered count unknown). Publication verified at `2026-10-09T19:44:27.480909Z`; campaign GET-only proof at `2026-10-09T19:54:41.306720Z`. Unattended reliability and actual alert configuration/delivery remain in progress; follow-up PR7 is not deployed.
 
 Executor: Codex, task `01a117d1-cc86-737e-a3f1-28b9a724802e`.
 Parent: `01a113a7-f3d3-77f1-a6b8-b856d5a1400c`.
 Scope: direct owner instruction to publish today's articles and restore the working workflow.
 This checkpoint is proposed on a separate branch; it is not a shared-main claim or peer acknowledgement.
 
-## Current checkpoint: five articles public, October 9 17:53 UTC
+## Current checkpoint: six articles public and newsletter provider-sent, October 9 19:54 UTC
+
+Actual target is `seasonalmarketnews` (`209.182.216.112`), with active source `fc5d93c22ff26a9f09c13ee277246e18a3c85a74`. The successful full-six V4 transaction reached `live_verified` at `2026-10-09T19:44:27.480909Z`. Published subjects are XLF, DAL, SPY, QQQ, DJI and RPM; none remains pending. Native browser verification passed twelve desktop/mobile article layouts and 215 public-file checks. Root inspected four actual hash-bound home/index images at `2026-10-09T19:43:53.975518Z`; this is Codex inspection, with `human_reviewed:false` and `model_receipt_created:false`.
+
+Same-lock canonical adoption completed at `2026-10-09T19:44:25.498254Z`, with `complete:true`, no pending subjects and 49 actual completed jobs. All genuine failed/held attempts and STOP history are retained. The preceding five public article bytes remain unchanged; retained writer lineage, heroes, engine values, old receipts and catalog history are preserved. The successful V4 adopter is SHA-256 `16020a5ef6e24e9b82eac4cc0754429d201863c112420f12a4e50f7b0df47447`; earlier failed full-six attempts remain separate evidence. The publisher/adopter made zero model calls and zero mail sends. The original failed run is not relabeled successful.
+
+Current canonical publication receipt SHA-256 is `edad554acc9c7d0591dce50fb4917a23afd75e9bfdc8e264a13df8f9057e072f`. Raw successful publication receipt is `4891ddba109543a7fa3060ab754f204d743f58c5b690cb11d952f4879ab9b395`, and standard content identity is `c713c92e999f0d4a1ccd39cb73dfeb0eb5d7f94b09ecd404293cda1589646a3e`. The unchanged raw native-finish receipt is separately retained; its original fields are not rewritten.
+
+The normal weekday timer created the date campaign once after the genuine full-six gate passed. Root subsequently reconciled that existing campaign through native GET-only polling at `2026-10-09T19:54:41.306720Z`: key `daily:2026-10-09`, name `SMN-Daily-2026-10-09`, campaign ID `200881056906217031`, phase `provider_sent`, provider status `sent`, finished at `2026-10-09 19:50:57`. Provider-reported counts are sent 136, hard bounces 0, soft bounces 0 and delivered unknown (`null`). This proves provider-sent status; it does not prove recipient delivery. The saved reconciliation explicitly records zero POST calls, new campaigns and model calls. The root's alternative send helper was preserved and did not create another campaign.
+
+Successful publication proof directory in the private local workspace `C:/Users/afshin/Documents/Codex/2026-10-07/task-2`: `smn-oct9-incremental-publisher-fc5-six-temporal-v4-launch-20261009/actual-six-temporal-publication-proof/`.
+
+| Evidence | SHA-256 |
+|---|---|
+| `production-publication-receipt.json` | `4891ddba109543a7fa3060ab754f204d743f58c5b690cb11d952f4879ab9b395` |
+| `native-finish-receipt.json` | `b97362524ab42c496c4aa0a5ef142d0b326910c78c05c3747661c758a54516da` |
+| `canonical-adoption-result.json` | `c52ebc9cb442090e8a28bc15d5ca54a566df4a7660d83d85ef33a8c328d94368` |
+| `live-verification.json` | `eacae87dbad6fe66adc09259ab7326789c71534ad3994e985fae36cf0f0e1cec` |
+| `live-landing-visual-checks.json` | `410e856b4f324213a878f8bb143ceaea0d9d9549b1f7c22c12c89604854a5349` |
+| `execution-exit.json` | `11cf400e87b09cc8cc89a5bd5172cb4dce9667aeac9ebc76d7f71fa41dd44855` |
+| `smn-known-newsletter-reconcile-20261009/195440252726.stdout.json` | `ff2b7f4fb881cc405ba34e91c0d9e8184f458fdc6b21a0fffa002a955c89620c` |
+
+Task 1's publication and provider-sent campaign outcome is complete. The broader reliability incident remains in progress. Follow-up source `21d1376eda86bb0e9bc43c9f347cd46c04ef109a` is pushed as [SMN draft PR 7](https://github.com/afshinmoshrefi/SMN/pull/7), based on fc5 and not deployed. The two normal-newsletter fixes provide bounded retry only when pre-send absence is proven and truthful failure for a missing `SMN-DAILY` group; unknown send state stays held and existing campaign reconciliation remains GET-only. This candidate does not establish future scheduled success.
+
+Operational alerts remain actually unconfigured: destination and credential are missing, with no fabricated configuration or delivery receipt. Collect three genuine unattended weekday runs on October 12, 13 and 14, verifying fresh generation, publication by deadline, accurate terminal state, receipt-aware publication/mail reuse without duplicates and real failure-notification delivery when a failure occurs. Timer activity alone is insufficient. All five timers were verified active/enabled at 16:58 UTC; this publication made no timer/source changes. Direct blanket repair/publication authority and maximum 60 actual jobs daily remain resolved. Existing incident ownership is retained; this delegated checkpoint is documentation-only and performs no host/model/mail action.
+
+## Historical: five articles public, October 9 17:53 UTC
 
 Actual target is `seasonalmarketnews` (`209.182.216.112`), with exact active source `fc5d93c22ff26a9f09c13ee277246e18a3c85a74`. The five-of-six transaction succeeded at `2026-10-09T17:53:45.992215Z`. Published subjects are XLF, SPY, QQQ, DJI and RPM; only DAL remains pending. Native browser evidence passed ten desktop/mobile article layouts and 195 public-file checks. Root directly inspected all four hash-bound live landing/index PNGs at `2026-10-09T17:53:20.378262Z`, with `human_reviewed:false` and `model_receipt_created:false`.
 

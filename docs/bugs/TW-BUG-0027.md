@@ -1,10 +1,18 @@
 # TW-BUG-0027: October 5 SMN reader edition held
 
-- Current status: in-progress; five articles public and canonical partial edition with 46 jobs adopted; DAL quote/context hold remains.
-- Latest actual check: `2026-10-09T17:53:45.992215Z`.
+- Current status: in-progress; October 9 six-article publication and provider-sent newsletter verified; unattended reliability and alert routing remain.
+- Latest actual check: `2026-10-09T19:54:41.306720Z`.
 - Existing incident executor/ownership is retained.
 
-## Current checkpoint: five articles public, October 9 17:53 UTC
+## Current checkpoint: six articles public and newsletter provider-sent, October 9 19:54 UTC
+
+All six October 9 articles (XLF, DAL, SPY, QQQ, DJI and RPM) reached `live_verified` at `2026-10-09T19:44:27.480909Z` on exact production source `fc5d93c22ff26a9f09c13ee277246e18a3c85a74`. Native browser verification passed twelve article layouts and 215 public-file checks; root inspected all four hash-bound live landing/index screenshots. The earlier five public article bytes remain unchanged. Same-lock canonical adoption completed at `2026-10-09T19:44:25.498254Z`, with `complete:true`, no pending subjects and all 49 actual completed jobs retained, including failed/held attempts and STOP history. Today's publication recovery is complete; no original failed run is relabeled successful.
+
+The normal weekday newsletter timer created the existing date campaign once. At `2026-10-09T19:54:41.306720Z`, native GET-only reconciliation confirmed campaign `200881056906217031`, `provider_sent`, provider status `sent`, finished at `2026-10-09 19:50:57`, with 136 sent, zero hard/soft bounces and delivered count unknown. Root's reconciliation made zero POST calls, new campaigns or model calls. Provider-sent is verified; inbox delivery is not. [Exact receipts and remaining gates](evidence/TW-BUG-0027/2026-10-09-live-checkpoint.md) retain the successful V4 proof and earlier failed attempts separately.
+
+Unattended reliability remains in progress. Follow-up `21d1376eda86bb0e9bc43c9f347cd46c04ef109a` is pushed as [SMN draft PR 7](https://github.com/afshinmoshrefi/SMN/pull/7), based on fc5, and is a candidate, not deployed. Actual operational alerts remain unconfigured because the destination and credential are missing; no alert delivery is claimed. Three genuine scheduled weekday runs on October 12, 13 and 14 must demonstrate fresh generation, deadline publication, truthful terminal state, receipt-aware publication/mail idempotency and actual notification evidence for a real failure. Direct blanket repair/publication authority and daily60 remain resolved; no further routine approval is pending.
+
+## Historical: five articles public, October 9 17:53 UTC
 
 Production remains exact `fc5d93c22ff26a9f09c13ee277246e18a3c85a74`. At `2026-10-09T17:53:45.992215Z`, XLF, SPY, QQQ, DJI and RPM were verified public; only DAL remains pending. Native browser proof passed ten article layouts and 195 public-file checks, and root inspected all four hash-bound live landing/index images. Canonical adoption completed at `2026-10-09T17:53:44.595083Z` under the same eight locks, with `complete:false`, truthful five-of-six coverage, and all 46 actual completed subscription jobs retained, including held attempts. The original three article/asset bytes, writer lineage and historical receipts remain preserved; their catalog publishing-source field alone transitions to the verified fc5 publishing transaction.
 

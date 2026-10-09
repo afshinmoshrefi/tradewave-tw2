@@ -1,11 +1,19 @@
 # TW-TASK-0005: Subscription daily SMN Dev workflow
 
-- Current status: in-progress for October 9 production recovery; five articles verified public, DAL pending, canonical state retains 46 completed jobs.
-- Current evidence time: `2026-10-09T17:53:45.992215Z`.
+- Current status: in-progress for unattended reliability; October 9 six-article publication and provider-sent newsletter verified, canonical state retains all 49 completed jobs.
+- Current evidence time: `2026-10-09T19:54:41.306720Z`.
 - Existing incident owner: Codex task `01a117d1-cc86-737e-a3f1-28b9a724802e`; original Dev claim is retained below as history.
 - Current authority: direct blanket publication/repair approval, maximum 60 actual daily jobs; no additional routine approval within scope.
 
-## Current checkpoint: five articles public, October 9 17:53 UTC
+## Current checkpoint: six articles public and newsletter provider-sent, October 9 19:54 UTC
+
+The October 9 publication outcome is verified: all six XLF/DAL/SPY/QQQ/DJI/RPM articles reached `live_verified` at `2026-10-09T19:44:27.480909Z` on `fc5d93c22ff26a9f09c13ee277246e18a3c85a74`. Twelve native article layouts, 215 public-file checks and all four root-inspected live landing/index screenshots passed. The previous five article bytes remain unchanged. Canonical adoption is complete, with no pending subjects and all 49 actual completed jobs, including genuine failed/held receipts, retained under the daily60 ceiling.
+
+The normal weekday timer created one `SMN-Daily-2026-10-09` campaign. Native GET-only reconciliation at `2026-10-09T19:54:41.306720Z` confirmed campaign `200881056906217031` as `provider_sent`/`sent`, finished at `2026-10-09 19:50:57`: 136 sent, zero hard/soft bounces, delivered count unknown. The root reconciliation made no new POST, campaign or model call. Today's publication and provider-sent newsletter are verified; recipient delivery is not claimed. [Shared current evidence](../bugs/evidence/TW-BUG-0027/2026-10-09-live-checkpoint.md) owns the exact receipts and preserves earlier partial checkpoints.
+
+The broader unattended-workflow task remains in progress. Follow-up `21d1376eda86bb0e9bc43c9f347cd46c04ef109a` is [SMN draft PR 7](https://github.com/afshinmoshrefi/SMN/pull/7), based on fc5 and not deployed. Alert destination/credential remain missing, so no working alert route or delivered alert is claimed. Collect genuine scheduled-run proof on October 12, 13 and 14 for fresh generation, deadline publication, accurate terminal state, publication/mail idempotency and real failure-notification delivery. Existing ownership and direct blanket publication/repair authority remain unchanged; no routine approval is pending.
+
+## Historical: five articles public, October 9 17:53 UTC
 
 Exact production source remains `fc5d93c22ff26a9f09c13ee277246e18a3c85a74`. The first incremental publication succeeded at `2026-10-09T17:53:45.992215Z`: XLF/SPY/QQQ/DJI/RPM public, DAL pending, ten live article layouts and 195 public-file checks passed, and all four actual landing/index screenshots inspected by root. Same-lock canonical adoption completed at 17:53:44 UTC with 46 actual completed jobs and `complete:false`. Failed/held receipts and original article/asset/engine evidence remain retained. Publishing source metadata changes are attributed separately from unchanged writer lineage.
 
