@@ -1,11 +1,17 @@
 # TW-TASK-0005: Subscription daily SMN Dev workflow
 
-- Current status: in-progress for October 9 production recovery; final application activation/timer restoration verified.
-- Current evidence time: `2026-10-09T16:58:11.084905Z`.
+- Current status: in-progress for October 9 production recovery; five articles verified public, DAL pending, canonical state retains 46 completed jobs.
+- Current evidence time: `2026-10-09T17:53:45.992215Z`.
 - Existing incident owner: Codex task `01a117d1-cc86-737e-a3f1-28b9a724802e`; original Dev claim is retained below as history.
 - Current authority: direct blanket publication/repair approval, maximum 60 actual daily jobs; no additional routine approval within scope.
 
-## Current checkpoint: fc5 deployment verified, October 9 16:58 UTC
+## Current checkpoint: five articles public, October 9 17:53 UTC
+
+Exact production source remains `fc5d93c22ff26a9f09c13ee277246e18a3c85a74`. The first incremental publication succeeded at `2026-10-09T17:53:45.992215Z`: XLF/SPY/QQQ/DJI/RPM public, DAL pending, ten live article layouts and 195 public-file checks passed, and all four actual landing/index screenshots inspected by root. Same-lock canonical adoption completed at 17:53:44 UTC with 46 actual completed jobs and `complete:false`. Failed/held receipts and original article/asset/engine evidence remain retained. Publishing source metadata changes are attributed separately from unchanged writer lineage.
+
+The typed DAL quote/context binding still holds essential completion; root is running the authorized two-job review/visual repair without another writer. No repair completion is claimed here. Direct daily60 publication/repair authority is resolved; no routine approval remains pending. Today's content transaction made zero model calls and zero mail sends, and the native newsletter requires all six genuine articles. All five timers were verified active/enabled at 16:58 UTC and this transaction did not change them. [Current shared evidence](../bugs/evidence/TW-BUG-0027/2026-10-09-live-checkpoint.md) owns exact receipts and separates recovery success from remaining unattended reliability and alert-delivery proof.
+
+## Historical: fc5 deployment verified, October 9 16:58 UTC
 
 The active production application is `fc5d93c22ff26a9f09c13ee277246e18a3c85a74` on `seasonalmarketnews` (`209.182.216.112`). The deployment receipt is `active_verified` at `2026-10-09T16:49:47.722543Z`; all five existing SMN timers were restored at `2026-10-09T16:49:47.892237Z` and were active/enabled in the fresh `2026-10-09T16:58:11.084905Z` check. All 365 physical deployed source files match exact raw Git bytes, with no mismatch. Receipt SHA-256: `2ee8f0d489b040861e033350bf5fa2039210b8154bb4a29e2ec65959cca1d965`.
 

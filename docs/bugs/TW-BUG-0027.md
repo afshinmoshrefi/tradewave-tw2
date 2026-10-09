@@ -1,10 +1,16 @@
 # TW-BUG-0027: October 5 SMN reader edition held
 
-- Current status: in-progress; production fc5 activation and all five timer restorations verified.
-- Latest actual check: `2026-10-09T16:58:11.084905Z`.
+- Current status: in-progress; five articles public and canonical partial edition with 46 jobs adopted; DAL quote/context hold remains.
+- Latest actual check: `2026-10-09T17:53:45.992215Z`.
 - Existing incident executor/ownership is retained.
 
-## Current checkpoint: fc5 deployment verified, October 9 16:58 UTC
+## Current checkpoint: five articles public, October 9 17:53 UTC
+
+Production remains exact `fc5d93c22ff26a9f09c13ee277246e18a3c85a74`. At `2026-10-09T17:53:45.992215Z`, XLF, SPY, QQQ, DJI and RPM were verified public; only DAL remains pending. Native browser proof passed ten article layouts and 195 public-file checks, and root inspected all four hash-bound live landing/index images. Canonical adoption completed at `2026-10-09T17:53:44.595083Z` under the same eight locks, with `complete:false`, truthful five-of-six coverage, and all 46 actual completed subscription jobs retained, including held attempts. The original three article/asset bytes, writer lineage and historical receipts remain preserved; their catalog publishing-source field alone transitions to the verified fc5 publishing transaction.
+
+DAL remains on the required typed issuer quote/context binding hold. Root is performing the two-job review/visual repair; its success, publication or additional completed jobs are not claimed at this snapshot. Direct blanket repair/publication authority and daily60 are already granted, with no approval pending. The publisher/adopter made zero model calls and zero mail sends. The native all-six newsletter gate correctly holds this partial edition. All five timers were verified active/enabled at 16:58 UTC and were not changed by this content transaction. [Dated current receipts and remaining gates](evidence/TW-BUG-0027/2026-10-09-live-checkpoint.md) distinguish this owner-run publication from still-unproven unattended daily completion and unverified alert delivery. The incident remains in progress.
+
+## Historical: fc5 deployment verified, October 9 16:58 UTC
 
 The active production application is `fc5d93c22ff26a9f09c13ee277246e18a3c85a74` on `seasonalmarketnews` (`209.182.216.112`). The deployment receipt is `active_verified` at `2026-10-09T16:49:47.722543Z`; all five existing SMN timers were restored at `2026-10-09T16:49:47.892237Z` and were active/enabled in the fresh `2026-10-09T16:58:11.084905Z` check. All 365 physical deployed source files match exact raw Git bytes, with no mismatch. Receipt SHA-256: `2ee8f0d489b040861e033350bf5fa2039210b8154bb4a29e2ec65959cca1d965`.
 

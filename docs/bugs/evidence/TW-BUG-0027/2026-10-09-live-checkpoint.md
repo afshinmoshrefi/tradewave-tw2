@@ -1,13 +1,36 @@
 # October 9 SMN incident checkpoint
 
-Current production source: `fc5d93c22ff26a9f09c13ee277246e18a3c85a74`, verified and all five timers restored. Three articles are public and three remain pending; the incident remains in progress. Latest actual check: `2026-10-09T16:58:11.084905Z`.
+Current production source: `fc5d93c22ff26a9f09c13ee277246e18a3c85a74`. Five articles are verified public, DAL remains pending, and canonical adoption retains 46 actual completed jobs. The incident remains in progress; no mail was sent. Latest publication evidence: `2026-10-09T17:53:45.992215Z`; latest five-timer check: `2026-10-09T16:58:11.084905Z`.
 
 Executor: Codex, task `01a117d1-cc86-737e-a3f1-28b9a724802e`.
 Parent: `01a113a7-f3d3-77f1-a6b8-b856d5a1400c`.
 Scope: direct owner instruction to publish today's articles and restore the working workflow.
 This checkpoint is proposed on a separate branch; it is not a shared-main claim or peer acknowledgement.
 
-## Current checkpoint: fc5 deployment verified, October 9 16:58 UTC
+## Current checkpoint: five articles public, October 9 17:53 UTC
+
+Actual target is `seasonalmarketnews` (`209.182.216.112`), with exact active source `fc5d93c22ff26a9f09c13ee277246e18a3c85a74`. The five-of-six transaction succeeded at `2026-10-09T17:53:45.992215Z`. Published subjects are XLF, SPY, QQQ, DJI and RPM; only DAL remains pending. Native browser evidence passed ten desktop/mobile article layouts and 195 public-file checks. Root directly inspected all four hash-bound live landing/index PNGs at `2026-10-09T17:53:20.378262Z`, with `human_reviewed:false` and `model_receipt_created:false`.
+
+Canonical adoption completed at `2026-10-09T17:53:44.595083Z` while the publisher retained the controller, progress, delivery, publication, scheduler, newsletter, reader and catalog locks. Canonical status is partial (`complete:false`), with all 46 actual completed jobs retained and daily60 authority unchanged. Both original failed review histories and STOP journals remain; DAL's actual writer/reviewer evidence is counted even while its article remains held. No original failed run is relabeled successful. XLF/DJI/RPM public article/assets/heroes and writer provenance are byte-preserved. Only catalog `source_commit`, which records this publishing software transaction, moves to fc5; full old rows and old receipts remain in the audit.
+
+DAL remains held on the required typed issuer quote/context binding. Root is running the authorized two-job review/visual repair, reusing the existing writer; no new passed repair, completed job count beyond 46 or DAL publication is claimed in this dated snapshot. The publisher and canonical adopter made zero model calls and zero mail sends. The native `continuity-v1` all-six newsletter gate still holds, accurately, because DAL is pending. Direct blanket publication/repair authority and maximum 60 daily jobs already supersede former pending 40/47 requests; there is no approval pending.
+
+All five existing timers were verified active/enabled at `2026-10-09T16:58:11.084905Z`; the content transaction made no timer/source changes. This is an owner-run five-article recovery, not proof of an unattended complete daily run. Three consecutive genuine unattended weekdays, ordinary publication/mail idempotency, and actual failure-notification delivery still require evidence. Alert routing/credentials/transport remain unconfigured or unverified at the last recorded inspection. Incident ownership remains unchanged; root is the actual executor, and this documentation-only delegated update performs no server, model or mail actions.
+
+Current proof directory in the private local workspace `C:/Users/afshin/Documents/Codex/2026-10-07/task-2`: `smn-oct9-incremental-publisher-fc5-v2-launch-20261009/actual-five-publication-proof/`.
+
+| Evidence | SHA-256 |
+|---|---|
+| `production-publication-receipt.json` | `606c6ef9e49162e581ea081fc3c58e562b5928a1d23e227a600a70b78e13cc0f` |
+| `native-finish-receipt.json` | `62801650dfc28fbe1adaa5e4e92596b558d143b2603facb19222443181b43522` |
+| `canonical-adoption-result.json` | `42563004b02628bf3868bd02f6b13722220d4578ee9053e3659df3b25f7349bd` |
+| `live-verification.json` | `ba572ad9e0da3a69df9ba1bb4fa369ed1c6621556953be413af628f539a34996` |
+| `live-landing-visual-checks.json` | `c36d78e5e318b40ec64892a5ea571ddb91446959b8dd7fa7c4dd06ddfe7d3cc9` |
+| `execution-exit.json` | `11cf400e87b09cc8cc89a5bd5172cb4dce9667aeac9ebc76d7f71fa41dd44855` |
+
+Raw publication receipt is `606c6ef9e49162e581ea081fc3c58e562b5928a1d23e227a600a70b78e13cc0f`; standard content identity is `6d0d748e8bc1ab3e02b9118e8c952e735b55b42d74e91f11bf7981485ea2b80c`. The separately saved native-finish receipt retains its original fields and is not rewritten. The canonical receipt adds attributable adoption evidence; its distinct SHA is not invented here. Actual adoption manifest SHA is `3c3d35fc7a3f09a77ce8782741e09e1c366e6dd76b69bc6dcc6c8358e981ccbd`. Historical canonical3 anchor `c22210350c293b82dce55e86a61f4495aec3abd04ebea8eaf75bb1cb14a8953a` and raw3 receipt `771338548de7e67fb53a5385df8707c438d83b29162ee2e98cc72d1979d3a4d3` remain preserved audit history rather than current coverage. Mail state remains unchanged by the guarded transaction.
+
+## Historical: fc5 deployment verified, October 9 16:58 UTC
 
 The active production application is `fc5d93c22ff26a9f09c13ee277246e18a3c85a74` on `seasonalmarketnews` (`209.182.216.112`). The deployment receipt is `active_verified` at `2026-10-09T16:49:47.722543Z`; all five existing SMN timers were restored at `2026-10-09T16:49:47.892237Z` and were active/enabled in the fresh `2026-10-09T16:58:11.084905Z` check. All 365 physical deployed source files match exact raw Git bytes, with no mismatch. Receipt SHA-256: `2ee8f0d489b040861e033350bf5fa2039210b8154bb4a29e2ec65959cca1d965`.
 
