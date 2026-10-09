@@ -172,3 +172,8 @@ The required receipt-based usage report is preserved at `/var/lib/tradewave/smn-
 ## Scheduled run - September 29, 2026
 
 2026-09-29T11:07Z: the normal Codex heartbeat used clean current SMN main `11baa39a4575af27d05901abe5a2d72dba83a81d` and captured the New York date read-only from production. Only four distinct subjects were available (`APH`, `CPRT`, `O`, `XLF`), so the required six-subject batch was incomplete. The run remains `waiting_for_production`: no TradeWave engine capture, research, model job, article generation, visual review, Dev publication or production write ran, and no prior-date substitution was made.
+
+
+## October 9 production recovery checkpoint
+
+Three qualified articles (XLF, DJI, RPM) are public on seasonalmarketnews.com with truthful pending coverage, verified native/browser/pixel evidence and a receipt-bound fresh public read at 13:52 UTC. No newsletter was sent. The timer repair is active on b61; progress/delivery remain held while canonical state is reconciled. [TW-BUG-0027 dated evidence](../bugs/evidence/TW-BUG-0027/2026-10-09-live-checkpoint.md) owns exact source, actual hashes, 40-job accounting, pending 47-job authority, isolated advisory policy candidate and alert/unattended gates. The incident remains in progress.
