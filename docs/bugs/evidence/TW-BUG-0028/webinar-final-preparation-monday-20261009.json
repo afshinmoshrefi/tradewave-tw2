@@ -1,0 +1,653 @@
+{
+  "release_id": "tw2-20261008-webinar-01",
+  "preparation_complete": true,
+  "production_signup_fixed": false,
+  "activation_allowed": false,
+  "exact_runtime_artifact": {
+    "path": "/home/tradewave-webinar-artifacts/20261008-baseline-c25ffd-repair-0ed01f/payload.tar.gz",
+    "archive_sha256": "4e40858ac16075c68799a0086a853a890aaffb5c7ef254e95a7fe04164eb7e5f",
+    "inventory_sha256": "4029a3514beeabf83ab736c755ae843a967aa59759671bcd7364547b763b4a29",
+    "baseline_sha": "c25ffd562dc3058ab41db5b07e9075dd841fb29b",
+    "repair_sha": "0ed01f68201623f4f2e55bd32827fca10479bb1a",
+    "total_tracked_entries": 2697,
+    "preserved_baseline_entries": 2693,
+    "replaced_paths": [
+      "config.py",
+      "web/email_utils.py",
+      "web/webinar_registration.py",
+      "webinar_schedule.py"
+    ],
+    "frontend_preserved": true,
+    "application_server_preserved": true
+  },
+  "current_audited_main_sha": "f83a48484f916a89c4fbd9b26030ee7c946d58c5",
+  "pending_provenance_composite_sha256": "be8c0096b2ccfcef56151025aebe06e8fe0b1813deb080fa9aadcd3368dda6bf",
+  "source_reschedule_receipt": "webinar-monday-reschedule-receipt-20261009.json",
+  "staging_host_cold_contract": {
+    "verified_utc": "2026-10-09T13:40:04.045435+00:00",
+    "cold_imports": {
+      "app": "web/app.py",
+      "config": "config.py",
+      "email_utils": "web/email_utils.py",
+      "webinar_registration": "web/webinar_registration.py",
+      "webinar_schedule": "webinar_schedule.py"
+    },
+    "complete_artifact_used": true,
+    "actual_source_group": "wb001_2026-10-12_0100PM",
+    "date": "October 12, 2026",
+    "time": "1:00 PM ET",
+    "source_zoom_url_matches": true,
+    "disabled_route_with_real_source_and_forbidden_subscriber_http": 503,
+    "enabled_route_with_mocked_provider_http": 200,
+    "general_and_dated_groups_and_fields_verified": true,
+    "lifecycle_http_calls": 0,
+    "real_subscriber_writes": 0,
+    "shared_source_cache_modified": false,
+    "public_service_activated": false
+  },
+  "live_staging_release_qualified": false,
+  "live_staging_state": "restored baseline; no activation performed today",
+  "controller_date_review": {
+    "at": "2026-10-09T13:45:19.622175+00:00",
+    "review_only": true,
+    "not_applied_or_executed": true,
+    "changes_only_two_date_literals": true,
+    "original_controller_sha256": "e3eec03487367d249bff1444bc0a27a57aba5df1c197c9d28a1ffdaf0a89e9c6",
+    "proposed_controller_sha256": "0c48bfadfe24e6f8afc07b4d453d2bb1f20b4c7f931fc9c1f143bb301a897ec0",
+    "patch_path": "/home/tradewave-handoffs/2026-10-08/webinar-controller-date-review-20261009.patch",
+    "cases": [
+      {
+        "case": "original_expired_guard_rejects_today",
+        "result": "current-day web/app snapshot evidence missing",
+        "service_mutations": 0
+      },
+      {
+        "case": "proposed_today_both_targets_accepts",
+        "result": "passed_preflight_stopped_before_target_audit",
+        "service_mutations": 0
+      },
+      {
+        "case": "missing_app_snapshot_rejected",
+        "result": "current-day web/app snapshot evidence missing",
+        "service_mutations": 0
+      },
+      {
+        "case": "missing_web_snapshot_rejected",
+        "result": "current-day web/app snapshot evidence missing",
+        "service_mutations": 0
+      },
+      {
+        "case": "stale_day_snapshot_rejected",
+        "result": "current-day web/app snapshot evidence missing",
+        "service_mutations": 0
+      },
+      {
+        "case": "next_day_execution_rejected",
+        "result": "current-day web/app snapshot evidence missing",
+        "service_mutations": 0
+      },
+      {
+        "case": "pending_staging_approval_rejected",
+        "result": "missing production prerequisite: staging",
+        "service_mutations": 0
+      },
+      {
+        "case": "pending_production_snapshots_approval_rejected",
+        "result": "missing production prerequisite: production_snapshots",
+        "service_mutations": 0
+      },
+      {
+        "case": "pending_production_approval_rejected",
+        "result": "missing production prerequisite: production",
+        "service_mutations": 0
+      }
+    ],
+    "service_mutations": 0,
+    "canonical_controller_unchanged": true,
+    "authoritative_release_manifest_unchanged": true,
+    "approval_binding_was_mocked_only_inside_test": true
+  },
+  "targets": {
+    "stage_web": {
+      "at": "2026-10-09T13:43:18.508337+00:00",
+      "hostname": "tw2-stage-web",
+      "kind": "web",
+      "runtime": {
+        "MainPID": "9431",
+        "WorkingDirectory": "/home/flask/web",
+        "DropInPaths": "",
+        "FragmentPath": "/etc/systemd/system/tradewave-web.service",
+        "ActiveState": "active",
+        "SubState": "running",
+        "process_cwd": "/home/flask/web",
+        "whitelisted_process_environment": {
+          "PYTHONPATH": "/home/flask:/home/flask/web",
+          "TW2_REACT_BUILD_DIR": "/home/flask/web-react/build",
+          "MAILERLITE_OUTBOUND_ENABLED": "0"
+        },
+        "effective_unit_sha256": "00b8c3d38887393ef85b2a2e9f428f0b52c4ff35177d621c6cd1a3afcb8b0f20"
+      },
+      "git": {
+        "head": {
+          "exit": 0,
+          "stdout": "c25ffd562dc3058ab41db5b07e9075dd841fb29b"
+        },
+        "tracked_drift": {
+          "exit": 0,
+          "stdout": ""
+        },
+        "tree": {
+          "exit": 0,
+          "stdout": "b402e244e33bfd35eebb81b33556c6574500155c"
+        }
+      },
+      "clean_pinned_baseline": true,
+      "frontend": {
+        "pointer": "/home/flask/web-react/releases/build-c25ffd562dc3",
+        "file_count": 21,
+        "exact_21_hashes_match": true,
+        "inventory": {
+          ".tradewave-source-sha": "3eaeacca403caa953141688ec7649070bc4ff79b278a68d579adb8727d1493c0",
+          "asset-manifest.json": "9bba1112123361e088432428c64706dba0df6a0980f65894990a7eec83538f98",
+          "favicon.ico": "3d10f7da6c603178340081668c4ac5b3ae9743ca9a262ab0fcd312fbb9f48bdd",
+          "favicon.png": "52eda5ac18e3470b372039c1aa34e74441fa7071ab801626ac90baf94f72a1af",
+          "images/downarrow8.png": "76c36002756850fdd2dd5f2f37dc6e906cc08172fdea494eb4a7a9e8b184715a",
+          "images/hixsea_logo1.png": "e67f4b71cd7fb05d3da0e36d1fbe805631523abcc735010470f9f401d6178f09",
+          "images/hixsea_logo2.png": "63e2bf12a536a4ddc5cce777ad26b1b3e11ce84e6761e5c9efa9da54a2503418",
+          "images/uparrow8.png": "bafb9f92889a862c6797ff5d4cf0326bd94b76b7f4ebb9a44d08b1e0bb653158",
+          "index.html": "cd190cbaf8b4771778ea6fdff05c15ec3b8ab02b0e0cad6b0730560b4460187f",
+          "logo192.png": "c386396ec70db3608075b5fbfaac4ab1ccaa86ba05a68ab393ec551eb66c3e00",
+          "logo512.png": "9ea4f4da7050c0cc408926f6a39c253624e9babb1d43c7977cd821445a60b461",
+          "manifest.json": "50b3d8c3903af3f78d871b94557ab14f4e39ca192eaca3d2cfa863c867279a14",
+          "robots.txt": "90d24bc3bf698ac1e173739502298ccca72adf1f564fab05f484b8c48d1cadd2",
+          "static/css/129.3bcee188.chunk.css": "bc2f96cf5d7f8d30f95675a5db6585b3c4455491e4b37c8d2bcd7cadd8fc7196",
+          "static/css/main.75888315.css": "3a7f6e54814f799b68755d738628b65fe927de3bbb7798fea6202261b3432aa3",
+          "static/js/129.6830be97.chunk.js": "a896255eef7b065d370a2cf166a1d88ba839a90354e450e54cdcc4d9776ab7c3",
+          "static/js/159.4ef55f9a.chunk.js": "d70c4feb56a344feaf9ba2c45162c5484c92543b478b744d70891ee82926b817",
+          "static/js/322.a0dc03eb.chunk.js": "cb71e28eb92e586aab5a25f66c8b3a3a2931f6a97bc0fa4ef87747485b64d243",
+          "static/js/322.a0dc03eb.chunk.js.LICENSE.txt": "14df695afae02547795a493bf9378ec07ec67068d6289412b54e3b2d7db0c626",
+          "static/js/main.7fb35429.js": "4d98bd7582979c4a81dd3290b590ea69eb8c82834640fb257dc6f1819ce472c9",
+          "static/js/main.7fb35429.js.LICENSE.txt": "439d068a4d12315eadaa03d6ac18ec16deb845ddfa4e68940089dd4616f4257d"
+        }
+      },
+      "nginx": {
+        "exit": 0,
+        "sha256": "dfef4a17ffd07765ded1ba17497217c1246655a3648b41cb47dca100600c5b08",
+        "route_directives": [
+          "server 127.0.0.1:5500;",
+          "server_name _;",
+          "server_name tw2-stage.trxstat.com;",
+          "root /var/www/tradewave;",
+          "location ^~ /.well-known/acme-challenge/ {",
+          "root /var/www/html;",
+          "location = / {",
+          "location /_static/   { try_files $uri =404; expires 1d; }",
+          "location /_partials/ { try_files $uri =404; }",
+          "location = /signup    { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location = /login     { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location = /logout    { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location = /account   { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /account/    { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location = /pricing   { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location = /healthz   { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /auth/       { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /api/        { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /webhooks/   { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /admin       { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /admin/      { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /stripe/     { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /affiliate/sign/ { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /join/      { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location = /app             { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location = /app/            { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location = /app/index.html  { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /app/              { alias /home/flask/web-react/build/; }",
+          "location /appserver/ {",
+          "proxy_pass http://tw2_appserver/;",
+          "location ~ \\.map$ { return 404; }",
+          "location = /404.html { root /var/www/tradewave; internal; }",
+          "location = /100-year-pattern {",
+          "location = /100-year-pattern.html {",
+          "location = /100-year-pattern/ {",
+          "location / { try_files $uri $uri/ $uri.html =404; }",
+          "location ~ /\\.(?!well-known) {"
+        ]
+      },
+      "health": {
+        "status": 200,
+        "ok": true,
+        "status_label": null,
+        "body_keys": [
+          "db",
+          "frontend",
+          "ok",
+          "ts"
+        ]
+      },
+      "package": {
+        "archive_exists": true,
+        "archive_sha256": "4e40858ac16075c68799a0086a853a890aaffb5c7ef254e95a7fe04164eb7e5f",
+        "archive_matches": true,
+        "baseline_sha": "c25ffd562dc3058ab41db5b07e9075dd841fb29b",
+        "overlay_sha": "0ed01f68201623f4f2e55bd32827fca10479bb1a",
+        "preserved_file_count": 2693,
+        "payload_inventory_sha256": "4029a3514beeabf83ab736c755ae843a967aa59759671bcd7364547b763b4a29",
+        "payload_archive_sha256": "4e40858ac16075c68799a0086a853a890aaffb5c7ef254e95a7fe04164eb7e5f"
+      },
+      "rollback": {
+        "before.json": {
+          "exists": true,
+          "sha256": "53f4643bf3d897f8f2225ce1f3f526839fef0dc3927b17262ee6edfd0cea57ff"
+        },
+        "current_matches_immutable_before": {
+          "WorkingDirectory": true,
+          "process_cwd": true,
+          "DropInPaths": true
+        },
+        "current_frontend_matches_before": true,
+        "effective-unit.before": {
+          "exists": true,
+          "sha256": "c661aa3ffca405068c91355e8b41c33b428b6d6520b8586322d88dd03e6920ef"
+        },
+        "rollback-receipt.json": {
+          "exists": true,
+          "sha256": "111f71db4ef612a5c2e49be96a8f95ad212308c54a02cfc3cf00540261b4ca0a"
+        },
+        "historical_restoration_verified": true,
+        "historical_restoration_at": "2026-10-08T16:59:30.950109+00:00",
+        "final-receipt.json": {
+          "exists": false,
+          "sha256": null
+        },
+        "release.json": {
+          "exists": true,
+          "sha256": "c3a7be04a376abfe189a3d4e71382b755755f6545da67fb0552465a7af72ed3f"
+        },
+        "timer": "NextElapseUSecRealtime=\nLoadState=not-found\nActiveState=inactive"
+      },
+      "services_or_approvals_mutated": false
+    },
+    "stage_app": {
+      "at": "2026-10-09T13:43:15.809519+00:00",
+      "hostname": "tw2-stage-app",
+      "kind": "app",
+      "runtime": {
+        "MainPID": "1035",
+        "WorkingDirectory": "/home/flask/appserver/appserver",
+        "DropInPaths": "",
+        "FragmentPath": "/etc/systemd/system/tradewave-appserver.service",
+        "ActiveState": "active",
+        "SubState": "running",
+        "process_cwd": "/home/flask/appserver/appserver",
+        "whitelisted_process_environment": {
+          "PYTHONPATH": "/home/flask:/home/flask/appserver/appserver",
+          "MAILERLITE_OUTBOUND_ENABLED": "0"
+        },
+        "effective_unit_sha256": "8b206a9203926f05283400b27b2e941fb683a7824ffc20ff4d9c8160ec4fb3e9"
+      },
+      "git": {
+        "head": {
+          "exit": 0,
+          "stdout": "c25ffd562dc3058ab41db5b07e9075dd841fb29b"
+        },
+        "tracked_drift": {
+          "exit": 0,
+          "stdout": ""
+        },
+        "tree": {
+          "exit": 0,
+          "stdout": "b402e244e33bfd35eebb81b33556c6574500155c"
+        }
+      },
+      "clean_pinned_baseline": true,
+      "frontend": null,
+      "nginx": {
+        "exit": 0,
+        "sha256": "4bdfefd6947679a50fb24708efabe44c8296ff913ec1670dc3ef551151a32916",
+        "route_directives": [
+          "server 127.0.0.1:8088;",
+          "server 127.0.0.1:9090;",
+          "server_name api-stage.trxstat.com;",
+          "location ~ \\.map$ {",
+          "location /healthz {",
+          "proxy_pass http://tw2_apiserver;",
+          "location /v1/ {",
+          "proxy_pass http://tw2_apiserver;",
+          "location / {",
+          "proxy_pass http://tw2_apiserver;",
+          "location @api_upstream_timeout {",
+          "location @api_upstream_down {",
+          "server_name mcp-stage.trxstat.com;",
+          "location = /.well-known/oauth-protected-resource/mcp {",
+          "proxy_pass http://tw2_mcpserver/.well-known/oauth-protected-resource;",
+          "location / {",
+          "proxy_pass http://tw2_mcpserver;",
+          "server_name developers-stage.trxstat.com;",
+          "root /var/www/developers;",
+          "location ~ \\.map$ {",
+          "location /.well-known/ {",
+          "location ~* \\.(css|js|svg|png|jpg|jpeg|gif|ico|webp|woff2?|ttf|eot)$ {",
+          "location ~* \\.(yaml|yml|json)$ {",
+          "location /docs/ {",
+          "location = /mcp/ {",
+          "location /learn/ {",
+          "location /playground/ {",
+          "location = /404.html {",
+          "root /var/www/developers;",
+          "location / {",
+          "location ~ /\\.(?!well-known) {"
+        ]
+      },
+      "health": {
+        "status": 200,
+        "ok": null,
+        "status_label": null,
+        "body_keys": [
+          "ip",
+          "logged-in",
+          "message",
+          "token"
+        ]
+      },
+      "package": null,
+      "rollback": {
+        "before.json": {
+          "exists": false,
+          "sha256": null
+        },
+        "effective-unit.before": {
+          "exists": false,
+          "sha256": null
+        },
+        "rollback-receipt.json": {
+          "exists": false,
+          "sha256": null
+        },
+        "final-receipt.json": {
+          "exists": false,
+          "sha256": null
+        },
+        "release.json": {
+          "exists": false,
+          "sha256": null
+        },
+        "timer": "NextElapseUSecRealtime=\nLoadState=not-found\nActiveState=inactive"
+      },
+      "services_or_approvals_mutated": false
+    },
+    "prod_web": {
+      "at": "2026-10-09T13:43:14.083351+00:00",
+      "hostname": "tw2-prod-web",
+      "kind": "web",
+      "runtime": {
+        "MainPID": "1269756",
+        "WorkingDirectory": "/home/flask/web",
+        "DropInPaths": "",
+        "FragmentPath": "/etc/systemd/system/tradewave-web.service",
+        "ActiveState": "active",
+        "SubState": "running",
+        "process_cwd": "/home/flask/web",
+        "whitelisted_process_environment": {
+          "PYTHONPATH": "/home/flask:/home/flask/web",
+          "TW2_REACT_BUILD_DIR": "/home/flask/web-react/build"
+        },
+        "effective_unit_sha256": "057b0cf6b9e7f83deffcd06411b8b08b28be4b2e24da05cfc3fbd52f81b5e00e"
+      },
+      "git": {
+        "head": {
+          "exit": 0,
+          "stdout": "c25ffd562dc3058ab41db5b07e9075dd841fb29b"
+        },
+        "tracked_drift": {
+          "exit": 0,
+          "stdout": ""
+        },
+        "tree": {
+          "exit": 0,
+          "stdout": "b402e244e33bfd35eebb81b33556c6574500155c"
+        }
+      },
+      "clean_pinned_baseline": true,
+      "frontend": {
+        "pointer": "/home/flask/web-react/releases/build-c25ffd562dc3",
+        "file_count": 21,
+        "exact_21_hashes_match": true,
+        "inventory": {
+          ".tradewave-source-sha": "3eaeacca403caa953141688ec7649070bc4ff79b278a68d579adb8727d1493c0",
+          "asset-manifest.json": "9bba1112123361e088432428c64706dba0df6a0980f65894990a7eec83538f98",
+          "favicon.ico": "3d10f7da6c603178340081668c4ac5b3ae9743ca9a262ab0fcd312fbb9f48bdd",
+          "favicon.png": "52eda5ac18e3470b372039c1aa34e74441fa7071ab801626ac90baf94f72a1af",
+          "images/downarrow8.png": "76c36002756850fdd2dd5f2f37dc6e906cc08172fdea494eb4a7a9e8b184715a",
+          "images/hixsea_logo1.png": "e67f4b71cd7fb05d3da0e36d1fbe805631523abcc735010470f9f401d6178f09",
+          "images/hixsea_logo2.png": "63e2bf12a536a4ddc5cce777ad26b1b3e11ce84e6761e5c9efa9da54a2503418",
+          "images/uparrow8.png": "bafb9f92889a862c6797ff5d4cf0326bd94b76b7f4ebb9a44d08b1e0bb653158",
+          "index.html": "cd190cbaf8b4771778ea6fdff05c15ec3b8ab02b0e0cad6b0730560b4460187f",
+          "logo192.png": "c386396ec70db3608075b5fbfaac4ab1ccaa86ba05a68ab393ec551eb66c3e00",
+          "logo512.png": "9ea4f4da7050c0cc408926f6a39c253624e9babb1d43c7977cd821445a60b461",
+          "manifest.json": "50b3d8c3903af3f78d871b94557ab14f4e39ca192eaca3d2cfa863c867279a14",
+          "robots.txt": "90d24bc3bf698ac1e173739502298ccca72adf1f564fab05f484b8c48d1cadd2",
+          "static/css/129.3bcee188.chunk.css": "bc2f96cf5d7f8d30f95675a5db6585b3c4455491e4b37c8d2bcd7cadd8fc7196",
+          "static/css/main.75888315.css": "3a7f6e54814f799b68755d738628b65fe927de3bbb7798fea6202261b3432aa3",
+          "static/js/129.6830be97.chunk.js": "a896255eef7b065d370a2cf166a1d88ba839a90354e450e54cdcc4d9776ab7c3",
+          "static/js/159.4ef55f9a.chunk.js": "d70c4feb56a344feaf9ba2c45162c5484c92543b478b744d70891ee82926b817",
+          "static/js/322.a0dc03eb.chunk.js": "cb71e28eb92e586aab5a25f66c8b3a3a2931f6a97bc0fa4ef87747485b64d243",
+          "static/js/322.a0dc03eb.chunk.js.LICENSE.txt": "14df695afae02547795a493bf9378ec07ec67068d6289412b54e3b2d7db0c626",
+          "static/js/main.7fb35429.js": "4d98bd7582979c4a81dd3290b590ea69eb8c82834640fb257dc6f1819ce472c9",
+          "static/js/main.7fb35429.js.LICENSE.txt": "439d068a4d12315eadaa03d6ac18ec16deb845ddfa4e68940089dd4616f4257d"
+        }
+      },
+      "nginx": {
+        "exit": 0,
+        "sha256": "d1dc48fee7e174ec8c4fd30394d58fc027cf4b62dfdfdfa9fcc5383fac37634c",
+        "route_directives": [
+          "server 127.0.0.1:5500;",
+          "server_name _;",
+          "server_name tradewave.ai www.tradewave.ai tw2-prod.trxstat.com;",
+          "root /var/www/tradewave;",
+          "location ^~ /.well-known/acme-challenge/ {",
+          "root /var/www/html;",
+          "location = / {",
+          "location /_static/   { try_files $uri =404; expires 1d; }",
+          "location /_partials/ { try_files $uri =404; }",
+          "location = /signup    { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location = /login     { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location = /smn-dashboard/login { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location = /logout    { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location = /account   { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /account/    { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location = /pricing   { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location = /healthz   { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /auth/       { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /api/        { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /webhooks/   { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /admin       { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /admin/      { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /stripe/     { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /join/         { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /affiliate/sign/ { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location = /app             { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location = /app/            { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location = /app/index.html  { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }",
+          "location /app/              { alias /home/flask/web-react/build/; }",
+          "location /appserver/ {",
+          "proxy_pass http://tw2_appserver/;",
+          "location ~ \\.map$ { return 404; }",
+          "location = /404.html { root /var/www/tradewave; internal; }",
+          "location = /100-year-pattern {",
+          "location = /100-year-pattern.html {",
+          "location = /100-year-pattern/ {",
+          "location / { try_files $uri $uri/ $uri.html =404; }",
+          "location ~ /\\.(?!well-known) {"
+        ]
+      },
+      "health": {
+        "status": 200,
+        "ok": true,
+        "status_label": null,
+        "body_keys": [
+          "db",
+          "frontend",
+          "ok",
+          "ts"
+        ]
+      },
+      "package": {
+        "archive_exists": false,
+        "archive_sha256": null,
+        "archive_matches": false
+      },
+      "rollback": {
+        "before.json": {
+          "exists": false,
+          "sha256": null
+        },
+        "effective-unit.before": {
+          "exists": false,
+          "sha256": null
+        },
+        "rollback-receipt.json": {
+          "exists": false,
+          "sha256": null
+        },
+        "final-receipt.json": {
+          "exists": false,
+          "sha256": null
+        },
+        "release.json": {
+          "exists": false,
+          "sha256": null
+        },
+        "timer": "NextElapseUSecRealtime=\nLoadState=not-found\nActiveState=inactive"
+      },
+      "services_or_approvals_mutated": false
+    },
+    "prod_app": {
+      "at": "2026-10-09T13:43:19.913652+00:00",
+      "hostname": "tw2-prod-app",
+      "kind": "app",
+      "runtime": {
+        "MainPID": "1001502",
+        "WorkingDirectory": "/home/flask/appserver/appserver",
+        "DropInPaths": "",
+        "FragmentPath": "/etc/systemd/system/tradewave-appserver.service",
+        "ActiveState": "active",
+        "SubState": "running",
+        "process_cwd": "/home/flask/appserver/appserver",
+        "whitelisted_process_environment": {
+          "PYTHONPATH": "/home/flask:/home/flask/appserver/appserver"
+        },
+        "effective_unit_sha256": "8b206a9203926f05283400b27b2e941fb683a7824ffc20ff4d9c8160ec4fb3e9"
+      },
+      "git": {
+        "head": {
+          "exit": 0,
+          "stdout": "c25ffd562dc3058ab41db5b07e9075dd841fb29b"
+        },
+        "tracked_drift": {
+          "exit": 0,
+          "stdout": ""
+        },
+        "tree": {
+          "exit": 0,
+          "stdout": "b402e244e33bfd35eebb81b33556c6574500155c"
+        }
+      },
+      "clean_pinned_baseline": true,
+      "frontend": null,
+      "nginx": {
+        "exit": 0,
+        "sha256": "90396f91e18916d584e5d1c4bc53708dba551f79162d6e2430e3fc4702f2ce44",
+        "route_directives": [
+          "server 127.0.0.1:8088;",
+          "server 127.0.0.1:9090;",
+          "server_name api.tradewave.ai;",
+          "location ~ \\.map$ {",
+          "location /healthz {",
+          "proxy_pass http://tw2_apiserver;",
+          "location /v1/ {",
+          "proxy_pass http://tw2_apiserver;",
+          "location / {",
+          "proxy_pass http://tw2_apiserver;",
+          "location @api_upstream_timeout {",
+          "location @api_upstream_down {",
+          "server_name mcp.tradewave.ai;",
+          "location = /.well-known/oauth-protected-resource/mcp {",
+          "proxy_pass http://tw2_mcpserver/.well-known/oauth-protected-resource;",
+          "location / {",
+          "proxy_pass http://tw2_mcpserver;",
+          "server_name developers.tradewave.ai;",
+          "root /var/www/developers;",
+          "location ~ \\.map$ {",
+          "location /.well-known/ {",
+          "location ~* \\.(css|js|svg|png|jpg|jpeg|gif|ico|webp|woff2?|ttf|eot)$ {",
+          "location ~* \\.(yaml|yml|json)$ {",
+          "location /docs/ {",
+          "location = /mcp/ {",
+          "location /learn/ {",
+          "location /playground/ {",
+          "location = /404.html {",
+          "root /var/www/developers;",
+          "location / {",
+          "location ~ /\\.(?!well-known) {"
+        ]
+      },
+      "health": {
+        "status": 200,
+        "ok": null,
+        "status_label": null,
+        "body_keys": [
+          "ip",
+          "logged-in",
+          "message",
+          "token"
+        ]
+      },
+      "package": null,
+      "rollback": {
+        "before.json": {
+          "exists": false,
+          "sha256": null
+        },
+        "effective-unit.before": {
+          "exists": false,
+          "sha256": null
+        },
+        "rollback-receipt.json": {
+          "exists": false,
+          "sha256": null
+        },
+        "final-receipt.json": {
+          "exists": false,
+          "sha256": null
+        },
+        "release.json": {
+          "exists": false,
+          "sha256": null
+        },
+        "timer": "NextElapseUSecRealtime=\nLoadState=not-found\nActiveState=inactive"
+      },
+      "services_or_approvals_mutated": false
+    }
+  },
+  "prior_evidence_retained": {
+    "complete_safe_regression": "1433 passed, 5 skipped, 115 DB cases deselected; unchanged application bytes",
+    "focused_release_invariants": "27 passed; unchanged controls"
+  },
+  "retained_authority": {
+    "scope_and_designated_operator_event": "Sentinel_de3245e3870481919c42ac162704ea57",
+    "original_snapshot_confirmation_event": "Sentinel_f9d3212af33c81918a7a5da0d2045d5b",
+    "original_snapshot_date": "2026-10-08",
+    "current_day_confirmation_received": false,
+    "level_1_exception_received": false
+  },
+  "one_bundled_decision": "Confirm October 9 snapshots of TradeWave web 194.113.195.141 and app 138.128.240.115, and approve October 9 continuation of this same named, unchanged-artifact webinar release with the narrow level-1/date-lock test exception using existing authorized signed-in level-6 staging/production checks. This continuation includes only the reviewed two-literal controller date renewal and necessary exact provenance/approval binding; all other gates and rollback remain.",
+  "after_decision_execution": "Record the direct dated answer; integrate only approved date controls; lock final reviewed source/composite identity preserving this archive; activate staging under the existing watchdog with flags 0/0; complete actual signed-in/contract/runtime gates and finalize staging; repeat read-only production preflight; transport and activate the identical archive on production web with global 0/webinar 1 and automatic rollback; verify and finalize.",
+  "no_side_effects": {
+    "staging_or_production_application_activation": false,
+    "expired_activator_executed": false,
+    "canonical_main_advanced": false,
+    "release_authority_or_approvals_changed": false,
+    "subscriber_or_campaign_writes": 0,
+    "zoom_calendar_or_smn_changes": 0
+  }
+}

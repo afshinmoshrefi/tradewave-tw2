@@ -48,7 +48,7 @@ Status belongs in each record and this index; update both together. Preserve res
 | [TW-BUG-0026](TW-BUG-0026.md) | P2 | verified on Dev | Mobile bar chart More control does not open extra controls |
 | [TW-BUG-0027](TW-BUG-0027.md) | P1 | in-progress | October 5 SMN edition: primary retrieval, context and partial publication defects |
 
-| [TW-BUG-0028](TW-BUG-0028.md) | P2 | complete candidate privately verified; activation blocked | Webinar notification signup drops published Zoom link; scoped release provenance required |
+| [TW-BUG-0028](TW-BUG-0028.md) | P2 | Monday candidate verified; activation pending dated release gates | Webinar notification signup drops published Zoom link; unchanged scoped artifact prepared |
 
 | [TW-BUG-0029](TW-BUG-0029.md) | P3 | verified on dev | Wave Viewer Bias square and Help icon aligned |
 
