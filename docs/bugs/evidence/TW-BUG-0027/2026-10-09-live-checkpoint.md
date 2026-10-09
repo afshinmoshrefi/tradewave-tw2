@@ -7,6 +7,16 @@ Parent: `01a113a7-f3d3-77f1-a6b8-b856d5a1400c`.
 Scope: direct owner instruction to publish today's articles and restore the working workflow.
 This checkpoint is proposed on a separate branch; it is not a shared-main claim or peer acknowledgement.
 
+## Current prevention checkpoint: storage blocker and verified rollback, October 9 20:55 UTC
+
+The prevention activation failed during the required Git fetch as `flask`: the actual SMN root filesystem has zero bytes available to the publication user. Automatic rollback completed without error; a fresh 20:55:05 UTC read-only check confirms active source `fc5d93c22ff26a9f09c13ee277246e18a3c85a74`, all five native publication timers active/enabled, no activation lock, unchanged six-article receipt and newsletter journal, and exactly 49 completed/conservative jobs. The disk is 21,039,874,048 bytes with only 240,472,064 bytes free including root-reserved blocks. This is a storage-capacity blocker; today's completed edition remains intact. No unrelated files, current recovery files, logs or backups were deleted, and no filesystem reservation policy was changed.
+
+The separate retry operator changes only its immutable transaction RECORD namespace so the failed V1 evidence is retained. Exact operator `9a6d46df1f66d0d07f6792462ecb21da2037af8534407945b2c069548920dee0` passed 57 guard tests and 24 independent native probes on actual Linux, with zero failures/errors/skips, network events, production writes, model calls or mail calls. The 93 passed exact-source checks remain applicable because source `21d1376eda86bb0e9bc43c9f347cd46c04ef109a` is unchanged. New operator composition SHA256: `e10cbbf94a3bd53a8218a114b4f3bb3d2397c1f2ae048474d1c52ebd1e76f54b`. This candidate is qualified, but not activated.
+
+Before any new activation: recover sufficient durable disk headroom using classified, preserved artifacts or increase capacity, then capture a fresh baseline, bind existing direct blanket authority to the exact new artifact, execute the qualified V2 transaction, and verify its source pointer, effective native services, restored timers and preserved content/mail/job receipts. The existing actual-SMN October 9 snapshot confirmation is retained; another routine approval is not required. Genuine fresh unattended edition proof and alert delivery remain outstanding; enabled timers alone do not establish those outcomes.
+
+Exact local state proof: `smn-followup-post-failure-state-20261009/state.json`, SHA256 `615c8f929981e3ab39ade070cf6f75a1477c8bc075ce1d071f5fa486676736d8`. The failed transaction receipt and timer-restoration receipt are retained alongside it.
+
 ## Current checkpoint: six articles public and newsletter provider-sent, October 9 19:54 UTC
 
 Actual target is `seasonalmarketnews` (`209.182.216.112`), with active source `fc5d93c22ff26a9f09c13ee277246e18a3c85a74`. The successful full-six V4 transaction reached `live_verified` at `2026-10-09T19:44:27.480909Z`. Published subjects are XLF, DAL, SPY, QQQ, DJI and RPM; none remains pending. Native browser verification passed twelve desktop/mobile article layouts and 215 public-file checks. Root inspected four actual hash-bound home/index images at `2026-10-09T19:43:53.975518Z`; this is Codex inspection, with `human_reviewed:false` and `model_receipt_created:false`.
