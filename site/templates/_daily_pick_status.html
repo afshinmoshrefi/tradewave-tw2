@@ -1,0 +1,9 @@
+{% if content.daily_pick_state and not content.daily_pick_state.published_today %}
+<div class="daily-pick-absent" role="status">
+  <strong>{{ content.daily_pick_state.headline }}</strong>
+  <p>{{ content.daily_pick_state.message }}</p>
+</div>
+{% endif %}
+{% for notice in content.outage_notices or [] %}
+<p class="outage-notice" role="note">{{ notice }}</p>
+{% endfor %}

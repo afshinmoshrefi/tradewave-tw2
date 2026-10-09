@@ -24,7 +24,7 @@ from daily_pick_social_card import generate_daily_pick_card, social_metadata
 from log_safety import scrub_secret_text
 from market_clock import new_york_now, session_bar_is_final
 from pick_stats import (  # shared win definition
-    compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, compute_median_result_return, is_judged, is_resolved, is_win, reached_target, result_return,
+    compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, compute_median_result_return, countable_picks, is_judged, is_resolved, is_win, outage_notices, reached_target, result_return,
 )
 
 # =============================================================================
@@ -483,6 +483,7 @@ def compute_stats(history):
     not hit yet are pending. held_to_close is the stricter transparency stat
     shown beside it.
     """
+    history = countable_picks(history)
     resolved = [e for e in history if is_resolved(e)]
 
     total_picks = len(history)
@@ -530,6 +531,7 @@ def build_positions(history):
     """Build open and closed position lists for the template."""
     open_positions = []
     closed_positions = []
+    history = countable_picks(history)
 
     for entry in history:
         row = {
@@ -651,6 +653,7 @@ def emit_ledger_json(history):
     with a 'resolved' flag; 'win' is null for pending picks (open, target not
     yet hit) so a machine reader never mistakes pending for lost.
     """
+    history = countable_picks(history)
     win_rate, _wins, _judged = compute_win_rate(history)
 
     picks = []
@@ -711,6 +714,8 @@ def generate_scorecard_html(stats, open_positions, closed_positions, social_meta
         'canonical_url': CANONICAL_URL,
         'meta_description': META_DESCRIPTION,
         'social_meta': social_meta,
+        'daily_pick_state': {'published_today': True},
+        'outage_notices': outage_notices(),
         # GA4 <head> snippet ('' when TW2_GA_MEASUREMENT_ID is unset, e.g. dev).
         'ga_head_snippet': ga_head_snippet(),
     }

@@ -35,8 +35,9 @@ import hundred_year_home
 from log_safety import scrub_secret_text
 from pick_stats import (
     compute_win_rate, compute_target_hit_rate, compute_held_to_close_rate, compute_median_result_return,
-    hit_target, is_resolved, is_win,
+    countable_picks, hit_target, in_outage_gap, is_resolved, is_win, outage_notices,
 )  # shared win definition (homepage + scorecard must never diverge)
+from operator_alert import alert_operator
 
 # Stripe price lookup (TW2: prices come live from Stripe via PRODUCT METADATA,
 # exactly like web/app.py _refresh_price_cache: a price is used ONLY if its
@@ -493,15 +494,26 @@ def select_featured_from_ml_scorer():
     Returns a dict with all featured pattern data, or None.
     """
     history = load_featured_history()
+    published = countable_picks(history)
+    select_featured_from_ml_scorer.failure_reason = None
 
-    # If already picked today, reuse that entry
+    # If already picked today, reuse that entry. Gap dates are not picks and
+    # are never backfilled, so they cannot satisfy "already picked today".
     today_str = new_york_now().date().isoformat()
-    for entry in history:
+    if in_outage_gap(today_str):
+        reason = (
+            'Refusing to publish a pick on %s: that date is inside the '
+            'recorded scorer-outage gap. No backfill.' % today_str
+        )
+        select_featured_from_ml_scorer.failure_reason = reason
+        print('   ERROR: %s' % reason)
+        return None
+    for entry in published:
         if entry.get('featured_date') == today_str:
             print("   Reusing today's pick: %s (already selected)" % entry['symbol'])
             return entry
 
-    recent_symbols = get_recent_symbols(history)
+    recent_symbols = get_recent_symbols(published)
     if recent_symbols:
         print("   Recent featured symbols (last %d days): %s" % (
             FEATURED_REPEAT_DAYS, ', '.join(sorted(recent_symbols))))
@@ -526,12 +538,16 @@ def select_featured_from_ml_scorer():
             min_win_prob=FEATURED_MIN_WIN_PROB,
         )
     except Exception as e:
-        print("   WARNING: ML scorer call failed: %s" % e)
+        reason = 'ML scorer call failed: %s' % e
+        select_featured_from_ml_scorer.failure_reason = reason
+        print("   WARNING: %s" % reason)
         return None
 
     picks = result.get('picks', [])
     if not picks:
-        print("   No qualifying picks from ML scorer.")
+        reason = 'No qualifying picks from ML scorer.'
+        select_featured_from_ml_scorer.failure_reason = reason
+        print("   %s" % reason)
         return None
 
     print("   ML scorer returned %d qualifying picks." % len(picks))
@@ -539,7 +555,9 @@ def select_featured_from_ml_scorer():
     # Login to appserver once for OppList4 lookups
     token = appserver_login()
     if token is None:
-        print("   WARNING: Appserver login failed, cannot confirm patterns.")
+        reason = 'Appserver login failed, cannot confirm patterns.'
+        select_featured_from_ml_scorer.failure_reason = reason
+        print("   WARNING: %s" % reason)
         return None
 
     # Walk picks: skip recently featured, skip if OppList4 can't confirm
@@ -561,7 +579,9 @@ def select_featured_from_ml_scorer():
         else:
             print("      Not found in OppList4, skipping.")
     else:
-        print("   No picks confirmed by OppList4.")
+        reason = 'No picks confirmed by OppList4.'
+        select_featured_from_ml_scorer.failure_reason = reason
+        print("   %s" % reason)
         return None
 
     # Get company name
@@ -611,7 +631,18 @@ def select_featured_from_ml_scorer():
         'scorer_metadata': result['metadata'],
     }
 
-    # Save to history
+    # Save to history. Never insert a row whose featured_date is inside a
+    # recorded scorer-outage gap, and never rewrite the file from the
+    # filtered view (that would drop older rows).
+    if in_outage_gap(history_entry['featured_date']):
+        reason = (
+            'Refusing to publish a pick on %s: that date is inside the '
+            'recorded scorer-outage gap. No backfill.'
+            % history_entry['featured_date']
+        )
+        select_featured_from_ml_scorer.failure_reason = reason
+        print('   ERROR: %s' % reason)
+        return None
     history.append(history_entry)
     save_featured_history(history)
     print("   Saved to featured history (%d total entries)." % len(history))
@@ -871,7 +902,7 @@ def compute_homepage_scorecard_stats():
     Win counting uses the shared definition in pick_stats so the homepage strip
     and the scorecard can never diverge.
     """
-    history = load_featured_history()
+    history = countable_picks(load_featured_history())
     resolved = [e for e in history if is_resolved(e)]
     total_picks = len(history)
     still_open = total_picks - len(resolved)
@@ -921,7 +952,7 @@ def build_ledger_rows(limit=8):
     hundreds. The full scorecard remains the audit surface; this preview always
     shows only the newest ``limit`` entries and links every row to that record.
     """
-    history = load_featured_history()
+    history = countable_picks(load_featured_history())
     picked = list(reversed(history))[:limit]
 
     rows = []
@@ -967,8 +998,53 @@ def _hero_headline(history):
     return "One free seasonal stock pick, every morning before the open."
 
 
+def featured_pick_for_page(selected, *, content_only, history):
+    """Choose what the homepage may treat as the featured pick.
+
+    A failed morning run must not reuse an older ledger row. Content-only
+    regeneration is the explicit preserve-the-ledger path and may still read
+    the latest published row.
+    """
+    if content_only:
+        return dict(history[-1]) if history else None
+    return selected
+
+
+def publication_exit_code(featured, *, content_only, failure_reason, alert=None):
+    """Return 0 when a pick was published or this is a content-only regen.
+
+    Otherwise alert and return 1. ``alert`` defaults to the Resend operator
+    helper. A False return from the helper still yields exit code 1.
+    """
+    if content_only or featured is not None:
+        return 0
+    reason = failure_reason or (
+        'No new AI pick was produced. featured_history.json was not updated.'
+    )
+    sender = alert or alert_operator
+    sender(
+        'TradeWave daily pick was not published',
+        reason + '\n\nThe homepage will show "No pick today". '
+        'The previous ledger row was not reused as today\'s pick.',
+    )
+    return 1
+
+
+def no_pick_state():
+    """Homepage copy when this morning did not publish a pick."""
+    return {
+        'published_today': False,
+        'headline': 'No pick today',
+        'message': (
+            'No daily pick was published this morning. The last published '
+            'pick remains in the track record below and is not today\'s pick.'
+        ),
+    }
+
+
 def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=None,
-                  show_opportunities=SHOW_OPPORTUNITIES, hundred_year=None):
+                  show_opportunities=SHOW_OPPORTUNITIES, hundred_year=None,
+                  daily_pick_state=None):
     """Generate HTML from template and data."""
 
     jinja_env = Environment(
@@ -1060,7 +1136,7 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
             # hero headline clean - no label, no pill). The headline is the
             # first thing on the page.
             "headline": "Discover Seasonal Tendencies With the Highest Probability of Repeating",
-            "headline_dynamic": _hero_headline(load_featured_history()),
+            "headline_dynamic": _hero_headline(countable_picks(load_featured_history())),
             "subheadline": (
                 "AI-powered rankings and scores across stocks, ETFs, futures & "
                 "commodities, and forex, using up to 98 years of market history. "
@@ -1285,6 +1361,8 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
 
         # -- Featured Pattern --
         "featured_pattern": featured_data,
+        "daily_pick_state": daily_pick_state or no_pick_state(),
+        "outage_notices": outage_notices(),
         "scorecard_url": "%sscorecard.html" % DOMAIN_ROOT,
         "methodology_url": "%smethodology" % DOMAIN_ROOT,
         "developer_footer_links": DEVELOPER_FOOTER_LINKS,
@@ -1293,12 +1371,12 @@ def generate_html(opportunities_by_tab, featured_data=None, market_bar_items=Non
         # Fixed-size forward-ledger preview. The public ledger grows forever;
         # the homepage remains eight current rows with a link to the full record.
         "ledger_rows": build_ledger_rows(limit=8),
-        "latest_pick_date": max((entry.get('featured_date', '') for entry in load_featured_history()), default='Unavailable'),
+        "latest_pick_date": max((entry.get('featured_date', '') for entry in countable_picks(load_featured_history())), default='Unavailable'),
         "ledger_updated": (
             datetime.fromtimestamp(Path(FEATURED_HISTORY_FILE).stat().st_mtime).strftime("%b %d, %Y")
             if Path(FEATURED_HISTORY_FILE).exists() else date.today().strftime("%b %d, %Y")
         ),
-        "recent_picks": [e['symbol'] for e in reversed(load_featured_history())][:3],
+        "recent_picks": [e['symbol'] for e in reversed(countable_picks(load_featured_history()))][:3],
         "market_bar": market_bar_items or [],
 
         # Gate every MCP / "inside ChatGPT and Claude" claim (hero pill, connect
@@ -1783,7 +1861,7 @@ def main():
     opportunities = load_opportunities_from_csv(OPPORTUNITIES_CSV)
     if not opportunities:
         print("   No opportunities loaded. Exiting.")
-        return
+        return 0
 
     # 1b. Stale-table guard: never render closed trade windows under urgency
     # copy. If fewer than 3 current rows remain, omit the whole section.
@@ -1802,29 +1880,37 @@ def main():
     # 3. Group by day range for tabs
     opportunities_by_tab = group_by_day_range(opportunities, OPPORTUNITIES_PER_TAB)
 
-    # 4. Select featured pattern via ML scorer and generate SVG
+    # 4. Select featured pattern via ML scorer and generate SVG.
+    # A miss does not reuse yesterday's pick. The page says "No pick today",
+    # the ledger file is left unchanged, and main() exits non-zero.
     featured_data = None
+    history = load_featured_history()
+    exit_code = 0
     if args.content_only:
-        history = load_featured_history()
-        featured = dict(history[-1]) if history else None
+        featured = featured_pick_for_page(None, content_only=True, history=history)
         print("   Content-only: preserving the existing daily-pick ledger.")
     else:
-        featured = select_featured_from_ml_scorer()
-    if not featured:
-        # Pipeline failed (login/ML/OppList4). Reuse the most recent pick from
-        # history so the homepage still renders, but log LOUDLY and mark the
-        # entry as stale. The scorecard reads featured_history.json directly,
-        # so it will NOT update until select_featured_from_ml_scorer() succeeds.
-        history = load_featured_history()
-        if history:
-            featured = dict(history[-1])
-            featured['_stale_reuse'] = True
-            print("=" * 70)
-            print("   ERROR: No new AI pick produced today.")
-            print("   Reusing %s from %s on homepage only." % (
-                featured["symbol"], featured["featured_date"]))
-            print("   featured_history.json NOT updated -> scorecard will NOT show a new pick.")
-            print("=" * 70)
+        featured = featured_pick_for_page(
+            select_featured_from_ml_scorer(), content_only=False, history=history)
+        exit_code = publication_exit_code(
+            featured,
+            content_only=False,
+            failure_reason=getattr(select_featured_from_ml_scorer, 'failure_reason', None),
+        )
+    today_iso = new_york_now().date().isoformat()
+    published_today = bool(
+        featured and featured.get('featured_date') == today_iso
+    )
+    if published_today:
+        daily_pick_state = {
+            'published_today': True,
+            'headline': '',
+            'message': '',
+            'symbol': featured.get('symbol', ''),
+            'featured_date': featured.get('featured_date', ''),
+        }
+    else:
+        daily_pick_state = no_pick_state()
     if featured:
         print("   Featured pattern: %s (ML %.1f, WP %.1f%%)" % (
             featured["symbol"], featured["ml_score"], featured["win_prob"] * 100))
@@ -1945,7 +2031,8 @@ def main():
     html = generate_html(opportunities_by_tab, featured_data=featured_data,
                          market_bar_items=market_bar_items,
                          show_opportunities=show_opportunities,
-                         hundred_year=hundred_year)
+                         hundred_year=hundred_year,
+                         daily_pick_state=daily_pick_state)
 
     # 6. Save to output file
     output_dir = Path(OUTPUT_DIR)
@@ -1989,7 +2076,8 @@ def main():
 
     # 8. Sync market bar quotes (handles futures mode)
     print()
+    return exit_code
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

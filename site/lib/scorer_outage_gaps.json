@@ -1,0 +1,8 @@
+[
+  {
+    "start": "2026-09-17",
+    "end": "2026-10-09",
+    "reason": "scorer_outage",
+    "notice": "No daily pick was published from 2026-09-17 through 2026-10-09. The production ML scorer could not prove that end-of-day data covered the last completed session, so the morning job deferred instead of publishing. Those dates are a gap in the forward record and are excluded from the win rate and pick counts. No pick was backfilled."
+  }
+]
