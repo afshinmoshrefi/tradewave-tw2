@@ -54,4 +54,4 @@ Status belongs in each record and this index; update both together. Preserve res
 
 | [TW-BUG-0030](TW-BUG-0030.md) | P3 | verified on dev | Desktop Reminder pill and bell aligned across viewport heights |
 
-| [TW-BUG-0031](TW-BUG-0031.md) | P2 | in-progress | SMN chart images omit the security identity and use unreadably small text |
+| [TW-BUG-0031](TW-BUG-0031.md) | P2 | verified on dev | SMN chart images omit the security identity and use unreadably small text |
