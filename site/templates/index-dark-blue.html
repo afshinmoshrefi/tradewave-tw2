@@ -426,6 +426,10 @@ section{padding:var(--s6) 0}
 .ledger-cta{position:relative;z-index:2;display:flex;justify-content:center;margin-top:-34px;padding:0 18px 22px}
 .ledger-cta .btn{padding:11px 20px;font-size:.9rem;box-shadow:0 10px 32px rgba(124,92,255,.32)}
 .ledger-explain{text-align:center;color:var(--faint);font-size:.79rem;line-height:1.55;margin:14px auto 0;max-width:760px}
+.daily-pick-absent{margin:18px auto 0;max-width:760px;padding:16px 18px;border:1px solid rgba(255,196,92,.45);border-radius:12px;background:rgba(255,196,92,.08);text-align:left}
+.daily-pick-absent strong{display:block;color:var(--ink);font-size:1.05rem;margin-bottom:6px}
+.daily-pick-absent p{margin:0;color:var(--muted);line-height:1.5}
+.outage-notice{margin:12px auto 0;max-width:760px;color:var(--muted);font-size:.86rem;line-height:1.55;text-align:center}
 .res-w{color:var(--win)} .res-l{color:var(--loss)}
 .ledger-aside{text-align:center;font-family:Newsreader,Georgia,serif;font-style:italic;font-size:1.2rem;color:var(--muted);max-width:46ch;margin:0 auto 22px}
 .prov{display:flex;gap:16px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-top:24px;max-width:680px;margin-left:auto;margin-right:auto}
@@ -975,13 +979,14 @@ body{background-image:none !important;}
     <h2 class="reveal">We Do Not Ask for Trust &mdash; We Publish the Proof</h2>
     <p class="section-sub reveal d1" style="margin:14px auto 0;color:var(--ink);font-weight:600">Every pick is published for you to see before the outcome.<br>Losses included. Nothing removed.</p>
   </div>
+  {% include "_daily_pick_status.html" %}
   <div class="live-ledger reveal d1">
     <div class="live-ledger-top">
       <div>
         <div class="live-ledger-kicker"><span class="live-ledger-dot"></span>Public forward track record</div>
         <div class="live-ledger-summary">Showing the newest {{ content.ledger_rows|length }} of {{ content.scorecard_stats.total_picks }} picks &middot; {{ content.scorecard_stats.win_rate }}% win rate &middot; losses included</div>
       </div>
-      <div class="live-ledger-updated">Track record refreshed {{ content.ledger_updated }}<br>Latest pick selected {{ content.latest_pick_date }}<a href="{{ content.scorecard_url }}">Open full track record &rarr;</a></div>
+      <div class="live-ledger-updated">Track record refreshed {{ content.ledger_updated }}<br>{% if content.daily_pick_state and not content.daily_pick_state.published_today %}No pick today. Latest published pick {{ content.latest_pick_date }}{% else %}Latest pick selected {{ content.latest_pick_date }}{% endif %}<a href="{{ content.scorecard_url }}">Open full track record &rarr;</a></div>
     </div>
     <div class="ledger-table-head ledger-grid" aria-hidden="true">
       <span class="lc-date">Date flagged</span><span class="lc-ticker">Ticker</span><span class="lc-dir">Direction</span><span class="lc-days lc-num">Days</span><span class="lc-win lc-num">Win prob</span><span class="lc-pred lc-num">Predicted</span><span class="lc-current lc-num">Current</span><span class="lc-peak lc-num">Peak</span><span class="lc-target">Target hit</span>

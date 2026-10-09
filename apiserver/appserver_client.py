@@ -1025,8 +1025,11 @@ def _pick_result(entry):
 
 def daily_pick():
     """The most recent featured pick -> contract DailyPick. Returns {} when there is
-    no history. Raw prices are dropped; ML fields come straight from the stored record."""
-    history = _load_featured_history()
+    no history. Raw prices are dropped; ML fields come straight from the stored record.
+
+    Scorer-outage gaps are not picks, so a gap marker cannot become the latest pick.
+    """
+    history = _pick_stats.countable_picks(_load_featured_history())
     if not history:
         return {}
     e = history[-1]
@@ -1060,7 +1063,7 @@ def daily_pick_raw():
     """The most recent featured pick as a normalized Opportunity-shaped dict PLUS its stored
     ML, so the gateway can build a full PatternCard. Returns None when there is no history.
     Raw price fields (start_price/current_price/peak_price/end_price) are NEVER surfaced."""
-    history = _load_featured_history()
+    history = _pick_stats.countable_picks(_load_featured_history())
     if not history:
         return None
     e = history[-1]
@@ -1093,8 +1096,11 @@ def track_record():
     win_rate is wins / judged, using the public scorecard's target-hit/closed-profit
     rule. Returns use its target-exit result_return, with held-to-close and current
     returns separately labeled. Unjudged picks never enter the denominator.
+    Scorer-outage gaps are excluded from the count, the win rate, and the pick
+    list. They stay visible as ``outage_gaps`` notices.
     """
-    history = _load_featured_history()
+    history = _pick_stats.countable_picks(_load_featured_history())
+    outage_gaps = _pick_stats.load_outage_gaps()
     picks = []
     resolved_returns = []
     win_count = 0
@@ -1128,7 +1134,17 @@ def track_record():
             "note": ("Forward-tested daily picks under the published target-exit rule: a target hit "
                      "wins permanently and realizes the predicted gain; otherwise a completed pick "
                      "uses its closing return. Win rate divides wins by judged_count; pending picks "
-                     "are excluded. Held-to-close and current returns are shown separately."),
+                     "are excluded. Held-to-close and current returns are shown separately. "
+                     "Scorer-outage gaps are not picks and are excluded from count and win rate."),
+            "outage_gaps": [
+                {
+                    "start": gap.get("start"),
+                    "end": gap.get("end"),
+                    "reason": gap.get("reason"),
+                    "notice": gap.get("notice"),
+                }
+                for gap in outage_gaps
+            ],
         },
         "picks": picks,
     }

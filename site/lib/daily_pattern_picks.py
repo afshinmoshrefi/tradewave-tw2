@@ -23,6 +23,7 @@ Smoke test (just run it):
     python daily_pattern_picks.py
 """
 
+import os
 import sys
 import json
 import logging
@@ -30,9 +31,17 @@ import requests
 from datetime import datetime, date, timedelta
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_REPO_ROOT))
+_APPSERVER_DIR = _REPO_ROOT / 'appserver' / 'appserver'
+if str(_APPSERVER_DIR) not in sys.path:
+    sys.path.insert(0, str(_APPSERVER_DIR))
 import config
 from data_updater.eod_readiness import latest_completed_us_equity_session
+from ml_checkpoint_context import (
+    daily_pick_identity_from_health,
+    scorer_health_mode,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,28 +50,85 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
+def load_authoritative_eod_marker():
+    """Load the EOD success marker the daily pick may trust.
+
+    A local ``TW2_EOD_UPDATE_STATUS_FILE`` (default
+    ``/var/lib/tradewave/eod/update_status.json``) wins when it exists, which
+    is the single-box dev layout. Split web/app production has no local copy,
+    so the appserver ``/internal/eod-status`` route is the same marker.
+    """
+    path = os.environ.get(
+        'TW2_EOD_UPDATE_STATUS_FILE',
+        '/var/lib/tradewave/eod/update_status.json',
+    )
+    if path and os.path.isfile(path):
+        with open(path, encoding='utf-8') as handle:
+            marker = json.load(handle)
+        if not isinstance(marker, dict):
+            raise RuntimeError('Daily pick deferred: EOD status is invalid')
+        return marker
+    return _fetch_appserver_eod_marker()
+
+
+def _fetch_appserver_eod_marker():
+    base_url = str(getattr(config, 'appserver_url', '') or '').rstrip('/')
+    key = getattr(config, 'SERVICE_API_KEY', '') or ''
+    if not base_url or not key:
+        raise RuntimeError(
+            'Daily pick deferred: scorer data through None does not cover '
+            'completed session (EOD status is unavailable)')
+    try:
+        login = requests.post(
+            base_url + '/login/api',
+            headers={'X-Service-Key': key},
+            timeout=10,
+        )
+        login.raise_for_status()
+        token = (login.json() or {}).get('token')
+        if not token:
+            raise RuntimeError('appserver service login failed')
+        response = requests.get(
+            base_url + '/internal/eod-status',
+            params={'token': token},
+            timeout=10,
+        )
+        response.raise_for_status()
+        marker = response.json()
+    except Exception:
+        # Do not chain the requests error: its URL can carry the service token.
+        raise RuntimeError(
+            'Daily pick deferred: scorer data through None does not cover '
+            'completed session (EOD status is unavailable)') from None
+    if not isinstance(marker, dict):
+        raise RuntimeError('Daily pick deferred: EOD status is invalid')
+    return marker
+
+
 def current_pick_data_identity():
     """Require the same completed session as the existing EOD publication gate.
 
     Check both sides of selection: a refresh or model restart during a request
     must not produce a new public pick with mixed provenance.
+
+    V3 scorer health carries that proof itself. V2 health does not, so the
+    model contract is the shared ``_legacy_v2_metadata`` identity and the
+    session proof is the validated EOD success marker. A pick is never
+    published from the V2 cache placeholders alone.
     """
     expected = latest_completed_us_equity_session().isoformat()
     response = requests.get(f'{config.ml_scorer_url.rstrip("/")}/health', timeout=10)
     response.raise_for_status()
     payload = response.json()
-    metadata = payload.get('metadata', payload)
-    if (metadata.get('context_data_complete') is not True
-            or metadata.get('data_as_of') != expected):
-        raise RuntimeError(
-            f'Daily pick deferred: scorer data through {metadata.get("data_as_of")} '
-            f'does not cover completed session {expected}')
-    fields = ('model_release', 'model_manifest_hash', 'feature_schema_hash',
-              'context_schema_version', 'data_generation_hash',
-              'data_source_manifest_hash', 'data_as_of')
-    if any(not metadata.get(field) for field in fields):
-        raise RuntimeError('Daily pick deferred: scorer provenance is incomplete')
-    return {field: metadata[field] for field in fields}
+    marker = None
+    if scorer_health_mode(payload) == 'v2':
+        marker = load_authoritative_eod_marker()
+    return daily_pick_identity_from_health(
+        payload,
+        scorer_url=config.ml_scorer_url,
+        completed_session=expected,
+        eod_marker=marker,
+    )
 
 
 def get_daily_picks(date, resource_ids, num_picks, direction, days_out_min,

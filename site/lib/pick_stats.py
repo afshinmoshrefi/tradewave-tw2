@@ -19,7 +19,82 @@ original semantics; supersedes the 2026-06-16 held-to-close headline):
   * Transparency stays: held-to-close rate (closed-profitable share) remains a
     separately labeled secondary stat, and every row shows the realized close
     return - a hit-then-faded pick displays as a WIN with its red close visible.
+
+  * A scorer-outage gap is not a pick. Rows marked scorer_outage, and any row
+    whose featured_date falls inside site/lib/scorer_outage_gaps.json, stay
+    out of the win rate and the pick counts. The 2026-09-17 through 2026-10-09
+    production stall is that kind of gap. Nothing in it is backfilled.
 """
+
+import datetime as dt
+import json
+from pathlib import Path
+
+
+_GAP_PATH = Path(__file__).resolve().parent / 'scorer_outage_gaps.json'
+
+
+def load_outage_gaps():
+    """Return the recorded publication gaps. Missing file means no gaps."""
+    if not _GAP_PATH.is_file():
+        return []
+    with _GAP_PATH.open(encoding='utf-8') as handle:
+        data = json.load(handle)
+    if not isinstance(data, list):
+        raise ValueError('scorer outage gap file must be a list')
+    return [row for row in data if isinstance(row, dict)]
+
+
+def outage_notices(gaps=None):
+    """Visible sentences for gaps that have a notice. Not a pick count."""
+    notices = []
+    for gap in load_outage_gaps() if gaps is None else gaps:
+        notice = str(gap.get('notice') or '').strip()
+        if notice:
+            notices.append(notice)
+    return notices
+
+
+def in_outage_gap(featured_date, gaps=None):
+    """True when featured_date is inside an inclusive scorer-outage gap."""
+    try:
+        day = dt.date.fromisoformat(str(featured_date))
+    except (TypeError, ValueError):
+        return False
+    for gap in load_outage_gaps() if gaps is None else gaps:
+        try:
+            start = dt.date.fromisoformat(str(gap.get('start')))
+            end = dt.date.fromisoformat(str(gap.get('end')))
+        except (TypeError, ValueError):
+            continue
+        if start <= day <= end:
+            return True
+    return False
+
+
+def is_outage_record(entry):
+    """True for an explicit gap marker. Those rows are not picks."""
+    if not isinstance(entry, dict):
+        return False
+    kind = str(entry.get('record_type') or entry.get('kind') or '')
+    return kind == 'scorer_outage'
+
+
+def countable_picks(history, gaps=None):
+    """Picks that enter win rate and counts.
+
+    Drops scorer-outage markers and any row dated inside a recorded gap so a
+    later backfill cannot move the public stats.
+    """
+    selected = load_outage_gaps() if gaps is None else gaps
+    kept = []
+    for entry in history or []:
+        if not isinstance(entry, dict) or is_outage_record(entry):
+            continue
+        if in_outage_gap(entry.get('featured_date'), selected):
+            continue
+        kept.append(entry)
+    return kept
 
 
 def is_resolved(entry):
@@ -58,7 +133,8 @@ def compute_win_rate(history):
 
     Denominator = judged picks (closed, plus open picks that already hit -
     the prediction is proven, no reason to wait for the close). Rounded to a
-    whole number."""
+    whole number. Scorer-outage gaps are not judged and are not pending."""
+    history = countable_picks(history)
     judged = [e for e in history if is_judged(e)]
     wins = sum(1 for e in judged if is_win(e))
     win_rate = round((wins / len(judged)) * 100) if judged else 0
@@ -77,6 +153,7 @@ def compute_target_hit_rate(history):
     """Return (rate_pct, hits, judged_count): the share of judged picks that
     reached the predicted gain (excludes the closed-profitable-without-hit
     wins). Same denominator as compute_win_rate so the numbers compare."""
+    history = countable_picks(history)
     judged = [e for e in history if is_judged(e)]
     hits = sum(1 for e in judged if hit_target(e))
     rate = round((hits / len(judged)) * 100) if judged else 0
@@ -101,6 +178,7 @@ def result_return(entry):
 def compute_median_result_return(history):
     """Median result_return over judged picks (same population as the win
     rate), rounded to one decimal."""
+    history = countable_picks(history)
     vals = sorted(v for v in (result_return(e) for e in history) if v is not None)
     return round(vals[len(vals) // 2], 1) if vals else 0
 
@@ -110,6 +188,7 @@ def compute_held_to_close_rate(history):
     share that finished profitable at the close. The secondary transparency
     stat beside the headline win rate (a hit pick can fade by the close;
     both facts stay visible)."""
+    history = countable_picks(history)
     resolved = [e for e in history if is_resolved(e)]
     wins = sum(1 for e in resolved if e['actual_return'] > 0)
     rate = round((wins / len(resolved)) * 100) if resolved else 0

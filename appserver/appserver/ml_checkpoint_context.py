@@ -654,6 +654,135 @@ def _legacy_v2_metadata(health: Mapping[str, Any], scorer_url: str) -> Dict[str,
     })
 
 
+# Fields stored on a published daily pick. V2 and V3 both return this shape.
+# V2 does not copy `_legacy_v2_metadata`'s calendar-date `data_as_of` or its
+# hardcoded `context_data_complete=false`; those are cache placeholders.
+PUBLICATION_IDENTITY_FIELDS = (
+    "model_release",
+    "model_manifest_hash",
+    "feature_schema_hash",
+    "context_schema_version",
+    "data_generation_hash",
+    "data_source_manifest_hash",
+    "data_as_of",
+)
+
+
+def scorer_health_mode(health: Any) -> Optional[str]:
+    """Return v2 or v3 from the same feature_count rule as the checkpoint cache.
+
+    V2 health is the production payload: feature_count 59 and no provenance.
+    V3 health reports feature_count 62. A provenance envelope with no
+    feature_count is left unclassified so the daily-pick gate can keep reading
+    its metadata directly.
+    """
+
+    if not isinstance(health, Mapping):
+        return None
+    try:
+        feature_count = int(health.get("feature_count"))
+    except (TypeError, ValueError):
+        return None
+    if feature_count == 59:
+        return "v2"
+    if feature_count == 62:
+        return "v3"
+    return None
+
+
+def _eod_marker_is_complete(marker: Mapping[str, Any], completed_session: str) -> bool:
+    """True only when the shared EOD success marker proves this session."""
+
+    try:
+        from data_updater.eod_readiness import validate_success_marker
+    except Exception:
+        return False
+    return bool(validate_success_marker(
+        marker,
+        expected_completed_session=completed_session,
+    ))
+
+
+def daily_pick_identity_from_health(
+    health: Any,
+    *,
+    scorer_url: str,
+    completed_session: str,
+    eod_marker: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, str]:
+    """Return the identity a daily pick may publish.
+
+    V3 health must itself report complete provenance through the last completed
+    session. V2 health cannot. Its model contract comes from
+    `_legacy_v2_metadata`. Publication still requires `eod_marker` to be a
+    validated end-of-day success marker for `completed_session`. The synthetic
+    V2 `data_as_of` and `context_data_complete` values are not that proof.
+    """
+
+    if not isinstance(health, Mapping):
+        raise RuntimeError("Daily pick deferred: scorer health is invalid")
+    if scorer_health_mode(health) == "v2":
+        return _v2_daily_pick_identity(
+            health,
+            scorer_url=scorer_url,
+            completed_session=completed_session,
+            eod_marker=eod_marker,
+        )
+    metadata = health.get("metadata", health)
+    if not isinstance(metadata, Mapping):
+        raise RuntimeError("Daily pick deferred: scorer provenance is incomplete")
+    if (
+        metadata.get("context_data_complete") is not True
+        or metadata.get("data_as_of") != completed_session
+    ):
+        raise RuntimeError(
+            f'Daily pick deferred: scorer data through {metadata.get("data_as_of")} '
+            f"does not cover completed session {completed_session}"
+        )
+    if any(not metadata.get(field) for field in PUBLICATION_IDENTITY_FIELDS):
+        raise RuntimeError("Daily pick deferred: scorer provenance is incomplete")
+    return {field: metadata[field] for field in PUBLICATION_IDENTITY_FIELDS}
+
+
+def _v2_daily_pick_identity(
+    health: Mapping[str, Any],
+    *,
+    scorer_url: str,
+    completed_session: str,
+    eod_marker: Optional[Mapping[str, Any]],
+) -> Dict[str, str]:
+    contract = _legacy_v2_metadata(health, scorer_url)
+    if (
+        contract.get("scorer_mode") != "v2"
+        or not valid_legacy_scorer_metadata(contract)
+    ):
+        raise RuntimeError("Daily pick deferred: scorer provenance is incomplete")
+    reported = None
+    if isinstance(eod_marker, Mapping):
+        reported = eod_marker.get("completed_session")
+    if not isinstance(eod_marker, Mapping) or str(reported or "") != completed_session:
+        raise RuntimeError(
+            f"Daily pick deferred: scorer data through {reported} "
+            f"does not cover completed session {completed_session}"
+        )
+    if not _eod_marker_is_complete(eod_marker, completed_session):
+        raise RuntimeError(
+            "Daily pick deferred: end-of-day data for completed session "
+            f"{completed_session} is incomplete"
+        )
+    # Bind the data half of the identity to the marker, not to the V2 cache
+    # placeholder (New York calendar date, context_data_complete false).
+    return {
+        "model_release": contract["model_release"],
+        "model_manifest_hash": contract["model_manifest_hash"],
+        "feature_schema_hash": contract["feature_schema_hash"],
+        "context_schema_version": contract["context_schema_version"],
+        "data_generation_hash": str(eod_marker["generation_fingerprint"]),
+        "data_source_manifest_hash": str(eod_marker["completeness_fingerprint"]),
+        "data_as_of": completed_session,
+    }
+
+
 def metadata_fingerprint(metadata: Mapping[str, Any]) -> str:
     identity = {
         "contract_version": CONTEXT_CONTRACT_VERSION,
@@ -1438,11 +1567,7 @@ class CheckpointScoringService:
         payload = response.json()
         if not isinstance(payload, Mapping):
             return None
-        try:
-            feature_count = int(payload.get("feature_count"))
-        except (TypeError, ValueError):
-            return None
-        detected_mode = "v2" if feature_count == 59 else "v3" if feature_count == 62 else None
+        detected_mode = scorer_health_mode(payload)
         if detected_mode is None:
             return None
         if self.scorer_mode != "auto" and self.scorer_mode != detected_mode:

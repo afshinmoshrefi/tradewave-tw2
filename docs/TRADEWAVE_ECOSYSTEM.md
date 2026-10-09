@@ -251,6 +251,32 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   list top-down, **skips any symbol featured in the last 14 days**, and takes the
   **FIRST one OppList4 confirms** - no LLM consulted. The pick is appended to
   `featured_history.json`.
+- **Freshness gate (TW-BUG-0031).** `current_pick_data_identity()` calls
+  `ml_checkpoint_context.daily_pick_identity_from_health()`. V3 `/health` must
+  report `context_data_complete is True` and `data_as_of` equal to
+  `latest_completed_us_equity_session()`. Production V2 `/health` is only
+  `feature_count` 59, `status`, `tiers`, `uptime_seconds`, and `vix_cutoff`.
+  That mode reuses `_legacy_v2_metadata()` for the model contract. Those
+  synthetic fields (`data_as_of` = New York calendar date,
+  `context_data_complete` = false) are cache placeholders and are not
+  publication proof. V2 publication also requires
+  `validate_success_marker()` on the EOD status marker
+  (`TW2_EOD_UPDATE_STATUS_FILE`, else appserver `GET /internal/eod-status`)
+  for that same completed session. Stale or incomplete data does not publish.
+  Dev's scorer reports provenance, so dev does not reproduce the V2 stall
+  unless `TW2_ML_SCORER_URL` points at `tools/simulate_v2_daily_pick_scorer.py`.
+- **No silent reuse.** If the morning run does not publish, it does not copy
+  the previous ledger row onto the homepage. The page shows "No pick today",
+  `main()` returns exit code 1, and `site/lib/operator_alert.py` emails
+  `SUPPORT_EMAIL_TO` through the existing Resend helper. When Resend is
+  unconfigured the email is skipped and the ERROR log plus the exit code are
+  the alert. Cron must not treat exit 0 as success for this job.
+- **Scorer-outage gap.** `site/lib/scorer_outage_gaps.json` records
+  2026-09-17 through 2026-10-09 (inclusive). No backdated rows are written to
+  `featured_history.json`. `pick_stats.countable_picks()` drops that range
+  and any `record_type=scorer_outage` marker from win rate and counts. The
+  homepage and scorecard show the notice. The API track record returns the
+  same exclusion plus `summary.outage_gaps`.
 - **`featured_history.json` IS the daily-pick record AND the scorecard's data
   source.** Each entry = symbol + featured_date + pattern + ML metrics
   (sharpe, win_prob, ml_score, pred_return...) + price tracking (start/end/peak,
