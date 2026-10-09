@@ -1,10 +1,12 @@
 # TW-BUG-0027: October 5 SMN reader edition held
 
 - Current status: in-progress; October 9 six-article publication and provider-sent newsletter verified; unattended reliability and alert routing remain.
-- Latest actual check: `2026-10-09T21:21:45.583456Z`.
+- Latest actual check: `2026-10-09T21:37:52.574717Z`.
 - Existing incident executor/ownership is retained.
 
 ## Current prevention checkpoint: deployed and automatic timer smoke verified, October 9 21:21 UTC
+
+Final read-only handoff at **21:37:52 UTC** confirms source `21d1376`, final `active_verified`, all five timers active/enabled with last trigger 21:37 and next trigger 21:38, no activation lock, unchanged six-article/newsletter hashes and all 49 jobs. After separately backing up and verifying 776 files from the two completed supplemental fixtures and three failed staging directories, only those disposable copies were retired. Their second off-host archive SHA256 is `2fdc49d373d2a9668940d6d72c3f27bb76253cbb03311730461d4999988e53d8`; all failed proof remains available. The successful staging packet, active release, live/current recovery and every deployment receipt remain on SMN. Publication-user headroom is now **295,063,552 bytes**; the actual disk is 20 GB with no unused attached capacity, so durable storage/retention remains a concrete requirement. Final native state: `smn-final-native-state-20261009/state.json`, SHA256 `094cfbdcdb07b6cdf47b66630ee8eb330a8d7b762b6ef713673a61bbbe3926ec`.
 
 Exact source `21d1376eda86bb0e9bc43c9f347cd46c04ef109a` is now deployed on `seasonalmarketnews` (`209.182.216.112`). The qualified V2 transaction reached final `active_verified` at 21:18:47 UTC and restored all five timers at 21:18:47.421 UTC. Independent read-only verification at 21:20:48 UTC checked the Git revision, every one of the 370 physical source files, effective native service configurations, active/enabled timers and absence of the activation lock. Final deployment receipt SHA256: `f3ac2162626c1df192cbef810a3620df47afd9ba3125d00432cf4f3d02430788`. The intermediate `active_verified_controller_held` message is not the final timer-restored state.
 
