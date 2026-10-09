@@ -8,7 +8,7 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0002](TW-TASK-0002.md) | verified | Independent review of two fixes and repair of missing documentation evidence |
 | [TW-TASK-0003](TW-TASK-0003.md) | in-progress | Reusable dev MCP release authentication and complete staging promotion |
 | [TW-TASK-0004](TW-TASK-0004.md) | verified | Michael editorial refinements and September 17 SMN Dev edition |
-| [TW-TASK-0005](TW-TASK-0005.md) | in-progress; October 9 publication and provider-sent newsletter verified | fc5 all-six public with 49 actual jobs; 12 layouts, 215 files and four actual pixels passed; one normal campaign sent 136, delivery unknown; PR7 activation rolled back on disk-full; 20:55 all five timers restored, candidate 93 source + 81 operator checks passed; alerts and three scheduled weekdays remain |
+| [TW-TASK-0005](TW-TASK-0005.md) | in-progress; October 9 publication and provider-sent newsletter verified | 21d1376 deployed; six public and one campaign 136 sent, delivery unknown; 49 jobs retained; 168 source + 81 operator checks; 21:21 all five timers active and automatic protected-day smoke passed; disk headroom 262 MB, durable retention/alerts and three new scheduled weekdays remain |
 | [TW-TASK-0006](TW-TASK-0006.md) | verified | SMN shared Codex/Claude coordination and model-effort review |
 | [TW-TASK-0007](TW-TASK-0007.md) | verified | Controlled six-subject Astra/Sol/Luna quality and usage comparison |
 | [TW-TASK-0008](TW-TASK-0008.md) | verified on dev | SMN publishing dashboard (pins, order, publish/unpublish, schedule, hero) and portfolio Rec Hero/Delete/publish-icon fixes |
