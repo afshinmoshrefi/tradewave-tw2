@@ -1,10 +1,26 @@
 # TW-BUG-0027: October 5 SMN reader edition held
 
-## Direct daily60 authority and operator repair, October 9
+- Current status: in-progress; production fc5 activation and all five timer restorations verified.
+- Latest actual check: `2026-10-09T16:58:11.084905Z`.
+- Existing incident executor/ownership is retained.
+
+## Current checkpoint: fc5 deployment verified, October 9 16:58 UTC
+
+The active production application is `fc5d93c22ff26a9f09c13ee277246e18a3c85a74` on `seasonalmarketnews` (`209.182.216.112`). The deployment receipt is `active_verified` at `2026-10-09T16:49:47.722543Z`; all five existing SMN timers were restored at `2026-10-09T16:49:47.892237Z` and were active/enabled in the fresh `2026-10-09T16:58:11.084905Z` check. All 365 physical deployed source files match exact raw Git bytes, with no mismatch. Receipt SHA-256: `2ee8f0d489b040861e033350bf5fa2039210b8154bb4a29e2ec65959cca1d965`.
+
+Forty actual unique jobs and forty conservative daily slots remain consumed under the directly authorized daily ceiling of 60. There are zero pending/uncertain preparations, zero archive paths counted by the fresh daily inventory, and zero unresolved running/claimed jobs without receipts. The forty original receipts and failed attempts remain retained; archived never-dispatched preparation evidence remains history. XLF, DJI and RPM remain live; DAL, SPY and QQQ remain pending. Article bytes and mail state are unchanged; the deployment made zero content writes, model calls or mail sends. This is a verified application deployment and timer restoration, while the complete six-article edition and unattended reliability remain unfinished.
+
+Exact final-source qualification passed 171 focused source tests for daily60 and 132 focused/adjacent application tests, with overlapping modules; these are not 303 unique tests. Raw LF Git bytes and the real native controller-lock probe are verified. The exact final deployment operator passed 49 Linux guard tests and 24 independent Linux probes (73 total), including real flock, private process death/recovery, owned rollback, configuration/execution projection and timer restoration. The V6 bounded DAL/QQQ recovery package has 55 local author tests and eight independent local probes passed. Its actual Linux recovery qualification, fresh real-host daily inventory/loaded-source binding, and genuine bounded jobs remain with root at this checkpoint; local passes do not certify native recovery execution.
+
+Afshin's direct blanket publication/repair approval and maximum 60 actual jobs daily supersede the former pending 40/47-job permission gates. No additional routine approval is required within this authorized scope. The existing sender still requires all six verified articles. Alert recipients/credential/transport remain unconfigured and no alert delivery is verified. Active timers or service exit status alone do not establish full workflow health.
+
+[Dated evidence and exact hashes](evidence/TW-BUG-0027/2026-10-09-live-checkpoint.md) preserve final activation, all failed attempts and earlier checkpoints. Root continues native bounded recovery and genuine remaining article jobs; the incident is not resolved.
+
+## Historical: Direct daily60 authority and operator repair, October 9
 
 Afshin directly granted blanket publication/repair approval and up to 60 actual jobs daily; the local authority record is timestamped 15:48:24 UTC, with the message clock unavailable. The former pending47 request is superseded. Three articles remain live. Two app-refresh attempts refused before mutation because dynamic systemd run metadata and normal worker updates were incorrectly treated as drift. A narrowly corrected operator and exact-source recovery are in progress; alert delivery remains unverified. [Dated checkpoint](evidence/TW-BUG-0027/2026-10-09-live-checkpoint.md) retains the exact message, diagnosis, 171 selected Linux mock tests, native-test limitations and preserved actual receipts. This is not a full-edition or unattended-workflow completion claim.
 
-## Scoped production policy package ready, October 5
+## Historical: Scoped production policy package ready, October 5
 
 Final candidate `32bd869c0ffdd6039145bcaee4223dd67fb533ff` and executable operator package are qualified and prepared, not activated. Package: `C:/Users/afshin/Documents/ChatGPT/Seasonal Market News/artifacts/smn-continuity-20261005/operator-policy/README.md`, with `release.json`, `readiness.json`, exact Git bundle/source tar, native/browser/pixel proofs and read-only freshness checker. Frozen cutover script SHA256 `35d1f7a4e478ea58e2d56087494c6784e5040ce55d1da741465b016f4e976329` passed12 independent Linux fault cases, including SIGKILL/dead-owner recovery, both actual scheduler locks, live-peer preservation, both weekday/Sunday mail holds on uncertain ledger, and held-timer finalize with exact-content failure rollback. The manifest typo is corrected and all four release artifact hashes match packaged bytes. Actual frozen archive-equivalence function was rerun by root and owner against the packaged tar and actual Git commit:354 files pass,347 CRLF-only normalizations. Legacy Markdown byte0x96 is accepted by exact CRLF byte-equivalence on an explicit text-extension allowlist; current function does NOT UTF8-decode file bodies. Root proof `archive-equivalence-root-proof.json` binds the same frozen script hash; the earlier reported UTF8 blocker is not present in this frozen script.
 
@@ -12,17 +28,17 @@ Read-only production preflight at16:57 UTC is `observed-preflight-20261005.json`
 
 Independent current-production recheck at16:59:53 UTC confirms working2d1, all6 public approved bodies and123 origin files, frozen selection, dated unique catalog and homepage links; receipt unchanged. This later continuity-v1 policy release still requires exact human approval/current snapshots. No production write was made for this package. Dev remains qualified and active185af5c. Verification evidence in the independent workspace: `smn-production-native-independent-proof-32bd869.json`, `smn-production-renderer-linux-tests-32bd869.json`, `smn-cutover-independent-review-operator-final.json`, `smn-production-freshness-20261005-1700.json`.
 
-## Production candidate offline qualification complete, October 5
+## Historical: Production candidate offline qualification complete, October 5
 
 Exact scoped candidate `32bd869c0ffdd6039145bcaee4223dd67fb533ff` is pushed on `codex/smn-continuity-production`. Fresh-process native saved-evidence replay passed notice0, partial3, complete6 and exact temporary rollback for each; existing October5 edition is reused without a transaction. Renderer and loaded helpers resolve exclusively inside the immutable candidate. Final delta passed9 Windows and9 Linux transaction tests, atop earlier80 root/126 independent application tests. Browser18 pages pass;8 screenshots inspected, including truthful coverage and XLF-only reviewed fallback. No model/provider/email calls or production writes.
 
 Review inputs in `C:/Users/afshin/Documents/ChatGPT/Seasonal Market News/artifacts/smn-continuity-20261005/production-native/`: `qualification-manifest.json` binds `native-proof.json`, `browser-proof.json`, and subsequent `pixel-inspection-proof.json` by hash. The browser machine snapshot's initial pixel_pending flag is superseded by the separately bound pixel inspection. Qualified source archive SHA256 `47bf80e65b781256b069580da48ac96f2dad074ad8e4f132da365b26ded70c71`. Root also inspected partial mobile and fallback mobile. Operator-policy guard/fault review remains in progress; old production-native cutover draft is superseded. Exact later policy release approval and alert setup remain separate. Production remains working2d1 with delivered campaign untouched.
 
-## Production qualification and operator package ownership, October 5
+## Historical: Production qualification and operator package ownership, October 5
 
 Production candidate renderer correction is `32bd869` (immutable release renderer and helper path/hash binding, cold process/cache conflict regressions); final offline native/browser replay is in progress. Operator script ownership moved from the provisional `artifacts/smn-continuity-20261005/production-native/cutover-production.py` to `artifacts/smn-continuity-20261005/operator-policy/` in the SMN workspace. The old draft is superseded and must not be executed. Final exact-SHA proof inputs, rollback mail-journal guards across weekday and Sunday entry points, existing scheduler locks, and dead-owner recovery/fault tests are being completed in the replacement. Independent verifier's three concrete guard findings were delivered to that owner. No new production policy writes; production remains working2d1 and today's campaign is preserved.
 
-## Dev continuity qualified and active, October 5 16:24 UTC
+## Historical: Dev continuity qualified and active, October 5 16:24 UTC
 
 Exact main/runtime `185af5cbec060a41958650c1bc709cfc68f0946d` is verified on Dev. Notice revision1 and partial5 revision2 passed on6df6c88; narrow membership relocation correction185af5c then completed revision3 with all six saved October2 articles. Complete/repeat both return the identical revision3 transaction, with no repeat publication. Browser12 article layouts, desktop/mobile home screenshots, exact member bytes/public preview, 705-entry retained catalog and immutable source bindings pass. Five prior qualified-source records and five derivative-job records are byte-for-byte unchanged; no duplicate draft jobs. Linux16 membership tests cover relocated-evidence reuse and changed review/chart rejection. Original failed attempts and latest-good rollback receipts remain intact.
 
@@ -30,36 +46,36 @@ Live runtime `/opt/smn-daily/current` -> `/opt/smn-worktrees/smn-continuity-185a
 
 Production remains2d1; fresh independent current-day proof confirms all six October5 public bodies and123 edition origin files unchanged. Separate scoped production candidate d69c46e native-renderer/saved-evidence offline qualification and executable cutover/rollback package are in progress in isolated `/var/tmp/smn-production-native-d69c46e`. No production writes authorized for this later policy release.
 
-## Notice and partial passed; complete transition repair, October 5 16:13 UTC
+## Historical: Notice and partial passed; complete transition repair, October 5 16:13 UTC
 
 On6df6c88, actual notice revision1 and partial revision2 both finished live_verified. Partial publishes ADP,FDS,IWM,XLK,SPX with MSFT pending; FDS uses reviewed readable fallback. Browser verified10 desktop/mobile layouts, public catalog, exact member bytes and retained archive; screenshots inspected by root and independent verifier. Complete revision3 stopped in membership `register_sources`: identical approved revisions compare absolute retained capsule paths, so copying the same evidence into the next revision fails. Worker is fixing semantic/hash-equivalent relocation while preserving prior qualified records and derivative-job IDs and rejecting changed bytes/evidence. No rewrite/model job is needed.
 
 Actual complete record `/var/lib/tradewave/release-state/smn-primary-2026-10-02-7ae7fc961b92ce1f/receipt.json` rolled back to verified partial; independent proof confirms all seven public files match backup, all six private registry revisions match expected values, journal rolled_back, lock absent. Root captured exact hashes of five qualified-source records plus five draft-job records at `/var/tmp/smn-continuity-qualified-records-before.json` for unchanged verification after repair. Resume complete/repeat in existing `/var/tmp/smn-continuity-live-replay-6df6c88`, preserving earlier success/failure evidence; no need to rerun unaffected successful phases. Runtime/main remain40e5 and production remains2d1.
 
-## Final candidate qualification running, October 5 16:00 UTC
+## Historical: Final candidate qualification running, October 5 16:00 UTC
 
 Exact Dev candidate `6df6c8898318dbd654b849e1aa324a4b1eb4fecd` is pushed and running saved-evidence notice -> partial5 (FDS readable fallback) -> complete6 -> repeat qualification from `/var/tmp/smn-continuity-live-replay-6df6c88`; logs `/var/tmp/smn-continuity-{notice,partial,complete,repeat}-6df6c88.log`. Capsule now includes the exact-byte CDN helper; actual archive capture/load test passes. Linux12 publication,37 observer,11 newsletter-state tests pass. No model jobs or provider calls. Exact source capsule modules/retained private hashes remain checked. Root owns Dev mutation only; main/runtime pointer promotion awaits all phases and screenshots.
 
 Separate production candidate is pushed `d69c46eeb3fdc48c6fda7c8343011132ffe8449b` on `codex/smn-continuity-production`, based2d1 and excluding membership. Application code25dd4ab passed80 root Linux tests; independent verifier passed126 including editorial/source suites. The only later change is service template root user and SMN_CODEX path confirmed from existing production systemd unit: `/opt/smn-codex-0.155.0-alpha.16/node_modules/.bin/codex`. Production remains2d1 unchanged. Candidate proof: `artifacts/smn-continuity-20261005/production-candidate-qualification.json` in SMN workspace. Native production renderer/browser qualification, exact cutover/rollback packaging and later explicit policy-release approval remain; alert recipients/credential/authorized transport test are separate prerequisites. Today's campaign must not resend.
 
-## Dev browser compatibility and independent mail health, October 5
+## Historical: Dev browser compatibility and independent mail health, October 5
 
 Root candidate `3c192ca` includes membership catalog projection fix `9c159d8` and navigation fix `60d4723`, plus independent failed/stalled weekday/Sunday mail observer checks (35 local tests; previous 32 passed Linux). Real 60d4723 notice passed public catalog, navigation, dated coverage and desktop/mobile capture, then failed the first retained member article byte check. Automatic rollback receipt `/var/lib/tradewave/release-state/smn-primary-2026-10-02-70535727d9f4f03d/receipt.json` is rolled_back. Genuine reader entitlement is can_read=true. Playwright member response is HTTP200; reversing the already-supported exact Cloudflare email-link transform matches approved SHA `03a6b9e61b7182224ace360c01cc6f071e5a298164d1f7df9cc448588fe6c2f4`. This is a verifier normalization mismatch, not expired login; no new login required. Worker is applying the same normalization with exact restored-byte matching and raw hash evidence. Diagnostic `/var/tmp/smn-continuity-diagnose-member.cjs`; source approvals remain unchanged. Notice mobile screenshot inspected: dated pending notice and retained archive readable. Production remains2d1 and today's delivered campaign remains untouched. Isolated production policy candidate branch `codex/smn-continuity-production` tip `0ca8f3b` is local-only, pending Linux and transaction qualification; it excludes membership features.
 
 
-## Authenticated Dev rehearsal checkpoint, October 5 15:30 UTC
+## Historical: Authenticated Dev rehearsal checkpoint, October 5 15:30 UTC
 
 1d35a3e notice preparation stopped before public writes due historical `/home/flask/blog` helper path; corrected by204c546 to pin actual Dev runtime renderer and reject pointer drift. On204c546 the notice prepared and activated, then live browser check failed `All prior articles retained`: the membership `/posts.json` API returns relative canonical URLs/public fields, while legacy verifier compares absolute private-catalog URLs. Automatic rollback succeeded; receipt `/var/lib/tradewave/release-state/smn-primary-2026-10-02-f0d803bd22233472/receipt.json` is rolled_back and lock is clear. Original Oct2 evidence unchanged. Root replay `/var/tmp/smn-continuity-live-replay-204c546`; publication worker adapting semantic membership catalog verification and exact private-file checks, root observer765a838 handles relative public catalog URLs (32 local tests). Reader authentication remains valid; no new login needed. Final notice/partial/complete/repeat acceptance remains pending; no production changes or new generation/email.
 
-## Integrated Linux checkpoint and reader session, October 5
+## Historical: Integrated Linux checkpoint and reader session, October 5
 
 Candidate branch is `ab0c699` (pushed), with publication `7b51253`, scheduler `d8ec51c`, newsletter `d0433cd` integrated. Linux: 20 continuity, 23 editorial, 23 source, 5 fallback, 30 observer, 11 legacy publication, 16 selected publication, 15 membership pipeline, 1 verified newsletter and 6 newsletter-state tests passed. Follow-up root changes add early publication when all generation completes, observe interrupted continuity progress, and normalize only exact observed Cloudflare beacon plus LF (reject extra whitespace/scripts). Observer now31 local tests. All original negative observer probes were independently confirmed repaired; live false positive newline corrected in0950856. Publication worker is finishing atomic partial-upload recovery, incomplete prepare directory recovery, explicit clean pushed Dev candidate qualification, and missing-visual fallback capsule support. Root real saved-Oct2 six-subject eligibility passes; FDS fallback clone preserves original visual. User completed genuine Dev reader sign-in; central entitlement revalidated via existing QA exporter. No new model jobs/emails or production mutations.
 
-## Continuity observer repair checkpoint, October 5
+## Historical: Continuity observer repair checkpoint, October 5
 
 Integration branch now `2a0a5dc` (pushed), including observer `be4c009` and scheduler `d8ec51c` cherry-pick. Observer performs bounded GETs and verifies receipt-bound static HTML or exact public membership preview copy; only the exact observed Cloudflare beacon can normalize static bytes. Stale running child ledgers now trigger configured no-progress detection without a controller receipt. Resend requires a provider ID and persists acceptance separately from delivery; legacy dedupe retained. Continuity needs_attention/held ledgers are actionable. 30 observer tests pass locally, no real alert send. Independent verifier can rerun copied candidate against this pushed branch. Production remains unchanged; publication restart tests and newsletter timezone/state work are still being integrated.
 
-## Continuity implementation checkpoint and independent review pointers
+## Historical: Continuity implementation checkpoint and independent review pointers
 
 Integration owner remains session 01a0fcf4-37f1-7d33-bced-ac46999fd9fa. Integration branch `codex/smn-publication-continuity`, worktree `C:/Users/afshin/Documents/TradeWave Main Orchestrator/smn-price-anchor`, checkpoint `5eeb8bd` (not integrated or activated on Dev). Publication branch/worktree `codex/smn-continuity-package` / `smn-continuity-package` owns package/installer/membership/revision adapter. Scheduler branch/worktree `codex/smn-continuity-scheduler` owns bounded progress/deadline delivery and complete-only newsletter eligibility. Newsletter branch `codex/smn-newsletter-state-20261005` now owns only send_smn_emails.py and its tests for explicit timezone and truthful provider status. Root owns fallback/editorial helper, observer freshness and integration. Independent acceptance remains 01a10c07-0aa8-767f-84e3-04f9184b50da, read/test only.
 
@@ -72,7 +88,7 @@ Proposed reviewer acceptance document: `C:/Users/afshin/Documents/Codex/2026-10-
 MailerLite incident update from parent email worker via verifier: same campaign 200497784617437041 was explicitly authorized for immediate delivery and completed 138 sent / 138 delivered / 0 bounces at provider timestamp 14:30:01; owner Gmail receipt 1a10c788e616057f. This is attributed provider evidence, not a new sender action by this owner. Do not recreate or resend. Scheduler job completion earlier proved only queueing, not delivery.
 
 
-## Follow-up claim: availability-first publication policy (Dev implementation)
+## Historical: Follow-up claim: availability-first publication policy (Dev implementation)
 
 Owner: Codex session 01a0fcf4-37f1-7d33-bced-ac46999fd9fa, 2026-10-05 after successful 10:12 Eastern recovery. Afshin requests that publication continue despite individual article/presentation holds. Existing verifier 01a10c07-0aa8-767f-84e3-04f9184b50da owns independent acceptance/evidence review, not concurrent implementation. This claim covers SMN controller/scheduler, publication packaging/receipts, deterministic presentation fallback and regression tests. Production remains on verified 2d1de1a; new policy activation is Dev-only until a scoped production release is presented.
 
@@ -81,7 +97,7 @@ Executable policy: freeze the expected daily subjects; at the configured 07:00 E
 Implementation surfaces: smn_subscription_daily.py / operational_schedule.py / smn_daily.py for resumable progression; subscription_publication.py / smn_subscription_publish.py / subscription_primary_publish.py / install_smn_primary_edition.py and live browser checks for truthful partial receipts and revision transactions; editorial/visual modules for a separately evidenced fallback. Acceptance: one held subject permits other approved subjects, zero approved yields dated status, unchanged selection and factual rejection, cumulative budget exhaustion never starts a job, failed review remains failed, restart and concurrent tick safety, monotonic idempotent publication revisions, rollback preserves latest good coverage, single newsletter eligibility, actual desktop/mobile Dev verification using saved evidence without new generation. Observed citation/date/price-anchor failures require retained-evidence regressions. Alert delivery is a separate dependency and cannot be called sent without transport evidence.
 
 
-## Production publication restored, October 5 10:12 Eastern
+## Historical: Production publication restored, October 5 10:12 Eastern
 
 Afshin clarified that the priority was fresh publication, authorized necessary production publishing repairs and explicitly said "do not stop" (coordinator turn `01a10c63-b786-78c0-961c-3415c443fa3a`; human messages read directly). The tested exact candidate `2d1de1a9c9f200fa29a2db7f9660f3527727b660` is active. Current-day snapshots and the existing 49-job allowance were reused. A bundle-directory permission failure occurred before activation; unchanged baseline hashes were verified and that attempt's rollback record retained before correcting directory traversal permission and retrying.
 
@@ -91,21 +107,21 @@ Runtime/rollback receipt: `/var/lib/tradewave/release-state/smn-oct5-repair-2d1d
 
 Today's publication incident is restored. Durable process-policy changes and operational alert installation/delivery remain separate open work; no 99.9 percent reliability claim is established. Historical pending-approval/held states below are superseded.
 
-## Price-anchor correction ready, October 5 09:58 Eastern
+## Historical: Price-anchor correction ready, October 5 09:58 Eastern
 
 Exact next candidate `2d1de1a9c9f200fa29a2db7f9660f3527727b660` is2cc3167 plus the narrow directly preceding "scaled to the last" price-anchor exception and tests. Same code live/main Dev40e5a206104be2e40ce305af43ea230b5301a3f8.49 focused Linux tests and actual saved-review replay pass on exact candidate: five verify_complete approvals and SI current review validate unchanged, with its style issue preserved as advisory under existing policy2. No model jobs spent. Production remains2cc3167, held46/49, no publication. Only this new exact release/direct execution approval is pending;49 limit and today's snapshots already confirmed. Three remaining jobs fit49. Prepared reviewed/syntax-checked runbook/scripts and immutable bundle: `C:/Users/afshin/Documents/ChatGPT/Seasonal Market News/artifacts/smn-repair-20261005/operator-final/README.md`. No new copyedit or review requested; clone46-job root and completeSI visuals plus normal six-article publication.
 
-## Latest terminal outcome, October 5 09:53 Eastern
+## Historical: Latest terminal outcome, October 5 09:53 Eastern
 
 2cc3167 deployed successfully. Its recovery stopped at46/49 before publication: five articles fully approved including NVIDIA; SI fresh review passes all substantive checks, has only one advisory style issue, but a deterministic regex falsely matches "recorded price for the next60 weekdays" inside the accurate phrase "seasonal trend scaled to the last recorded price for the next60 weekdays". The native caption explicitly supplies this anchor convention. Source receipts, original failed root, prior43-job root and four approvals are hash-verified unchanged. Recovery failure is recorded at `2026-10-05/chatgpt-citation-recovery-2cc3167/recovery-failure.json`; controller last-run now points there as held. No publication attempted or newsletter released.
 
 Preparing a narrow direct-price-anchor exception and tests, preserving current SI article and saved review. No further copyedit/research/writer/review job should be needed: SIhero + SIpixels + landing =3 remaining, still cumulative49. The49 allowance and today's snapshots are already approved; only the next exact correction SHA will need direct production approval. Do not describe the recovery as still running. Actual saved-review replay will prove the exception while direct claims of future recorded prices remain blocked.
 
-## Current: follow-up authorized, production recovery running
+## Historical: Current: follow-up authorized, production recovery running
 
 October5 09:49Eastern: Afshin approved exact2cc3167 direct production deployment and49 cumulative jobs in coordinating turn01a10c51-2cd9-7800-9e21-1ac6a34c528b; human response read and verified. Same-day snapshots retain prior confirmation. Production guarded upgrade succeeded to2cc3167a435065843bb2b8834a750e7213fb75ec with previous08f8714 pointer/units/config preserved. Receipt `/var/lib/tradewave/release-state/smn-oct5-repair-2cc3167a4350-2026-10-05/receipt.json`. Actual isolated recovery is running as `smn-oct5-citation-recovery.service`, root `2026-10-05/chatgpt-citation-recovery-2cc3167`; original SI restoration and one-phrase receipt-bound copyedit passed mechanical checks, fresh review running. No publication success claimed yet. Earlier pending approval notes below are historical.
 
-## Follow-up ready on Dev, October 5 09:31 Eastern
+## Historical: Follow-up ready on Dev, October 5 09:31 Eastern
 
 Production08f8714 deployment succeeded; full publication did not. Recovery is terminal held at43/46, original evidence and four approved articles unchanged, no canonical publication receipt/newsletter marker. The next exact production candidate is `2cc3167a435065843bb2b8834a750e7213fb75ec` (only citation matcher/test over08f8714). Same behavior is live on Dev at `afd6f2e650d2155366e6a05508ee1fe7111a60ed`;49 focused Linux tests passed on both candidates, and captured real production reviews were replayed with zero model jobs. Main/runtime parity and unchanged public Dev catalog/home/search verified. New operator package: `C:/Users/afshin/Documents/ChatGPT/Seasonal Market News/artifacts/smn-repair-20261005/operator-citations/README.md`.
 
@@ -113,7 +129,7 @@ Matcher now strips only genuine rendered citation markers belonging to the sourc
 
 Concrete minimum remaining: SI freshreview1 + twoheroes2 + twoarticlepixels2 + landing1 =6 new, **49 cumulative**, three beyond approved46. No new research or writer job is needed. Normal40 cap unchanged. Need exact2cc3167 direct production execution approval and one-time49 allowance. Today's snapshots are ALREADY confirmed by Afshin; do not ask again today. New SHA/allowance are not covered by08f8714/46. SMN has no separate staging host; full six-article and desktop/mobile/live gates remain required after approval. The next wrapper is prepared/reviewed/syntax checked, not production executed.
 
-## Current checkpoint: production recovery authorized and running
+## Historical: Current checkpoint: production recovery authorized and running
 
 **13:15UTC terminal update:** code08f8714 remains active, but recovery stopped before publication at43/46 cumulative jobs. No canonical publication receipt and no October5 newsletter marker; both ordinary timers active and activation lock clear. Recovery failure recorded at `2026-10-05/chatgpt-recovery-08f8714/recovery-failure.json`; controller last-run now points to that held recovery. Hashes prove original failed run and XLF/SPY/QQQ/AMZN unchanged. No recovery process remains active.
 
@@ -128,17 +144,17 @@ Targeted recovery is actually running as `smn-oct5-recovery.service`, from `/var
 - Authorization: Afshin requests fixing the edition and preventing NVIDIA/silver recurrence. Code, focused tests and Dev activation authorized. Friday direct-production exception was release-specific; new production release/snapshot/operator permission remains separate.
 - Scope: source retrieval resilience, required-context handoff, stable runtime asset lookup, exact selected-lineup publication and bounded held-run recovery. Preserve four approved articles, all original receipts and engine outputs. No new provider settings, email tests or raised job cap.
 
-## Evidence
+## Historical: Evidence
 Production 2026-10-05 root /var/lib/tradewave/smn-daily/subscription-primary/2026-10-05: XLF/SPY/QQQ/AMZN passed; SI has insufficient accessible primary pages (CME timeout and CFTC publication-date rejection); NVIDIA rereview claims quarterly context omitted. Actual text must be checked before accepting the latter diagnosis. Reader ledger 37 jobs against ordinary 40. Publisher built four-entry package despite six selected symbols, then failed importing cwd-relative ticker_motif_custom.json. No successful production activation/receipt. Original candidate and all failed evidence retained. Local readonly evidence copy: Seasonal Market News/artifacts/smn-repair-20261005/evidence.
 
-## Executable plan and claims
+## Historical: Executable plan and claims
 1. Parent owns blog/smn_subscription_publish.py, subscription_publication.py, install_smn_primary_edition.py, runtime motif preflight/tests and new recovery command/tests. Worktree TradeWave Main Orchestrator/smn-oct5-publication, branch codex/smn-oct5-publication, base current SMN main 6f9812d. Reject missing/extra/held subjects before package/prepare/activation, including stale four-entry packages. Reuse the existing current-main stable motif resolver rather than duplicate a fix; test real release cwd and preflight required assets.
 2. Source agent owns blog/smn_primary_sources.py and dedicated tests in smn-oct5-sources. Diagnose captured errors; bounded retry transient fetches; preserve successful cache/evidence and verify dated primary fallback candidates without invented facts or weakened source validation.
 3. Context agent owns research/writer/reviewer handoff helpers and dedicated tests in smn-oct5-context (coordinate any smn_daily.py edits first). Verify NVDA receipt vs prose, then carry required source-backed context into repair prompts and check coverage without requiring exact prose quotations. Preserve source/financial gates.
 4. Parent integrates exact pushed commits, tests changed paths on Linux and Dev runtime, preserves current unrelated membership changes, then records SHA and live contract proofs. No model jobs until cumulative ledger and minimum recovery budget verified; never reuse altered approval or silently raise cap.
 5. Prepare immutable targeted recovery from original evidence using locks and cumulative budget, preserving four finalized article trees. Require all six approved before publication-only package and desktop/mobile/live checks. Produce concrete operator commands for the exact repair; if current authority/cap prevents production execution, record exact blockers after all independent work is complete.
 
-## Acceptance and rollback
+## Historical: Acceptance and rollback
 Tests reproduce cwd failure, 4/6 and stale-package rejection before writes, valid 6/6 acceptance, transient retry/no permanent-cache poisoning, required-context propagation, selected held-only recovery with preserved successes and hard cumulative cap. Dev activation snapshots previous release pointers and restores them on failed contract smoke. Production stays on d6e2 until separately authorized and current-day snapshots confirmed. No claim of 99.9% reliability from a single recovery.
 
 ### October 5 12:30 UTC checkpoint
@@ -164,12 +180,12 @@ Decision still needed: exact candidate08f8714 production approval, direct agent 
 Independent read-only oversight at12:35UTC additionally confirms absent `smn-operational-alerts.service` and timer (LoadState=not-found), absent saved operational settings/status in the actual dashboard state directory `/var/lib/smn-dashboard`, absent observer state, and default alerts disabled/zero recipients with null no-start/stall thresholds. Nonplaceholder Resend credential absent (presence-only check). Observer installation, settings, recipients, thresholds and credential remain separate prevention work; do not describe the missing key as the sole monitoring gap. Evidence receipt: `C:/Users/afshin/Documents/Codex/2026-10-05/task/smn-production-evidence-20261005.json`. Public catalog remains954 entries, latestOctober2, zeroOctober5. Latest direct production check still reports d6e2, dashboard active with sign-in redirect302, controller held and reader not_verified. The dashboard deployment worked; today's publication recovery has not run.
 
 
-## October 9 partial restoration — 13:52 UTC
+## Historical: October 9 partial restoration — 13:52 UTC
 
 Codex task `01a117d1-cc86-737e-a3f1-28b9a724802e` reports verified production application `b61b37f7a6683f0fc173b8aef52bcd5067f6bbe5`, active scheduled reconciliation, and genuinely qualified public XLF/DJI/RPM articles. The edition truthfully labels DAL/SPY/QQQ pending. Forty actual subscription jobs are complete; further jobs require the pending 47-job allowance. Progress/delivery scheduling remains held pending audited canonical adoption. New essential/advisory source `678477ab7fa1ab75f538dffef5d4dd854d8a11e0` is isolated and not deployed; alert routing and full unattended verification remain pending.
 
 The [detailed dated checkpoint](evidence/TW-BUG-0027/2026-10-09-live-checkpoint.md) gives actual receipt/public hashes, timers, preservation evidence and executable next gates. This is proposed on a separate task branch; no accepted shared-main claim, peer acknowledgement or incident resolution is claimed. Historical observations above retain their original dates and source versions.
 
-## October 9 scheduled handoff checkpoint - 15:31 UTC
+## Historical: October 9 scheduled handoff checkpoint - 15:31 UTC
 
 Canonical adoption completed at 15:04 UTC with all forty genuine job receipts and both held review histories preserved. Progress/delivery/reconcile timers resumed at 15:11 UTC; the owned idle parent exited naturally. The real 15:27 delivery retry reused the verified three-article receipt, without another activation or newsletter. The exact mail blocker is the native complete-six receipt rule, not canonical state or alert setup. Progress remains `needs_attention` at cap 40; three retained child failures have bounded reconciliation until 16:12 UTC. The new policy source has 130 actual Linux tests and its app-refresh operator has 49 actual Linux tests/probes passed, but the source is not deployed. Further 47-job authority, exact 678 release approval, isolated recovery fixture permission and actual alert delivery remain pending. The detailed checkpoint records an owned empty activation-file obstruction and its separately reviewed remedy. The incident is not resolved.

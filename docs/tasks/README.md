@@ -8,7 +8,7 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0002](TW-TASK-0002.md) | verified | Independent review of two fixes and repair of missing documentation evidence |
 | [TW-TASK-0003](TW-TASK-0003.md) | in-progress | Reusable dev MCP release authentication and complete staging promotion |
 | [TW-TASK-0004](TW-TASK-0004.md) | verified | Michael editorial refinements and September 17 SMN Dev edition |
-| [TW-TASK-0005](TW-TASK-0005.md) | verified on dev | September24 six articles live on primary Dev;686 retained articles, pins preserved and daily07:00 automation repaired |
+| [TW-TASK-0005](TW-TASK-0005.md) | in-progress; October 9 production policy verified | fc5 active with 365 raw source files matched and all five timers active/enabled; three articles live, three pending, 40 actual/40 conservative jobs under direct daily60 authority; bounded recovery and verified unattended completion remain |
 | [TW-TASK-0006](TW-TASK-0006.md) | verified | SMN shared Codex/Claude coordination and model-effort review |
 | [TW-TASK-0007](TW-TASK-0007.md) | verified | Controlled six-subject Astra/Sol/Luna quality and usage comparison |
 | [TW-TASK-0008](TW-TASK-0008.md) | verified on dev | SMN publishing dashboard (pins, order, publish/unpublish, schedule, hero) and portfolio Rec Hero/Delete/publish-icon fixes |

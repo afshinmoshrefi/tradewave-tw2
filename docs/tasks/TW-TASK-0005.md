@@ -1,5 +1,24 @@
 # TW-TASK-0005: Subscription daily SMN Dev workflow
 
+- Current status: in-progress for October 9 production recovery; final application activation/timer restoration verified.
+- Current evidence time: `2026-10-09T16:58:11.084905Z`.
+- Existing incident owner: Codex task `01a117d1-cc86-737e-a3f1-28b9a724802e`; original Dev claim is retained below as history.
+- Current authority: direct blanket publication/repair approval, maximum 60 actual daily jobs; no additional routine approval within scope.
+
+## Current checkpoint: fc5 deployment verified, October 9 16:58 UTC
+
+The active production application is `fc5d93c22ff26a9f09c13ee277246e18a3c85a74` on `seasonalmarketnews` (`209.182.216.112`). The deployment receipt is `active_verified` at `2026-10-09T16:49:47.722543Z`; all five existing SMN timers were restored at `2026-10-09T16:49:47.892237Z` and were active/enabled in the fresh `2026-10-09T16:58:11.084905Z` check. All 365 physical deployed source files match exact raw Git bytes, with no mismatch. Receipt SHA-256: `2ee8f0d489b040861e033350bf5fa2039210b8154bb4a29e2ec65959cca1d965`.
+
+Forty actual unique jobs and forty conservative daily slots remain consumed under the directly authorized daily ceiling of 60. There are zero pending/uncertain preparations, zero archive paths counted by the fresh daily inventory, and zero unresolved running/claimed jobs without receipts. The forty original receipts and failed attempts remain retained; archived never-dispatched preparation evidence remains history. XLF, DJI and RPM remain live; DAL, SPY and QQQ remain pending. Article bytes and mail state are unchanged; the deployment made zero content writes, model calls or mail sends. This is a verified application deployment and timer restoration, while the complete six-article edition and unattended reliability remain unfinished.
+
+Exact final-source qualification passed 171 focused source tests for daily60 and 132 focused/adjacent application tests, with overlapping modules; these are not 303 unique tests. Raw LF Git bytes and the real native controller-lock probe are verified. The exact final deployment operator passed 49 Linux guard tests and 24 independent Linux probes (73 total), including real flock, private process death/recovery, owned rollback, configuration/execution projection and timer restoration. The V6 bounded DAL/QQQ recovery package has 55 local author tests and eight independent local probes passed. Its actual Linux recovery qualification, fresh real-host daily inventory/loaded-source binding, and genuine bounded jobs remain with root at this checkpoint; local passes do not certify native recovery execution.
+
+Afshin's direct blanket publication/repair approval and maximum 60 actual jobs daily supersede the former pending 40/47-job permission gates. No additional routine approval is required within this authorized scope. The existing sender still requires all six verified articles. Alert recipients/credential/transport remain unconfigured and no alert delivery is verified. Active timers or service exit status alone do not establish full workflow health.
+
+[TW-BUG-0027 dated evidence](../bugs/evidence/TW-BUG-0027/2026-10-09-live-checkpoint.md) owns exact current hashes, preserved historical failures and remaining recovery/alert gates.
+
+## Historical task header, September 21
+
 - Status: verified
 - Confidence: reproduced
 - Executor: Codex smn-production-presentation-20260921
@@ -8,7 +27,7 @@
 - Authorization: build and prove daily subscription workflow on Dev; production unchanged. Owner lifted the earlier usage concern on September 19.
 
 
-## September21 fresh edition verified
+## Historical September21 fresh edition verified
 2026-09-21T12:14:23.016297+00:00: All six September21 production subjects (LEN, VIX, CPRT, XLF, APH, GIS) were recreated with fresh verified primary-source context, reused production heroes, exact unchanged TradeWave studies and engine projections. The explicit recovery attempt is separate from the original APH preflight hold. All six passed mechanical/source checks, independent Astra editorial review and inspected desktop/mobile captures. 12 official Codex CLI jobs used saved ChatGPT authentication, Astra xhigh, with no paid API fallback. The first fresh subscription edition is now proven, rather than only an infrastructure replay.
 
 SMN branding, navigation, footer and article listing now read as the normal site. Comparison links remain under Article details. Noindex and Dev-only host guards remain. Live edition: https://smn-dev.trxstat.com/editions/2026-09-21/ . Source/main/live commit `6557b93bf98dc4cf7c13e59e256a3b0897a80dec`. The final browser assertion-only commit is documented separately from the byte-identical writing source. Twelve live article layouts, both directly inspected landing layouts, public files and source-pointer hashes passed; Dev lock released. [Completion evidence](evidence/TW-TASK-0005-production-style-20260921.json).
@@ -174,7 +193,7 @@ The required receipt-based usage report is preserved at `/var/lib/tradewave/smn-
 2026-09-29T11:07Z: the normal Codex heartbeat used clean current SMN main `11baa39a4575af27d05901abe5a2d72dba83a81d` and captured the New York date read-only from production. Only four distinct subjects were available (`APH`, `CPRT`, `O`, `XLF`), so the required six-subject batch was incomplete. The run remains `waiting_for_production`: no TradeWave engine capture, research, model job, article generation, visual review, Dev publication or production write ran, and no prior-date substitution was made.
 
 
-## October 9 production recovery checkpoint
+## Historical October 9 production recovery checkpoint, through 16:13 UTC
 
 Latest direct authority: Afshin granted blanket publication/repair approval and up to 60 actual jobs daily, recorded at 15:48:24 UTC (message clock unavailable). The former pending47 request is superseded. Two guarded policy-refresh attempts then refused safely before mutation because the operator hashed dynamic systemd run metadata; a narrowly corrected operator is being qualified. The 171 selected daily60 source tests are mock qualification and do not replace native lock evidence. [Dated evidence](../bugs/evidence/TW-BUG-0027/2026-10-09-live-checkpoint.md) retains the exact message, timestamps, failures and current blockers. Three articles remain live; no new full-edition, newsletter or alert delivery is claimed.
 

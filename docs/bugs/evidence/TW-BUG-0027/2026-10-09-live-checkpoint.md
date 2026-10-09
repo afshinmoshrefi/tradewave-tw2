@@ -1,11 +1,40 @@
 # October 9 SMN incident checkpoint
 
-Current checkpoint: direct blanket repair/deployment authority and a 60-job daily ceiling are recorded below. Historic pending 47-job requests are superseded. Three articles remain public; no new completion or newsletter is claimed.
+Current production source: `fc5d93c22ff26a9f09c13ee277246e18a3c85a74`, verified and all five timers restored. Three articles are public and three remain pending; the incident remains in progress. Latest actual check: `2026-10-09T16:58:11.084905Z`.
 
 Executor: Codex, task `01a117d1-cc86-737e-a3f1-28b9a724802e`.
 Parent: `01a113a7-f3d3-77f1-a6b8-b856d5a1400c`.
 Scope: direct owner instruction to publish today's articles and restore the working workflow.
 This checkpoint is proposed on a separate branch; it is not a shared-main claim or peer acknowledgement.
+
+## Current checkpoint: fc5 deployment verified, October 9 16:58 UTC
+
+The active production application is `fc5d93c22ff26a9f09c13ee277246e18a3c85a74` on `seasonalmarketnews` (`209.182.216.112`). The deployment receipt is `active_verified` at `2026-10-09T16:49:47.722543Z`; all five existing SMN timers were restored at `2026-10-09T16:49:47.892237Z` and were active/enabled in the fresh `2026-10-09T16:58:11.084905Z` check. All 365 physical deployed source files match exact raw Git bytes, with no mismatch. Receipt SHA-256: `2ee8f0d489b040861e033350bf5fa2039210b8154bb4a29e2ec65959cca1d965`.
+
+Forty actual unique jobs and forty conservative daily slots remain consumed under the directly authorized daily ceiling of 60. There are zero pending/uncertain preparations, zero archive paths counted by the fresh daily inventory, and zero unresolved running/claimed jobs without receipts. The forty original receipts and failed attempts remain retained; archived never-dispatched preparation evidence remains history. XLF, DJI and RPM remain live; DAL, SPY and QQQ remain pending. Article bytes and mail state are unchanged; the deployment made zero content writes, model calls or mail sends. This is a verified application deployment and timer restoration, while the complete six-article edition and unattended reliability remain unfinished.
+
+Exact final-source qualification passed 171 focused source tests for daily60 and 132 focused/adjacent application tests, with overlapping modules; these are not 303 unique tests. Raw LF Git bytes and the real native controller-lock probe are verified. The exact final deployment operator passed 49 Linux guard tests and 24 independent Linux probes (73 total), including real flock, private process death/recovery, owned rollback, configuration/execution projection and timer restoration. The V6 bounded DAL/QQQ recovery package has 55 local author tests and eight independent local probes passed. Its actual Linux recovery qualification, fresh real-host daily inventory/loaded-source binding, and genuine bounded jobs remain with root at this checkpoint; local passes do not certify native recovery execution.
+
+Afshin's direct blanket publication/repair approval and maximum 60 actual jobs daily supersede the former pending 40/47-job permission gates. No additional routine approval is required within this authorized scope. The existing sender still requires all six verified articles. Alert recipients/credential/transport remain unconfigured and no alert delivery is verified. Active timers or service exit status alone do not establish full workflow health.
+
+Current evidence (private local workspace `C:/Users/afshin/Documents/Codex/2026-10-07/task-2`; sanitized logs retained, no credentials):
+
+| Evidence | SHA-256 |
+|---|---|
+| `smn-final-activation-actual-evidence-20261009/summary.json` | `eb263ad2f043e68085f60cebf5e27ea237e91a59f572a2971a79f725f2551691` |
+| Final deployment receipt | `2ee8f0d489b040861e033350bf5fa2039210b8154bb4a29e2ec65959cca1d965` |
+| `smn-deployment-fc5d93c-20261009-v1/evidence/SOURCE-LINUX-QUALIFICATION.json` | `ec2de10df69106b12cbc97818529f85971777d84302635004e3f9f5d49c2d6ca` |
+| `smn-final-operator-linux-qualification-20261009/operator-qualification.json` | `9808a00beb704746157df6a750739d27904dc3af7794f792c8caf2d2663ac9b6` |
+| `smn-final-operator-linux-qualification-20261009/independent-probes.json` | `878bc8ca20f4ad2900153ba374eb339f6667a48687ab30edf9e91c532fd9a19c` |
+| `smn-oct9-dal-qqq-bounded-recovery-v6-20261009/local-qualification-report.json` | `60feab2d2d847e6499edf6d13909b0d820e8da7a18cb49e444b79f7d740a809c` |
+| `smn-oct9-bounded-recovery-independent-review-20261009/review-v6.json` | `814cd21688406bd78dc444bcbd4c22df8d4ae147d5b8169fdfae695472b13ebe` |
+| `smn-oct9-bounded-recovery-independent-review-20261009/v6-independent-focused-tests.json` | `4c7c5cb09df6f534ce171ace04cee2461fc338e6e1658ce161c6ca93b8ac6857` |
+
+The canonical partial-three receipt remains `c22210350c293b82dce55e86a61f4495aec3abd04ebea8eaf75bb1cb14a8953a`; mail-state SHA-256 remains `687a72a1237e29f8a6a8859156d0b95e8255a51136d3d7327d50b0143cdb2a1a`. The activation lock is absent after successful restoration. Existing incident ownership is unchanged; this is a documentation checkpoint, with commit/push retained by the parent session.
+
+## Historical top-line checkpoint before 16:58 UTC
+
+Current checkpoint: direct blanket repair/deployment authority and a 60-job daily ceiling are recorded below. Historic pending 47-job requests are superseded. Three articles remain public; no new completion or newsletter is claimed.
 
 ## Historic publication verification at 13:52 UTC
 
@@ -47,7 +76,7 @@ Forty actual subscription jobs have completed: original 36; genuine held SPY and
 
 Finishing all six currently requires seven further jobs and explicit authority for 47 cumulative jobs: six DAL/QQQ writer/reviewer/visual jobs and one SPY visual job after the policy repair. That request is pending; the earlier 46-job estimate is superseded. Three never-dispatched canonical preparations must be proven unused and archived audibly before active reservation accounting is reduced. Do not discard failed actual attempts or reset counts.
 
-## Repair preparation observed at 13:52 UTC
+## Historical: Repair preparation observed at 13:52 UTC
 
 Separate clean SMN branch `codex/smn-essential-advisory-20261009`, exact candidate `678477ab7fa1ab75f538dffef5d4dd854d8a11e0`, preserves factual/source/numeric/security/material checks and genuine visual approval while distinguishing explicitly audited subjective warnings. It retains the original negative model verdict, exact article/context/issue hashes, actor and UTC attribution, and `human_reviewed:false`/`is_model_receipt:false`. Unknown coverage and required material omissions still hold. Existing successful and style-only proof shapes stay compatible. Local qualification: 84 passes and two Linux-only skips. Independent Linux qualification is in progress; source is not deployed. Approval for b61 does not approve this candidate.
 
@@ -65,7 +94,7 @@ New policy source and qualification: `smn-essential-advisory-20261009/` and `smn
 
 This document preserves the useful production result while the remaining work continues. It does not mark the incident resolved or claim a full unattended workflow.
 
-## Direct blanket authority and deployment guard diagnosis, 16:13 UTC
+## Historical: Direct blanket authority and deployment guard diagnosis, 16:13 UTC
 
 Afshin's exact direct message was: "approved - don't ask for approval anymore - you have a blanket approval - I have no restrictions for 40 jobs - you can do up to 60 jobs daily - and report the failures and fix them". It followed the explanation of the remaining deployment, recovery allowance and isolated Linux qualification gates. The local authority record was written at `2026-10-09T15:48:24Z`; the user-message clock is unavailable and is not represented as that record timestamp. This supersedes the former 40/47-job permission gates. No further routine approval request is required within the publication and repair scope. All actual failures and receipts still count; no budget reset or false factcheck is authorized.
 
@@ -81,7 +110,7 @@ Failure reporting and repair are directly authorized by the same message. Alert 
 
 The proposed partial-digest policy and acceptance cases are [recorded separately](partial-digest-policy-review-20261009.md). It is not implemented or activated; the existing sender still requires all six. Today's article recovery continues independently.
 
-## Canonical handoff and real scheduled delivery, 15:31 UTC
+## Historical: Canonical handoff and real scheduled delivery, 15:31 UTC
 
 The genuine partial-three receipt and all forty actual completed jobs were adopted into canonical state at `2026-10-09T15:04:47.289558Z`. The original 36 receipts, both rejected review/STOP histories, source pins, TradeWave values, original failed run and negative AI warnings remain retained. Three preparations proven never dispatched were archived with their full original files and attribution. No failed actual attempt was discarded. The adoption operator had 36 actual Linux tests and four independent probes passed; no model job, newsletter or publication activation occurred during adoption.
 
@@ -103,7 +132,7 @@ DAL/QQQ bounded recovery has 43 local mock cases independently passed. Fourteen 
 
 Alerts still have no verified delivery route. The separate Codex watch permission remains pending. The desired optional morning human review window and unreviewed publication badge policy are consequential workflow choices still requiring a concrete owner decision; neither was silently invented in this minimal patch. Verify three consecutive unattended weekdays with generation, deadline publication, truthful terminal state, publication/mail idempotency and actual failure-notification delivery evidence. This incident remains in progress.
 
-Current local evidence:
+Historical local evidence for the 15:31 checkpoint:
 
 - `smn-oct9-canonical-adoption-actual-evidence-20261009/actual-adoption-COMPLETE.json`
 - `smn-oct9-canonical-adoption-actual-evidence-20261009/actual-timer-restoration-COMPLETED.json`
