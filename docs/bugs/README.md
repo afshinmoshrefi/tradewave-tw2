@@ -46,7 +46,7 @@ Status belongs in each record and this index; update both together. Preserve res
 | [TW-BUG-0025](TW-BUG-0025.md) | P2 | verified on dev | SMN private editor images/charts restored; original MSFT draft/assets unchanged, anonymous access denied |
 
 | [TW-BUG-0026](TW-BUG-0026.md) | P2 | verified on Dev | Mobile bar chart More control does not open extra controls |
-| [TW-BUG-0027](TW-BUG-0027.md) | P1 | in-progress | October 5 SMN edition: primary retrieval, context and partial publication defects |
+| [TW-BUG-0027](TW-BUG-0027.md) | P1 | in-progress; October 9 six public and newsletter provider-sent | 21d1376 deployed; six public and one campaign 136 sent, delivery unknown; 49 jobs retained; 168 source + 81 operator checks; 21:21 all five timers active and automatic protected-day smoke passed; 21:37 disk headroom 295 MB, durable retention/alerts and three new scheduled weekdays remain |
 
 | [TW-BUG-0028](TW-BUG-0028.md) | P2 | complete candidate privately verified; activation blocked | Webinar notification signup drops published Zoom link; scoped release provenance required |
 
