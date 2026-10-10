@@ -34,3 +34,5 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 
 | [TW-TASK-0021](TW-TASK-0021.md) | verified on dev | Adaptive historical years headings in Wave Viewer and Opportunity table |
 | [TW-TASK-0022](TW-TASK-0022.md) | verified on dev | SMN articles open by default (no reader login) with a per-article members lock |
+
+| [TW-TASK-0023](TW-TASK-0023.md) | in-progress | One-time securities menu customization tip and settings help replay |
