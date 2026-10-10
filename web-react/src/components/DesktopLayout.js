@@ -149,9 +149,9 @@ const DesktopLayout = (props) => {
     useEffect(() => {
         if (props.securitiesSettingsRequest) {
             SetSettingsCategory('secgroups');
-            props.SetShowSettings(true);
+            SetShowLeftNavSettings(true);
         }
-    }, [props.securitiesSettingsRequest, props.SetShowSettings]);
+    }, [props.securitiesSettingsRequest]);
 
     const gearIconRef = useRef(null);
     const settingsPanelRef = useRef(null);

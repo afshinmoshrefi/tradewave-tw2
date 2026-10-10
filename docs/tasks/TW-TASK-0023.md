@@ -15,3 +15,5 @@ App owns account/catalog/preferences; shared SelectBox renders each securities d
 ## Evidence, Handoff and Release
 
 Repository afshinmoshrefi/tradewave-tw2. Branch codex/securities-menu-tip-20261010; worktree /home/tradewave-worktrees/securities-menu-tip-20261010. Starting source 8097f90e. Focused tests passed: 4 isolated backend route tests and 50 React tip/settings/Tara checks. Production build and live desktop/mobile verification pending. No dependencies or migration expected. Rollback pointers will be retained before activation. Next: implement, focused-test, build, push and live-verify Dev. Staging/production unchanged.
+
+- Live verification caught Customize Lists opening the legacy general dialog instead of desktop inline settings; activation automatically rolled back. Corrected to the desktop panel's own visibility setter. Portal mousedown propagation is stopped so replaying help does not close the underlying settings; keyboard focus stays trapped while saving.

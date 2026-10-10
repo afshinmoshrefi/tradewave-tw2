@@ -21,6 +21,7 @@ export default function SecuritiesMenuTip({ anchor, UITheme, onAcknowledge, onDi
         if (event.key === 'Escape' && !saving) { event.preventDefault(); onDismiss() }
         if (event.key === 'Tab') {
             const buttons = [...dialog.current.querySelectorAll('button:not(:disabled)')]
+            if (!buttons.length) { event.preventDefault(); return }
             const first = buttons[0], last = buttons[buttons.length - 1]
             if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
             else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
@@ -28,7 +29,7 @@ export default function SecuritiesMenuTip({ anchor, UITheme, onAcknowledge, onDi
     }
     const buttonStyle = { padding: '8px 12px', borderRadius: '5px', border: '1px solid '+tc.border, cursor: 'pointer', fontSize: '13px' }
     return ReactDOM.createPortal(
-        <div style={{position:'fixed',inset:0,zIndex:12000}} onClick={() => { if (!saving) onDismiss() }}>
+        <div style={{position:'fixed',inset:0,zIndex:12000}} onMouseDown={event => event.stopPropagation()} onClick={() => { if (!saving) onDismiss() }}>
             <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="securities-menu-tip-title"
                 onClick={event => event.stopPropagation()} onKeyDown={onKeyDown}
                 style={{position:'fixed',left,top,width,boxSizing:'border-box',padding:'18px',border:'1px solid '+tc.border,borderRadius:'8px',background:tc.panelBg,color:tc.text,boxShadow:'0 8px 28px rgba(0,0,0,0.35)',fontFamily:'sans-serif',fontSize:'14px',lineHeight:1.5,maxHeight:'calc(100dvh - 24px)',overflowY:'auto'}}>
