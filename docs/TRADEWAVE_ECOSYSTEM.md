@@ -1963,10 +1963,16 @@ App refreshes the catalog and user preferences, checks market access, enables th
 without dropping existing preferences, and reuses the manual published-list selection
 cascade. Success requires the exact selected list name and parent market in App state;
 it does not claim every member has a detected pattern. How/where questions explain
-Settings -> Securities Groups -> Published Lists -> check -> securities dropdown
-without actuating. The four dev lists are owner-requested static October 1/2 snapshots:
+the top-left market dropdown, with published lists at the bottom, without actuating. The four dev lists are owner-requested static October 1/2 snapshots:
 1,120 US $2-10B midcaps, 400 S&P MidCap constituents, 3,751 optionable stocks/ADRs,
 2,187 optionable ETFs/funds. Existing admin list APIs/storage remain authoritative.
+Published enabled lists appear by default in the market dropdown for users receiving
+that authenticated catalog (TW-BUG-0032). `hidden_published` in securities preferences
+stores explicit per-user opt-outs; legacy empty `enabled_published` is not a visibility
+gate. Settings can hide/re-show lists or reset all to visible. Tara selection removes
+its requested list from `hidden_published`. Disabled lists remain absent from the
+normal dropdown even for admins; admin management remains separate. Existing catalog
+access levels and parent-market entitlements still apply.
 Focused regression: `test_tara_security_lists.py`, `test_tara_action_contract.py`,
 `taraActionContract.test.js`, `Chatbot.guidance.test.js`.
 

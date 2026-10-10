@@ -17,7 +17,7 @@ Starting main bd4b3df3. App.js securityTypeListCombined filters by enabled_publi
 
 ## Acceptance and Regression Checks
 
-New and existing default-preference users see enabled published lists. Explicit user hiding persists across reload; newly published lists remain visible. Disabled lists stay hidden; admin editing and access/market enforcement stay intact. Tara selection unhides its requested list. Focused tests, production build and rendered Dev check pending.
+New and existing default-preference users see enabled published lists. Explicit user hiding persists across reload; newly published lists remain visible. Disabled lists stay hidden; admin editing and access/market enforcement stay intact. Tara selection unhides its requested list. Passed: 3 isolated backend route tests and 45 React settings/Tara contract/guidance checks. Production build and rendered Dev check pending. Explicit hiding is stored separately in hidden_published; existing opt-in data remains compatible.
 
 ## Implementation and Handoff
 

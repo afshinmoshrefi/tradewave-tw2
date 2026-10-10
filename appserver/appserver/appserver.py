@@ -7232,6 +7232,7 @@ def get_securities_prefs():
     redis_key = f'user_securities_prefs_{userid}'
     raw = redis_client2.get(redis_key)
     prefs = json.loads(raw) if raw else {'hidden_groups': [], 'enabled_published': []}
+    prefs.setdefault('hidden_published', [])
 
     return jsonify({'securities_prefs': prefs})
 
@@ -7257,7 +7258,8 @@ def set_securities_prefs():
         return jsonify({"error": "bad_json"}), 400
     prefs = {
         'hidden_groups': body.get('hidden_groups', []),
-        'enabled_published': body.get('enabled_published', [])
+        'enabled_published': body.get('enabled_published', []),
+        'hidden_published': body.get('hidden_published', [])
     }
 
     redis_key = f'user_securities_prefs_{userid}'

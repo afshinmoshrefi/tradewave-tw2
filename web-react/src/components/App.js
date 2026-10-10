@@ -1066,13 +1066,14 @@ const App = () => {
         if (!prefs || !Array.isArray(prefs.enabled_published) || !Array.isArray(prefs.hidden_groups)) {
           throw new Error('list_preferences_unavailable');
         }
-        const updatedPrefs = { ...prefs, enabled_published: [...new Set([...prefs.enabled_published, requestedList.name])] };
+        const updatedPrefs = { ...prefs, enabled_published: [...new Set([...prefs.enabled_published, requestedList.name])],
+          hidden_published: (prefs.hidden_published || []).filter(name => name !== requestedList.name) };
         const saved = await twFetch(`${asURL}/set_securities_prefs?token=${token}`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedPrefs),
         });
         if (!saved.ok) throw new Error('list_preferences_unavailable');
         const savedPrefs = (await saved.json()).securities_prefs;
-        if (!savedPrefs?.enabled_published?.includes(requestedList.name)) throw new Error('list_preferences_unavailable');
+        if (!savedPrefs?.enabled_published?.includes(requestedList.name) || savedPrefs?.hidden_published?.includes(requestedList.name)) throw new Error('list_preferences_unavailable');
         SetPublishedLists(catalog.published_lists);
         SetSecuritiesPrefs(savedPrefs);
       } catch (error) {
@@ -1743,10 +1744,10 @@ const App = () => {
     const hiddenSet = new Set(securitiesPrefs.hidden_groups || []);
     let base = securityTypeList.filter(item => !hiddenSet.has(item.value));
 
-    // add published lists that user has enabled
-    const enabledPublished = securitiesPrefs.enabled_published || [];
+    // Published lists are visible by default; users may explicitly hide them.
+    const hiddenPublished = securitiesPrefs.hidden_published || [];
     const plEntries = publishedLists
-      .filter(pl => enabledPublished.includes(pl.name))
+      .filter(pl => pl.enabled !== false && !hiddenPublished.includes(pl.name))
       .map((pl, i) => ({
         id: 8000 + i,
         value: `pl:${pl.name}`,

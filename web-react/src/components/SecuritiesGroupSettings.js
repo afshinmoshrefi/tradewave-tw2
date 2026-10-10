@@ -117,7 +117,7 @@ const SecuritiesGroupSettings = (props) => {
     }
 
     const isPublishedEnabled = (plName) => {
-        return (props.securitiesPrefs.enabled_published || []).includes(plName)
+        return !(props.securitiesPrefs.hidden_published || []).includes(plName)
     }
 
     const savePrefs = (newPrefs) => {
@@ -149,19 +149,19 @@ const SecuritiesGroupSettings = (props) => {
     }
 
     const togglePublished = (plName) => {
-        let enabled = [...(props.securitiesPrefs.enabled_published || [])]
-        if (enabled.includes(plName)) {
-            enabled = enabled.filter(v => v !== plName)
-        } else {
-            enabled.push(plName)
+        const hidden = props.securitiesPrefs.hidden_published || []
+        const newPrefs = {
+            ...props.securitiesPrefs,
+            hidden_published: hidden.includes(plName)
+                ? hidden.filter(name => name !== plName)
+                : [...hidden, plName]
         }
-        const newPrefs = { ...props.securitiesPrefs, enabled_published: enabled }
         props.SetSecuritiesPrefs(newPrefs)
         savePrefs(newPrefs)
     }
 
     const resetToDefault = () => {
-        const newPrefs = { hidden_groups: [], enabled_published: [] }
+        const newPrefs = { hidden_groups: [], enabled_published: [], hidden_published: [] }
         props.SetSecuritiesPrefs(newPrefs)
         savePrefs(newPrefs)
         SetMessage('Reset to default - all groups visible')
@@ -344,14 +344,14 @@ const SecuritiesGroupSettings = (props) => {
                     {/* ==== PUBLISHED LISTS TAB ==== */}
                     {activeTab === 'published' && <>
                         <div style={{ padding: '4px 8px', fontSize: labelSize, color: tc.text || '#aaa', textAlign: 'center' }}>
-                            Check published lists to add them to your securities dropdown
+                            Published lists appear by default. Uncheck a list to hide it from your dropdown.
                         </div>
                         {props.publishedLists.length === 0 &&
                             <div style={{ padding: '20px', textAlign: 'center', fontSize: labelSize, color: tc.text || '#888' }}>
                                 No published lists available
                             </div>
                         }
-                        {props.publishedLists.map((pl, i) => (
+                        {props.publishedLists.filter(pl => pl.enabled !== false).map((pl, i) => (
                             <div key={i} style={rowStyle}>
                                 <CheckBox
                                     name={`pl_${pl.name}`}
