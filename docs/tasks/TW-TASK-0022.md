@@ -30,8 +30,17 @@ Rollback: remove both `80-open-access.conf` drop-ins, point `/opt/smn-daily/curr
 
 Not verified: a members-locked article live on Dev (none exists; covered by tests). Follow-ups: distribution/preview copy that invites registration to read the complete article; production launch of the reader must ship this code. Production unchanged.
 
+## Production content publication (2026-10-10)
+
+Afshin, 2026-10-10: "the main job of yours is to publish this article from dev to production" and "yes go ahead on production"; no automatic publication is scheduled before Monday; Afshin will pin it on production later (not pinned here). Content only: no production code, service or configuration change; `dc0d3d6` is not deployed to production (production has no reader gate).
+
+Under `smn-production-activation.lock` on 209.182.216.112 (acquired and released): posts.json/index.html backed up, 7 images copied to `/var/www/smn/articles/INDX/2026/10/10/assets/`, and the article created through the production dashboard release's own publish-now steps (`_create_post`, save under the posts lock, audit, site refresh) as `afshin moshrefi (via claude-code)`. URL `https://seasonalmarketnews.com/articles/INDX/2026/10/10/two-clocks-one-date-bullish-until-july-2027-then-cautious.html`. Live check: 200, full article with AI disclosure, 7/7 images 200, first article link on the home page. Receipt and backups: `/var/lib/tradewave/release-state/smn-two-clocks-manual-20261010/` on production.
+
+Found (not fixed): in the production dashboard release `d6e2b6fd`, `publish_article` imports `article_hero_image`, which opens `ticker_motif_custom.json` relative to the working directory; the release `blog/` has no copy, so dashboard-created articles skip Redis sync and the search index. For this article both were rerun with the working directory `/home/flask/blog` (search `ok`, Redis key `0_SPX____neutral_0`).
+
 ## History
 
 - 2026-10-09: Claimed for the single article before SMN source edits.
 - 2026-10-09: Scope widened by Afshin to open-by-default with a per-article members lock. 191 focused tests pass on the candidate.
 - 2026-10-10 03:24 UTC (server clock): lock acquired, `dc0d3d6` activated on Dev, anonymous smoke passed, main advanced without force, parity proven, lock released. Status: verified on dev.
+- 2026-10-10 12:21 UTC: Two clocks article published on production (content only, not pinned), verified live; production lock released.
