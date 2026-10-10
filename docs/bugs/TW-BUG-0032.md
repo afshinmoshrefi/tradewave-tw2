@@ -32,3 +32,5 @@ Dev verified 2026-10-10T13:09:08.125359+00:00 by Codex, source/artifact 792d61c5
 - 2026-10-10T12:59:59.621910+00:00: Codex claimed authorized fix; source opt-in visibility defect identified.
 
 - 2026-10-10T13:09:08.125422+00:00: Codex verified Dev and released activation lock. Knowledge maintenance captured the visibility invariant in the existing ecosystem entry. Full staging regression and production verification intentionally pending their release requests.
+
+- 2026-10-10T13:57:44Z: Follow-up TW-TASK-0023 corrected the separately rendered desktop inline settings controls to hidden_published opt-out behavior. Real desktop UI now verified hiding both a market and published list, plus persistence across a fresh browser context. Active Dev source 906bd7b6d578c63076d88b3fa9f5e62bac16185b includes that correction and one-time customization guidance; see task receipt for current pointers and rollback. Staging/production unchanged.
