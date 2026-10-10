@@ -9,7 +9,7 @@ import Tippy from '@tippyjs/react'
 
 const SelectBox = ({ optionList, value, name, suffix, sbChanged, tooltipContent, widthOverride, ariaLabel, fitContainer = false, compactLabel, suppressNativeTitle = false }) => {
 
-    const { rdd, globalTextSize, browserH, browserW, UITheme } = useContext(UserContext)
+    const { rdd, globalTextSize, browserH, browserW, UITheme, onSecuritiesMenuOpen } = useContext(UserContext)
     const tc = themeColors(UITheme)
 
     var textAligncustom = 'left';
@@ -355,7 +355,9 @@ const SelectBox = ({ optionList, value, name, suffix, sbChanged, tooltipContent,
                     {ttc}
                 </div>
             }>
-                <select title={compact && !suppressNativeTitle ? fullSelectedLabel : undefined} aria-label={ariaLabel} onChange={sbChanged} id={name} value={value} style={{ fontSize: selectFontSize, backgroundColor: selectBackgroundColor, color: tc.selectText, border: '1px solid ' + tc.selectBorder, height: selectHeight, width: selectWidth, maxWidth: fitContainer ? '100%' : undefined, minWidth: fitContainer ? 0 : undefined, textAlign: textAligncustom, colorScheme: UITheme === 'dark' ? 'dark' : 'light' }}>
+                <select onPointerDown={name === 'securityTypeList' ? onSecuritiesMenuOpen : undefined}
+                    onClick={name === 'securityTypeList' ? onSecuritiesMenuOpen : undefined}
+                    onKeyDown={event => { if (name === 'securityTypeList' && ['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) onSecuritiesMenuOpen?.(event) }} title={compact && !suppressNativeTitle ? fullSelectedLabel : undefined} aria-label={ariaLabel} onChange={sbChanged} id={name} value={value} style={{ fontSize: selectFontSize, backgroundColor: selectBackgroundColor, color: tc.selectText, border: '1px solid ' + tc.selectBorder, height: selectHeight, width: selectWidth, maxWidth: fitContainer ? '100%' : undefined, minWidth: fitContainer ? 0 : undefined, textAlign: textAligncustom, colorScheme: UITheme === 'dark' ? 'dark' : 'light' }}>
                     {optionList.map((x) => (
                         // x.locked = an over-tier (e.g. above the years cap) option: grayed for the
                         // upgrade nudge but NOT disabled, so selecting it still fires onChange and the

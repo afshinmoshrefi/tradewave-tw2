@@ -7233,8 +7233,22 @@ def get_securities_prefs():
     raw = redis_client2.get(redis_key)
     prefs = json.loads(raw) if raw else {'hidden_groups': [], 'enabled_published': []}
     prefs.setdefault('hidden_published', [])
+    prefs['securities_tip_seen'] = bool(redis_client2.get(f'user_securities_tip_seen_{userid}'))
 
     return jsonify({'securities_prefs': prefs})
+
+#---------------------------------------------------------------------------------------------------
+@app.route('/acknowledge_securities_tip', methods=['POST'])
+@check_for_token
+@limiter.limit(config.rate_limit_general[0])
+@limiter.limit(config.rate_limit_general[1])
+@limiter.limit(config.rate_limit_general[2])
+@limiter.limit(config.rate_limit_general[3])
+def acknowledge_securities_tip():
+    data = jwt.decode(request.args.get('token'), app.config['SECRET_KEY'],
+                      algorithms=['HS256'], audience='tw2-appserver', issuer='tw2-web')
+    redis_client2.set(f'user_securities_tip_seen_{data["user"]}', '1')
+    return jsonify({'securities_tip_seen': True})
 
 #---------------------------------------------------------------------------------------------------
 @app.route('/set_securities_prefs', methods=['POST'])

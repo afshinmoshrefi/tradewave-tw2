@@ -146,6 +146,13 @@ const DesktopLayout = (props) => {
 
     const [showLeftNavSettings, SetShowLeftNavSettings] = useState(false);
     const [settingsCategory, SetSettingsCategory] = useState('general');
+    useEffect(() => {
+        if (props.securitiesSettingsRequest) {
+            SetSettingsCategory('secgroups');
+            props.SetShowSettings(true);
+        }
+    }, [props.securitiesSettingsRequest, props.SetShowSettings]);
+
     const gearIconRef = useRef(null);
     const settingsPanelRef = useRef(null);
     const [settingsDragPos, setSettingsDragPos] = useState(null);
@@ -618,7 +625,7 @@ const DesktopLayout = (props) => {
     // ── Securities Groups helpers ──
     const allGroups = (props.securityTypeList2 || []).filter(x => x.value !== '' && x.label !== 'More...');
     const isGroupHidden = (groupValue) => (props.securitiesPrefs?.hidden_groups || []).includes(groupValue);
-    const isPublishedEnabled = (plName) => (props.securitiesPrefs?.enabled_published || []).includes(plName);
+    const isPublishedEnabled = (plName) => !(props.securitiesPrefs?.hidden_published || []).includes(plName);
 
     const saveSGPrefs = (newPrefs) => {
         let asURL = appserverURL();
@@ -642,16 +649,15 @@ const DesktopLayout = (props) => {
     };
 
     const togglePublished = (plName) => {
-        let enabled = [...(props.securitiesPrefs?.enabled_published || [])];
-        if (enabled.includes(plName)) enabled = enabled.filter(v => v !== plName);
-        else enabled.push(plName);
-        const newPrefs = { ...props.securitiesPrefs, enabled_published: enabled };
+        const hidden = props.securitiesPrefs?.hidden_published || [];
+        const newPrefs = { ...props.securitiesPrefs, hidden_published: hidden.includes(plName)
+            ? hidden.filter(name => name !== plName) : [...hidden, plName] };
         props.SetSecuritiesPrefs(newPrefs);
         saveSGPrefs(newPrefs);
     };
 
     const resetSGToDefault = () => {
-        const newPrefs = { hidden_groups: [], enabled_published: [] };
+        const newPrefs = { ...props.securitiesPrefs, hidden_groups: [], enabled_published: [], hidden_published: [] };
         props.SetSecuritiesPrefs(newPrefs);
         saveSGPrefs(newPrefs);
         SetSgMessage('Reset to default'); SetSgMsgColor('green');
@@ -1634,6 +1640,10 @@ const DesktopLayout = (props) => {
                                 {/* ── Securities Groups ── */}
                                 {settingsCategory === 'secgroups' && (
                                     <div>
+                                        <div style={{textAlign:'right',marginBottom:'4px'}}>
+                                            <button type="button" aria-label="Securities menu help" title="Customize your securities menu" onClick={props.onSecuritiesMenuHelp}
+                                                style={{border:'1px solid '+tc.border,borderRadius:'50%',background:'transparent',color:tc.text,width:'24px',height:'24px',cursor:'pointer'}}>?</button>
+                                        </div>
                                         {/* Sub-tabs */}
                                         <div style={{ display: 'flex', gap: '0px', marginBottom: '10px', borderBottom: '1px solid ' + tc.border }}>
                                             {[
@@ -1687,13 +1697,13 @@ const DesktopLayout = (props) => {
                                         {secGroupsTab === 'published' && (
                                             <div>
                                                 <div style={{ fontSize: '10px', color: tc.text, opacity: 0.55, marginBottom: '8px', textAlign: 'center' }}>
-                                                    Check published lists to add them to your securities dropdown
+                                                    Published lists appear by default. Uncheck a list to hide it from your dropdown.
                                                 </div>
                                                 {(props.publishedLists || []).length === 0 &&
                                                     <div style={{ fontSize: '11px', color: tc.text, opacity: 0.5, textAlign: 'center', padding: '16px 0' }}>No published lists available</div>
                                                 }
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                                    {(props.publishedLists || []).map((pl, i) => (
+                                                    {(props.publishedLists || []).filter(pl => pl.enabled !== false).map((pl, i) => (
                                                         <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '2px 0' }}>
                                                             <CheckBox
                                                                 name={`pl_${pl.name}`}

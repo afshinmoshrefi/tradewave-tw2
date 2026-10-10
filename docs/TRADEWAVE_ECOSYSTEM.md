@@ -1973,6 +1973,14 @@ gate. Settings can hide/re-show lists or reset all to visible. Tara selection re
 its requested list from `hidden_published`. Disabled lists remain absent from the
 normal dropdown even for admins; admin management remains separate. Existing catalog
 access levels and parent-market entitlements still apply.
+The first intentional pointer/keyboard opening of the securities dropdown offers the
+customization tip (TW-TASK-0023). Both action buttons acknowledge through the authenticated
+`/acknowledge_securities_tip` route. Redis DB2 `user_securities_tip_seen_{userid}` stores
+this per-account flag independently of resettable securities preferences; reads include
+`securities_tip_seen`. Preferences must finish loading before automatic guidance can fire.
+Customize Lists opens desktop inline Securities Groups settings or the mobile dialog;
+the settings help button replays the tip without clearing the saved acknowledgment.
+
 Focused regression: `test_tara_security_lists.py`, `test_tara_action_contract.py`,
 `taraActionContract.test.js`, `Chatbot.guidance.test.js`.
 

@@ -14,6 +14,8 @@ import { getTodayDate, monthsOptionsList, DarkBGColor, LightBGColor } from './Co
 import * as rdd from 'react-device-detect';
 import LessonBox from './LessonBox'
 import GettingStartedVideoModal from './GettingStartedVideoModal'
+import SecuritiesMenuTip from './SecuritiesMenuTip'
+import SecuritiesGroupSettings from './SecuritiesGroupSettings'
 import SubscriptionWelcomeModal, { decideSubscriptionWelcome, markSubscriptionWelcomed } from './SubscriptionWelcomeModal'
 import DaysRemainingPill from './DaysRemainingPill'
 import TrialConversionCard from './TrialConversionCard'
@@ -511,6 +513,38 @@ const App = () => {
   const [userRoles, SetUserRoles] = useState(window.tw2_user_roles || ['user']);
   const [securitiesPrefs, SetSecuritiesPrefs] = useState({ hidden_groups: [], enabled_published: [] });
   const [showSecuritiesGroupSettings, SetShowSecuritiesGroupSettings] = useState(false);
+  const [securitiesPrefsReady, SetSecuritiesPrefsReady] = useState(false);
+  const [securitiesTipSeen, SetSecuritiesTipSeen] = useState(true);
+  const [securitiesTipAnchor, SetSecuritiesTipAnchor] = useState(null);
+  const [securitiesSettingsRequest, SetSecuritiesSettingsRequest] = useState(0);
+  const securitiesTipTrigger = useRef(null);
+  const showSecuritiesMenuTip = useCallback((event) => {
+    securitiesTipTrigger.current = event.currentTarget;
+    const rect = event.currentTarget.getBoundingClientRect();
+    SetSecuritiesTipAnchor({ left: rect.left, bottom: rect.bottom });
+  }, []);
+  const onSecuritiesMenuOpen = useCallback((event) => {
+    if (!securitiesPrefsReady || securitiesTipSeen || loggedinUser === '0') return;
+    event.preventDefault();
+    showSecuritiesMenuTip(event);
+  }, [securitiesPrefsReady, securitiesTipSeen, loggedinUser, showSecuritiesMenuTip]);
+  const dismissSecuritiesMenuTip = () => {
+    SetSecuritiesTipAnchor(null);
+    securitiesTipTrigger.current?.focus();
+  };
+  const acknowledgeSecuritiesMenuTip = async (customize) => {
+    const response = await twFetch(`${appserverURL()}/acknowledge_securities_tip?token=${token}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    if (!response.ok || (await response.json()).securities_tip_seen !== true) throw new Error('tip_acknowledgment_failed');
+    SetSecuritiesTipSeen(true);
+    dismissSecuritiesMenuTip();
+    if (customize) {
+      if (rdd.isMobile) SetShowSecuritiesGroupSettings(true);
+      else SetSecuritiesSettingsRequest(value => value + 1);
+    }
+  };
+
 
   const [qparams, SetQparams] = useState(''); // this is used to know if the session started with passed parameter
   const [showOppNote, SetShowOppNote] = useState(false);
@@ -1975,6 +2009,8 @@ const App = () => {
     userRoles,
     securitiesPrefs,
     showSecuritiesGroupSettings,
+    securitiesSettingsRequest,
+    onSecuritiesMenuHelp: showSecuritiesMenuTip,
     showVolume,
     maConfig,
     bbConfig,
@@ -2922,6 +2958,9 @@ const App = () => {
 
   // fetch published securities lists and user securities preferences
   useEffect(() => {
+    SetSecuritiesPrefsReady(false);
+    SetSecuritiesTipAnchor(null);
+    let cancelled = false;
     if (token && token.length > 0 && loggedinUser !== '0') {
       let asURL = appserverURL()
       twFetch(`${asURL}/get_published_lists?token=${token}`)
@@ -2935,10 +2974,15 @@ const App = () => {
       twFetch(`${asURL}/get_securities_prefs?token=${token}`)
         .then(res => res.json())
         .then(data => {
-          if (data['securities_prefs']) SetSecuritiesPrefs(data['securities_prefs'])
+          if (!cancelled && data['securities_prefs']) {
+            SetSecuritiesPrefs(data['securities_prefs']);
+            SetSecuritiesTipSeen(data['securities_prefs'].securities_tip_seen === true);
+            SetSecuritiesPrefsReady(true);
+          }
         })
         .catch(err => console.log('fetch securities prefs error:', err.message))
     }
+    return () => { cancelled = true; };
   }, [token, loggedinUser])
 
   //-------------------------------------------------------------------------------
@@ -3477,6 +3521,7 @@ const App = () => {
     SetDialogType,
     SetDialogProp,
     SetInfoBoxVisible,
+    onSecuritiesMenuOpen,
   }), [
     selectedSecurityType,
     resourceObj,
@@ -3493,6 +3538,7 @@ const App = () => {
     infoTextSize,
     loggedinUser,
     UITheme,
+    onSecuritiesMenuOpen,
   ]);
   //------------------------------------------------------------------------------------------------------------------------------------------------------
   return (
@@ -3677,6 +3723,10 @@ const App = () => {
         </div>
       )}
       <UserContext.Provider value={userContextValue} >
+        {securitiesTipAnchor && <SecuritiesMenuTip anchor={securitiesTipAnchor} UITheme={UITheme}
+          onAcknowledge={acknowledgeSecuritiesMenuTip} onDismiss={dismissSecuritiesMenuTip} />}
+        {showSecuritiesGroupSettings && <SecuritiesGroupSettings {...chartProps} {...chartSetProps} />}
+
         {/* had to add test !rdd.isMobile only for safari on ipad */}
         {/*
             Nested ErrorBoundary wraps each layout root so a crash in DesktopLayout

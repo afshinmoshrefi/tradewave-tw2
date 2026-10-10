@@ -11,7 +11,7 @@ from flask import Flask, request, jsonify
 def client():
     source = Path(__file__).parents[1] / 'appserver/appserver/appserver.py'
     tree = ast.parse(source.read_text())
-    names = {'get_securities_prefs', 'set_securities_prefs', 'get_published_lists'}
+    names = {'get_securities_prefs', 'set_securities_prefs', 'get_published_lists', 'acknowledge_securities_tip'}
     nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names]
     for n in nodes:
         n.decorator_list = []
@@ -23,7 +23,7 @@ def client():
               redis_client2=redis, config=SimpleNamespace(admin_userids=[]))
     exec(compile(ast.Module(body=nodes, type_ignores=[]), str(source), 'exec'), ns)
     for name in names:
-        app.add_url_rule('/'+name, name, ns[name], methods=['POST' if name.startswith('set_') else 'GET'])
+        app.add_url_rule('/'+name, name, ns[name], methods=['POST' if name.startswith(('set_', 'acknowledge_')) else 'GET'])
     token = jwt.encode(dict(user='regular-user', user_level='6', aud='tw2-appserver', iss='tw2-web'), app.config['SECRET_KEY'], algorithm='HS256')
     return app.test_client(), storage, '?token='+token
 
@@ -42,7 +42,7 @@ def test_explicit_hiding_survives_reload_and_is_user_scoped(client):
     c, store, q = client
     body = dict(hidden_groups=['FOREX ALL'], enabled_published=['Legacy'], hidden_published=['Midcaps'])
     assert c.post('/set_securities_prefs'+q, json=body).get_json()['securities_prefs'] == body
-    assert c.get('/get_securities_prefs'+q).get_json()['securities_prefs'] == body
+    assert c.get('/get_securities_prefs'+q).get_json()['securities_prefs'] == dict(body, securities_tip_seen=False)
     assert list(store) == ['user_securities_prefs_regular-user']
     body['hidden_published'] = []
     c.post('/set_securities_prefs'+q, json=body)
@@ -57,3 +57,14 @@ def test_catalog_still_enforces_enabled_and_access_levels(client):
     result = c.get('/get_published_lists'+q).get_json()
     assert [x['name'] for x in result['published_lists']] == ['Visible']
     assert result['is_admin'] is False
+
+def test_tip_acknowledgment_is_account_scoped_and_survives_list_reset(client):
+    c, store, q = client
+    assert c.get('/get_securities_prefs'+q).get_json()['securities_prefs']['securities_tip_seen'] is False
+    assert c.post('/acknowledge_securities_tip'+q).get_json() == {'securities_tip_seen': True}
+    assert c.get('/get_securities_prefs'+q).get_json()['securities_prefs']['securities_tip_seen'] is True
+    assert list(store) == ['user_securities_tip_seen_regular-user']
+    c.post('/set_securities_prefs'+q, json={'hidden_groups': [], 'hidden_published': []})
+    assert c.get('/get_securities_prefs'+q).get_json()['securities_prefs']['securities_tip_seen'] is True
+    del store['user_securities_tip_seen_regular-user']
+    assert c.get('/get_securities_prefs'+q).get_json()['securities_prefs']['securities_tip_seen'] is False

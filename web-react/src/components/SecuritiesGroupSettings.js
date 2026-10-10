@@ -289,6 +289,8 @@ const SecuritiesGroupSettings = (props) => {
                     <div style={{ height: '100%', width: titleCloseDivWidth }}></div>
                     <div style={{ height: '100%', width: titleCenterDivWidth, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <span style={{ fontSize: title_text_size, color: tc.titleText || 'whitesmoke' }}>Securities Groups</span>
+                        <button type="button" aria-label="Securities menu help" title="Customize your securities menu" onClick={props.onSecuritiesMenuHelp}
+                            style={{marginLeft:'8px',border:'1px solid '+tc.border,borderRadius:'50%',background:'transparent',color:tc.text,width:'24px',height:'24px',cursor:'pointer'}}>?</button>
                     </div>
                     <div style={{ height: '100%', width: titleCloseDivWidth, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backgroundColor: tc.closeBtn || 'lightgray' }}
                         onClick={() => props.SetShowSecuritiesGroupSettings(false)}>

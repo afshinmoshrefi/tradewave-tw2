@@ -14,4 +14,4 @@ App owns account/catalog/preferences; shared SelectBox renders each securities d
 
 ## Evidence, Handoff and Release
 
-Repository afshinmoshrefi/tradewave-tw2. Branch codex/securities-menu-tip-20261010; worktree /home/tradewave-worktrees/securities-menu-tip-20261010. Starting source 8097f90e. Tests/build/live verification pending. No dependencies or migration expected. Rollback pointers will be retained before activation. Next: implement, focused-test, build, push and live-verify Dev. Staging/production unchanged.
+Repository afshinmoshrefi/tradewave-tw2. Branch codex/securities-menu-tip-20261010; worktree /home/tradewave-worktrees/securities-menu-tip-20261010. Starting source 8097f90e. Focused tests passed: 4 isolated backend route tests and 50 React tip/settings/Tara checks. Production build and live desktop/mobile verification pending. No dependencies or migration expected. Rollback pointers will be retained before activation. Next: implement, focused-test, build, push and live-verify Dev. Staging/production unchanged.
