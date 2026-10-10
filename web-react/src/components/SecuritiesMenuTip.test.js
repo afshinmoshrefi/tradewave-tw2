@@ -46,3 +46,15 @@ test('shared select intercepts only securities openings by pointer or keyboard',
     fireEvent.keyDown(screen.getByRole('combobox'),{key:'ArrowDown'})
     expect(open).toHaveBeenCalledTimes(2)
 })
+
+test('opening touch click does not dismiss; a new outside pointer dismisses', () => {
+    render(<SecuritiesMenuTip {...props} />)
+    const dialog=screen.getByRole('dialog'), backdrop=dialog.parentElement
+    fireEvent.click(backdrop)
+    expect(props.onDismiss).not.toHaveBeenCalled()
+    fireEvent.pointerDown(dialog)
+    expect(props.onDismiss).not.toHaveBeenCalled()
+    fireEvent.pointerDown(backdrop)
+    expect(props.onDismiss).toHaveBeenCalledTimes(1)
+    expect(props.onAcknowledge).not.toHaveBeenCalled()
+})
