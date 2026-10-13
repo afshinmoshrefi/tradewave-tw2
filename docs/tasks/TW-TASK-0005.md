@@ -172,3 +172,11 @@ The required receipt-based usage report is preserved at `/var/lib/tradewave/smn-
 ## Scheduled run - September 29, 2026
 
 2026-09-29T11:07Z: the normal Codex heartbeat used clean current SMN main `11baa39a4575af27d05901abe5a2d72dba83a81d` and captured the New York date read-only from production. Only four distinct subjects were available (`APH`, `CPRT`, `O`, `XLF`), so the required six-subject batch was incomplete. The run remains `waiting_for_production`: no TradeWave engine capture, research, model job, article generation, visual review, Dev publication or production write ran, and no prior-date substitution was made.
+# SMN-VOLUME-DELIVERY-20261013: Local Paired Repair Claim
+
+Codex task `01a117d1-cc86-737e-a3f1-28b9a724802e`, parent `01a113a7-f3d3-77f1-a6b8-b856d5a1400c`, claims **local preparation only** for the optional TradeWave volume exporter and SMN receiver contract. Branches: `codex/volume-delivery-exporter-20261013` in `tw2-volume-delivery-exporter` and `codex/smn-volume-delivery-pair-20261013` in `smn-volume-delivery-pair`. October 13 scope: retain existing engine calculations, capture source row/session provenance, add bounded acknowledged delivery and coherent optional receiver generations, synthetic failure tests, exact artifact and release/rollback plan.
+
+Current shared records were fetched and searched for producer ownership; no specific active claim for `highest_volume_stocks.py` or `/update_volume_lists` was found. TW-TASK-0016 retains overall release ownership/freeze; this task does not merge default branches, change another owner's checkout, take its activation lock or activate any environment. Existing app owners must reconcile this exact candidate through their release process before any integration or deployment. This local task-branch claim preserves the recorded freeze rather than presuming it expired.
+
+Explicit exclusions: production/dev activation, engine formula or financial-value changes, credential/access creation, purchases, model jobs, external messages, alerts/newsletters, publication recovery state and tomorrow's 04:00/07:00 America/New_York schedule or 60-job cap. SMN omission fallback remains active at 94023f7. This record is preparation status, not peer acknowledgement or release approval.
+
