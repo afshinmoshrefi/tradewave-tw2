@@ -2496,6 +2496,12 @@ October 13 EOD marker has `ok=false`, an upstream dependency that must not be
 relabelled as a passing generation. Scope/ownership: TW-TASK-0005 local preparation
 claim. Exact release, native qualification and target-specific snapshots remain
 future work, not part of this local preparation authorization.
+The actual SMN private listener proxies through a Unix socket and currently lacks
+a fixed X-Real-IP header. The paired plan adds only that header, retaining the
+allowlist; receiver authorization requires the existing nginx worker's kernel UID,
+executable and master-parent identity, not an arbitrary forwarded header. Data and
+receipt files preserve existing CSV readability; no new credential/access grant
+or SMN scheduling/model-budget change is introduced.
 
 **Staging/production deploy = `bash ops/deploy.sh {staging|prod}`** from dev after
 full release qualification. Per env: pre-flight (`TW2_PUBLIC_HOST` set on both

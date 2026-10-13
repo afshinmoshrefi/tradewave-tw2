@@ -79,13 +79,16 @@ def _send_bundle_locked(bundle,url,*,post,attempt_directory,now,max_attempts):
         raise ValueError('Upload retries must be one to three')
     validate_bundle(bundle,now=now)
     expected={name:item['provenance']['csv_sha256'] for name,item in bundle['files'].items()}
-    directory=Path(attempt_directory);failures=[]
+    directory=Path(attempt_directory)
     journal_path=directory/'delivery-attempts.json'
     if journal_path.is_symlink():
         raise ValueError('Unsafe upload journal')
     journal=json.loads(journal_path.read_text()) if journal_path.exists() else {'delivery_id':bundle['delivery_id'],'events':[]}
     if journal['delivery_id']!=bundle['delivery_id'] or not isinstance(journal.get('events'),list):
         raise ValueError('Upload journal differs from frozen payload')
+    for index,event in enumerate(journal['events'],1):
+        if not isinstance(event,dict) or type(event.get('number')) is not int or event['number']!=index or event.get('status') not in {'reserved','failed','acknowledged'}:
+            raise ValueError('Malformed upload reservation history')
     # The frozen payload is retained before dispatch. Receipt loss retries this
     # same identity, never a fresh export or a misleading success flag.
     for number in range(1,max_attempts+1):

@@ -1,6 +1,6 @@
 """Offline exporter tests against the retained engine and real EOD validator."""
 from datetime import datetime,timedelta,timezone
-import copy,hashlib,importlib.util,io,json,subprocess,sys,tempfile,types,unittest
+import copy,hashlib,importlib.util,io,json,os,subprocess,sys,tempfile,types,unittest
 from pathlib import Path
 from unittest.mock import Mock,patch
 
@@ -15,22 +15,24 @@ finally:
     if saved is None:sys.modules.pop('config',None)
     else:sys.modules['config']=saved
 from appserver.appserver.volume_feed_protocol import FILES,install_bundle,canonical
-from data_updater.eod_readiness import build_status_marker,evaluate_eod_readiness,terminal_row_fingerprint,validate_success_marker
+from data_updater.eod_readiness import build_status_marker,evaluate_eod_readiness,terminal_row_fingerprint,validate_success_marker,latest_completed_us_equity_session,target_table_date,NY_TZ
 
 NOW=datetime(2026,10,13,7,tzinfo=timezone.utc)
 class Clock(datetime):
+    instant=NOW
     @classmethod
-    def now(cls,tz=None):return NOW.astimezone(tz) if tz else NOW.replace(tzinfo=None)
+    def now(cls,tz=None):return cls.instant.astimezone(tz) if tz else cls.instant.replace(tzinfo=None)
 
-def valid_marker():
+def valid_marker(now=NOW):
+    session=latest_completed_us_equity_session(now)
     targets={'US':[f'T{i:03}' for i in range(100)],'ETF':[f'E{i:03}' for i in range(25)]}
-    observations={f'{market}:{symbol}':{'state':'verified','terminal_date':'2026-10-12',
-        'terminal_row_fingerprint':terminal_row_fingerprint([symbol,'2026-10-12',1.0])}
+    observations={f'{market}:{symbol}':{'state':'verified','terminal_date':session.isoformat(),
+        'terminal_row_fingerprint':terminal_row_fingerprint([symbol,session.isoformat(),1.0])}
         for market,symbols in targets.items() for symbol in symbols}
     readiness=evaluate_eod_readiness(targets_by_exchange=targets,observations=observations,
-        completed_session=NOW.date()-timedelta(days=1),resource_ids=['0','1','2','3','4','11'])
-    marker=build_status_marker(base={'started_at':'2026-10-13T03:05:00Z','completed_at':'2026-10-13T05:10:00Z',
-        'market_date':'2026-10-13','target_table_date':'2026-10-13','latest_us_date':'2026-10-12',
+        completed_session=session,resource_ids=['0','1','2','3','4','11'])
+    marker=build_status_marker(base={'started_at':(now-timedelta(hours=3)).isoformat(),'completed_at':(now-timedelta(hours=2)).isoformat(),
+        'market_date':now.astimezone(NY_TZ).date().isoformat(),'target_table_date':target_table_date(now).isoformat(),'latest_us_date':session.isoformat(),
         'total':125,'updated':125,'skipped':0,'missing':0,'failed':0,'source':'synthetic'},readiness=readiness)
     assert validate_success_marker(marker)
     return marker
@@ -55,7 +57,10 @@ class ExporterTests(unittest.TestCase):
     def prepare(self):return exporter.prepare_attempt(self.marker,self.state,'d'*40,now=NOW)
     def test_original_engine_outputs_and_csv_bytes_unchanged(self):
         # Run the retained baseline itself; do not implement a second formula.
-        source=subprocess.check_output(['git','-C',str(ROOT),'show','dc38f14b:appserver/appserver/highest_volume_stocks.py'],text=True)
+        baseline_path=os.environ.get('VOLUME_ENGINE_BASELINE_FILE')
+        raw=Path(baseline_path).read_bytes() if baseline_path else subprocess.check_output(['git','-C',str(ROOT),'show','c25ffd562dc3058ab41db5b07e9075dd841fb29b:appserver/appserver/highest_volume_stocks.py'])
+        self.assertEqual(hashlib.sha256(raw).hexdigest(),'ed4fdf66342cb2487c0b3caa3999bcf277c2e41730a547e72a33c5a7143cfbe9')
+        source=raw.decode('utf-8')
         baseline=types.ModuleType('retained_volume_engine');baseline.__file__=str(ROOT/'appserver/appserver/highest_volume_stocks.py')
         with patch.dict(sys.modules,{'config':engine.config}):exec(compile(source,baseline.__file__,'exec'),baseline.__dict__)
         baseline.datetime=Clock
@@ -136,5 +141,40 @@ class ExporterTests(unittest.TestCase):
     def test_default_cli_has_no_upload_or_generation(self):
         with patch.object(exporter,'prepare_attempt') as prepare,self.assertRaises(SystemExit):exporter.main([])
         prepare.assert_not_called()
+    def test_persisted_nine_attempt_cap_survives_three_restarts(self):
+        bundle,attempt=self.prepare();post=Mock(side_effect=TimeoutError('synthetic'))
+        for _ in range(3):
+            with self.assertRaises(RuntimeError):exporter.send_bundle(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
+        self.assertEqual(post.call_count,9)
+        with self.assertRaises(RuntimeError):exporter.send_bundle(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
+        self.assertEqual(post.call_count,9)
+        self.assertEqual(len(json.loads((attempt/'delivery-attempts.json').read_text())['events']),9)
+    def test_unknown_reserved_dispatch_stays_consumed_after_restart(self):
+        bundle,attempt=self.prepare()
+        (attempt/'delivery-attempts.json').write_bytes(canonical({'delivery_id':bundle['delivery_id'],'events':[{'number':1,'status':'reserved'}]}))
+        post=Mock(side_effect=lambda url,**kw:self.response(kw['json'],self.root/'receiver'))
+        exporter.send_bundle(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
+        events=json.loads((attempt/'delivery-attempts.json').read_text())['events']
+        self.assertEqual(events[0]['status'],'reserved');self.assertEqual(events[1]['number'],2)
+    def test_malformed_journal_prevents_dispatch(self):
+        bundle,attempt=self.prepare();post=Mock()
+        (attempt/'delivery-attempts.json').write_bytes(canonical({'delivery_id':bundle['delivery_id'],'events':[{'number':99,'status':'fake'}]}))
+        with self.assertRaises(ValueError):exporter.send_bundle(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
+        post.assert_not_called()
+    def test_weekend_completion_is_reused_with_real_date_and_new_daily_cache(self):
+        saturday=datetime(2026,10,17,7,tzinfo=timezone.utc);monday=saturday+timedelta(days=2)
+        self.marker.write_text(json.dumps(valid_marker(saturday)))
+        self.write_price('HPQ',end=datetime(2026,10,16));self.write_price('JPM',end=datetime(2026,10,16))
+        with patch.object(Clock,'instant',saturday):
+            first,a=exporter.prepare_attempt(self.marker,self.state,'d'*40,now=saturday)
+        with patch.object(Clock,'instant',monday):
+            second,b=exporter.prepare_attempt(self.marker,self.state,'d'*40,now=monday)
+        self.assertNotEqual(a,b);self.assertNotEqual(first['delivery_id'],second['delivery_id'])
+        self.assertEqual(second['files'][FILES[0]]['provenance']['observations']['HPQ']['observation_date'],'2026-10-16')
+    def test_holiday_source_session_uses_existing_calendar(self):
+        thursday=datetime(2026,11,26,7,tzinfo=timezone.utc);friday=thursday+timedelta(days=1)
+        self.marker.write_text(json.dumps(valid_marker(thursday)))
+        proof=exporter.completion_proof(self.marker,now=friday)
+        self.assertEqual(proof['completed_session'],'2026-11-25')
 
 if __name__=='__main__':unittest.main()
