@@ -195,3 +195,18 @@ The exporter reads `csv/US`; the global ETF-dependent completion guard is broade
 than these inputs. It remains unchanged pending the engine owner's authoritative
 US-scoped contract. Current safe deployed fallback remains in place. This records
 the review request and our correction, not reviewer acceptance or release approval.
+
+
+## SMN-VOLUME-DELIVERY-20261013 independent qualification and pause
+
+The incident coordinator reports independent PASS for scoped producer
+1520bb7d71e2b2526d12455042b2ca1f4c921b45 and receiver
+26b7fc7089b5aea6e15f4a44e14b4b221890bb7d: 40 independent checks plus
+119 Linux tests, exact package bytes and preserved production evidence.
+[Qualified handoff and bounded engine-owner dependency](evidence/SMN-VOLUME-DELIVERY-20261013/QUALIFIED-HANDOFF.md)
+records acceptance without rewriting the qualified artifact. Activation remains
+blocked by target-specific release/snapshot gates and real upstream readiness.
+The existing global validator is retained; no dedicated US-scoped owner claim was
+found in fetched main. Use the existing engine contract and TW-TASK-0016 release
+coordination reference, without inventing ownership or starting competing engine
+work. This preparation task is paused pending new authority or dependency evidence.
