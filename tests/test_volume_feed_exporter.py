@@ -102,28 +102,108 @@ class ExporterTests(unittest.TestCase):
         bundle,attempt=self.prepare();bundle['delivery_id']='0'*64;(attempt/'bundle.json').write_bytes(canonical(bundle))
         with self.assertRaises(ValueError):self.prepare()
     def response(self,bundle,receiver,**kwargs):
-        receipt=install_bundle(receiver,bundle,now=NOW)
+        receipt=install_bundle(receiver,bundle,now=NOW,attribution={'source_peer_ip':'10.0.0.96','receiver_module_sha256':'f'*64,'proxy_transport':'unix'})
         return types.SimpleNamespace(status_code=200,json=lambda:receipt)
+    def send(self,*args,**kwargs):
+        kwargs.setdefault('clock',lambda:kwargs['now'])
+        return exporter.send_bundle(*args,expected_source_peer='10.0.0.96',
+            expected_receiver_module_sha256='f'*64,**kwargs)
+    def test_received_clock_uses_time_after_http_completes(self):
+        bundle,attempt=self.prepare();accepted=NOW+timedelta(seconds=5)
+        receipt=install_bundle(self.root/'receiver',bundle,now=accepted,
+            attribution={'source_peer_ip':'10.0.0.96','receiver_module_sha256':'f'*64})
+        post=Mock(return_value=types.SimpleNamespace(status_code=200,json=lambda:receipt))
+        self.assertEqual(receipt,self.send(bundle,'http://receiver.invalid/',post=post,
+            attempt_directory=attempt,now=NOW,clock=lambda:accepted))
+    def test_missing_or_wrong_ack_attribution_never_saves_completion(self):
+        bundle,attempt=self.prepare();valid=self.response(bundle,self.root/'receiver').json()
+        for field,value in [('source_peer_ip',None),('source_peer_ip','10.0.0.99'),
+                            ('receiver_module_sha256',None),('receiver_module_sha256','bad'),
+                            ('receiver_module_sha256','e'*64)]:
+            with self.subTest(field=field,value=value):
+                receipt=copy.deepcopy(valid)
+                if value is None:receipt['attribution'].pop(field)
+                else:receipt['attribution'][field]=value
+                post=Mock(return_value=types.SimpleNamespace(status_code=200,json=lambda:receipt))
+                with self.assertRaises(RuntimeError):self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW,max_attempts=1)
+                self.assertFalse((attempt/'receipt.json').exists())
+    def test_missing_or_invalid_ack_received_clock_never_saves_completion(self):
+        bundle,attempt=self.prepare();valid=self.response(bundle,self.root/'receiver').json()
+        for clock in (None,'bad','2026-10-13T07:00:00','2026-10-13T06:59:59Z','2026-10-13T07:00:01Z'):
+            with self.subTest(clock=clock):
+                receipt=copy.deepcopy(valid)
+                if clock is None:receipt.pop('received_at')
+                else:receipt['received_at']=clock
+                post=Mock(return_value=types.SimpleNamespace(status_code=200,json=lambda:receipt))
+                with self.assertRaises(RuntimeError):self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW,max_attempts=1)
+                self.assertFalse((attempt/'receipt.json').exists())
+    def test_missing_intended_ack_target_prevents_dispatch(self):
+        bundle,attempt=self.prepare();post=Mock()
+        with self.assertRaises(ValueError):exporter.send_bundle(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
+        post.assert_not_called();self.assertFalse((attempt/'delivery-attempts.json').exists())
+    def test_repeated_successful_invocations_use_one_reservation_and_dispatch(self):
+        bundle,attempt=self.prepare();post=Mock(side_effect=lambda url,**kw:self.response(kw['json'],self.root/'receiver'))
+        first=self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
+        before={p.name:p.read_bytes() for p in attempt.iterdir() if p.is_file()}
+        for minutes in range(1,13):
+            self.assertEqual(first,self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW+timedelta(minutes=minutes)))
+        self.assertEqual(post.call_count,1)
+        self.assertEqual(before,{p.name:p.read_bytes() for p in attempt.iterdir() if p.is_file()})
+        self.assertEqual(len(json.loads((attempt/'delivery-attempts.json').read_text())['events']),1)
+    def test_success_on_ninth_reservation_remains_completed_after_restart(self):
+        bundle,attempt=self.prepare()
+        events=[{'number':i,'status':'failed'} for i in range(1,9)]
+        (attempt/'delivery-attempts.json').write_bytes(canonical({'delivery_id':bundle['delivery_id'],'events':events}))
+        post=Mock(side_effect=lambda url,**kw:self.response(kw['json'],self.root/'receiver'))
+        first=self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
+        self.assertEqual(first,self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW))
+        self.assertEqual(post.call_count,1)
+        self.assertEqual(len(json.loads((attempt/'delivery-attempts.json').read_text())['events']),9)
+    def test_saved_success_is_completed_after_bundle_expiry_without_dispatch(self):
+        bundle,attempt=self.prepare();post=Mock(side_effect=lambda url,**kw:self.response(kw['json'],self.root/'receiver'))
+        first=self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
+        self.assertEqual(first,self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW+timedelta(hours=25)))
+        self.assertEqual(post.call_count,1)
+    def test_saved_receipt_before_journal_completion_recovers_without_dispatch(self):
+        bundle,attempt=self.prepare();receipt=self.response(bundle,self.root/'receiver').json()
+        (attempt/'receipt.json').write_bytes(canonical(receipt))
+        (attempt/'delivery-attempts.json').write_bytes(canonical({'delivery_id':bundle['delivery_id'],'status':'in_progress','events':[{'number':1,'status':'reserved'}]}))
+        post=Mock();self.assertEqual(receipt,self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW))
+        post.assert_not_called()
+        journal=json.loads((attempt/'delivery-attempts.json').read_text())
+        self.assertEqual(journal['status'],'acknowledged');self.assertEqual(journal['events'][0]['status'],'acknowledged')
+    def test_corrupt_saved_receipt_does_not_return_success_or_dispatch(self):
+        bundle,attempt=self.prepare();receipt=self.response(bundle,self.root/'receiver').json()
+        receipt['attribution']['receiver_module_sha256']='e'*64
+        (attempt/'receipt.json').write_bytes(canonical(receipt));post=Mock()
+        with self.assertRaises(ValueError):self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
+        post.assert_not_called()
+    def test_journal_ack_without_receipt_recovers_actual_receipt(self):
+        bundle,attempt=self.prepare();post=Mock(side_effect=lambda url,**kw:self.response(kw['json'],self.root/'receiver'))
+        first=self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
+        (attempt/'receipt.json').unlink()
+        second=self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
+        self.assertEqual(first,second);self.assertEqual(post.call_count,2)
     def test_internal_upload_uses_bounded_timeout_and_exact_ack(self):
         bundle,attempt=self.prepare();receiver=self.root/'receiver';post=Mock(side_effect=lambda url,**kw:self.response(kw['json'],receiver))
-        receipt=exporter.send_bundle(bundle,'http://receiver.invalid/update_volume_lists',post=post,attempt_directory=attempt,now=NOW)
+        receipt=self.send(bundle,'http://receiver.invalid/update_volume_lists',post=post,attempt_directory=attempt,now=NOW)
         self.assertEqual(receipt['delivery_id'],bundle['delivery_id'])
         self.assertEqual(post.call_args.kwargs['timeout'],(5,15));self.assertFalse(post.call_args.kwargs['allow_redirects'])
         self.assertTrue((attempt/'receipt.json').is_file())
     def test_failed_upload_exhausts_three_attempts_without_false_receipt(self):
         bundle,attempt=self.prepare();post=Mock(side_effect=TimeoutError('synthetic'))
-        with self.assertRaises(RuntimeError):exporter.send_bundle(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
+        with self.assertRaises(RuntimeError):self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
         self.assertEqual(post.call_count,3);self.assertFalse((attempt/'receipt.json').exists())
         self.assertEqual(json.loads((attempt/'delivery-attempts.json').read_text())['status'],'failed')
     def test_failed_http_status_is_not_delivery(self):
         bundle,attempt=self.prepare();post=Mock(return_value=types.SimpleNamespace(status_code=503))
-        with self.assertRaises(RuntimeError):exporter.send_bundle(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW,max_attempts=1)
+        with self.assertRaises(RuntimeError):self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW,max_attempts=1)
         self.assertFalse((attempt/'receipt.json').exists())
     def test_wrong_acknowledged_hash_or_identity_fails(self):
         bundle,attempt=self.prepare()
         receipt={'status':'verified','delivery_id':bundle['delivery_id'],'csv_sha256':{name:'0'*64 for name in FILES}}
         post=Mock(return_value=types.SimpleNamespace(status_code=200,json=lambda:receipt))
-        with self.assertRaises(RuntimeError):exporter.send_bundle(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW,max_attempts=1)
+        with self.assertRaises(RuntimeError):self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW,max_attempts=1)
         self.assertFalse((attempt/'receipt.json').exists())
     def test_lost_successful_response_retries_same_installed_identity(self):
         bundle,attempt=self.prepare();receiver=self.root/'receiver';calls=[]
@@ -131,12 +211,12 @@ class ExporterTests(unittest.TestCase):
             calls.append(kw['json']['delivery_id']);response=self.response(kw['json'],receiver)
             if len(calls)==1:raise TimeoutError('lost successful response')
             return response
-        exporter.send_bundle(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
+        self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
         self.assertEqual(calls,[bundle['delivery_id']]*2)
         self.assertEqual(len(list((receiver/'.volume-generations').iterdir())),1)
     def test_retry_allowance_cannot_be_increased(self):
         bundle,attempt=self.prepare();post=Mock()
-        with self.assertRaises(ValueError):exporter.send_bundle(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW,max_attempts=4)
+        with self.assertRaises(ValueError):self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW,max_attempts=4)
         post.assert_not_called()
     def test_default_cli_has_no_upload_or_generation(self):
         with patch.object(exporter,'prepare_attempt') as prepare,self.assertRaises(SystemExit):exporter.main([])
@@ -144,22 +224,22 @@ class ExporterTests(unittest.TestCase):
     def test_persisted_nine_attempt_cap_survives_three_restarts(self):
         bundle,attempt=self.prepare();post=Mock(side_effect=TimeoutError('synthetic'))
         for _ in range(3):
-            with self.assertRaises(RuntimeError):exporter.send_bundle(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
+            with self.assertRaises(RuntimeError):self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
         self.assertEqual(post.call_count,9)
-        with self.assertRaises(RuntimeError):exporter.send_bundle(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
+        with self.assertRaises(RuntimeError):self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
         self.assertEqual(post.call_count,9)
         self.assertEqual(len(json.loads((attempt/'delivery-attempts.json').read_text())['events']),9)
     def test_unknown_reserved_dispatch_stays_consumed_after_restart(self):
         bundle,attempt=self.prepare()
         (attempt/'delivery-attempts.json').write_bytes(canonical({'delivery_id':bundle['delivery_id'],'events':[{'number':1,'status':'reserved'}]}))
         post=Mock(side_effect=lambda url,**kw:self.response(kw['json'],self.root/'receiver'))
-        exporter.send_bundle(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
+        self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
         events=json.loads((attempt/'delivery-attempts.json').read_text())['events']
         self.assertEqual(events[0]['status'],'reserved');self.assertEqual(events[1]['number'],2)
     def test_malformed_journal_prevents_dispatch(self):
         bundle,attempt=self.prepare();post=Mock()
         (attempt/'delivery-attempts.json').write_bytes(canonical({'delivery_id':bundle['delivery_id'],'events':[{'number':99,'status':'fake'}]}))
-        with self.assertRaises(ValueError):exporter.send_bundle(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
+        with self.assertRaises(ValueError):self.send(bundle,'http://receiver.invalid/',post=post,attempt_directory=attempt,now=NOW)
         post.assert_not_called()
     def test_weekend_completion_is_reused_with_real_date_and_new_daily_cache(self):
         saturday=datetime(2026,10,17,7,tzinfo=timezone.utc);monday=saturday+timedelta(days=2)

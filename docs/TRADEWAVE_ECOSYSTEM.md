@@ -3278,3 +3278,18 @@ historical files. This doc supersedes the collective memory content.
 SMN `chartkit.record_bars` measures the 11-point median label in display pixels. It reserves a right gutter clear of the final bar and verifies the rendered bounds; excessive width falls back to a dashed-line key below the subtitle. This is presentation geometry only. Existing TradeWave medians and study values pass through unchanged. For retained static-asset repairs, preserve original article receipts/provenance, overlay only hash-bound chart assets on an immutable copy of the current Dev web tree, and record renderer source plus old/new hashes in `chart-repair-provenance.json`. Use the existing guarded installer activation, rollback and finalization; do not regenerate approved articles or reset their immutable daily receipts. See the bug record for exact tested/live evidence.
 
 Tara published-list follow-ups such as "how about midcaps" and "how about micaps" select the list; genuine how-to requests explain direct selection from the top-left market dropdown, with admin-published lists at the bottom and personal watchlists treated separately.
+
+
+### Optional volume pair: October 13 independent review corrections
+
+The prepared dated-volume receiver commits its immutable receipt before publishing
+the current-generation pointer. Pointer-visible generations therefore contain both
+feed files, provenance, manifest and acknowledgement even after process death.
+Newer deliveries can replace an interrupted generation after its export expires.
+The producer pins expected peer and receiver module hash in non-secret
+`TW2_VOLUME_SOURCE_PEER_IP` and `TW2_VOLUME_RECEIVER_MODULE_SHA256`, validates
+acknowledgement time/attribution and returns validated persisted completion without
+further HTTP attempts. Engine mathematics and existing EOD validation are retained.
+Although the volume inputs are `csv/US`, an authoritative engine-owner US-scoped
+completion contract is required before replacing the existing global US/ETF guard.
+These are local preparation corrections pending independent re-review, not activation.

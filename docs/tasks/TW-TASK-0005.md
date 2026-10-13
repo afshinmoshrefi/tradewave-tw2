@@ -180,3 +180,18 @@ Current shared records were fetched and searched for producer ownership; no spec
 
 Explicit exclusions: production/dev activation, engine formula or financial-value changes, credential/access creation, purchases, model jobs, external messages, alerts/newsletters, publication recovery state and tomorrow's 04:00/07:00 America/New_York schedule or 60-job cap. SMN omission fallback remains active at 94023f7. This record is preparation status, not peer acknowledgement or release approval.
 
+
+## SMN-VOLUME-DELIVERY-20261013 independent review corrections
+
+Codex task 01a117d1-cc86-737e-a3f1-28b9a724802e resumes its existing local-only
+claim to address reviewer 01a13053-630c-7117-b347-d91f06b0a026: receipt durability
+before receiver pointer publication; mandatory producer acknowledgement clock,
+source peer and receiver-code attribution; and saved completion without repeated
+dispatch/reservations. Exact regression cases and native qualification accompany
+the corrected pair. Original package/evidence are retained. No activation, model
+job, newsletter, alert, engine calculation or publication-state change is allowed.
+
+The exporter reads `csv/US`; the global ETF-dependent completion guard is broader
+than these inputs. It remains unchanged pending the engine owner's authoritative
+US-scoped contract. Current safe deployed fallback remains in place. This records
+the review request and our correction, not reviewer acceptance or release approval.

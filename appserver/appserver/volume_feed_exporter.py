@@ -1,6 +1,7 @@
 """Optional volume export after the existing authoritative EOD success proof."""
 from datetime import datetime,timezone
 import argparse
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -12,7 +13,7 @@ sys.path.insert(0,str(REPO))
 from data_updater.eod_readiness import (validate_success_marker,
     latest_completed_us_equity_session)
 from appserver.appserver import highest_volume_stocks as engine
-from appserver.appserver.volume_feed_protocol import (FILES,COMMIT,canonical,digest,
+from appserver.appserver.volume_feed_protocol import (FILES,COMMIT,SHA,canonical,digest,
     build_bundle,validate_bundle,timestamp,atomic,delivery_lock,NY)
 
 
@@ -67,18 +68,53 @@ def prepare_attempt(marker_path,state_directory,source_commit,*,now,calculate=No
         return bundle,attempt
 
 
-def send_bundle(bundle,url,*,post,attempt_directory,now,max_attempts=3):
+def acknowledgement_target(source_peer,receiver_module_sha256):
+    if not isinstance(source_peer,str) or str(ipaddress.ip_address(source_peer))!=source_peer:
+        raise ValueError('Exact intended producer peer IP required')
+    if not isinstance(receiver_module_sha256,str) or not SHA.fullmatch(receiver_module_sha256):
+        raise ValueError('Exact intended receiver module hash required')
+
+
+def validate_acknowledgement(receipt,bundle,*,now,source_peer,receiver_module_sha256):
+    acknowledgement_target(source_peer,receiver_module_sha256)
+    if not isinstance(receipt,dict):
+        raise ValueError('Receiver acknowledgement must be an object')
+    expected={name:item['provenance']['csv_sha256'] for name,item in bundle['files'].items()}
+    counts={name:len(item['provenance']['observations']) for name,item in bundle['files'].items()}
+    if receipt.get('status')!='verified' or receipt.get('delivery_id')!=bundle['delivery_id'] or receipt.get('csv_sha256')!=expected:
+        raise ValueError('Receiver acknowledgement does not bind this payload')
+    received_counts=receipt.get('row_counts')
+    if not isinstance(received_counts,dict) or received_counts!=counts or any(type(value) is not int for value in received_counts.values()):
+        raise ValueError('Receiver acknowledgement row counts differ')
+    accepted=timestamp(receipt['received_at'])
+    if accepted>now:
+        raise ValueError('Receiver acknowledgement has a future clock')
+    # Validate the immutable payload at its actual acceptance time. A saved
+    # completion remains completed after the export expires; a fresh dispatch
+    # below still requires validation against the current clock.
+    validate_bundle(bundle,now=accepted)
+    attribution=receipt.get('attribution')
+    if not isinstance(attribution,dict) or attribution.get('source_peer_ip')!=source_peer or attribution.get('receiver_module_sha256')!=receiver_module_sha256:
+        raise ValueError('Receiver acknowledgement attribution differs from intended target')
+    return receipt
+
+
+def send_bundle(bundle,url,*,post,attempt_directory,now,max_attempts=3,
+                expected_source_peer=None,expected_receiver_module_sha256=None,clock=None):
     directory=Path(attempt_directory)
     with delivery_lock(directory):
         return _send_bundle_locked(bundle,url,post=post,attempt_directory=directory,
-                                   now=now,max_attempts=max_attempts)
+                                   now=now,max_attempts=max_attempts,
+                                   expected_source_peer=expected_source_peer,
+                                   expected_receiver_module_sha256=expected_receiver_module_sha256,
+                                   clock=clock or (lambda:datetime.now(timezone.utc)))
 
 
-def _send_bundle_locked(bundle,url,*,post,attempt_directory,now,max_attempts):
+def _send_bundle_locked(bundle,url,*,post,attempt_directory,now,max_attempts,
+                        expected_source_peer,expected_receiver_module_sha256,clock):
     if type(max_attempts) is not int or not 1<=max_attempts<=3:
         raise ValueError('Upload retries must be one to three')
-    validate_bundle(bundle,now=now)
-    expected={name:item['provenance']['csv_sha256'] for name,item in bundle['files'].items()}
+    acknowledgement_target(expected_source_peer,expected_receiver_module_sha256)
     directory=Path(attempt_directory)
     journal_path=directory/'delivery-attempts.json'
     if journal_path.is_symlink():
@@ -89,6 +125,21 @@ def _send_bundle_locked(bundle,url,*,post,attempt_directory,now,max_attempts):
     for index,event in enumerate(journal['events'],1):
         if not isinstance(event,dict) or type(event.get('number')) is not int or event['number']!=index or event.get('status') not in {'reserved','failed','acknowledged'}:
             raise ValueError('Malformed upload reservation history')
+    receipt_path=directory/'receipt.json'
+    if receipt_path.is_symlink():
+        raise ValueError('Unsafe saved upload receipt')
+    if receipt_path.exists():
+        receipt=validate_acknowledgement(json.loads(receipt_path.read_text()),bundle,
+            now=now,source_peer=expected_source_peer,
+            receiver_module_sha256=expected_receiver_module_sha256)
+        # Receipt is saved before journal completion. Recover that local crash
+        # boundary using validated evidence, without reserving or dispatching.
+        if journal['events'] and journal['events'][-1]['status']=='reserved':
+            journal['events'][-1].update(status='acknowledged',http_status=200)
+        if journal.get('status')!='acknowledged':
+            journal['status']='acknowledged';atomic(journal_path,canonical(journal))
+        return receipt
+    validate_bundle(bundle,now=now)
     # The frozen payload is retained before dispatch. Receipt loss retries this
     # same identity, never a fresh export or a misleading success flag.
     for number in range(1,max_attempts+1):
@@ -104,11 +155,11 @@ def _send_bundle_locked(bundle,url,*,post,attempt_directory,now,max_attempts):
             if response.status_code!=200:
                 raise ValueError('Unexpected upload HTTP status')
             receipt=response.json()
-            if receipt.get('status')!='verified' or receipt.get('delivery_id')!=bundle['delivery_id'] or receipt.get('csv_sha256')!=expected:
-                raise ValueError('Receiver acknowledgement does not bind this payload')
-            if receipt.get('row_counts')!={name:len(item['provenance']['observations']) for name,item in bundle['files'].items()}:
-                raise ValueError('Receiver acknowledgement row counts differ')
-            atomic(directory/'receipt.json',canonical(receipt))
+            # Compare the receiver clock after HTTP completes, not against the
+            # earlier invocation clock. Real delivery takes time.
+            validate_acknowledgement(receipt,bundle,now=clock(),
+                source_peer=expected_source_peer,receiver_module_sha256=expected_receiver_module_sha256)
+            atomic(receipt_path,canonical(receipt))
             event.update(status='acknowledged',http_status=status)
             journal['status']='acknowledged';atomic(journal_path,canonical(journal))
             return receipt
@@ -129,6 +180,9 @@ def main(argv=None):
         print(json.dumps(completion_proof(args.marker,now=now)));return 0
     if not args.send:
         parser.error('Use --check for read-only inspection or --send after release approval')
+    source_peer=os.environ.get('TW2_VOLUME_SOURCE_PEER_IP')
+    receiver_hash=os.environ.get('TW2_VOLUME_RECEIVER_MODULE_SHA256')
+    acknowledgement_target(source_peer,receiver_hash)
     source=subprocess.check_output(['git','-C',str(REPO),'rev-parse','HEAD'],text=True).strip()
     if subprocess.check_output(['git','-C',str(REPO),'status','--porcelain','--untracked-files=no'],text=True).strip():
         raise RuntimeError('Producer release has tracked changes')
@@ -137,7 +191,8 @@ def main(argv=None):
     url=engine.config.blog_queue_server.rstrip('/')+'/update_volume_lists'
     if not url.startswith(('http://','https://')):
         raise ValueError('Configured internal receiver is unavailable')
-    receipt=send_bundle(bundle,url,post=requests.post,attempt_directory=attempt,now=now)
+    receipt=send_bundle(bundle,url,post=requests.post,attempt_directory=attempt,now=now,
+        expected_source_peer=source_peer,expected_receiver_module_sha256=receiver_hash)
     print(json.dumps({'status':receipt['status'],'delivery_id':receipt['delivery_id']}))
     return 0
 
