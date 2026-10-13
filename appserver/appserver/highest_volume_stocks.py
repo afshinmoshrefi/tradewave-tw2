@@ -6,6 +6,9 @@
 import sys
 import os
 import requests
+import hashlib
+import io
+from pathlib import Path
 from datetime import datetime, timedelta
 sys.path.insert(0, '/home/flask')
 import config
@@ -14,7 +17,7 @@ import config
 DAYS_OLD_STALE = 10 # number of days for the last row to consider it stale
 
 
-def get_highest_volume_US_stocks(limit: int = 100, days: int = 30):
+def get_highest_volume_US_stocks(limit: int = 100, days: int = 30, *, observations=None):
     csv_folder = os.path.join(config.csv_folder, 'US')
     results = []  # (ticker, avg_vol, today_vol, rvol)
 
@@ -29,7 +32,11 @@ def get_highest_volume_US_stocks(limit: int = 100, days: int = 30):
         fpath = os.path.join(csv_folder, fname)
 
         last_rows = []
-        with open(fpath, 'r') as f:
+        # The opt-in delivery path captures the exact source bytes that the
+        # existing calculation consumes. Default callers retain their reader.
+        captured = Path(fpath).read_bytes() if observations is not None else None
+        stream = io.StringIO(captured.decode('utf-8'), newline=None) if captured is not None else open(fpath, 'r')
+        with stream as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -98,6 +105,9 @@ def get_highest_volume_US_stocks(limit: int = 100, days: int = 30):
 
         rvol = today_vol / avg_vol if avg_vol > 0 else 0.0
         results.append((ticker, avg_vol, today_vol, rvol))
+        if observations is not None:
+            observations[ticker] = {'observation_date':last_date_str,
+                                    'source_csv_sha256':hashlib.sha256(captured).hexdigest()}
 
     # ---------------- TOP AVG VOLUME ----------------
     results_by_avg = sorted(results, key=lambda x: x[1], reverse=True)
