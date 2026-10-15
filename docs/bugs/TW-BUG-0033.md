@@ -1,6 +1,6 @@
 # TW-BUG-0033: Watchlist CSV rejects valid US ADRs
 
-- Status: verified on Dev
+- Status: verified on Dev and staging
 - Priority: P2
 - Confidence: reproduced on Dev using active detector and symbol provider
 - Owner: Codex, chat 01a13f7d-e3a3-7460-aa4e-4a9dae97833f, 2026-10-15
@@ -59,8 +59,24 @@ addition queries the broader exchange. No customer watchlist was changed during 
 - Rollback: under the Dev activation lock, atomically restore .tw2-app-current to the
   previous backend above and restart tradewave-appserver; verify previous behavior and
   frontend pointer. Do not use this old pointer over a later unrelated deployment.
-- Staging and production: not deployed by this task.
+- At the original bug-fix verification, staging promotion had not yet occurred.
+  TW-TASK-0024 records the later exact-artifact staging verification; production
+  remains unchanged.
 - Follow-up: test the customer's full CSV when available. A BP-only or genuinely mixed-market
   file still follows existing market detection; this fix does not guess listing identity.
-  Any staging promotion requires a separate request and release qualification.
+  This release staging verification is recorded in TW-TASK-0024. Any additional staging promotion or production deployment requires its own authorization and release qualification.
 
+
+## Staging verification (2026-10-15)
+The exact release c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce passed a live
+staging check with an ephemeral synthetic Strategist login. The mixed fixture
+AAME,AAN,AAOI,BP,ZZZINVALIDTEST999 selected WILSHIRE 5000, accepted the exact
+four valid symbols in order, and rejected only the bogus ticker. BP-only still
+selected London Exchange; AAPL/MSFT retained the DOW 30 selection and both symbols.
+No watchlist mutation endpoint was called and no customer watchlist changed.
+
+Sanitized results: [TW-TASK-0024 staging receipt](../tasks/evidence/TW-TASK-0024-staging-20261015.json)
+and release-host evidence
+/var/lib/tradewave/release-state/tw2-20261015-01/evidence/staging-explorer-contract.json.
+The browser import/save flow remains untested; the check verifies the authenticated
+detection API contract only. Production remains unchanged.

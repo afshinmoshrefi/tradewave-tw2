@@ -1,0 +1,120 @@
+{
+  "artifact_sha256": "6b6415e649eccdff16453acd7aeddfea07c3b18e4ff33646c29ee50e7d4910a8",
+  "evidence_paths": [
+    "/var/lib/tradewave/release-state/tw2-20261015-01/release.json",
+    "/var/lib/tradewave/release-state/tw2-20261015-01/evidence/staging-runtime.json",
+    "/var/lib/tradewave/release-state/tw2-20261015-01/evidence/staging-deploy.log",
+    "/var/lib/tradewave/release-state/tw2-20261015-01/evidence/staging-browser-gate.json",
+    "/var/lib/tradewave/release-state/tw2-20261015-01/evidence/staging-explorer-contract.json",
+    "/var/lib/tradewave/release-state/tw2-20261015-01/evidence/pytest-full-after-fixes.log",
+    "/var/lib/tradewave/release-state/tw2-20261015-01/evidence/pytest-mcpserver.log",
+    "/var/lib/tradewave/release-state/tw2-20261015-01/evidence/react-npm-test.log",
+    "/var/lib/tradewave/release-state/tw2-20261015-01/evidence/mvp-initial.log",
+    "/var/lib/tradewave/release-state/tw2-20261015-01/evidence/mvp-post-restart.log",
+    "/var/lib/tradewave/release-state/tw2-20261015-01/evidence/mvp-repeat.log"
+  ],
+  "known_data_freshness_risk": {
+    "as_of": "2026-10-10T10:49:00Z",
+    "coverage_ready": false,
+    "failed": 19003,
+    "latest_us_date": "2026-10-09",
+    "logs_empty": true,
+    "ok": false,
+    "refresh_triggered": false,
+    "required_exchanges": [
+      "ETF",
+      "US"
+    ],
+    "root_cause": "unknown",
+    "session": "2026-10-08",
+    "updated": 0
+  },
+  "production": {
+    "changed": false,
+    "deployed": false
+  },
+  "qualification": {
+    "browser": {
+      "canvas_count": 1,
+      "opportunity_row_canvas": true,
+      "passed": true,
+      "placeholder_count": 0,
+      "real_pattern_response": true
+    },
+    "explorer_api": {
+      "cached_empty_byte_identical": true,
+      "chartdata4": {
+        "date_lock": true,
+        "entry_date": "2026-10-15",
+        "http": 200,
+        "rows": 11,
+        "symbol": "AXP"
+      },
+      "login_http": 200,
+      "opplist4": {
+        "active": 38,
+        "http": 200,
+        "patterns": 5,
+        "priced": 27
+      }
+    },
+    "load_gates": [
+      {
+        "error_rate_percent": 0.0,
+        "p95_seconds": 26.411,
+        "passed": false,
+        "reason": "15-second threshold exceeded; preserved failure",
+        "stage": "initial"
+      },
+      {
+        "error_rate_percent": 0.0,
+        "p95_seconds": 10.504,
+        "passed": true,
+        "stage": "post_restart"
+      },
+      {
+        "error_rate_percent": 0.0,
+        "p95_seconds": 6.369,
+        "passed": true,
+        "stage": "repeat"
+      }
+    ],
+    "mcp": {
+      "passed": 61
+    },
+    "python": {
+      "passed": 1695,
+      "skipped": 5
+    },
+    "react": {
+      "passed": 473
+    },
+    "runtime": {
+      "active_processes": 4,
+      "app_sha": "c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce",
+      "backend_fingerprint": "b6478f9c78c01b4ed7bad32d3ee4195188f19ef4b7aa1da6bc2756833c3c2a5c",
+      "frontend_hashes_verified": 21,
+      "web_sha": "c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce"
+    },
+    "staging_deploy": {
+      "failures": 0,
+      "result": "clean",
+      "warnings": 0
+    },
+    "watchlist_csv": {
+      "aapl_msft_unchanged": true,
+      "bogus_rejected": true,
+      "bp_accepted_for_us_wilshire": true,
+      "bp_only_kept_london": true,
+      "passed": true,
+      "watchlist_mutations": 0
+    }
+  },
+  "release_id": "tw2-20261015-01",
+  "rollback": {
+    "production": "not_prepared",
+    "staging": "ready"
+  },
+  "source_sha": "c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce",
+  "status": "complete"
+}
