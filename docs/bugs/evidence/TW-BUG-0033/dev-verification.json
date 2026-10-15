@@ -1,0 +1,175 @@
+{
+  "candidate": "719a07851feea6d938530c31c6552e8ca1cc07a3",
+  "backend": "/home/tradewave-worktrees/watchlist-csv-validation-20261015",
+  "previous_backend": "/home/tradewave-worktrees/securities-menu-tip-dev-20261010",
+  "frontend": "/home/flask/web-react/releases/build-906bd7b6d578c63076d88b3fa9f5e62bac16185b",
+  "checks": [
+    {
+      "case": "adr",
+      "input": "AAME,AAN,AAOI,BP",
+      "result": {
+        "all_groups": [
+          {
+            "match_count": 3,
+            "resource_id": "4",
+            "resource_name": "WILSHIRE 5000"
+          },
+          {
+            "match_count": 1,
+            "resource_id": "12",
+            "resource_name": "LONDON EXCHANGE"
+          }
+        ],
+        "detected_group": {
+          "resource_id": "4",
+          "resource_name": "WILSHIRE 5000"
+        },
+        "invalid_symbols": [],
+        "valid_symbols": [
+          "AAME",
+          "AAN",
+          "AAOI",
+          "BP"
+        ]
+      },
+      "seconds": 1.637
+    },
+    {
+      "case": "invalid",
+      "input": "AAME,AAN,AAOI,BP,ZZZINVALIDTEST999",
+      "result": {
+        "all_groups": [
+          {
+            "match_count": 3,
+            "resource_id": "4",
+            "resource_name": "WILSHIRE 5000"
+          },
+          {
+            "match_count": 1,
+            "resource_id": "12",
+            "resource_name": "LONDON EXCHANGE"
+          }
+        ],
+        "detected_group": {
+          "resource_id": "4",
+          "resource_name": "WILSHIRE 5000"
+        },
+        "invalid_symbols": [
+          "ZZZINVALIDTEST999"
+        ],
+        "valid_symbols": [
+          "AAME",
+          "AAN",
+          "AAOI",
+          "BP"
+        ]
+      },
+      "seconds": 0.093
+    },
+    {
+      "case": "unchanged",
+      "input": "AAPL,MSFT",
+      "result": {
+        "all_groups": [
+          {
+            "match_count": 2,
+            "resource_id": "0",
+            "resource_name": "DOW 30 STOCKS"
+          },
+          {
+            "match_count": 2,
+            "resource_id": "1",
+            "resource_name": "NASDAQ 100 STOCKS"
+          },
+          {
+            "match_count": 2,
+            "resource_id": "2",
+            "resource_name": "S&P 500 STOCKS"
+          },
+          {
+            "match_count": 2,
+            "resource_id": "3",
+            "resource_name": "RUSSELL 1000 STOCKS"
+          },
+          {
+            "match_count": 2,
+            "resource_id": "4",
+            "resource_name": "WILSHIRE 5000"
+          },
+          {
+            "match_count": 2,
+            "resource_id": "13",
+            "resource_name": "TORONTO STOCKS"
+          }
+        ],
+        "detected_group": {
+          "resource_id": "0",
+          "resource_name": "DOW 30 STOCKS"
+        },
+        "invalid_symbols": [],
+        "valid_symbols": [
+          "AAPL",
+          "MSFT"
+        ]
+      },
+      "seconds": 0.033
+    },
+    {
+      "case": "london_unchanged",
+      "input": "BP",
+      "result": {
+        "all_groups": [
+          {
+            "match_count": 1,
+            "resource_id": "12",
+            "resource_name": "LONDON EXCHANGE"
+          }
+        ],
+        "detected_group": {
+          "resource_id": "12",
+          "resource_name": "LONDON EXCHANGE"
+        },
+        "invalid_symbols": [],
+        "valid_symbols": [
+          "BP"
+        ]
+      },
+      "seconds": 0.024
+    },
+    {
+      "case": "manual_lookup",
+      "result": {
+        "name": "BP PLC ADR"
+      }
+    },
+    {
+      "case": "public_dev_route",
+      "result": {
+        "all_groups": [
+          {
+            "match_count": 3,
+            "resource_id": "4",
+            "resource_name": "WILSHIRE 5000"
+          },
+          {
+            "match_count": 1,
+            "resource_id": "12",
+            "resource_name": "LONDON EXCHANGE"
+          }
+        ],
+        "detected_group": {
+          "resource_id": "4",
+          "resource_name": "WILSHIRE 5000"
+        },
+        "invalid_symbols": [],
+        "valid_symbols": [
+          "AAME",
+          "AAN",
+          "AAOI",
+          "BP"
+        ]
+      }
+    }
+  ],
+  "verified_utc": "2026-10-15T13:18:10Z"
+}

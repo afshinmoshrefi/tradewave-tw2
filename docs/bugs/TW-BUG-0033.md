@@ -1,6 +1,6 @@
 # TW-BUG-0033: Watchlist CSV rejects valid US ADRs
 
-- Status: in-progress
+- Status: verified on Dev
 - Priority: P2
 - Confidence: reproduced on Dev using active detector and symbol provider
 - Owner: Codex, chat 01a13f7d-e3a3-7460-aa4e-4a9dae97833f, 2026-10-15
@@ -38,4 +38,29 @@ addition queries the broader exchange. No customer watchlist was changed during 
 - Authentication, watchlist limits/storage, and index/chart math remain unchanged.
 - Original customer CSV was not attached; use a minimal representative fixture.
 - Browser end-to-end import requires signed-in session; backend live contract is required.
-- Current tests, final SHA, deployment evidence and rollback pointers: pending.
+- Eleven focused tests passed; Python compilation and diff whitespace checks passed.
+- Browser upload/save was not exercised because the browser was signed out. The actual
+  authenticated public Dev detection endpoint was exercised; no customer watchlist was changed.
+
+## Implementation and live verification
+- Source commit: 719a07851feea6d938530c31c6552e8ca1cc07a3, pushed to main and task branch.
+- Verified at 2026-10-15T13:18:10Z with normal service-account authentication.
+- Active backend: /home/tradewave-worktrees/watchlist-csv-validation-20261015.
+- Previous backend: /home/tradewave-worktrees/securities-menu-tip-dev-20261010.
+- Unchanged frontend: /home/flask/web-react/releases/build-906bd7b6d578c63076d88b3fa9f5e62bac16185b.
+- Tests: sudo -u flask /home/flask/venv/bin/python3 -B -m pytest tests/test_watchlist_csv_validation.py -q --disable-warnings.
+- Live: BP accepted in the Wilshire-detected fixture; bogus ticker rejected; AAPL/MSFT
+  retained prior result; BP-only retained London selection; manual BP returned BP PLC ADR.
+  Public https://tw2-dev.trxstat.com/appserver route returned BP among valid_symbols.
+- Full sanitized inputs/results: [Dev receipt](evidence/TW-BUG-0033/dev-verification.json).
+- First catalog retrieval plus validation took 1.637 seconds; subsequent US validation
+  using the cache took 0.093 seconds in this smoke (not a performance guarantee).
+- Only appserver restarted. Frontend next-start readiness passed; pointer stayed unchanged.
+- Rollback: under the Dev activation lock, atomically restore .tw2-app-current to the
+  previous backend above and restart tradewave-appserver; verify previous behavior and
+  frontend pointer. Do not use this old pointer over a later unrelated deployment.
+- Staging and production: not deployed by this task.
+- Follow-up: test the customer's full CSV when available. A BP-only or genuinely mixed-market
+  file still follows existing market detection; this fix does not guess listing identity.
+  Any staging promotion requires a separate request and release qualification.
+
