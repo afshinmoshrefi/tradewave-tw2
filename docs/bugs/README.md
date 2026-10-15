@@ -57,3 +57,5 @@ Status belongs in each record and this index; update both together. Preserve res
 | [TW-BUG-0031](TW-BUG-0031.md) | P2 | verified on dev | SMN chart images omit the security identity and use unreadably small text |
 
 | [TW-BUG-0032](TW-BUG-0032.md) | P2 | verified on dev | Published admin lists hidden by default for regular users |
+
+| [TW-BUG-0033](TW-BUG-0033.md) | P2 | in-progress | Watchlist CSV rejects valid US ADRs accepted manually |
