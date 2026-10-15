@@ -67,6 +67,7 @@ import json
 from functools import wraps
 import jwt
 from pooled_http import http as requests
+from us_exchange_catalog import USCatalogUnavailable, load_us_symbol_codes, supplement_us_symbols
 from service_auth import has_service_account_role
 import logging
 import redis
@@ -6947,6 +6948,11 @@ def detect_symbols_group(encoded_symbols):
     if len(symbols) == 0:
         return jsonify({'error': 'no_symbols'})
 
+    # The CSV importer in the UI accepts at most 500 unique symbols.
+    symbols = list(dict.fromkeys(symbols))
+    if len(symbols) > 500:
+        return jsonify({'error': 'too_many_symbols'})
+
     # load symbol sets for each resource group (redis-cached: this used to re-read
     # every market CSV on every call)
     group_matches = []
@@ -6979,6 +6985,16 @@ def detect_symbols_group(encoded_symbols):
 
     best = group_matches[0]
     valid_symbols = best['matched_symbols']
+    try:
+        valid_symbols = supplement_us_symbols(
+            symbols,
+            valid_symbols,
+            config.exchange_mapping.get(str(best['resource_id']), ''),
+            lambda: load_us_symbol_codes(requests, config.EOD_token, redis_client),
+        )
+    except USCatalogUnavailable:
+        # Fail closed so the client cannot import a partial watchlist silently.
+        return jsonify({'error': 'symbol_catalog_unavailable'})
     invalid_symbols = [s for s in symbols if s not in valid_symbols]
 
     return jsonify({

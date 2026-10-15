@@ -3253,3 +3253,15 @@ historical files. This doc supersedes the collective memory content.
 SMN `chartkit.record_bars` measures the 11-point median label in display pixels. It reserves a right gutter clear of the final bar and verifies the rendered bounds; excessive width falls back to a dashed-line key below the subtitle. This is presentation geometry only. Existing TradeWave medians and study values pass through unchanged. For retained static-asset repairs, preserve original article receipts/provenance, overlay only hash-bound chart assets on an immutable copy of the current Dev web tree, and record renderer source plus old/new hashes in `chart-repair-provenance.json`. Use the existing guarded installer activation, rollback and finalization; do not regenerate approved articles or reset their immutable daily receipts. See the bug record for exact tested/live evidence.
 
 Tara published-list follow-ups such as "how about midcaps" and "how about micaps" select the list; genuine how-to requests explain direct selection from the top-left market dropdown, with admin-published lists at the bottom and personal watchlists treated separately.
+
+### Watchlist CSV US-symbol validation (October 15, 2026)
+
+CSV detection retains its existing best-match resource selection and constituent
+CSV caches. When that selected resource maps to US and some symbols are unmatched,
+it checks exact Code membership in EODHD's full active US exchange catalog, cached
+separately for one hour. This admits US ADRs without inserting them into index
+constituents or changing market/chart calculations. Catalog retrieval is one
+bounded request; failure returns an explicit error and prevents partial import.
+Non-US imports and all-constituent matches retain their previous path. Selection
+ambiguity (for example a BP-only file selecting London) is not automatically
+reinterpreted as a US listing. See TW-BUG-0033 for tests and live evidence.
