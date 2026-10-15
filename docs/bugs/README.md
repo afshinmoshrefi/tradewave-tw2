@@ -59,3 +59,4 @@ Status belongs in each record and this index; update both together. Preserve res
 | [TW-BUG-0032](TW-BUG-0032.md) | P2 | verified on dev | Published admin lists hidden by default for regular users |
 
 | [TW-BUG-0033](TW-BUG-0033.md) | P2 | verified on Dev | Watchlist CSV rejects valid US ADRs accepted manually |
+| [TW-BUG-0034](TW-BUG-0034.md) | P1 | in-progress | SMN daily hero images absent for symbols outside the small inspected archive |
