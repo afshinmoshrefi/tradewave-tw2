@@ -29,6 +29,13 @@ def chat(monkeypatch):
                 'opp_table_market': '2'}
         with app.test_request_context('/chatbot/chat', method='POST', json=body):
             g.chatbot_user_id = 'qa-regression'
+            g.chatbot_jwt = {
+                'user': 'qa-regression',
+                'user_level': '4',
+                'lid': list(chatbot.config.level_access_hierarchy['4']),
+                'roles': ['user'],
+                'is_admin': False,
+            }
             payload = chatbot.chat.__wrapped__().get_json()
         assert payload['actions'] == []
         return payload['reply'], calls

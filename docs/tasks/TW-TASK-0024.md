@@ -32,3 +32,16 @@ All checks above must pass. Unit/build/HTTP-200 alone are not acceptance.
 No customer emails, campaigns, payments, or separate SMN deployment.
 Current target audit, test counts, final source SHA, artifacts, browser evidence and
 rollback state: pending. Do not call this release deployable until manifest gates pass.
+
+## Qualification findings
+The initial Python run had 62 failures: the guarded local tradewave_test database
+was behind current schema, and Tara tests invoked the undecorated handler without
+the decoded claims now supplied by the production auth decorator. Correct test
+schema/fixtures rather than weaken application auth. Original logs are preserved.
+React passed 50 suites / 473 tests; separate MCP suite passed 61 tests.
+
+Initial live Dev API/MCP qualification passed authentication and returned zero load
+errors, but failed latency: p95 26.411s versus 15s, 200 requests at concurrency 50.
+This is not a pass and no staging write is permitted on this evidence. Preserve
+the existing threshold and require fresh exact-artifact post-restart qualification.
+Receipt: release-state/tw2-20261015-01/evidence/mvp-initial.log.

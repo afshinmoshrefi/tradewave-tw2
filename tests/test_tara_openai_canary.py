@@ -37,6 +37,52 @@ def _assert_signed_route_action(payload, expected_spec, *, rank=None):
     return action
 
 
+def _chatbot_test_claims(chatbot_module, user_id):
+    return {
+        "user": user_id,
+        "user_level": "4",
+        "lid": list(chatbot_module.config.level_access_hierarchy["4"]),
+        "roles": ["user"],
+        "is_admin": False,
+    }
+
+
+def _set_chatbot_test_identity(chatbot_module, flask_g, user_id):
+    claims = _chatbot_test_claims(chatbot_module, user_id)
+    flask_g.chatbot_jwt = claims
+    flask_g.chatbot_user_id = claims["user"]
+
+
+def test_check_for_token_stashes_decoded_claims():
+    from flask import Flask, g, jsonify
+    from time import time
+    import chatbot as chatbot_module
+
+    app = Flask(__name__)
+    app.config["SECRET_KEY"] = "unit-test-chatbot-secret-at-least-32-bytes"
+    claims = _chatbot_test_claims(chatbot_module, "decorator-claims-test")
+    claims.update({
+        "aud": "tw2-appserver",
+        "iss": "tw2-web",
+        "exp": int(time()) + 60,
+    })
+    token = chatbot_module.jwt.encode(
+        claims, app.config["SECRET_KEY"], algorithm="HS256"
+    )
+
+    @chatbot_module.check_for_token
+    def probe():
+        return jsonify(user_id=g.chatbot_user_id, claims=g.chatbot_jwt)
+
+    app.add_url_rule("/claims", view_func=probe)
+    response = app.test_client().get("/claims", query_string={"token": token})
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "user_id": "decorator-claims-test",
+        "claims": claims,
+    }
+
+
 def test_provider_selection_is_release_owned_and_has_no_user_bucket():
     assert select_tara_provider() == OPENAI_PROVIDER
     assert PRIMARY_MODEL == "gpt-5.6-luna"
@@ -526,7 +572,7 @@ def test_chat_route_retries_haiku_when_luna_fails(monkeypatch, caplog):
         "opportunities": [],
     }
     with app.test_request_context("/chatbot/chat", method="POST", json=body):
-        g.chatbot_user_id = "fallback-test"
+        _set_chatbot_test_identity(chatbot_module, g, "fallback-test")
         response = chatbot_module.chat.__wrapped__()
 
     payload = response.get_json()
@@ -573,7 +619,7 @@ def test_chat_route_does_not_fallback_for_missing_primary_configuration(monkeypa
         "opportunities": [],
     }
     with app.test_request_context("/chatbot/chat", method="POST", json=body):
-        g.chatbot_user_id = "configuration-test"
+        _set_chatbot_test_identity(chatbot_module, g, "configuration-test")
         response = chatbot_module.chat.__wrapped__()
 
     assert response.get_json()["reply"].startswith("Sorry")
@@ -619,7 +665,7 @@ def test_chat_route_loads_visible_ordinal_row_without_calling_a_provider(monkeyp
         ],
     }
     with app.test_request_context("/chatbot/chat", method="POST", json=body):
-        g.chatbot_user_id = "ordinal-test"
+        _set_chatbot_test_identity(chatbot_module, g, "ordinal-test")
         response = chatbot_module.chat.__wrapped__()
 
     payload = response.get_json()
@@ -679,7 +725,7 @@ def test_chat_route_uses_current_visible_googl_row_not_stale_history(monkeypatch
         ],
     }
     with app.test_request_context("/chatbot/chat", method="POST", json=body):
-        g.chatbot_user_id = "current-table-googl-test"
+        _set_chatbot_test_identity(chatbot_module, g, "current-table-googl-test")
         response = chatbot_module.chat.__wrapped__()
 
     payload = response.get_json()
@@ -725,7 +771,7 @@ def test_chat_route_moves_lower_panel_without_calling_a_provider(
         "opportunities": [],
     }
     with app.test_request_context("/chatbot/chat", method="POST", json=body):
-        g.chatbot_user_id = "panel-test"
+        _set_chatbot_test_identity(chatbot_module, g, "panel-test")
         response = chatbot_module.chat.__wrapped__()
 
     payload = response.get_json()
@@ -757,7 +803,7 @@ def test_chat_route_explains_when_ai_scores_panel_is_not_available(
         "opportunities": [],
     }
     with app.test_request_context("/chatbot/chat", method="POST", json=body):
-        g.chatbot_user_id = "panel-test"
+        _set_chatbot_test_identity(chatbot_module, g, "panel-test")
         response = chatbot_module.chat.__wrapped__()
 
     payload = response.get_json()
@@ -822,7 +868,7 @@ def test_chat_route_changes_tooltips_without_calling_a_provider(
         "opportunities": [],
     }
     with app.test_request_context("/chatbot/chat", method="POST", json=body):
-        g.chatbot_user_id = "tooltip-test"
+        _set_chatbot_test_identity(chatbot_module, g, "tooltip-test")
         response = chatbot_module.chat.__wrapped__()
 
     payload = response.get_json()
@@ -867,7 +913,7 @@ def test_chat_route_explains_trend_arrow_without_calling_a_provider(monkeypatch)
         "opportunities": [],
     }
     with app.test_request_context("/chatbot/chat", method="POST", json=body):
-        g.chatbot_user_id = "trend-arrow-test"
+        _set_chatbot_test_identity(chatbot_module, g, "trend-arrow-test")
         response = chatbot_module.chat.__wrapped__()
 
     payload = response.get_json()
@@ -915,7 +961,7 @@ def test_chat_route_passes_loaded_lookback_to_a_different_named_symbol(monkeypat
         "opportunities": [],
     }
     with app.test_request_context("/chatbot/chat", method="POST", json=body):
-        g.chatbot_user_id = "lookback-test"
+        _set_chatbot_test_identity(chatbot_module, g, "lookback-test")
         response = chatbot_module.chat.__wrapped__()
 
     assert response.get_json()["reply"] == "ITW result"
@@ -962,7 +1008,7 @@ def test_chat_route_preserves_named_symbol_action_when_viewer_is_empty(monkeypat
         "opportunities": [],
     }
     with app.test_request_context("/chatbot/chat", method="POST", json=body):
-        g.chatbot_user_id = "empty-view-named-symbol-test"
+        _set_chatbot_test_identity(chatbot_module, g, "empty-view-named-symbol-test")
         response = chatbot_module.chat.__wrapped__()
 
     assert response.status_code == 200
@@ -1021,7 +1067,7 @@ def test_chat_route_replaces_client_ai_values_with_server_analysis_context(
         "opp_table_market": "2",
     }
     with app.test_request_context("/chatbot/chat", method="POST", json=body):
-        g.chatbot_user_id = "ai-context-test"
+        _set_chatbot_test_identity(chatbot_module, g, "ai-context-test")
         response = chatbot_module.chat.__wrapped__()
 
     payload = response.get_json()
@@ -1101,7 +1147,7 @@ def test_signature_product_questions_bypass_models_and_live_ai_scorer(
         "opp_table_market": "2",
     }
     with app.test_request_context("/chatbot/chat", method="POST", json=body):
-        g.chatbot_user_id = "signature-product-test"
+        _set_chatbot_test_identity(chatbot_module, g, "signature-product-test")
         response = chatbot_module.chat.__wrapped__()
 
     payload = response.get_json()
@@ -1149,7 +1195,7 @@ def test_named_security_hundred_year_research_bypasses_model_and_signs_exact_act
         "opportunities": [],
     }
     with app.test_request_context("/chatbot/chat", method="POST", json=body):
-        g.chatbot_user_id = "hundred-year-security-test"
+        _set_chatbot_test_identity(chatbot_module, g, "hundred-year-security-test")
         response = chatbot_module.chat.__wrapped__()
 
     payload = response.get_json()
