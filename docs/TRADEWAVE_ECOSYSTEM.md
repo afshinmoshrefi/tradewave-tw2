@@ -104,20 +104,28 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   `_static/scorecard.html`. Reads `featured_history.json` + live prices.
 - **Tickers** (`blog/generate_top10_AI.py` / `top10_jobs_today_to_queue_cron.py`)
   - "AI" here = Sharpe-ranked OppList4, NOT an LLM.
-- **SMN October 5 operational update:** production subscription runtime remains
-  `08f8714`, with weekday research at 05:30 America/New_York and email after
-  07:00 only upon verified publication. The October 5 reader edition is held;
-  the working production dashboard does not imply successful publication.
-  Source-date/retry, reviewer-evidence, complete-lineup and runtime-asset fixes
-  are installed in production, but recovery held at43/46 jobs on additional
-  citation-format and SI chart-method prose defects. Citation correction is live
-  on Dev at `afd6f2e`; production candidate `2cc3167` needs new exact release
-  approval and a one-time49 cumulative cap (ordinary40 unchanged). Today's
-  snapshots are already confirmed. Receipt-bound SI copyedit plus fresh review,
-  article visuals and full publication remain pending. Observer units
-  and saved alert settings are absent in production. Exact evidence and operator
-  handoff: [TW-BUG-0027](bugs/TW-BUG-0027.md). The following July pipeline
-  description is historical and does not supersede this subscription runtime.
+- **SMN October 16 operational observation:** actual production subscription
+  source is `2b0075c85e45d8cd547c95b8868f8560532cf86b` on seasonalmarketnews,
+  209.182.216.112. Selection ran at 03:00 America/New_York; generation is
+  configured for 04:00 and the nonbinding publication/newsletter target is 07:00.
+  The normal cumulative model-attempt allowance is now 60. Canonical date inputs
+  and reader receipts live under `/var/lib/tradewave/smn-daily/subscription-primary`.
+  The legacy selector and subscription article ledger are separate: a failed
+  ranking can write zero-score CSV rows and exit zero, while downstream queue
+  filtering excludes them. An enabled timer or successful worker exit therefore
+  does not establish frozen inputs or article progress. The October 16 owner
+  recovered selection from retained candidates with one accounted subscription
+  research job and unchanged queue rules, then verified MRK public partial
+  publication at 06:50:55 Eastern and XLK at 06:54:49. Remaining coverage was still progressing at
+  the checkpoint. Publication uses truthful expected/published/pending receipts;
+  optional presentation fallback retains genuine factual/engine/review evidence.
+  Installed quote guard v2 can still hold a content transaction on quote markup,
+  and abandoned transaction ownership requires explicit process/lease and
+  candidate/backup classification before reconciliation. Alert settings were
+  disabled with zero recipients; delivered alerts were not established. Exact
+  dated evidence and remaining defect status: [TW-BUG-0027](bugs/TW-BUG-0027.md).
+  Its earlier October 5 runtime and approval notes are historical. The following
+  July pipeline description does not supersede this subscription runtime.
 - **SMN articles** (cron: `select_news_articles.py` 02:00 -> `daily_article_queue.py`
   03:00 -> always-running `article_processor.py`). THIS pipeline DOES use LLMs:
   Grok (`grok-3-mini`) for news extraction + research synthesis (Tavily search

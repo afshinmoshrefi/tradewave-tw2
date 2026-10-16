@@ -1,0 +1,1185 @@
+{
+  "observed_utc": "2026-10-16T10:55:58.764599+00:00",
+  "status": "in_progress",
+  "source_commit": "2b0075c85e45d8cd547c95b8868f8560532cf86b",
+  "selected_symbols": [
+    "MRK",
+    "XLK",
+    "C",
+    "PGR",
+    "DPZ",
+    "GS"
+  ],
+  "budget": {
+    "consumed_conservative": 15,
+    "completed_unique_receipts": 14,
+    "prepared_or_uncertain_paths": 1,
+    "archived_unique_attempts": 0,
+    "orphan_reservations": 0,
+    "running_or_claimed_without_receipt": [
+      "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/jobs/C-20261016-research"
+    ]
+  },
+  "first_publication": {
+    "id": "smn-production-2026-10-16-5d3c04a6ae011024",
+    "status": "live_verified",
+    "complete": false,
+    "published_symbols": [
+      "MRK"
+    ],
+    "pending_symbols": [
+      "XLK",
+      "C",
+      "PGR",
+      "DPZ",
+      "GS"
+    ],
+    "urls": [
+      "https://seasonalmarketnews.com/editions/2026-10-16/MRK/article.html"
+    ],
+    "transaction_root": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/publication-revisions/a8cd26734fe0ba9966bd91312a7ef5f84ce74a12d6a3b14470463f791416e761/attempt-1",
+    "latest_update": "2026-10-16T10:50:55.299862+00:00",
+    "receipt_sha256": "443850a4358aab42cf0fb03703863d4cf2e9134e6e54332107179ba8b4ef08ff"
+  },
+  "first_live_verification": {
+    "verified_at": "2026-10-16T10:50:52.849Z",
+    "source_commit": "2b0075c85e45d8cd547c95b8868f8560532cf86b",
+    "passed": true,
+    "deterministic_landing": true,
+    "article_layouts": [
+      {
+        "symbol": "MRK",
+        "kind": "desktop",
+        "title": "Merck’s favorable November record meets mixed drug news",
+        "rows": 10,
+        "study_url": "https://tradewave.ai/app/?o=MnxNUkt8MjAyNi0xMS0xMHwyNnxwZTItMTA%3D",
+        "hero_status": "unavailable",
+        "hero_url": null,
+        "passed": true
+      },
+      {
+        "symbol": "MRK",
+        "kind": "mobile",
+        "title": "Merck’s favorable November record meets mixed drug news",
+        "rows": 10,
+        "study_url": "https://tradewave.ai/app/?o=MnxNUkt8MjAyNi0xMS0xMHwyNnxwZTItMTA%3D",
+        "hero_status": "unavailable",
+        "hero_url": null,
+        "passed": true
+      }
+    ],
+    "public_file_check_count": 115,
+    "public_files": [
+      {
+        "rel": "suggest.json",
+        "status": 200,
+        "passed": true,
+        "sha256": "ee871a16cbc4d0fed71397c68f9bfcddfe8ebf065b242930340028e5e627c2f1",
+        "public_sha256": "ee871a16cbc4d0fed71397c68f9bfcddfe8ebf065b242930340028e5e627c2f1",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "rss.xml",
+        "status": 200,
+        "passed": true,
+        "sha256": "c9cff8357bab8cc7009b2ba3c5c8897a1ded721226fbfaf70f521c6deb8f69a4",
+        "public_sha256": "c9cff8357bab8cc7009b2ba3c5c8897a1ded721226fbfaf70f521c6deb8f69a4",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "search_index.json",
+        "status": 200,
+        "passed": true,
+        "sha256": "ddaac592ebaef18ec96d1356dad5dc2e81378824d1f2ddbff0e864c266433ad4",
+        "public_sha256": "ddaac592ebaef18ec96d1356dad5dc2e81378824d1f2ddbff0e864c266433ad4",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "sitemap-news.xml",
+        "status": 200,
+        "passed": true,
+        "sha256": "865dd32933183bff705df3ac37ea6cd4d6a1728814ab7cd275b17fa6fd202809",
+        "public_sha256": "865dd32933183bff705df3ac37ea6cd4d6a1728814ab7cd275b17fa6fd202809",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "index.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "cbc8fd9b00fa0817f77d4c8ed9f8f1fa225f5b634c6d6960bcf15bd065e0ee97",
+        "public_sha256": "cbc8fd9b00fa0817f77d4c8ed9f8f1fa225f5b634c6d6960bcf15bd065e0ee97",
+        "normalization": null,
+        "home_quote_contract": {
+          "version": 2,
+          "kind": "market-bar-numeric-quotes-v2",
+          "outside_sha256": "054c2b12a0e8c83a69e2fc9b40e2224b553a03fa19584f9eb3008f7de878e2b1",
+          "markup_sha256": "b2f729e5039ff791a8b309b25e324323d3527096fd9cad3582e6adf6d5bcbad3",
+          "observed_sha256": "cbc8fd9b00fa0817f77d4c8ed9f8f1fa225f5b634c6d6960bcf15bd065e0ee97",
+          "quote_sha256": "bfeb3b5fccbda3176369618da24d59b8971bb6d5e0c391e2b6675b6359151d91"
+        }
+      },
+      {
+        "rel": "sitemap.xml",
+        "status": 200,
+        "passed": true,
+        "sha256": "3adcd9119b89ea6ac3fbc390f045bd244175c8538ef231d05c58543f3bb5bdb1",
+        "public_sha256": "3adcd9119b89ea6ac3fbc390f045bd244175c8538ef231d05c58543f3bb5bdb1",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "posts.json",
+        "status": 200,
+        "passed": true,
+        "sha256": "98da72802fb13cd15dcc959c1bf57006c76f160ba08f834d127e3d88d2538026",
+        "public_sha256": "98da72802fb13cd15dcc959c1bf57006c76f160ba08f834d127e3d88d2538026",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "home-manifest.json",
+        "status": 200,
+        "passed": true,
+        "sha256": "caed7a43bc2a457d62b82f486447d8778290ad5f116a4335de28e9258ff0d6ab",
+        "public_sha256": "caed7a43bc2a457d62b82f486447d8778290ad5f116a4335de28e9258ff0d6ab",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "llms.txt",
+        "status": 200,
+        "passed": true,
+        "sha256": "89677565a96d0e227219111e17be62a774f356dcc7468c058e1834970c15e25a",
+        "public_sha256": "89677565a96d0e227219111e17be62a774f356dcc7468c058e1834970c15e25a",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "robots.txt",
+        "status": 200,
+        "passed": true,
+        "sha256": "567d13a7c6f48b53c4e81acff43f05a5f706853fc95f5b2a515c44e12bd43745",
+        "public_sha256": "567d13a7c6f48b53c4e81acff43f05a5f706853fc95f5b2a515c44e12bd43745",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "search.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "2d32a46c5e16ada5e56f4065db9f3a4a112c3d686fe8f59a8a226aba62366087",
+        "public_sha256": "2d32a46c5e16ada5e56f4065db9f3a4a112c3d686fe8f59a8a226aba62366087",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "coverage-status.json",
+        "status": 200,
+        "passed": true,
+        "sha256": "0b969a4df9510abb6372f7067968212e7f39f8d521e06f5be97d0362d5915ca0",
+        "public_sha256": "0b969a4df9510abb6372f7067968212e7f39f8d521e06f5be97d0362d5915ca0",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/provenance.json",
+        "status": 200,
+        "passed": true,
+        "sha256": "6182165ef4ed8c3f7842c04750963b34525763e1c557eb6639d1ae691643021b",
+        "public_sha256": "6182165ef4ed8c3f7842c04750963b34525763e1c557eb6639d1ae691643021b",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/index.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "c418759f3d0e2f4502fb7abbc607cfcb97c4b450021f58adcc8262c451febdfc",
+        "public_sha256": "c418759f3d0e2f4502fb7abbc607cfcb97c4b450021f58adcc8262c451febdfc",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/entries.json",
+        "status": 200,
+        "passed": true,
+        "sha256": "969f0b53664c279a34c010a27f7df8bd44f3b25aafacedb4f867537fd7d29407",
+        "public_sha256": "969f0b53664c279a34c010a27f7df8bd44f3b25aafacedb4f867537fd7d29407",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/article.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "947da76f4208a4f412799968b0ef01271ddbf1e783ae9aec1a1173e4eeb6e27f",
+        "public_sha256": "947da76f4208a4f412799968b0ef01271ddbf1e783ae9aec1a1173e4eeb6e27f",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/tradewave-bars.png",
+        "status": 200,
+        "passed": true,
+        "sha256": "307668c4d057e35758f27e7bcd6545673eafe5f25515651482526f8eac2f93d9",
+        "public_sha256": "307668c4d057e35758f27e7bcd6545673eafe5f25515651482526f8eac2f93d9",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/tradewave-range-capped-mobile.png",
+        "status": 200,
+        "passed": true,
+        "sha256": "bfd88596e0221aa9f2d7bd0bef46699c1dc4b67ce337ae3726d0a998c0b2a9b8",
+        "public_sha256": "bfd88596e0221aa9f2d7bd0bef46699c1dc4b67ce337ae3726d0a998c0b2a9b8",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/tradewave-price_projection.png",
+        "status": 200,
+        "passed": true,
+        "sha256": "2574afe6984f9336ed7992aea4e9cc7a2a17c17a30b238a7b37f931c06dbf295",
+        "public_sha256": "2574afe6984f9336ed7992aea4e9cc7a2a17c17a30b238a7b37f931c06dbf295",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/tradewave-range-uncapped.png",
+        "status": 200,
+        "passed": true,
+        "sha256": "2f9944863113afcb5bf96cde0c6e2172d186ed7660066a8b2e8bc39048a76c8a",
+        "public_sha256": "2f9944863113afcb5bf96cde0c6e2172d186ed7660066a8b2e8bc39048a76c8a",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/tradewave-price-path.csv",
+        "status": 200,
+        "passed": true,
+        "sha256": "08553216fe2787fd4d1638d61e131bb60b371f34de3e26408371ded2a31e220b",
+        "public_sha256": "08553216fe2787fd4d1638d61e131bb60b371f34de3e26408371ded2a31e220b",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/business-context-desktop.svg",
+        "status": 200,
+        "passed": true,
+        "sha256": "4ddfffe5207793d72e34d9823be2a52ae9d13fdc64908c04ff317ae91bfbf626",
+        "public_sha256": "4ddfffe5207793d72e34d9823be2a52ae9d13fdc64908c04ff317ae91bfbf626",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/business-context-desktop.png",
+        "status": 200,
+        "passed": true,
+        "sha256": "2a518f1c8a59f4db9cc469d324c506afa02e3ab0d340558a90431e9e567a82e3",
+        "public_sha256": "2a518f1c8a59f4db9cc469d324c506afa02e3ab0d340558a90431e9e567a82e3",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/tradewave-bars-mobile.png",
+        "status": 200,
+        "passed": true,
+        "sha256": "6759cc2cd00a66103fddc290aedb692c72eb5c1c563400df63f9e0e75d69b418",
+        "public_sha256": "6759cc2cd00a66103fddc290aedb692c72eb5c1c563400df63f9e0e75d69b418",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/tradewave-price_projection-mobile.png",
+        "status": 200,
+        "passed": true,
+        "sha256": "c8f89727269cae26e4303202b9df926ff6284bc718b8df72d17a685b6f782445",
+        "public_sha256": "c8f89727269cae26e4303202b9df926ff6284bc718b8df72d17a685b6f782445",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/tradewave-bars_mae_mfe.png",
+        "status": 200,
+        "passed": true,
+        "sha256": "3cafb13efc9b6d315b2aee3b4f1cb184ee135200f5764f84a0c40cb3a8f983fc",
+        "public_sha256": "3cafb13efc9b6d315b2aee3b4f1cb184ee135200f5764f84a0c40cb3a8f983fc",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/tradewave-range-capped.png",
+        "status": 200,
+        "passed": true,
+        "sha256": "3cafb13efc9b6d315b2aee3b4f1cb184ee135200f5764f84a0c40cb3a8f983fc",
+        "public_sha256": "3cafb13efc9b6d315b2aee3b4f1cb184ee135200f5764f84a0c40cb3a8f983fc",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/hero-b40c88ee7cd2.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "b40c88ee7cd2b0c360fbc2d16199b4a323e2f292188337d862f54483e1a02d76",
+        "public_sha256": "b40c88ee7cd2b0c360fbc2d16199b4a323e2f292188337d862f54483e1a02d76",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/tradewave-observations.csv",
+        "status": 200,
+        "passed": true,
+        "sha256": "f4d9df30243212ca568cb7c0855865d21c33bfced12a7474bd6e9c80e179b43e",
+        "public_sha256": "f4d9df30243212ca568cb7c0855865d21c33bfced12a7474bd6e9c80e179b43e",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/business-context-mobile.svg",
+        "status": 200,
+        "passed": true,
+        "sha256": "3ec1e174e1dcbd69d3afadb4c2296348443baa1b0ebaa7979350265c719c6db3",
+        "public_sha256": "3ec1e174e1dcbd69d3afadb4c2296348443baa1b0ebaa7979350265c719c6db3",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/business-context.csv",
+        "status": 200,
+        "passed": true,
+        "sha256": "d319af751c4f79cf63dfe4edbebf5a9796ba953fcf63ffe1327b953a6a9e4577",
+        "public_sha256": "d319af751c4f79cf63dfe4edbebf5a9796ba953fcf63ffe1327b953a6a9e4577",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/business-context-mobile.png",
+        "status": 200,
+        "passed": true,
+        "sha256": "4b525d439fd3779fab5f2d845ba48f6e61377457c5c931c5f2d287499316fca9",
+        "public_sha256": "4b525d439fd3779fab5f2d845ba48f6e61377457c5c931c5f2d287499316fca9",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/tradewave-bars_mae_mfe-mobile.png",
+        "status": 200,
+        "passed": true,
+        "sha256": "bfd88596e0221aa9f2d7bd0bef46699c1dc4b67ce337ae3726d0a998c0b2a9b8",
+        "public_sha256": "bfd88596e0221aa9f2d7bd0bef46699c1dc4b67ce337ae3726d0a998c0b2a9b8",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/assets/tradewave-range-uncapped-mobile.png",
+        "status": 200,
+        "passed": true,
+        "sha256": "e2f86686bb07103cff1adf9e6d8f239e074b2f3f8dc33b000eecec4fab53e9bb",
+        "public_sha256": "e2f86686bb07103cff1adf9e6d8f239e074b2f3f8dc33b000eecec4fab53e9bb",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-16/MRK/evidence/mrk-history.json",
+        "status": 200,
+        "passed": true,
+        "sha256": "871bb6884f0721ef47838c2150e8794e42b8a647757df118c6f6cfac6e19c63e",
+        "public_sha256": "871bb6884f0721ef47838c2150e8794e42b8a647757df118c6f6cfac6e19c63e",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/COMM/2025/12/21/gold-market-correction-deepens-as-gold-comex-gc-extends-8-slide-from-highs.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "209d28eae3fdca75bec5b5de1d6c4101a50ffeff0f736b89cec8eb847e81fe33",
+        "public_sha256": "fc46b0665578c204d84e2741b169666a8c3ae2319f83476b2deb60bef9ccfd72",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/COMM/2026/04/17/live-cattle-le-has-dropped-in-all-10-midterm-windows-from-apr-17-averaging-6-8-short-wins.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "9c3cd5eb2cbb25f7c5b6b400530f8c47ab47f98a4d87a4df1cec433067a8582e",
+        "public_sha256": "5d9f5d28a86ec143f1d83ff1762b53b2a8853d15f7ec13bbdb55474bdb52c3e8",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/COMM/2026/06/04/tariff-shock-50-brazil-levy-hits-beans-just-as-coffee-kc-enters-weak-june-stretch.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "730fa46935c5e30e7eab14344e2efe101e9fca922e651cd0f3f431f17e17a7be",
+        "public_sha256": "2eaac904ca8c01465a1186bb21e59835b68ffe666ca9f6b341f96de64e49a3db",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/COMM/2026/07/06/lean-hogs-lh-nears-jul-6-window-after-10-straight-early-july-declines-for-bears.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "1c85c12954035a30813165527fdab5b6551d7dbb2d643d58477464f2afe2f674",
+        "public_sha256": "20982dd06ec47a0763c2a8366082cf234675aac2418330a9414ceae0c85a917f",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/COMM/2026/08/29/rbob-gasoline-rb-has-dropped-in-10-straight-late-august-windows-averaging-8-94-for-shorts.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "9ebf64bca14e3d216842d2db4adc7587d38fb5515618a042082012f9d1f5ecab",
+        "public_sha256": "2d3062bf1b440fa23e73f77cf2e2933ed401c82c8bc2c1f9cf6496f22303867a",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/ETF/2026/03/05/s-p-500-spdr-spy-has-rallied-in-10-of-10-years-in-this-166-day-seasonal-window.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "225644222a677bbeaa473791a44f1708d6ea2cfb0ea94a7d885e532de7d2d2b6",
+        "public_sha256": "2142a2208b5f35d32e6abe483ae97efa484d2af10c9cfdb7cc548060392b0eda",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/ETF/2026/05/08/near-52-week-lows-trust-vix-short-term-futures-etf-vixy-enters-historically-weak-28-day-stretch.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "df5f6fc49a215dc1265742caa71c1e78667e00ea0cea0410ee2c33907d4d8bdf",
+        "public_sha256": "9d1d09e7b2bb8117bee8cf7ff467be7fbe569c198ff2c53f5bad2b396c31b2e7",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/ETF/2026/06/19/trust-vix-short-term-futures-etf-vixy-has-fallen-in-10-straight-late-june-windows.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "abc5d97f0098a101786754013141465f6e36a25af28517dde544c0fbe2418ad1",
+        "public_sha256": "aeeb6efbdb59f337e200cd871646a5b6129959fb58033ea8cdcc05116ba7e3c0",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/ETF/2026/07/17/6-for-6-midterm-record-s-p-500-financials-sector-spdr-xlf-averages-11-03-gains.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "b541ad33dd90e81ca2e4e52187f46ae1cd7299cae1aba7a5d2d267a52757574f",
+        "public_sha256": "0f12abeac00ef9ba92885e680a498c7fa1c6f15bfa4be71e5fcb2b3110565b3d",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/ETF/2026/08/15/s-p-500-technology-sector-spdr-xlk-has-rallied-in-6-of-6-midterm-year-windows-since-2002.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "74bc349b600638a9e9127356e5fe223cc5e33603fc8ce6713c35feb0c99e6b16",
+        "public_sha256": "26135972b8a84d2b1e38d3e76e74030abd0a5aee822dad3d52d7dc50595cb475",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/ETF/2026/10/11/s-p-500-technology-sector-spdr-xlk-averages-16-94-gains-in-this-196-day-midterm-run.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "3a6f6e6ff037d18f8745d6820be1c6a1c59045a67f964cef64c4508151193aa2",
+        "public_sha256": "4600f95fb48c78009f7dcb1441f555d5e611dbefb5b52196bf8162da0a4e08da",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/INDX/2026/03/11/cboe-volatility-index-vix-has-fallen-in-10-of-11-years-during-this-125-day-seasonal-run.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "d6a7bdc845832c899373a0fff20695cc96e19e285171b88a28575ffd267323b3",
+        "public_sha256": "240348eda0bb778bb778f44b592d51ec78026bfe3bf0f2d6effb0e017f0c6ab7",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/INDX/2026/06/13/cboe-volatility-index-vix-faces-100-midterm-june-losing-record-as-short-window-nears.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "8d2f78a8c54bcf3a9525fb4b00d9fc09b7d028b2868064abde98865e2dc24628",
+        "public_sha256": "389986587b5d48d2144a0fbdbec49323978391c0edbeb76c13daf6177592d165",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/INDX/2026/09/13/cboe-volatility-index-vix-climbs-to-multi-month-high-just-ahead-of-historically-strong-sep-13-oct-3-run.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "dacd2385b33977bb479f0cf8ae37a4eaa57faaa1ed518cc184937cf473cfda38",
+        "public_sha256": "d563e234e7d259f4b0bc9188620828505c024ecbcb92fbae6d527b6f89fbf9d2",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/INDX/2026/10/15/s-p-500-spx-near-record-highs-as-powerful-oct-15-midterm-rally-window-approaches.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "84db18affe22f5646ff2851ad6fa8d4d95ebaa1a5d20562c66db4c37a0937e5c",
+        "public_sha256": "271a6f8ee485fe54c0f8515787b0e0f123b9257e1bde525e24e7487d59a5150d",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/02/06/fed-rate-path-and-treasury-yield-swings-jolt-outlook-for-alliant-energy-lnt.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "22165d335569c71575fc0a182bb51f69ed5f6227ce152e5d7986f496ff5ad89b",
+        "public_sha256": "2b676fc77d8ab8d0861464a1199b67f4b566536a5f4e06f0bc8232733b5ea6f0",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/03/09/cost-cuts-layoffs-and-asset-sales-drive-conocophillips-cop-into-its-strongest-midterm-window.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "d33f405a6bf9c090a2a93df9ef6e457b033a142ecc016a19944cb4ae8d9cb4d7",
+        "public_sha256": "9008f9bcc4d748201d2dfe25e2b736cc59879b2cd9823c9061f916cb9d5de3e2",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/03/18/tariffs-hit-volumes-as-fedex-fdx-enters-a-weak-20-day-midterm-year-window.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "f6e54a86e79f9e3a38eae2be3bbda23e2875715cf82506fa0ccbf14f88a2cf8a",
+        "public_sha256": "f0655c87736c70611ec07d5730cde7c52853deb7366ecfbb16fc1ceeadeb2d40",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/03/26/newmont-nem-has-rallied-in-12-of-12-late-march-windows-as-a-20-day-bullish-stretch-opens.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "ef0e74e031eb44fe4715cb1c698250339471e18bce1490a7450836e98ce7d792",
+        "public_sha256": "733a722b8477b79015059a23bdcd152ed39a02cc4a376e93d6180840256b9050",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/04/06/hasbro-has-has-rallied-in-9-of-10-years-in-this-21-day-april-window.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "66e3ac142dd3e1204b10aba561019eb67a74562e005efae3aa096527302e1b91",
+        "public_sha256": "7d578ddf257a87291c5b0a7da3b84bf42fadb2dd1b40dcbfab225ad2ae9184aa",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/04/17/microsoft-msft-faces-ai-spending-risks-as-historically-weak-21-day-midterm-window-nears.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "69ff8f19010942c782ac05e4fb29fef22f7d1d27ee11a81925d023e8c2144f2e",
+        "public_sha256": "f6b879e09b94213c812d034abab4383aed23dc38678f8a881a1f78615de616e8",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/04/23/six-for-six-midterm-slide-marvell-technology-mrvl-shorts-averaged-25-61-profits.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "1f8a8770245c0a36d991fa9d6ccf7a26cc40e35050d059990d60fdbd7f67d06c",
+        "public_sha256": "53904559815d7a7ece81cd677a3b86e0828a4f13697a2e55b93382a590cd7e48",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/05/05/boeing-ba-faces-7-for-7-midterm-losing-streak-as-52-day-weak-window-nears.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "2701ca1669387337dffb3228d1cc4ec1a14b624bd452dda88876adbe4cd7afd5",
+        "public_sha256": "2ed7728b7707d49d75c34ae0c55910a39ebee7302976a63e9590f490e31a8701",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/05/14/record-profit-at-charles-schwab-corporation-schw-meets-historically-weak-may-14-stretch.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "fe165b8b1571ee9e993ceb904582761003b098f334367b73cfa1ee846a16365f",
+        "public_sha256": "5b418344775ecee50dd4827aff43d15cde3201d8a022a50bfdc714874a66d86b",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/05/23/15-for-15-amazon-amzn-has-rallied-every-early-summer-window-averaging-11-75-gains.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "678b765f698bc8448bca13cc1f5772617268444fb0751df46c0671d5339e35bb",
+        "public_sha256": "0a23ac35b235dc31a781e5005167a5d4cdfe7cdb12c7191a1969856cbe4fa71b",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/06/02/nvidia-nvda-has-dropped-in-6-of-6-midterm-june-windows-shorts-averaged-12-95.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "f33ab51e71ae52db46e6e0e779f3e0301f729945c15911cd62d542c7d14e353b",
+        "public_sha256": "2543f0ece2bdd73620110ec3cae4fe190259925439a340798dc050e2c482e686",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/06/10/ford-motor-company-f-faces-tariff-headwinds-as-a-weak-midterm-june-stretch-approaches.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "d9b59f029494463dd697da0e2e22846dcb508d26b697d8f1db6da6ca8d093e27",
+        "public_sha256": "45b3d18659cde74cb082f5ca77e8884510cb965729acdd155be1cc4687599a10",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/06/21/hp-inc-hpq-warns-of-pc-shipment-slump-while-entering-a-historically-soft-june-stretch.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "067b53324e8b6f63865a52bba1e764fb96cb5a17836b58050cef3740ff99ba10",
+        "public_sha256": "be8842186663b3fc590d87d5b6e4c11bd852dc76d4f14cfd1fa005e956b82b90",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/07/05/amgen-amgn-has-rallied-in-10-of-10-midterm-july-windows-averaging-7-02-gains.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "395e2f9d4fc24f84c7f1a0b49c429123c10caf09a18c74f34e5a628b9515cced",
+        "public_sha256": "c2bbf3bf92f9b33c688fdbd8ee01e7f96526fe36b5b151c6c36a199c093b6895",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/07/19/ibm-enters-historically-weak-47-day-period-after-earnings-shock.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "274927eabc0e79dc2a13029a90317b0e9c2aa9673bfe27efb6ec5f7d81388e42",
+        "public_sha256": "045a6594c156c356cab2cfc27559dfc82669b3d76bc952b78926f372f1daace7",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/07/30/despite-ai-capex-boom-asml-holding-asml-nears-midterm-window-thats-100-bearish.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "9d9dcbfd0183fa4b5119243122f608757f7541b6cd82e1fed3b631044cc52a90",
+        "public_sha256": "683f13584e88ee8ab080929d1b5d2a9c8c6e35d09d8f29ee63c746d7401859fb",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/08/05/merck-co-mrk-has-rallied-in-10-of-10-aug-5-midterm-windows-averaging-29-14-gains.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "e17cf10477fd1c218cae537a36012f1939e432987d6a2d118d60adbfaea239c6",
+        "public_sha256": "0d7f5c8f00d80ff7452395f02853f192a4a8f9fa6d7cb91f276241df612d59c8",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/08/18/copart-cprt-has-dropped-in-6-of-7-midterm-aug-oct-windows-as-2026-short-season-opens.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "9f5b9f2f3182ba24487cd7f3eba05558121a59d46889eb2a373fcdb476aa8e0d",
+        "public_sha256": "d3a5e67f937502541c4f6d17cc2716b767adb1161144799cc7dccc2bdbe0df1f",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/08/28/marriott-international-mar-has-risen-in-7-of-7-midterm-windows-averaging-18-69-gains.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "cfa044d7587f03d6edc42bd7cf87539c244d25bd1e25c24542ef6767831e9254",
+        "public_sha256": "29e7111ee3c2df9a5b96effcbcc606cb23c83a2fc4ec4e359aa436d522c95469",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/09/05/microsoft-msft-has-risen-in-9-of-9-sep-5-dec-1-midterm-windows-averaging-13-8-gains.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "6ac52d935938be526633e9b4b4ad891984541eeb458dc7cacff15a771b2b2f3b",
+        "public_sha256": "8d5e03d18b6d40dbecc2f2f7e131a3eb7f40118b343cc087c822819a9d803b8d",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/09/18/amphenol-aph-has-risen-in-8-of-8-midterm-windows-from-sep-18-averaging-11-66-gains.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "dc10be84b96768c117c0fbf21f732f937a27b9a229658cf3bb27589395798cca",
+        "public_sha256": "5341ecc131d3a6131eb2ce4166cd5ede8394099d7c008a0f3f89489a5b67f3d1",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/09/27/heavy-put-buying-into-hp-inc-hpq-q2-as-a-bullish-138-day-midterm-window-nears.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "eee1fd6869761d350e6b798c6f0455a1de5b37986c7edc0d9ba3d12e2b715080",
+        "public_sha256": "858e303364c184640d8368f50c23e54f9040881643110d27aa37b2ea9c0dfa8a",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/10/10/cooper-companies-the-coo-has-risen-in-9-of-9-midterm-windows-averaging-30-53-gains.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "43a33d62065f4d8de00e965f92ff4076c44eedb0f94a711fc899338245689c95",
+        "public_sha256": "1d497f71f277ac865ca82482ef93fe91c1b762600e7058a54f32e30d9953837f",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/10/25/analysts-keep-copart-cprt-at-moderate-buy-with-a-100-midterm-late-october-win-record.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "a427feafbe8153bc0a4e11d44ac3a15805dac045b8a5c8d05391cfa4345b9a30",
+        "public_sha256": "9aa7e2d597c014a02f492d8e75bc7dc8770f8c3399b9863298b253d58bde6b87",
+        "normalization": "cloudflare-email-link",
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-08/OMC/article.html",
+        "status": 200,
+        "passed": true,
+        "sha256": "f4c78032402f5705f0ec2347077b9e911ebc0d5c2ada5114d262f01048788014",
+        "public_sha256": "f4c78032402f5705f0ec2347077b9e911ebc0d5c2ada5114d262f01048788014",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/COMM/2025/12/21/hero_GC.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "f26b7b6c7a9f17a2caea9534262673c308dab823323738d4d3878bda6dbb31f2",
+        "public_sha256": "f26b7b6c7a9f17a2caea9534262673c308dab823323738d4d3878bda6dbb31f2",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/COMM/2026/05/06/hero_GC_8ed1b04c.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "b728d991a77e46dc0b259fef07345b94727aaa312665614b25fabeca38086666",
+        "public_sha256": "b728d991a77e46dc0b259fef07345b94727aaa312665614b25fabeca38086666",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/COMM/2026/06/13/hero_ZC_a2570259.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "f98576c539cf398f5898e697a9668a6d7136ca8fca628039bd24c4cfec9bf9d8",
+        "public_sha256": "f98576c539cf398f5898e697a9668a6d7136ca8fca628039bd24c4cfec9bf9d8",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/COMM/2026/07/09/hero_ZC_9e8beb49.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "e085364bc4b60cc832aab93592600834eb26d80afe9e2523a799c509ed6c96a4",
+        "public_sha256": "e085364bc4b60cc832aab93592600834eb26d80afe9e2523a799c509ed6c96a4",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/COMM/2026/09/12/hero_GC_217d96d9.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "abedf2fd62ed2e2664596ac4868e750832e6951150ea78c8de467d22ff300cdd",
+        "public_sha256": "abedf2fd62ed2e2664596ac4868e750832e6951150ea78c8de467d22ff300cdd",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/ETF/2026/03/26/hero_XLE.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "8269161251e310726dbbf65f218b45fcef2dc7e266b478e95f46c31ca85d84f9",
+        "public_sha256": "8269161251e310726dbbf65f218b45fcef2dc7e266b478e95f46c31ca85d84f9",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/ETF/2026/06/08/hero_REMX_daff9cfe.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "4e03349bad71cf7d9534b9d07fab076f41520ed011bf130c82d5a4fd49ffcc76",
+        "public_sha256": "4e03349bad71cf7d9534b9d07fab076f41520ed011bf130c82d5a4fd49ffcc76",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/ETF/2026/07/02/hero_XLK_b9ec954e.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "928ee56dce5e6dd4acfab2a4cd50f1e83536838b0b60f7a99cf0ee8478a4d831",
+        "public_sha256": "928ee56dce5e6dd4acfab2a4cd50f1e83536838b0b60f7a99cf0ee8478a4d831",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/ETF/2026/07/31/hero_XLK_052a5c33.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "f385756394d5fe0a3a125c3897eceda0b64f7ed02fdff82090fe500f8d68a4fb",
+        "public_sha256": "f385756394d5fe0a3a125c3897eceda0b64f7ed02fdff82090fe500f8d68a4fb",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/ETF/2026/09/03/hero_XLV_feafe7d7.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "91caa9edced45536f79a2a88607d14309b949fe4fbd82f053fecbd41dc0def9e",
+        "public_sha256": "91caa9edced45536f79a2a88607d14309b949fe4fbd82f053fecbd41dc0def9e",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/ETF/2026/10/22/hero_SPY_b082283f.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "cceb90aa1cfd10c76d2214d6f0913b2c823a6dd05412c5a24c6f36ba56aa54fc",
+        "public_sha256": "cceb90aa1cfd10c76d2214d6f0913b2c823a6dd05412c5a24c6f36ba56aa54fc",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/INDX/2026/05/06/hero_VIX_617cf127.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "0062605e7b8b4c36cfdda84256be97392d55f9de2af4b94a5ba1f71d5e12f31d",
+        "public_sha256": "0062605e7b8b4c36cfdda84256be97392d55f9de2af4b94a5ba1f71d5e12f31d",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/INDX/2026/07/23/hero_SPX_7a1479d1.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "5fe74bcd9e34ee151cd0281ae5978d01bc562e80f59b93c0c119673578aa9c15",
+        "public_sha256": "5fe74bcd9e34ee151cd0281ae5978d01bc562e80f59b93c0c119673578aa9c15",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/INDX/2026/09/23/hero_SPX_566db375.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "d378bdb07a979e2b2a11d6ff03774c642b1f5d312d372966408f52ae6b7f12a5",
+        "public_sha256": "d378bdb07a979e2b2a11d6ff03774c642b1f5d312d372966408f52ae6b7f12a5",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2025/12/30/hero_KKR.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "33238927066242a794d7c7a6265214cc4ccbde70273b481a01b48f1bb50dde6f",
+        "public_sha256": "33238927066242a794d7c7a6265214cc4ccbde70273b481a01b48f1bb50dde6f",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/02/18/hero_PHM.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "b47d95c745f27b63ff1222631a466a17237c8a2d18b5bd10d7da9a193ce8c87d",
+        "public_sha256": "b47d95c745f27b63ff1222631a466a17237c8a2d18b5bd10d7da9a193ce8c87d",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/03/13/hero_AAPL.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "ab9041a53499d51ccee66b10d06fa994aa4d3ca8b6a7472d63f84ef54645332a",
+        "public_sha256": "ab9041a53499d51ccee66b10d06fa994aa4d3ca8b6a7472d63f84ef54645332a",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/03/24/hero_FIS.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "572ee0331ae37714c0df2b41317085b343246f9b163294b70e48fc799245d399",
+        "public_sha256": "572ee0331ae37714c0df2b41317085b343246f9b163294b70e48fc799245d399",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/04/05/hero_CVX.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "a858c487b0c165a228bd79e5d1bd13ccd094a2e54596d5961f53e7be12b184cd",
+        "public_sha256": "a858c487b0c165a228bd79e5d1bd13ccd094a2e54596d5961f53e7be12b184cd",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/04/13/hero_VMC_7b9ed64c.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "5d83cce71903deac107a57bfe88731bba39b54016d66fa616e2b3bcfa24a5af4",
+        "public_sha256": "5d83cce71903deac107a57bfe88731bba39b54016d66fa616e2b3bcfa24a5af4",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/04/23/hero_CNH_2d34cdbc.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "d36c477c3d21e4f997b873fdce1a5c64815c6d29220a311769d39e9e0d4ab714",
+        "public_sha256": "d36c477c3d21e4f997b873fdce1a5c64815c6d29220a311769d39e9e0d4ab714",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/04/30/hero_NKE_a582ebd3.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "ab504596ffbed8f2c59d41a08d7514d61bc4e17e63e7c464295d6741a30f470b",
+        "public_sha256": "ab504596ffbed8f2c59d41a08d7514d61bc4e17e63e7c464295d6741a30f470b",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/05/11/hero_PTC_bb53f5aa.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "0e9fe35323cdf3e1f7853c76bfe649191df186f9d23dab05db80394044717556",
+        "public_sha256": "0e9fe35323cdf3e1f7853c76bfe649191df186f9d23dab05db80394044717556",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/05/20/hero_GIS_0bb51bc6.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "9d56ba277aa73d9269f0a4176ecc7d1e66675595ed9fbdc639aed2e9b416e66d",
+        "public_sha256": "9d56ba277aa73d9269f0a4176ecc7d1e66675595ed9fbdc639aed2e9b416e66d",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/05/31/hero_PH_b972e98e.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "145d99e00a8b189492a0f47e3555347582eb721c6199367bdac8e144920474c3",
+        "public_sha256": "145d99e00a8b189492a0f47e3555347582eb721c6199367bdac8e144920474c3",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/06/07/hero_MRK_3de5c4e1.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "d45a944684a0adc436c38b1ed698b1bf9b91f7cb19a58677acfbf66aaf06001b",
+        "public_sha256": "d45a944684a0adc436c38b1ed698b1bf9b91f7cb19a58677acfbf66aaf06001b",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/06/15/hero_AMD_60ca6bc8.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "e3ef214cb12a9e3563e636936d03253dba8ab4ddbbfff17b7bc2ddce60778a35",
+        "public_sha256": "e3ef214cb12a9e3563e636936d03253dba8ab4ddbbfff17b7bc2ddce60778a35",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/07/01/hero_AMGN_68499f4c.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "731b544ce3ebf463461e6b0923416f39db60ae426a86b141da88af745d74c500",
+        "public_sha256": "731b544ce3ebf463461e6b0923416f39db60ae426a86b141da88af745d74c500",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/07/11/hero_APH_6794be04.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "c3bb30ed796ca696bb5b3802396b4270e80d456a77725e4634941f46962abf3e",
+        "public_sha256": "c3bb30ed796ca696bb5b3802396b4270e80d456a77725e4634941f46962abf3e",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/07/23/hero_MRK_6a7ba8c3.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "e4abb7b74200dc488c2cfc003d9579a0d0a80fd5694d0002fb7ae84e94f26eeb",
+        "public_sha256": "e4abb7b74200dc488c2cfc003d9579a0d0a80fd5694d0002fb7ae84e94f26eeb",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/08/01/hero_MSFT_71e2cabb.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "f6970d125800aacc6ebd6a93efa647d166da97d6727d562a5b28b3702e9578cc",
+        "public_sha256": "f6970d125800aacc6ebd6a93efa647d166da97d6727d562a5b28b3702e9578cc",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/08/12/hero_HPQ_6f82aa47.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "d498b97c2f5eef31c1ffd81c0fd62eb39cf4edc4b3eab450fb0d6a60bdd04311",
+        "public_sha256": "d498b97c2f5eef31c1ffd81c0fd62eb39cf4edc4b3eab450fb0d6a60bdd04311",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/08/22/hero_MRK_1bcaf904.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "e4c3000c27d9bb59b87c8aecbeb37fcbf764a8bef86b8c5d2e3fa3263d8f211b",
+        "public_sha256": "e4c3000c27d9bb59b87c8aecbeb37fcbf764a8bef86b8c5d2e3fa3263d8f211b",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/08/31/hero_CRH_4fcb2e2f.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "d382cc999cb3e46174b07b1acd0a93eae80445900e2b6be7f05902a17d90ea95",
+        "public_sha256": "d382cc999cb3e46174b07b1acd0a93eae80445900e2b6be7f05902a17d90ea95",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/09/09/hero_JNJ_581186fc.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "c6dd5d6f5b53806f723d1dde00b9d2dbb37261b7425d5d2ec8081198bb70d66c",
+        "public_sha256": "c6dd5d6f5b53806f723d1dde00b9d2dbb37261b7425d5d2ec8081198bb70d66c",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/09/21/hero_GIS_778add07.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "271366c0db69fbc596641fbcd8bbfffc4bf35df26b732deec0c370a91bd07631",
+        "public_sha256": "271366c0db69fbc596641fbcd8bbfffc4bf35df26b732deec0c370a91bd07631",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/09/28/hero_IBM_132c09cf.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "c3d1f06fb32129186490001eaa203e5f9abcd31393fde216bfc31b2d91f3a10e",
+        "public_sha256": "c3d1f06fb32129186490001eaa203e5f9abcd31393fde216bfc31b2d91f3a10e",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/10/10/hero_O_c0dd4650.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "60fe3c0f4bf6d9a8ec7f4925b721770eb7cec6b153b6ecba53deae3d9a333d45",
+        "public_sha256": "60fe3c0f4bf6d9a8ec7f4925b721770eb7cec6b153b6ecba53deae3d9a333d45",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "articles/US/2026/10/27/hero_TTWO_7d1a153e.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "1110cdac26c2c18cb3c976c2b04a13c87a5cf759efcb2a0642cdd7aebdbe7591",
+        "public_sha256": "1110cdac26c2c18cb3c976c2b04a13c87a5cf759efcb2a0642cdd7aebdbe7591",
+        "normalization": null,
+        "home_quote_contract": null
+      },
+      {
+        "rel": "editions/2026-10-08/VIX/assets/hero-091a19cc7953.jpg",
+        "status": 200,
+        "passed": true,
+        "sha256": "091a19cc79531dc53ab79139de026f4a346c3c88143e68ea44e4b23eb49b5c1d",
+        "public_sha256": "091a19cc79531dc53ab79139de026f4a346c3c88143e68ea44e4b23eb49b5c1d",
+        "normalization": null,
+        "home_quote_contract": null
+      }
+    ],
+    "proof_sha256": "7d04039134c3768d4f6a2a0ac8c7949bac65eb726d9d959057c6866feff63c3c"
+  },
+  "abandoned_notice": {
+    "utc": "2026-10-16T10:40:45.849738+00:00",
+    "source": "2b0075c85e45d8cd547c95b8868f8560532cf86b",
+    "transaction": "smn-production-2026-10-16-7462abe1cf3bb690",
+    "receipt_sha256": "2f2311a945dc750f1cf0d69952de473f5884ece239e8048f3c425e235c3680e6",
+    "owner": {
+      "task": "smn-production-2026-10-16-7462abe1cf3bb690",
+      "pid": 701525
+    },
+    "owner_sha256": "d790443656ab3805751183f63e29d6406574cb8e96a35f85614017fbccf4560f",
+    "owner_dead": true,
+    "pins_match": true,
+    "retained_files_checked": 1970,
+    "mismatches": []
+  },
+  "restoration": {
+    "status": "rolled_back",
+    "record": "/var/lib/tradewave/release-state/smn-production-2026-10-16-7462abe1cf3bb690",
+    "attestation": "/var/lib/tradewave/release-state/smn-production-2026-10-16-7462abe1cf3bb690/owner-recovery-20261016/attestation.json",
+    "lock_released": true,
+    "timer_changes": 0,
+    "generation_services_untouched": true,
+    "files_restored": 15,
+    "retained_files_checked": 1970,
+    "home_sha256": "bdf7873dc70378f2c7f872c274bcc9e15d1ed0ab5c62eb00669a2ea71f1065ae"
+  },
+  "ranking_recovery": {
+    "job": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/selection-recovery-v1/jobs/selection-ranking-retry-1",
+    "method": "one bounded subscription retry; no replacement scores or engine scans",
+    "model": {
+      "effort": "medium",
+      "model": "gpt-6-sol",
+      "provider": "codex"
+    },
+    "original_candidates_sha256": "3a43d368438a2d05435a95b89f4f81cd99a9e56c48a0b4fe793c63adba9b4acf",
+    "original_csv_sha256": "cb756467112e347995f8a6beee0282048854d10872dae8ec0d6afc5afc07bcf2",
+    "original_ranking_candidates": 26,
+    "retained_candidates": 20,
+    "validated_csv_sha256": "e9d15412eaeb00e1db0c664d2e70fc7f4e7f9f8644fcc5c5ec3346f911f5e81e"
+  },
+  "no_new_code_release": true,
+  "no_subscriber_mail_trigger": true,
+  "new_paid_api_calls": 0,
+  "permanent_recurrence_prevention_complete": false,
+  "policy_questions_reopening_partial_publication_and_recovery": "withdrawn",
+  "current_publication": {
+    "id": "smn-production-2026-10-16-fc136492809d347c",
+    "status": "live_verified",
+    "complete": false,
+    "published_symbols": [
+      "MRK",
+      "XLK"
+    ],
+    "pending_symbols": [
+      "C",
+      "PGR",
+      "DPZ",
+      "GS"
+    ],
+    "urls": [
+      "https://seasonalmarketnews.com/editions/2026-10-16/XLK/article.html",
+      "https://seasonalmarketnews.com/editions/2026-10-16/MRK/article.html"
+    ],
+    "transaction_root": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/publication-revisions/63e6f46f123ad011c543186ccc22a25902b1927ae8d4838fc1d22de147ed97ed/attempt-1",
+    "latest_update": "2026-10-16T10:54:49.200864+00:00",
+    "receipt_sha256": "c248443a091c8f4beb24e35847f97408ffd0f8a3722c9995490bce35517ba255"
+  }
+}
