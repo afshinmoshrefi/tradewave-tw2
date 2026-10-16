@@ -116,8 +116,11 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   does not establish frozen inputs or article progress. The October 16 owner
   recovered selection from retained candidates with one accounted subscription
   research job and unchanged queue rules, then verified MRK public partial
-  publication at 06:50:55 Eastern and XLK at 06:54:49. Remaining coverage was still progressing at
-  the checkpoint. Publication uses truthful expected/published/pending receipts;
+  publication at 06:50:55 Eastern and XLK at 06:54:49. At 07:13:04 five
+  articles were verified, only DPZ was pending, and the owner process had ended.
+  Further DPZ source capture was blocked by automatic approval review; the
+  record documents the exact pending exception rather than implying generation
+  remained active. Publication uses truthful expected/published/pending receipts;
   optional presentation fallback retains genuine factual/engine/review evidence.
   Installed quote guard v2 can still hold a content transaction on quote markup,
   and abandoned transaction ownership requires explicit process/lease and

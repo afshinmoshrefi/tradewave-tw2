@@ -46,7 +46,7 @@ Status belongs in each record and this index; update both together. Preserve res
 | [TW-BUG-0025](TW-BUG-0025.md) | P2 | verified on dev | SMN private editor images/charts restored; original MSFT draft/assets unchanged, anonymous access denied |
 
 | [TW-BUG-0026](TW-BUG-0026.md) | P2 | verified on Dev | Mobile bar chart More control does not open extra controls |
-| [TW-BUG-0027](TW-BUG-0027.md) | P1 | in-progress | October 16 ranking failure and stalled selection; MRK/XLK public partial recovery verified, remaining coverage and durable reliability in progress |
+| [TW-BUG-0027](TW-BUG-0027.md) | P1 | in-progress | October 16 ranking failure and stalled selection; five articles publicly verified; DPZ source-capture write blocked by automatic review, durable reliability in progress |
 
 | [TW-BUG-0028](TW-BUG-0028.md) | P2 | complete candidate privately verified; activation blocked | Webinar notification signup drops published Zoom link; scoped release provenance required |
 

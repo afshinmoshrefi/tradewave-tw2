@@ -1,6 +1,6 @@
 {
-  "observed_utc": "2026-10-16T10:55:58.764599+00:00",
-  "status": "in_progress",
+  "observed_utc": "2026-10-16T11:13:04.336900+00:00",
+  "status": "partial_live_verified_source_recovery_blocked",
   "source_commit": "2b0075c85e45d8cd547c95b8868f8560532cf86b",
   "selected_symbols": [
     "MRK",
@@ -11,14 +11,12 @@
     "GS"
   ],
   "budget": {
-    "consumed_conservative": 15,
-    "completed_unique_receipts": 14,
-    "prepared_or_uncertain_paths": 1,
+    "consumed_conservative": 36,
+    "completed_unique_receipts": 36,
+    "prepared_or_uncertain_paths": 0,
     "archived_unique_attempts": 0,
     "orphan_reservations": 0,
-    "running_or_claimed_without_receipt": [
-      "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/jobs/C-20261016-research"
-    ]
+    "running_or_claimed_without_receipt": []
   },
   "first_publication": {
     "id": "smn-production-2026-10-16-5d3c04a6ae011024",
@@ -1161,25 +1159,55 @@
   "permanent_recurrence_prevention_complete": false,
   "policy_questions_reopening_partial_publication_and_recovery": "withdrawn",
   "current_publication": {
-    "id": "smn-production-2026-10-16-fc136492809d347c",
+    "id": "smn-production-2026-10-16-41f90187c928eff9",
     "status": "live_verified",
     "complete": false,
     "published_symbols": [
       "MRK",
-      "XLK"
-    ],
-    "pending_symbols": [
+      "XLK",
       "C",
       "PGR",
-      "DPZ",
       "GS"
     ],
+    "pending_symbols": [
+      "DPZ"
+    ],
     "urls": [
+      "https://seasonalmarketnews.com/editions/2026-10-16/GS/article.html",
+      "https://seasonalmarketnews.com/editions/2026-10-16/PGR/article.html",
+      "https://seasonalmarketnews.com/editions/2026-10-16/C/article.html",
       "https://seasonalmarketnews.com/editions/2026-10-16/XLK/article.html",
       "https://seasonalmarketnews.com/editions/2026-10-16/MRK/article.html"
     ],
-    "transaction_root": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/publication-revisions/63e6f46f123ad011c543186ccc22a25902b1927ae8d4838fc1d22de147ed97ed/attempt-1",
-    "latest_update": "2026-10-16T10:54:49.200864+00:00",
-    "receipt_sha256": "c248443a091c8f4beb24e35847f97408ffd0f8a3722c9995490bce35517ba255"
+    "transaction_root": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/publication-revisions/bbe027ff92bd1ead5150452747459998d3043d1cfc0f9bf77dac91e7d77371d5/attempt-1",
+    "latest_update": "2026-10-16T11:12:30.169282+00:00",
+    "receipt_sha256": "fee8f19a9119f8441d4365eca563660cc9d155edd891cd150027b5502d2c171a"
+  },
+  "recovery_owner_process_exists": false,
+  "activation_lock_absent": true,
+  "latest_live_verification": {
+    "verified_at": "2026-10-16T11:12:28.001Z",
+    "passed": true,
+    "article_layout_count": 10,
+    "public_file_check_count": 195,
+    "proof_sha256": "91ae89f018bbf4e1cbb6558fc8a274019406382dd9faaaa23381bb690a515fd9"
+  },
+  "blocking_action": "DPZ-only source capture/private production evidence write rejected by automatic approval review three times; narrow explicit human exception requested; no workaround or dependent DPZ write executed.",
+  "prepared_source_operator_sha256": "b8ec874d35037258cdf23ced527ac565063b7e14bb2a53558d33bb9a9f98aa52",
+  "source_provenance_check": {
+    "observed_utc": "2026-10-16T11:02:34.351716+00:00",
+    "retained_engine_owner": {
+      "path": "/home/flask/site/lib/svg_wave_chart.py",
+      "sha256": "870b216e3b3b3b44050069a2b3336e195e44f7879ad6c40810af1d4e763a1953",
+      "commit": "c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce"
+    },
+    "git_owner_blob_sha256": "870b216e3b3b3b44050069a2b3336e195e44f7879ad6c40810af1d4e763a1953",
+    "owner_blob_matches_retained_export": true,
+    "same_commit_appserver_source_sha256": "6bcc9c6c39baa9cb2921b6e881a2f148c09cb1e4fd1e574f05cf69a0abedbe97",
+    "source_definition": "get_consolidated_seasonal_chart2 normalizes annual slices and takes their mean; fetch_seasonal_data consumes that result and compute_projection scales the existing returned trend onto the dated last close.",
+    "scope": "Source provenance check; not a new numerical calculation, independent engine implementation, or full live appserver parity audit.",
+    "new_model_jobs": 0,
+    "financial_recalculations": 0,
+    "article_changes": 0
   }
 }
