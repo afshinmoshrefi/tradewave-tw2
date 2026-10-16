@@ -1,9 +1,10 @@
-# TW-TASK-0024: October 15 full TradeWave staging release
+# TW-TASK-0024: October 15 full TradeWave staging and production release
 
 - Status: complete
 - Owner: Codex chat 01a13f7d-e3a3-7460-aa4e-4a9dae97833f, 2026-10-15
-- Authorization: deploy all completed TradeWave Dev changes to staging. Production
-  snapshots reported taken; production deployment is not requested by this turn.
+- Authorization: staging deployment, then explicit owner authorization for Codex to execute production.
+  Both production snapshots confirmed October 15 (America/New_York). Owner explicitly
+  approved the narrow docs-only main equality exception; all other gates remain required.
 - Release: tw2-20261015-01
 - Branch/worktree: codex/release-20261015, /home/tradewave-worktrees/tw2-20261015-01
 - Baseline Dev source: 3fc3cdb08ca70587433916898f348148356b597b
@@ -79,3 +80,35 @@ Receipt: release-state/tw2-20261015-01/evidence/mvp-initial.log.
 
 Sanitized evidence is in the receipt above and on the release host at
 /var/lib/tradewave/release-state/tw2-20261015-01/evidence/.
+
+## Production completion (October 15 New York / October 16 UTC)
+Production now runs exact staging-approved c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce,
+artifact 6b6415e649eccdff16453acd7aeddfea07c3b18e4ff33646c29ee50e7d4910a8.
+Owner approved agent execution, both same-day server snapshots, and one explicit
+exception because main advanced to 2fe8c7dad3e187e59b2cc2340fcb1c4bb379b437 only
+for docs/bugs/README.md and TW-BUG-0034.md. No main rewrite or artifact rebuild.
+The private deploy copy checks that exact SHA pair and those two paths; original
+repository deploy/validator remain unchanged.
+
+Final deployment: 0 FAIL, 0 WARN. Both source/archive identities, all 21 frontend
+hashes, public JS bundle, effective units/drop-ins and running process paths passed.
+CSV: mixed AAME/AAN/AAOI/BP accepted in US/Wilshire, bogus rejected; BP-only London
+and AAPL/MSFT unchanged. Explorer API returned 11 AXP rows with Oct15 date lock;
+cached-empty behavior passed. CUA clicked AXP opportunity (124 days/10 years),
+observed canvas=1, placeholder=0 and populated chart. Browser used a private
+transaction-only Explorer shell with identical artifact and live production proxy;
+no persistent user/watchlist mutation and no claim to test customer's original CSV.
+All 18 prior WEB cron entries preserved. Private fixture/shell/tunnel removed.
+
+An initial shell quoting preflight failed before activation. The first actual
+deploy passed canonical checks but an additional harness mistook systemctl's
+unexpanded environment placeholders for runtime drift. Automatic rollback verified
+both servers and frontend restored to c25. The harness was corrected to resolve
+only referenced variables from the running process environment; retry used identical
+release/artifact and passed every gate. The additive fa8c2d601b93 migration is retained
+on rollback; no DB downgrade or restore is performed.
+
+Rollback remains /root/tradewave-handoffs/tw2-20261015-01/production/rollback-production.sh
+on Dev, with verified APP/WEB config/static snapshots and pre-migration DB archive.
+The browser watchdog verified its receipt and disarmed. Release manifest is complete.
+[Production receipt](evidence/TW-TASK-0024-production-20261015.json).

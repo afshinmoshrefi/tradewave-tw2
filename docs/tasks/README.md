@@ -37,4 +37,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 
 | [TW-TASK-0023](TW-TASK-0023.md) | verified on dev | One-time securities menu customization tip and settings help replay |
 
-| [TW-TASK-0024](TW-TASK-0024.md) | complete | October 15 exact-artifact TradeWave staging release verified; production unchanged |
+| [TW-TASK-0024](TW-TASK-0024.md) | complete | October 15 exact-artifact TradeWave staging and production release verified |

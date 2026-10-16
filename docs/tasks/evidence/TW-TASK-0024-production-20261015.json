@@ -1,0 +1,326 @@
+{
+  "release_id": "tw2-20261015-01",
+  "source_sha": "c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce",
+  "artifact_sha256": "6b6415e649eccdff16453acd7aeddfea07c3b18e4ff33646c29ee50e7d4910a8",
+  "status": "complete",
+  "target": "prod",
+  "verified_at": "2026-10-16T03:05:08.391732+00:00",
+  "checks": {
+    "browser_check": {
+      "required": true,
+      "ran": true,
+      "passed": true,
+      "evidence": [
+        "/var/lib/tradewave/release-state/tw2-20261015-01/evidence/production/production-browser-gate.json"
+      ]
+    },
+    "contract_check": {
+      "required": true,
+      "ran": true,
+      "passed": true,
+      "evidence": [
+        "/var/lib/tradewave/release-state/tw2-20261015-01/evidence/production/production-explorer-contract.json",
+        "/var/lib/tradewave/release-state/tw2-20261015-01/evidence/production/production-watchlist-csv-contract.json"
+      ]
+    },
+    "runtime_identity": {
+      "required": true,
+      "ran": true,
+      "passed": true,
+      "evidence": [
+        "/var/lib/tradewave/release-state/tw2-20261015-01/evidence/production/production-runtime.json"
+      ]
+    },
+    "service_routes": {
+      "required": true,
+      "ran": true,
+      "passed": true,
+      "evidence": [
+        "/var/lib/tradewave/release-state/tw2-20261015-01/evidence/production/production-deploy.log"
+      ]
+    }
+  },
+  "runtime": {
+    "artifact_manifest_sha256": "6b6415e649eccdff16453acd7aeddfea07c3b18e4ff33646c29ee50e7d4910a8",
+    "checked_at": "2026-10-16T03:02:16.514824+00:00",
+    "hosts": {
+      "app": {
+        "backend_fingerprint": "b6478f9c78c01b4ed7bad32d3ee4195188f19ef4b7aa1da6bc2756833c3c2a5c",
+        "dirty": "",
+        "head": "c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce",
+        "units": {
+          "tradewave-apiserver.service": {
+            "active": "active",
+            "drop_in_paths": "",
+            "exec_start": "{ path=/home/flask/venv-api/bin/gunicorn ; argv[]=/home/flask/venv-api/bin/gunicorn --workers 4 --worker-class gthread --threads 12 --timeout 120 --keep-alive 75 --bind ${TW2_APISERVER_BIND} --access-logfile /var/log/tradewave/apiserver.access.log --access-logformat %({x-forwarded-for}i)s %(l)s %(u)s %(t)s \"%(m)s %(U)s %(H)s\" %(s)s %(b)s \"%(a)s\" --error-logfile /var/log/tradewave/apiserver.error.log --capture-output apiserver.app:app ; ignore_errors=no ; start_time=[Fri 2026-10-16 03:00:17 UTC] ; stop_time=[n/a] ; pid=1207188 ; code=(null) ; status=0/0 }",
+            "fragment_path": "/etc/systemd/system/tradewave-apiserver.service",
+            "installed_unit_sha256": "303b62652d35f6599cf5779aeb2f6d7f509c9d2ee18208b1311781ba725f42f2",
+            "matches_release_unit": true,
+            "pid": 1207188,
+            "process_cwd": "/home/flask",
+            "unit_cwd": "/home/flask"
+          },
+          "tradewave-appserver.service": {
+            "active": "active",
+            "drop_in_paths": "",
+            "exec_start": "{ path=/home/flask/venv/bin/gunicorn ; argv[]=/home/flask/venv/bin/gunicorn --workers ${TW2_APPSERVER_WORKERS} --worker-class gthread --threads ${TW2_APPSERVER_THREADS} --timeout 120 --keep-alive 5 --bind ${TW2_APPSERVER_BIND} --access-logformat %({x-forwarded-for}i)s %(l)s %(u)s %(t)s \"%(m)s %(U)s %(H)s\" %(s)s %(b)s \"%(a)s\" --access-logfile /var/log/tradewave/appserver.access.log --error-logfile /var/log/tradewave/appserver.error.log --capture-output appserver:app ; ignore_errors=no ; start_time=[Fri 2026-10-16 03:00:12 UTC] ; stop_time=[n/a] ; pid=1207144 ; code=(null) ; status=0/0 }",
+            "fragment_path": "/etc/systemd/system/tradewave-appserver.service",
+            "installed_unit_sha256": "b917d15aad775e5b380d2019b7c69d1acb140e6e378fe7a31eb392c53fdf45e0",
+            "matches_release_unit": true,
+            "pid": 1207144,
+            "process_cwd": "/home/flask/appserver/appserver",
+            "unit_cwd": "/home/flask/appserver/appserver"
+          },
+          "tradewave-mcpserver.service": {
+            "active": "active",
+            "drop_in_paths": "",
+            "exec_start": "{ path=/home/flask/venv-api/bin/python ; argv[]=/home/flask/venv-api/bin/python -m mcpserver.server --transport ${TW2_MCP_TRANSPORT} --host ${TW2_MCP_HOST} --port ${TW2_MCP_PORT} ; ignore_errors=no ; start_time=[Fri 2026-10-16 03:00:18 UTC] ; stop_time=[n/a] ; pid=1207202 ; code=(null) ; status=0/0 }",
+            "fragment_path": "/etc/systemd/system/tradewave-mcpserver.service",
+            "installed_unit_sha256": "482b216d5120bedb67d3db8772f80c3acd7fcd0bb0fe25f7397e44513c9e7f8e",
+            "matches_release_unit": true,
+            "pid": 1207202,
+            "process_cwd": "/home/flask",
+            "unit_cwd": "/home/flask"
+          }
+        }
+      },
+      "web": {
+        "backend_fingerprint": "b6478f9c78c01b4ed7bad32d3ee4195188f19ef4b7aa1da6bc2756833c3c2a5c",
+        "dirty": "",
+        "files": {
+          ".tradewave-source-sha": "7a7c5e79df3d49a5c7b9709f5ab11023435c21e370a485623ee8359d4ba2a868",
+          "asset-manifest.json": "0b14f4788a41c3ea79f41d23c0214e2ba235194aacf40759086d5545288519ef",
+          "favicon.ico": "3d10f7da6c603178340081668c4ac5b3ae9743ca9a262ab0fcd312fbb9f48bdd",
+          "favicon.png": "52eda5ac18e3470b372039c1aa34e74441fa7071ab801626ac90baf94f72a1af",
+          "images/downarrow8.png": "76c36002756850fdd2dd5f2f37dc6e906cc08172fdea494eb4a7a9e8b184715a",
+          "images/hixsea_logo1.png": "e67f4b71cd7fb05d3da0e36d1fbe805631523abcc735010470f9f401d6178f09",
+          "images/hixsea_logo2.png": "63e2bf12a536a4ddc5cce777ad26b1b3e11ce84e6761e5c9efa9da54a2503418",
+          "images/uparrow8.png": "bafb9f92889a862c6797ff5d4cf0326bd94b76b7f4ebb9a44d08b1e0bb653158",
+          "index.html": "c41de8133b9a5c437d5574e736ff1948e6de8ca555e8f9600935962564c87d03",
+          "logo192.png": "c386396ec70db3608075b5fbfaac4ab1ccaa86ba05a68ab393ec551eb66c3e00",
+          "logo512.png": "9ea4f4da7050c0cc408926f6a39c253624e9babb1d43c7977cd821445a60b461",
+          "manifest.json": "50b3d8c3903af3f78d871b94557ab14f4e39ca192eaca3d2cfa863c867279a14",
+          "robots.txt": "90d24bc3bf698ac1e173739502298ccca72adf1f564fab05f484b8c48d1cadd2",
+          "static/css/129.3bcee188.chunk.css": "bc2f96cf5d7f8d30f95675a5db6585b3c4455491e4b37c8d2bcd7cadd8fc7196",
+          "static/css/main.bed28159.css": "eb054df567720d8cfdc0cdf2f396ec4f0eb199f121d5384da4823daac7b76677",
+          "static/js/129.a0d44c1e.chunk.js": "991264a3b34e4252bdcd50cf62e5da20da869bf1095d38b622baedf749a10744",
+          "static/js/159.4ef55f9a.chunk.js": "d70c4feb56a344feaf9ba2c45162c5484c92543b478b744d70891ee82926b817",
+          "static/js/322.a0dc03eb.chunk.js": "cb71e28eb92e586aab5a25f66c8b3a3a2931f6a97bc0fa4ef87747485b64d243",
+          "static/js/322.a0dc03eb.chunk.js.LICENSE.txt": "14df695afae02547795a493bf9378ec07ec67068d6289412b54e3b2d7db0c626",
+          "static/js/main.3620a8a6.js": "78054f3ed252d89256fdda2e4b6de8bfb680064ee9d4c105f19f219b7dad5822",
+          "static/js/main.3620a8a6.js.LICENSE.txt": "439d068a4d12315eadaa03d6ac18ec16deb845ddfa4e68940089dd4616f4257d"
+        },
+        "frontend_pointer": "/home/flask/web-react/releases/build-c8ea5b0ec4e1",
+        "frontend_source": "c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce",
+        "head": "c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce",
+        "nginx_app_alias_configured": true,
+        "units": {
+          "tradewave-web.service": {
+            "active": "active",
+            "drop_in_paths": "",
+            "exec_start": "{ path=/home/flask/venv/bin/gunicorn ; argv[]=/home/flask/venv/bin/gunicorn --workers 2 --worker-class sync --timeout 60 --bind 127.0.0.1:5500 --bind 10.0.0.98:5500 --access-logfile /var/log/tradewave/web.access.log --access-logformat %({x-forwarded-for}i)s %(l)s %(u)s %(t)s \"%(m)s %(U)s %(H)s\" %(s)s %(b)s \"%(a)s\" --error-logfile /var/log/tradewave/web.error.log --capture-output app:app ; ignore_errors=no ; start_time=[Fri 2026-10-16 03:00:19 UTC] ; stop_time=[n/a] ; pid=1876223 ; code=(null) ; status=0/0 }",
+            "fragment_path": "/etc/systemd/system/tradewave-web.service",
+            "installed_unit_sha256": "9e687f319795e78bf1d4025a36fa8074d7f7c417d8f5466f7d659b8862d9f017",
+            "matches_release_unit": true,
+            "pid": 1876223,
+            "process_cwd": "/home/flask/web",
+            "unit_cwd": "/home/flask/web"
+          }
+        }
+      }
+    },
+    "passed": true,
+    "public_static_asset": {
+      "bytes": 1824425,
+      "sha256": "78054f3ed252d89256fdda2e4b6de8bfb680064ee9d4c105f19f219b7dad5822",
+      "status": 200,
+      "url": "https://tradewave.ai/app/static/js/main.3620a8a6.js"
+    },
+    "release_sha": "c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce",
+    "target": "production"
+  },
+  "explorer": {
+    "cached_empty": {
+      "byte_identical": true,
+      "engine_range": "1000-1100",
+      "opp_counts": [
+        0,
+        0
+      ],
+      "response_sha256": [
+        "c83e1f7972fb9196c1fd0af832819671f639a753273ec80b6fd1cc0f9404a2c5",
+        "c83e1f7972fb9196c1fd0af832819671f639a753273ec80b6fd1cc0f9404a2c5"
+      ],
+      "statuses": [
+        200,
+        200
+      ]
+    },
+    "chartdata4": {
+      "date_lock_passed": true,
+      "entry_date": "2026-10-15",
+      "rows": 11,
+      "status": 200,
+      "symbol": "AXP"
+    },
+    "expected_commit": "c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce",
+    "level": "1",
+    "market_date": "2026-10-15",
+    "opplist4": {
+      "active_patterns": 38,
+      "patterns": 5,
+      "priced_symbols": 27,
+      "status": 200
+    },
+    "synthetic_login": {
+      "status": 200,
+      "token_recorded": false
+    },
+    "target": "production",
+    "timezone": "America/New_York"
+  },
+  "csv": {
+    "cases": [
+      {
+        "all_groups": [
+          {
+            "match_count": 3,
+            "resource_id": "4",
+            "resource_name": "WILSHIRE 5000"
+          },
+          {
+            "match_count": 1,
+            "resource_id": "12",
+            "resource_name": "LONDON EXCHANGE"
+          }
+        ],
+        "case": "mixed_adr_invalid",
+        "detected_group": {
+          "resource_id": "4",
+          "resource_name": "WILSHIRE 5000"
+        },
+        "input_symbols": [
+          "AAME",
+          "AAN",
+          "AAOI",
+          "BP",
+          "ZZZINVALIDTEST999"
+        ],
+        "invalid_symbols": [
+          "ZZZINVALIDTEST999"
+        ],
+        "status": 200,
+        "valid_symbols": [
+          "AAME",
+          "AAN",
+          "AAOI",
+          "BP"
+        ]
+      },
+      {
+        "all_groups": [
+          {
+            "match_count": 1,
+            "resource_id": "12",
+            "resource_name": "LONDON EXCHANGE"
+          }
+        ],
+        "case": "bp_only_unchanged",
+        "detected_group": {
+          "resource_id": "12",
+          "resource_name": "LONDON EXCHANGE"
+        },
+        "input_symbols": [
+          "BP"
+        ],
+        "invalid_symbols": [],
+        "status": 200,
+        "valid_symbols": [
+          "BP"
+        ]
+      },
+      {
+        "all_groups": [
+          {
+            "match_count": 2,
+            "resource_id": "0",
+            "resource_name": "DOW 30 STOCKS"
+          },
+          {
+            "match_count": 2,
+            "resource_id": "1",
+            "resource_name": "NASDAQ 100 STOCKS"
+          },
+          {
+            "match_count": 2,
+            "resource_id": "2",
+            "resource_name": "S&P 500 STOCKS"
+          },
+          {
+            "match_count": 2,
+            "resource_id": "3",
+            "resource_name": "RUSSELL 1000 STOCKS"
+          },
+          {
+            "match_count": 2,
+            "resource_id": "4",
+            "resource_name": "WILSHIRE 5000"
+          },
+          {
+            "match_count": 2,
+            "resource_id": "13",
+            "resource_name": "TORONTO STOCKS"
+          }
+        ],
+        "case": "existing_symbols_unchanged",
+        "detected_group": {
+          "resource_id": "0",
+          "resource_name": "DOW 30 STOCKS"
+        },
+        "input_symbols": [
+          "AAPL",
+          "MSFT"
+        ],
+        "invalid_symbols": [],
+        "status": 200,
+        "valid_symbols": [
+          "AAPL",
+          "MSFT"
+        ]
+      }
+    ],
+    "expected_commit": "c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce",
+    "mutation_endpoints_called": [],
+    "passed": true,
+    "synthetic_login": {
+      "legacy_level": "3",
+      "status": 200,
+      "tier": "strategist",
+      "token_recorded": false
+    },
+    "target": "production",
+    "watchlist_state_changed": false
+  },
+  "browser": {
+    "release_id": "tw2-20261015-01",
+    "release_sha": "c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce",
+    "artifact_sha256": "6b6415e649eccdff16453acd7aeddfea07c3b18e4ff33646c29ee50e7d4910a8",
+    "passed": true,
+    "checked_at": "2026-10-16T03:04:06.659356+00:00",
+    "checks": {
+      "real_pattern_response": true,
+      "opportunity_row_canvas": true,
+      "evidence": [
+        "CUA in-app browser: localhost8766 transaction-only Explorer shell rendered by production WEB, immutable frontend, bounded proxy to https://tradewave.ai.",
+        "Clicked AXP ticker cell: 2026-10-15,124days,10years.",
+        "DOM canvas=1; placeholder=0; entry date2026-10-15; loaded main.3620a8a6.js. Screenshot confirms populated green bars and price chart.",
+        "Production runtime/source/public bundle hashes and real Explorer API contract independently passed."
+      ]
+    },
+    "scope": "Synthetic Explorer session; no persistent user or watchlist changes. Not customer original CSV or interactive WorkOS login."
+  },
+  "previous_cron_jobs_preserved": 18,
+  "rollback_exercised": true,
+  "application_changed_during_retry": false,
+  "exception": "Owner-approved exact docs-only main advance; main preserved, identical staging artifact deployed."
+}

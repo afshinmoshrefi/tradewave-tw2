@@ -1,10 +1,10 @@
 # TW-BUG-0033: Watchlist CSV rejects valid US ADRs
 
-- Status: verified on Dev and staging
+- Status: verified on Dev, staging and production
 - Priority: P2
 - Confidence: reproduced on Dev using active detector and symbol provider
 - Owner: Codex, chat 01a13f7d-e3a3-7460-aa4e-4a9dae97833f, 2026-10-15
-- Authorization: fix safely on Dev; staging and production excluded.
+- Authorization: initial Dev fix; later explicit staging and production promotion under TW-TASK-0024.
 - Branch: codex/watchlist-csv-validation-20261015
 - Worktree: /home/tradewave-worktrees/watchlist-csv-validation-20261015
 
@@ -80,3 +80,10 @@ and release-host evidence
 /var/lib/tradewave/release-state/tw2-20261015-01/evidence/staging-explorer-contract.json.
 The browser import/save flow remains untested; the check verifies the authenticated
 detection API contract only. Production remains unchanged.
+
+## Production verification
+October15 New York: TW-TASK-0024 promoted exact staging-approved c8ea5b0.
+Live production detector accepts BP in mixed US/Wilshire input, rejects the bogus
+symbol, and preserves BP-only London plus AAPL/MSFT behavior. No watchlist writes.
+Customer original CSV remains unavailable; validation used the documented fixture.
+See [production receipt](../tasks/evidence/TW-TASK-0024-production-20261015.json).

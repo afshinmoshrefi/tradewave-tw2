@@ -58,4 +58,4 @@ Status belongs in each record and this index; update both together. Preserve res
 
 | [TW-BUG-0032](TW-BUG-0032.md) | P2 | verified on dev | Published admin lists hidden by default for regular users |
 
-| [TW-BUG-0033](TW-BUG-0033.md) | P2 | verified on Dev and staging | Watchlist CSV rejects valid US ADRs accepted manually |
+| [TW-BUG-0033](TW-BUG-0033.md) | P2 | verified on Dev, staging and production | Watchlist CSV rejects valid US ADRs accepted manually |
