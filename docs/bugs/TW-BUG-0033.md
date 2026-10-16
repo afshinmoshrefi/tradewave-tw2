@@ -64,3 +64,8 @@ addition queries the broader exchange. No customer watchlist was changed during 
   file still follows existing market detection; this fix does not guess listing identity.
   Any staging promotion requires a separate request and release qualification.
 
+
+## October 16 follow-up investigation
+BP remains accepted in live production mixed-US input. New BFA/BATS inconsistency
+is traced to fuzzy manual-name validation, recorded separately in [TW-BUG-0035](TW-BUG-0035.md).
+The prior CSV exact-US-catalog repair does not validate a London listing as US.

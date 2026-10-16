@@ -61,3 +61,5 @@ Status belongs in each record and this index; update both together. Preserve res
 | [TW-BUG-0033](TW-BUG-0033.md) | P2 | verified on Dev | Watchlist CSV rejects valid US ADRs accepted manually |
 | [TW-BUG-0034](TW-BUG-0034.md) | P1 | verified on production | Fresh hero generation restored; nine October 14/15 images generated and verified live |
 
+
+| [TW-BUG-0035](TW-BUG-0035.md) | P1 | open, reproduced on production | Manual watchlist validation accepts a different ticker from provider search |
