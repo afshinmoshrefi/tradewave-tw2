@@ -1,6 +1,6 @@
 # TW-BUG-0035: Manual watchlist validation accepts a different ticker
 
-- Status: fixed candidate; Dev activation and live verification pending
+- Status: fixed candidate; live Dev API verified, browser confirmation pending; previous Dev restored
 - Priority: P1
 - Confidence: reproduced with read-only production API calls and current provider search results
 - Owner: Codex chat 01a13f7d-e3a3-7460-aa4e-4a9dae97833f, October 16, 2026
@@ -92,3 +92,34 @@ leave default-list state unchanged, and do not show success. `npm run build` pas
 with the repository's existing warnings. Artifact source stamp is
 `9b78c515678e29a25c5d3823d50cf0f619878f65`; this successor adds tests/docs only,
 so the application tree is unchanged and no second build is required.
+
+## Parent live verification and temporary rollback - October 17
+
+Candidate `870eacf1f11954b2fd47a9935497094739d03c5c` was activated on actual Dev
+with frontend source `9b78c515678e29a25c5d3823d50cf0f619878f65`, bundle
+`main.56f479ab.js`. All 5 exact name cases, 3 CSV regressions and 6 synthetic
+manual-save cases passed, including invalid additions rejected without persisting,
+BP/BFAM accepted, valid duplicate preserved and London BATS accepted. Synthetic
+watchlist keys were cleaned; no customer lists changed. Portable receipt:
+[evidence](evidence/TW-BUG-0035-dev-20261017.json).
+
+Two test-harness failures preceded the pass: preflight initially counted a frontend
+test-only successor as runtime drift and stopped before switching; first activation
+used legacy level3 (no watchlist allowance), so synthetic list creation failed and
+automatic rollback verified restoration. Corrected fixture uses Strategist level6.
+No application changes were needed for those test-harness errors.
+
+Browser normal Google sign-in succeeded, but Dev displays a terms agreement.
+Browser policy requires owner confirmation before accepting it; question pending.
+Parent deliberately restored previous backend/frontend pointers and released the
+Dev activation lock instead of leaving a partial rollout or holding a lock waiting.
+Backend: `/home/tradewave-worktrees/tw2-20261015-01`; frontend:
+`/home/flask/web-react/releases/build-c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce`.
+Appserver health passed after restoration. Staging and production unchanged.
+
+Next: after owner confirms terms, refetch main, integrate if needed, reuse unchanged
+build, acquire short lock, activate candidate with API smoke, complete rendered
+manual watchlist test, advance main non-forced, record parity and release lock.
+Prepared activation/rollback and API test scripts are under
+`/var/lib/tradewave/release-state/exact-ticker-20261017/` on Dev. Update their
+expected candidate SHA/base for documentation-only successor before reusing them.

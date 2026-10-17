@@ -1,0 +1,203 @@
+{
+  "cases": [
+    {
+      "all_groups": [
+        {
+          "match_count": 3,
+          "resource_id": "4",
+          "resource_name": "WILSHIRE 5000"
+        },
+        {
+          "match_count": 1,
+          "resource_id": "12",
+          "resource_name": "LONDON EXCHANGE"
+        }
+      ],
+      "case": "mixed_adr_invalid",
+      "detected_group": {
+        "resource_id": "4",
+        "resource_name": "WILSHIRE 5000"
+      },
+      "input_symbols": [
+        "AAME",
+        "AAN",
+        "AAOI",
+        "BP",
+        "ZZZINVALIDTEST999"
+      ],
+      "invalid_symbols": [
+        "ZZZINVALIDTEST999"
+      ],
+      "status": 200,
+      "valid_symbols": [
+        "AAME",
+        "AAN",
+        "AAOI",
+        "BP"
+      ]
+    },
+    {
+      "all_groups": [
+        {
+          "match_count": 1,
+          "resource_id": "12",
+          "resource_name": "LONDON EXCHANGE"
+        }
+      ],
+      "case": "bp_only_unchanged",
+      "detected_group": {
+        "resource_id": "12",
+        "resource_name": "LONDON EXCHANGE"
+      },
+      "input_symbols": [
+        "BP"
+      ],
+      "invalid_symbols": [],
+      "status": 200,
+      "valid_symbols": [
+        "BP"
+      ]
+    },
+    {
+      "all_groups": [
+        {
+          "match_count": 2,
+          "resource_id": "0",
+          "resource_name": "DOW 30 STOCKS"
+        },
+        {
+          "match_count": 2,
+          "resource_id": "1",
+          "resource_name": "NASDAQ 100 STOCKS"
+        },
+        {
+          "match_count": 2,
+          "resource_id": "2",
+          "resource_name": "S&P 500 STOCKS"
+        },
+        {
+          "match_count": 2,
+          "resource_id": "3",
+          "resource_name": "RUSSELL 1000 STOCKS"
+        },
+        {
+          "match_count": 2,
+          "resource_id": "4",
+          "resource_name": "WILSHIRE 5000"
+        },
+        {
+          "match_count": 2,
+          "resource_id": "13",
+          "resource_name": "TORONTO STOCKS"
+        }
+      ],
+      "case": "existing_symbols_unchanged",
+      "detected_group": {
+        "resource_id": "0",
+        "resource_name": "DOW 30 STOCKS"
+      },
+      "input_symbols": [
+        "AAPL",
+        "MSFT"
+      ],
+      "invalid_symbols": [],
+      "status": 200,
+      "valid_symbols": [
+        "AAPL",
+        "MSFT"
+      ]
+    }
+  ],
+  "customer_watchlists_changed": false,
+  "expected_commit": "870eacf1f11954b2fd47a9935497094739d03c5c",
+  "mutation_endpoints_called": [
+    "add_user_watchlist_name",
+    "add_user_watchlist_item"
+  ],
+  "name_cases": [
+    {
+      "name": "",
+      "passed": true,
+      "resource": "4",
+      "symbol": "BFA"
+    },
+    {
+      "name": "",
+      "passed": true,
+      "resource": "4",
+      "symbol": "BATS"
+    },
+    {
+      "name": "British American Tobacco PLC",
+      "passed": true,
+      "resource": "12",
+      "symbol": "BATS"
+    },
+    {
+      "name": "Bright Horizons Family Solutions Inc",
+      "passed": true,
+      "resource": "4",
+      "symbol": "BFAM"
+    },
+    {
+      "name": "BP PLC ADR",
+      "passed": true,
+      "resource": "4",
+      "symbol": "BP"
+    }
+  ],
+  "passed": true,
+  "synthetic_login": {
+    "legacy_level": "6",
+    "status": 200,
+    "tier": "strategist",
+    "token_recorded": false
+  },
+  "synthetic_watchlists_cleaned": true,
+  "synthetic_write_cases": [
+    {
+      "result": "invalid_symbol",
+      "symbol": "BFA",
+      "watchlist": "Exact US test"
+    },
+    {
+      "result": "invalid_symbol",
+      "symbol": "BATS",
+      "watchlist": "Exact US test"
+    },
+    {
+      "result": [
+        "BP"
+      ],
+      "symbol": "BP",
+      "watchlist": "Exact US test"
+    },
+    {
+      "result": "duplicate",
+      "symbol": "BP",
+      "watchlist": "Exact US test"
+    },
+    {
+      "result": [
+        "BP",
+        "BFAM"
+      ],
+      "symbol": "BFAM",
+      "watchlist": "Exact US test"
+    },
+    {
+      "result": [
+        "BATS"
+      ],
+      "symbol": "BATS",
+      "watchlist": "Exact London test"
+    }
+  ],
+  "target": "dev",
+  "verified_at": "2026-10-17T19:38:43.646292+00:00",
+  "browser_status": "blocked pending owner confirmation of Dev terms agreement",
+  "current_dev_status": "previous pointers restored pending browser verification",
+  "source_commit": "870eacf1f11954b2fd47a9935497094739d03c5c",
+  "frontend_source_commit": "9b78c515678e29a25c5d3823d50cf0f619878f65",
+  "frontend_bundle": "main.56f479ab.js"
+}
