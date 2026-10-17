@@ -1,6 +1,6 @@
 # TW-BUG-0035: Manual watchlist validation accepts a different ticker
 
-- Status: in-progress
+- Status: fixed candidate; Dev activation and live verification pending
 - Priority: P1
 - Confidence: reproduced with read-only production API calls and current provider search results
 - Owner: Codex chat 01a13f7d-e3a3-7460-aa4e-4a9dae97833f, October 16, 2026
@@ -43,3 +43,42 @@ valid and BATS/US cannot validate as CIGI; BP/US still works; duplicate feedback
 distinct from validity. No customer-list cleanup without separately reviewed scope.
 No browser reproduction or original customer CSV upload was performed in this audit.
 No code changes, restarts, deployments, campaigns, or email replies.
+
+
+## October 17 permanent repair candidate
+
+Owner authorization supersedes the October 16 investigation-only boundary. Codex
+implemented this candidate on `codex/exact-ticker-20261017`, worktree
+`/home/tradewave-worktrees/exact-ticker-20261017`. Shared claim accepted on main
+at `d6a4fccd`; diagnosis preserved in `11dc4ef9`. Parent session owns integration,
+Dev activation and browser/live verification. Last update: 2026-10-17T19:33:33.133635+00:00.
+
+- Provider-backed names require normalized exact Code AND Exchange; no substring,
+  fuzzy-name or cross-exchange substitution. Existing local CSV lookup remains exact.
+- Shared name helper uses normalized `security_name_exact_v2_{exchange}_{symbol}`
+  keys. Old persistent fuzzy-match entries remain untouched and are never read.
+- Direct manual insertion checks the stored watchlist's resource/market and exact
+  identity before duplicate checks or writes. Missing watchlists return
+  `invalid_watchlist`; nonmatches/provider failure return `invalid_symbol`.
+  Valid duplicates and limits retain their existing response contracts.
+- The React caller shows a server error for any non-array result and preserves
+  current list state. This covers stale clients or failures between preview/add.
+- Resources 0..4 remain US, 5/6 INDX, 8/9 FOREX through existing exchange_mapping.
+  No new universe restrictions or customer-list edits; no bulk-entry enhancement.
+
+Validation: `/home/flask/venv/bin/python -m pytest -q
+ tests/test_manual_ticker_identity.py tests/test_watchlist_csv_validation.py`:
+36 passed. New tests reproduce BFA/BFAM and BATS/CIGI, preserve BATS/LSE and BP/US,
+exercise whitespace/case, provider outage, exact CSV fallback, legacy cache bypass,
+direct insertion rejection/no writes, valid duplicate, missing list and merged groups.
+Self-verification only; provider rows are mocked. Parent must prove live provider
+behavior and rendered watchlist flow after integration.
+
+Affected files: resolver, NameFromTicker/write route, WatchlistSettings error guard,
+focused tests, this record/index and ecosystem. No dependencies, migrations or config.
+Frontend requires `npm run build` with source provenance; appserver restart required.
+Dev/staging/production: not deployed by this task. Rollback is previous source and
+frontend pointers/restart; legacy cache keys remain intact, so no data migration.
+Exact candidate SHA: `git log -1 -- docs/bugs/TW-BUG-0035.md` (commit cannot name itself).
+Next: parent reviews pushed candidate, activates Dev, exercises GET exact cases and
+synthetic watchlist insertion/browser feedback, records live proof and advances main.

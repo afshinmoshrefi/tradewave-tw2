@@ -525,6 +525,11 @@ const WatchlistSettings = (props) => {
                                 SetMsgColor('red')
                                 return
                             }
+                            if (!Array.isArray(data['watchlist_items'])) {
+                                SetMessage(data['message'] || 'Error adding symbol')
+                                SetMsgColor('red')
+                                return
+                            }
                             SetWatchlistItems(data['watchlist_items'])
                             SetMessage(`${sym} (${g['name']}) added`)
                             SetMsgColor('green')
