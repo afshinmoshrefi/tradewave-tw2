@@ -1,10 +1,11 @@
 # TW-BUG-0035: Manual watchlist validation accepts a different ticker
 
-- Status: open
+- Status: in-progress
 - Priority: P1
 - Confidence: reproduced with read-only production API calls and current provider search results
 - Owner: Codex chat 01a13f7d-e3a3-7460-aa4e-4a9dae97833f, October 16, 2026
-- Authorization: investigate latest CSV follow-up only; no application fixes or deployment.
+- Authorization: October 17 owner request to permanently repair manual ticker identity validation on Dev; no staging/production or customer-list cleanup.
+- Implementation claim: Codex exact_ticker_fix session 01a13f7d-e3a3-7460-aa4e-4a9dae97833f, 2026-10-17 UTC; branch codex/exact-ticker-20261017; worktree /home/tradewave-worktrees/exact-ticker-20261017. Next: exact identity resolver, versioned cache, focused regressions; parent session owns Dev activation.
 - Related: TW-BUG-0033; prior exact production release evidence is in records commit 75451fe16b3ebfea10fc6665bec13a0aa048c989.
 
 ## Evidence and cause
