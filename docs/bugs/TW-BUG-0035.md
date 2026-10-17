@@ -82,3 +82,13 @@ frontend pointers/restart; legacy cache keys remain intact, so no data migration
 Exact candidate SHA: `git log -1 -- docs/bugs/TW-BUG-0035.md` (commit cannot name itself).
 Next: parent reviews pushed candidate, activates Dev, exercises GET exact cases and
 synthetic watchlist insertion/browser feedback, records live proof and advances main.
+
+
+Candidate frontend validation: `CI=true npm test -- --watchAll=false --runInBand
+--runTestsByPath src/components/WatchlistSettings.test.js`: 2 rendered component
+tests passed. Both invalid_symbol and invalid_watchlist after a stale successful
+name preview show rejection, preserve the existing AAPL list and typed input,
+leave default-list state unchanged, and do not show success. `npm run build` passed
+with the repository's existing warnings. Artifact source stamp is
+`9b78c515678e29a25c5d3823d50cf0f619878f65`; this successor adds tests/docs only,
+so the application tree is unchanged and no second build is required.
