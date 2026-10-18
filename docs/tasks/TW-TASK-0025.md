@@ -1,6 +1,6 @@
 # TW-TASK-0025: Buy & Hold Across Time
 
-- Status: verified on Dev
+- Status: in-progress (historical view verified; approved zoom follow-up)
 - Confidence: implemented and reproduced in live Dev browser and API
 - Priority: P2, authorized investor historical comparison view
 - Executor: Codex chat 01a15066-8f6d-7cd0-85bb-60db37f39af4
@@ -64,3 +64,18 @@ no web-runtime or schema changes. Final documentation commit is discoverable usi
 git log -1 -- docs/tasks/TW-TASK-0025.md; its application tree equals built source.
 Next: Afshin can try Analysis > Buy & Hold Across Time on Dev. Separately investigate
 TW-BUG-0036 before promising fully reconciled dividend-reinvestment total return.
+
+## Approved zoom follow-up
+Claim 2026-10-18T19:53:18.735685+00:00 by Codex chat01a15066-8f6d-7cd0-85bb-60db37f39af4.
+Afshin approved overview range handles, dragging selected window to pan, mouse drag zoom
+on the main chart, visible-data Y rescale and Reset view. Dev only. Companies, horizons,
+engine numbers, date conventions and dividend disclosure must not change.
+Branch codex/buy-hold-zoom-20261018; worktree /home/tradewave-worktrees/buy-hold-zoom-20261018.
+Plan: add presentation-only range helpers and accessible pointer/touch overview; wire
+main chart mouse selection and visible-data scaling; focused interaction/value-preservation
+tests; one affected build; short locked frontend activation, desktop/mobile live verification,
+main/app-tree parity and receipt. No backend/API/schema change. Rollback previous frontend
+build26ae2d68f7fef091f0fb131b4d26b9ade7ebf25a; preserve active backend.
+Acceptance: zoom1995-2008 approximately; resize both handles; pan width unchanged;
+visible peaks re-fit vertically; reset full history; tooltip values remain raw engine values;
+selected companies/hold periods retained; touch handles usable without scrolling page.
