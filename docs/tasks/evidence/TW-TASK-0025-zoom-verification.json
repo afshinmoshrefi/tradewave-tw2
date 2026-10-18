@@ -1,0 +1,29 @@
+{
+  "verified_at": "2026-10-18T20:05:17.072602+00:00",
+  "frontend_source": "bde909db7f6996e9ba043fcbb4c47524246bd2a8",
+  "react_tests": 7,
+  "build": "passed",
+  "desktop_css_viewport": [
+    1152,
+    800
+  ],
+  "mobile_css_viewport": [
+    312,
+    675
+  ],
+  "browser_checks": [
+    "main drag zoom",
+    "left handle resize",
+    "right handle resize",
+    "pan preserves width",
+    "visible Y fit",
+    "reset full history",
+    "tooltip engine values",
+    "metric selection retained",
+    "mobile percentage axis formatting"
+  ],
+  "backend_changed": false,
+  "physical_touch_tested": false,
+  "production_changed": false,
+  "staging_changed": false
+}

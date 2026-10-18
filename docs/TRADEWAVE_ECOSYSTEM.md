@@ -66,6 +66,9 @@ calendar-year horizons from 1,2,4,6,10,15,20. It checks current market entitleme
 rejects date-locked tiers, and bounds earliest purchase by the existing history cap.
 The React Analysis menu opens a dedicated responsive historical comparison view;
 seasonal Years and existing Buy & Hold behavior remain separate.
+The historical view supports mouse-drag zoom and an overview with resize/pan handles,
+keyboard arrows and Reset view. Visible points determine the displayed Y bounds.
+Range changes filter presentation only: no API refetch or recomputation of engine values.
 
 `holding_returns.long_return_pct` owns the unchanged rounded close-to-close formula
 previously inline in ChartData4; ChartData4 and `buy_hold_across_time.completed_holds`

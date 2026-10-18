@@ -1,6 +1,6 @@
 # TW-TASK-0025: Buy & Hold Across Time
 
-- Status: in-progress (historical view verified; approved zoom follow-up)
+- Status: verified in Dev (historical view and zoom follow-up)
 - Confidence: implemented and reproduced in live Dev browser and API
 - Priority: P2, authorized investor historical comparison view
 - Executor: Codex chat 01a15066-8f6d-7cd0-85bb-60db37f39af4
@@ -79,3 +79,22 @@ build26ae2d68f7fef091f0fb131b4d26b9ade7ebf25a; preserve active backend.
 Acceptance: zoom1995-2008 approximately; resize both handles; pan width unchanged;
 visible peaks re-fit vertically; reset full history; tooltip values remain raw engine values;
 selected companies/hold periods retained; touch handles usable without scrolling page.
+
+## Zoom follow-up Dev acceptance
+Verified frontend source bde909db7f6996e9ba043fcbb4c47524246bd2a8 on 2026-10-18. Seven focused React tests and optimized
+build pass. Desktop CSS viewport1152x800: main-chart drag selected1995-05-17 to2008-01-23;
+Y maximum changed from$25,067.51 to$7,407.81. Both overview handles resized independently,
+and window pan preserved width. Reset restored1987-01-02 to2020-10-16 for MSFT6years.
+Tooltip retained engine value$1,451.80 and gain45.18% for2003-11-18, exit2009-11-18.
+Narrow CSS viewport312x675: pointer resize/pan and percentage toggle passed; controls
+remain touch-sized with touch-action:none. This is viewport emulation, not physical touch
+hardware verification. Final percentage bounds render to two decimals (640.78%, -88.35%).
+Browser check found long decimal percentage ticks in first candidate; rolled frontend back
+and released lock during correction/rebuild. No backend, API, ingestion or financial
+calculation changes; dividend-completeness disclosure retained.
+Receipts: [zoom verification](evidence/TW-TASK-0025-zoom-verification.json),
+[desktop](evidence/TW-TASK-0025-zoom-desktop.jpg), [mobile](evidence/TW-TASK-0025-zoom-mobile.jpg).
+Frontend rollback: /var/lib/tradewave/release-state/bhat-zoom-dev-20261018/rollback.sh.
+Backend stays /home/tradewave-worktrees/buy-hold-across-time-20261018.
+Final documentation commit has identical application tree to built source.
+Next: Afshin can use the overview or drag the main chart on Dev. TW-BUG-0036 remains separate.
