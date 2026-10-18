@@ -35,11 +35,11 @@ const options=(metric,color,chart)=>({
     title:items=>items[0]?.raw?.source?.purchase_date||'',
     label:context=>{const p=context.raw.source;return [
       context.dataset.label,'Value of $1,000: '+money(p.ending_value),'Total gain: '+percent(p.return_pct),
-      'Entry: '+p.entry_date+'; anniversary: '+p.anniversary_date+'; exit: '+p.exit_date]}
+      'Entry: '+p.entry_date,'Anniversary: '+p.anniversary_date,'Exit: '+p.exit_date]}
   }}},
   scales:{
     x:{type:'linear',min:Math.min(...chart.datasets.map(d=>d.data[0].x)),max:Math.max(...chart.datasets.map(d=>d.data[d.data.length-1].x)),title:{display:true,text:'Purchase date',color},ticks:{color,maxTicksLimit:8,maxRotation:0,callback:value=>new Date(value).toISOString().slice(0,4)}},
-    y:{title:{display:true,text:metric==='return_pct'?'Total gain (%)':'Value of $1,000',color},ticks:{color,callback:v=>metric==='return_pct'?v+'%':money(v)}}
+    y:{min:metric==='return_pct'?Math.min(0,...chart.datasets.map(d=>d.data.reduce((min,p)=>Math.min(min,p.y),0))):0,title:{display:true,text:metric==='return_pct'?'Total gain (%)':'Value of $1,000',color},ticks:{color,callback:v=>metric==='return_pct'?v+'%':money(v)}}
   }
 })
 export const BuyHoldAcrossTimeDialog=({onClose,UITheme,resourceID,initialSymbol,token})=>{
