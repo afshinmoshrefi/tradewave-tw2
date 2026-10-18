@@ -44,6 +44,7 @@ import {
   lineChartYearAfterPatternLoad,
   transitionViewerCycleState,
 } from './viewerCycleState'
+import { BuyHoldAcrossTimeDialog } from './BuyHoldAcrossTimeDialog'
 import {
   AnalysisReportDialog,
   AnalysisReportNoticeDialog,
@@ -128,6 +129,7 @@ const SeasonalBarChart = (props) => {
   const cycleViewStatesRef = useRef({})
   const protectedReverseReportRef = useRef(null)
   const [showSymbolComparison, setShowSymbolComparison] = useState(false)
+  const [showBuyHoldAcrossTime, setShowBuyHoldAcrossTime] = useState(false)
   const [reportNotice, setReportNotice] = useState(null)
   const [rangeComparisonState, setRangeComparisonState] = useState(null)
   const [rangeComparisonNoticeHidden, setRangeComparisonNoticeHidden] = useState(false)
@@ -3535,7 +3537,9 @@ const SeasonalBarChart = (props) => {
                 value="Analysis"
               widthOverride={!rdd.isMobile ? 'clamp(76px, 4.8vw, 86px)' : undefined}
               sbChanged={(event) => {
-                if (event.target.value === 'Compare Date Ranges') {
+                if (event.target.value === 'Buy & Hold Across Time') {
+                  setShowBuyHoldAcrossTime(true)
+                } else if (event.target.value === 'Compare Date Ranges') {
                   const initialNotice = comparisonReportNotice({
                     symbol: props.symbol,
                     primaryReadyKey: primaryReadyKeyRef.current,
@@ -3644,6 +3648,14 @@ const SeasonalBarChart = (props) => {
         securityTypeList2={props.securityTypeList2}
         resourceObj={props.resourceObj}
       />
+
+      {showBuyHoldAcrossTime && <BuyHoldAcrossTimeDialog
+        onClose={() => setShowBuyHoldAcrossTime(false)}
+        UITheme={props.UITheme}
+        resourceID={marketId}
+        initialSymbol={props.symbol}
+        token={token}
+      />}
 
       <AnalysisReportNoticeDialog
         notice={reportNotice}

@@ -556,6 +556,7 @@ export const analysisActionsMenu = [
   { id: 'analysis-compare-symbols', value: 'Compare Symbols', label: 'Compare Symbols…' },
   { id: 'analysis-compare-date-ranges', value: 'Compare Date Ranges', label: 'Compare Date Ranges...' },
   { id: 'analysis-buy-hold', value: 'Buy & Hold', label: 'Buy & Hold' },
+  { id: 'analysis-buy-hold-across-time', value: 'Buy & Hold Across Time', label: 'Buy & Hold Across Time' },
   { id: 'analysis-exclude-range', value: 'Reverse Date Range', label: 'Exclude Current Range' },
 ]
 
