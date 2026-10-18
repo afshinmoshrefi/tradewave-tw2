@@ -28,7 +28,7 @@ export const buyHoldChartData=(response,metric)=>{
     borderWidth:2,pointRadius:0,pointHoverRadius:5,tension:0,spanGaps:false
   }))}
 }
-const options=(metric,color)=>({
+const options=(metric,color,chart)=>({
   responsive:true,maintainAspectRatio:false,animation:false,
   interaction:{mode:'nearest',intersect:false},
   plugins:{legend:{position:'bottom',labels:{boxWidth:15,color}},tooltip:{callbacks:{
@@ -38,7 +38,7 @@ const options=(metric,color)=>({
       'Entry: '+p.entry_date+'; anniversary: '+p.anniversary_date+'; exit: '+p.exit_date]}
   }}},
   scales:{
-    x:{type:'linear',title:{display:true,text:'Purchase date',color},ticks:{color,maxTicksLimit:8,maxRotation:0,callback:value=>new Date(value).toISOString().slice(0,7)}},
+    x:{type:'linear',min:Math.min(...chart.datasets.map(d=>d.data[0].x)),max:Math.max(...chart.datasets.map(d=>d.data[d.data.length-1].x)),title:{display:true,text:'Purchase date',color},ticks:{color,maxTicksLimit:8,maxRotation:0,callback:value=>new Date(value).toISOString().slice(0,4)}},
     y:{title:{display:true,text:metric==='return_pct'?'Total gain (%)':'Value of $1,000',color},ticks:{color,callback:v=>metric==='return_pct'?v+'%':money(v)}}
   }
 })

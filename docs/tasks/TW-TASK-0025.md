@@ -35,3 +35,11 @@ MSFT/AAPL/WMT x 4/6/10-year series calculated in 0.755s; all last exits <= Octob
 2026, with independent holding-period cutoffs. UI implementation is on sibling task
 branch, integration pending. Confirmed EODHD dividend adjustment convention, but stored
 history consistency needs separate event audit (TW-BUG-0036); label this explicitly.
+
+## Live candidate verification
+Initial candidate eff2d97e: authenticated API nine real series passed in1.365s;
+Explorer date-lock403 and invalid-token401 verified. Desktop and390px mobile charts,
+three companies, dollar/percentage switch and per-series cutoffs rendered correctly.
+Browser inspection found automatic linear ticks extending to2033 beyond last2020
+purchase. Rolled back candidate pointers, released lock, and bounded presentation axis
+to actual first/last plotted purchase dates; no engine/data change. Rebuild pending.
