@@ -2,7 +2,7 @@ import React from 'react'
 import {fireEvent, render, screen, waitFor} from '@testing-library/react'
 import {BuyHoldAcrossTimeDialog,buyHoldChartData} from './BuyHoldAcrossTimeDialog'
 import {twFetch} from './twFetch'
-jest.mock('react-chartjs-2',()=>({Line:({data,options})=><div data-testid="line-chart" data-axis={options.scales.x.type} data-tick={options.scales.x.ticks.callback(Date.parse('2020-02-28T00:00:00Z'))} data-color={options.scales.x.ticks.color}>{data.datasets.map(d=>d.label).join('; ')}</div>}))
+jest.mock('react-chartjs-2',()=>({Line:({data,options})=><div data-testid="line-chart" data-min={options.scales.x.min} data-max={options.scales.x.max} data-axis={options.scales.x.type} data-tick={options.scales.x.ticks.callback(Date.parse('2020-02-28T00:00:00Z'))} data-color={options.scales.x.ticks.color}>{data.datasets.map(d=>d.label).join('; ')}</div>}))
 jest.mock('./twFetch',()=>({twFetch:jest.fn()}))
 const point={purchase_date:'2020-02-28',entry_date:'2020-02-28',anniversary_date:'2024-02-28',exit_date:'2024-02-28',return_pct:41.25,ending_value:1412.5}
 const secondPoint={...point,purchase_date:'2020-03-02',entry_date:'2020-03-02',anniversary_date:'2024-03-02',exit_date:'2024-03-04',return_pct:43.1,ending_value:1431}
@@ -25,9 +25,11 @@ test('loads selected company and holding periods, then shows coverage and empty 
   await waitFor(()=>expect(screen.getByText(/data through 2026-10-17/)).toBeInTheDocument())
   expect(screen.getByText(/WMT · 6 years/)).toBeInTheDocument()
   expect(screen.getByText(/First completed purchase shown 2020-02-28/)).toBeInTheDocument()
+  expect(screen.getByTestId('line-chart')).toHaveAttribute('data-min', String(Date.parse('2020-02-28T00:00:00Z')))
+  expect(screen.getByTestId('line-chart')).toHaveAttribute('data-max', String(Date.parse('2020-03-02T00:00:00Z')))
   expect(screen.getByText(/purchases 2020-02-28 to 2020-03-02/)).toBeInTheDocument()
   expect(screen.getByTestId('line-chart')).toHaveAttribute('data-axis','linear')
-  expect(screen.getByTestId('line-chart')).toHaveAttribute('data-tick','2020-02')
+  expect(screen.getByTestId('line-chart')).toHaveAttribute('data-tick','2020')
   expect(screen.getByTestId('line-chart').getAttribute('data-color')).toBeTruthy()
   expect(screen.getByText(/Each trading-day purchase date is a separate completed hold/)).toBeInTheDocument()
   fireEvent.change(screen.getByLabelText('Company tickers'),{target:{value:'MSFT,AAPL,WMT'}})
