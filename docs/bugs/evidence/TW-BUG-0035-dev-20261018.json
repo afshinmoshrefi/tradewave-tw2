@@ -1,0 +1,218 @@
+{
+  "cases": [
+    {
+      "all_groups": [
+        {
+          "match_count": 3,
+          "resource_id": "4",
+          "resource_name": "WILSHIRE 5000"
+        },
+        {
+          "match_count": 1,
+          "resource_id": "12",
+          "resource_name": "LONDON EXCHANGE"
+        }
+      ],
+      "case": "mixed_adr_invalid",
+      "detected_group": {
+        "resource_id": "4",
+        "resource_name": "WILSHIRE 5000"
+      },
+      "input_symbols": [
+        "AAME",
+        "AAN",
+        "AAOI",
+        "BP",
+        "ZZZINVALIDTEST999"
+      ],
+      "invalid_symbols": [
+        "ZZZINVALIDTEST999"
+      ],
+      "status": 200,
+      "valid_symbols": [
+        "AAME",
+        "AAN",
+        "AAOI",
+        "BP"
+      ]
+    },
+    {
+      "all_groups": [
+        {
+          "match_count": 1,
+          "resource_id": "12",
+          "resource_name": "LONDON EXCHANGE"
+        }
+      ],
+      "case": "bp_only_unchanged",
+      "detected_group": {
+        "resource_id": "12",
+        "resource_name": "LONDON EXCHANGE"
+      },
+      "input_symbols": [
+        "BP"
+      ],
+      "invalid_symbols": [],
+      "status": 200,
+      "valid_symbols": [
+        "BP"
+      ]
+    },
+    {
+      "all_groups": [
+        {
+          "match_count": 2,
+          "resource_id": "0",
+          "resource_name": "DOW 30 STOCKS"
+        },
+        {
+          "match_count": 2,
+          "resource_id": "1",
+          "resource_name": "NASDAQ 100 STOCKS"
+        },
+        {
+          "match_count": 2,
+          "resource_id": "2",
+          "resource_name": "S&P 500 STOCKS"
+        },
+        {
+          "match_count": 2,
+          "resource_id": "3",
+          "resource_name": "RUSSELL 1000 STOCKS"
+        },
+        {
+          "match_count": 2,
+          "resource_id": "4",
+          "resource_name": "WILSHIRE 5000"
+        },
+        {
+          "match_count": 2,
+          "resource_id": "13",
+          "resource_name": "TORONTO STOCKS"
+        }
+      ],
+      "case": "existing_symbols_unchanged",
+      "detected_group": {
+        "resource_id": "0",
+        "resource_name": "DOW 30 STOCKS"
+      },
+      "input_symbols": [
+        "AAPL",
+        "MSFT"
+      ],
+      "invalid_symbols": [],
+      "status": 200,
+      "valid_symbols": [
+        "AAPL",
+        "MSFT"
+      ]
+    }
+  ],
+  "customer_watchlists_changed": false,
+  "expected_commit": "fa9ffc510929ac9b829479118a6836daef258e38",
+  "mutation_endpoints_called": [
+    "add_user_watchlist_name",
+    "add_user_watchlist_item"
+  ],
+  "name_cases": [
+    {
+      "name": "",
+      "passed": true,
+      "resource": "4",
+      "symbol": "BFA"
+    },
+    {
+      "name": "",
+      "passed": true,
+      "resource": "4",
+      "symbol": "BATS"
+    },
+    {
+      "name": "British American Tobacco PLC",
+      "passed": true,
+      "resource": "12",
+      "symbol": "BATS"
+    },
+    {
+      "name": "Bright Horizons Family Solutions Inc",
+      "passed": true,
+      "resource": "4",
+      "symbol": "BFAM"
+    },
+    {
+      "name": "BP PLC ADR",
+      "passed": true,
+      "resource": "4",
+      "symbol": "BP"
+    }
+  ],
+  "passed": true,
+  "synthetic_login": {
+    "legacy_level": "6",
+    "status": 200,
+    "tier": "strategist",
+    "token_recorded": false
+  },
+  "synthetic_watchlists_cleaned": true,
+  "synthetic_write_cases": [
+    {
+      "result": "invalid_symbol",
+      "symbol": "BFA",
+      "watchlist": "Exact US test"
+    },
+    {
+      "result": "invalid_symbol",
+      "symbol": "BATS",
+      "watchlist": "Exact US test"
+    },
+    {
+      "result": [
+        "BP"
+      ],
+      "symbol": "BP",
+      "watchlist": "Exact US test"
+    },
+    {
+      "result": "duplicate",
+      "symbol": "BP",
+      "watchlist": "Exact US test"
+    },
+    {
+      "result": [
+        "BP",
+        "BFAM"
+      ],
+      "symbol": "BFAM",
+      "watchlist": "Exact US test"
+    },
+    {
+      "result": [
+        "BATS"
+      ],
+      "symbol": "BATS",
+      "watchlist": "Exact London test"
+    }
+  ],
+  "target": "dev",
+  "verified_at": "2026-10-18T21:37:56.704702+00:00",
+  "browser": {
+    "browser": "Chrome",
+    "origin": "https://tw2-dev.trxstat.com",
+    "bundle": "main.cd1c1c5f.js",
+    "cases": [
+      "BFA rejected US; count remains0",
+      "BATS rejected US; count remains0",
+      "BFAM adds Bright Horizons Family Solutions Inc",
+      "BP adds BP PLC ADR",
+      "BP duplicate message",
+      "BATS adds British American Tobacco PLC in London"
+    ],
+    "qa_lists_removed": true,
+    "original_watchlist_preserved": true
+  },
+  "tests": {
+    "python": 56,
+    "react_rendered": 9
+  },
+  "main_runtime_parity": true
+}

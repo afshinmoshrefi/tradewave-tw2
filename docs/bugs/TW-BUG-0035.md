@@ -1,6 +1,6 @@
 # TW-BUG-0035: Manual watchlist validation accepts a different ticker
 
-- Status: fixed candidate; live Dev API verified, browser confirmation pending; previous Dev restored
+- Status: verified on Dev
 - Priority: P1
 - Confidence: reproduced with read-only production API calls and current provider search results
 - Owner: Codex chat 01a13f7d-e3a3-7460-aa4e-4a9dae97833f, October 16, 2026
@@ -138,3 +138,29 @@ unchanged from prior claim. Parent owns the brief integration/activation window;
 this worker does not activate or advance main. Re-run focused ticker/CSV and
 buy-and-hold backend checks, rendered rejection/affected chart checks, rebuild
 React and stamp exact integration SHA before handing candidate to parent.
+
+## October 18 completion
+
+Integrated with current main fa3d7934, preserving Buy & Hold Across Time. Exact
+verified runtime/build commit: `fa9ffc510929ac9b829479118a6836daef258e38`.
+Worktree `/home/tradewave-worktrees/exact-ticker-integrated-20261018`, branch
+`codex/exact-ticker-integrated-20261018`. 56 Python and 9 rendered React tests pass;
+production build passes (existing lint warnings). Bundle `main.cd1c1c5f.js`.
+
+Live API contract and actual signed-in Chrome watchlist flow passed all original
+examples and valid/duplicate neighboring cases. No terms acceptance was performed
+by the agent in this session; the user-provided Chrome session was already usable.
+The two task-created QA lists were removed; original watchlist preserved. Evidence:
+[evidence](evidence/TW-BUG-0035-dev-20261018.json).
+
+Main advanced non-forced after verification. Active source pointer, gunicorn cwd,
+frontend source stamp and origin/main matched the exact candidate; lock released.
+Dev is verified and staging-ready (full staging qualification has not run). Staging
+and production unchanged. Rollback pointers captured in Dev release-state
+`exact-ticker-20261018/before.json`: prior BuyHold backend and frontend.
+
+Resume notes: stale Oct17 activation preflight correctly stopped when main had
+advanced, without writes. Browser briefly displayed502 during the normal appserver
+restart; after health readiness, reload and all browser checks passed. No further
+application repair was needed. Next action is full qualification only on a staging
+deployment request.

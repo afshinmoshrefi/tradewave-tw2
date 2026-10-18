@@ -62,6 +62,6 @@ Status belongs in each record and this index; update both together. Preserve res
 | [TW-BUG-0034](TW-BUG-0034.md) | P1 | verified on production | Fresh hero generation restored; nine October 14/15 images generated and verified live |
 
 
-| [TW-BUG-0035](TW-BUG-0035.md) | P1 | fixed candidate, Dev verification pending | Manual watchlist validation accepts a different ticker from provider search |
+| [TW-BUG-0035](TW-BUG-0035.md) | P1 | verified on Dev | Manual watchlist validation accepts a different ticker from provider search |
 
 | [TW-BUG-0036](TW-BUG-0036.md) | P2 | open, reproduced on Dev | IBM missing historical dividend adjustment; updater appends mixed vintages |
