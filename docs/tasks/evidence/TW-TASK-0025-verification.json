@@ -1,0 +1,30 @@
+{
+  "checked_at": "2026-10-18T19:27:12.474766+00:00",
+  "source_sha": "26ae2d68f7fef091f0fb131b4d26b9ade7ebf25a",
+  "environment": "Dev",
+  "executor": "Codex 01a15066-8f6d-7cd0-85bb-60db37f39af4",
+  "tests": {
+    "python": 29,
+    "react": 4,
+    "build": "passed"
+  },
+  "browser": {
+    "desktop": "1440x1000 Chrome, dark theme, live Analysis entry and three companies; all nine series verified in previous same-engine candidate",
+    "mobile": "390x844 responsive viewport, wrapped controls, percentage chart, touch tooltip with separate dates",
+    "source_bundle": "/app/static/js/main.817e110a.js",
+    "engine_fidelity": "Live API receipt records AAPL 2018-12-24 6-year value7364.40 and gain636.44 matching observed tooltip; final mobile tooltip AAPL2006-10-18 value8524.70 gain752.47",
+    "existing_buy_hold": "Jan1 2026 start and366 days selected after closing new view",
+    "limits": "Viewport emulation, not physical mobile hardware. Dividend vintage consistency not audited."
+  },
+  "screenshots": {
+    "TW-TASK-0025-desktop.jpg": "11f2d8538e6b5ce29763aa5e405250947f9e29c017eb5aba3e72c99ace783edf",
+    "TW-TASK-0025-mobile.jpg": "3bbdcc920371f6883f574c340cb25ae7ff10514e3fec2681399064b313f5590b"
+  },
+  "rollback": {
+    "backend": "/home/tradewave-worktrees/tw2-20261015-01",
+    "frontend": "/home/flask/web-react/releases/build-c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce",
+    "script": "/var/lib/tradewave/release-state/bhat-dev-20261018/rollback.sh"
+  },
+  "staging": "not deployed",
+  "production": "not deployed"
+}

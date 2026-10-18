@@ -1,6 +1,6 @@
 {
-  "checked_at": "2026-10-18T19:22:52.831966+00:00",
-  "elapsed_seconds": 1.414,
+  "checked_at": "2026-10-18T19:25:31.378977+00:00",
+  "elapsed_seconds": 3.872,
   "series": [
     {
       "symbol": "MSFT",
@@ -202,5 +202,13 @@
     }
   ],
   "explorer_date_lock": "HTTP403",
+  "browser_tooltip_sample": {
+    "anniversary_date": "2024-12-24",
+    "ending_value": 7364.4,
+    "entry_date": "2018-12-24",
+    "exit_date": "2024-12-24",
+    "purchase_date": "2018-12-24",
+    "return_pct": 636.44
+  },
   "invalid_token": "HTTP401"
 }

@@ -1,7 +1,7 @@
 # TW-TASK-0025: Buy & Hold Across Time
 
-- Status: in-progress
-- Confidence: current selection verified in Dev browser; implementation pending
+- Status: verified on Dev
+- Confidence: implemented and reproduced in live Dev browser and API
 - Priority: P2, authorized investor historical comparison view
 - Executor: Codex chat 01a15066-8f6d-7cd0-85bb-60db37f39af4
 - Claim/update UTC: 2026-10-18T19:07:58.402739+00:00
@@ -43,3 +43,24 @@ three companies, dollar/percentage switch and per-series cutoffs rendered correc
 Browser inspection found automatic linear ticks extending to2033 beyond last2020
 purchase. Rolled back candidate pointers, released lock, and bounded presentation axis
 to actual first/last plotted purchase dates; no engine/data change. Rebuild pending.
+
+## Final Dev acceptance
+Verified 2026-10-18T19:27:12.474766+00:00 source26ae2d68f7fef091f0fb131b4d26b9ade7ebf25a, bundle
+main.817e110a.js.29 Python tests (including unchanged ChartData4 results),4 React tests,
+optimized build, authenticated live nine-series response, Explorer403 and invalid-token401
+passed. Desktop1440x1000 and mobile390x844 (viewport emulation) passed; original Buy & Hold
+still selects Jan1 and366 days. No production/staging writes or data repairs.
+Initial visual checks caused two focused presentation corrections (axis bounds and mobile
+tooltip wrapping); prior Dev pointers were restored and lock released during rebuilding.
+Every point remains engine-owned, no forecasts or incomplete holds.
+
+Receipts: [API](evidence/TW-TASK-0025-live-api.json),
+[verification](evidence/TW-TASK-0025-verification.json),
+[desktop](evidence/TW-TASK-0025-desktop.jpg), [mobile](evidence/TW-TASK-0025-mobile.jpg).
+Backend pointer is this task worktree. Frontend is
+/home/flask/web-react/releases/build-26ae2d68f7fef091f0fb131b4d26b9ade7ebf25a.
+Rollback script retains previous backend/frontend and restarts only appserver;
+no web-runtime or schema changes. Final documentation commit is discoverable using
+git log -1 -- docs/tasks/TW-TASK-0025.md; its application tree equals built source.
+Next: Afshin can try Analysis > Buy & Hold Across Time on Dev. Separately investigate
+TW-BUG-0036 before promising fully reconciled dividend-reinvestment total return.
