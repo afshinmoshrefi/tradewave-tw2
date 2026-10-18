@@ -40,7 +40,7 @@ const options=(metric,color,domain,yBounds)=>({
   }}},
   scales:{
     x:{type:'linear',min:domain[0],max:domain[1],title:{display:true,text:'Purchase date',color},ticks:{color,maxTicksLimit:8,maxRotation:0,callback:value=>new Date(value).toISOString().slice(0,4)}},
-    y:{...(yBounds?{min:yBounds[0],max:yBounds[1]}:{}),title:{display:true,text:metric==='return_pct'?'Total gain (%)':'Value of $1,000',color},ticks:{color,callback:v=>metric==='return_pct'?v+'%':money(v)}}
+    y:{...(yBounds?{min:yBounds[0],max:yBounds[1]}:{}),title:{display:true,text:metric==='return_pct'?'Total gain (%)':'Value of $1,000',color},ticks:{color,callback:v=>metric==='return_pct'?percent(v):money(v)}}
   }
 })
 export const BuyHoldAcrossTimeDialog=({onClose,UITheme,resourceID,initialSymbol,token})=>{
