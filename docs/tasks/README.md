@@ -38,3 +38,5 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0023](TW-TASK-0023.md) | verified on dev | One-time securities menu customization tip and settings help replay |
 
 | [TW-TASK-0024](TW-TASK-0024.md) | in-progress | October 15 full TradeWave staging release qualification |
+
+| [TW-TASK-0025](TW-TASK-0025.md) | in-progress | Buy & Hold Across Time completed historical comparison view, Dev only |
