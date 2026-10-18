@@ -87,8 +87,10 @@ EODHD documents its adjusted_close as split AND dividend adjusted:
 https://eodhd.com/financial-apis/api-for-historical-data-and-volumes .
 `get_symbol_csv.adjust` and `data_updater/EOD_downloader3.adjust` store this as close
 and retain adj_factor. However, `update_client2` appends incoming rows without
-retroactively rescaling prior history. Dividend completeness across update vintages
-is unverified (TW-BUG-0036); this view discloses the limitation and does not promise an
+retroactively rescaling prior history. The delta update-server contract filters after last_date, so it cannot communicate
+historical revisions. get_symbol_csv refreshes missing/stale files in full, but a current
+last date is not proof of adjustment consistency. TW-BUG-0036 owns the reproduced Dev
+IBM defect and audit scope. This view discloses the limitation and does not promise an
 explicit cash-dividend ledger or dividend-reinvestment-account simulation. Never add
 cash dividends on top of the adjusted series without resolving double counting.
 

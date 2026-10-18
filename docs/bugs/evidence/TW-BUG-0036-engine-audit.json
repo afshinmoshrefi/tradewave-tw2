@@ -1,0 +1,160 @@
+{
+  "events": [
+    {
+      "date": "2026-02-10",
+      "declarationDate": "2026-01-28",
+      "recordDate": "2026-02-10",
+      "paymentDate": "2026-03-10",
+      "period": "Quarterly",
+      "value": 1.68,
+      "unadjustedValue": 1.68,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-05-08",
+      "declarationDate": "2026-04-22",
+      "recordDate": "2026-05-08",
+      "paymentDate": "2026-06-10",
+      "period": "Quarterly",
+      "value": 1.69,
+      "unadjustedValue": 1.69,
+      "currency": "USD"
+    },
+    {
+      "date": "2026-08-10",
+      "declarationDate": "2026-07-22",
+      "recordDate": "2026-08-10",
+      "paymentDate": "2026-09-10",
+      "period": "Quarterly",
+      "value": 1.69,
+      "unadjustedValue": 1.69,
+      "currency": "USD"
+    }
+  ],
+  "engine_module": "appserver/appserver/buy_hold_across_time.py:completed_holds and holding_returns.py:long_return_pct",
+  "note": "Diagnostic engine invocation over in-memory read-only provider frame, not published or persisted as repaired market data",
+  "results": {
+    "stored": {
+      "1": [
+        {
+          "purchase_date": "2019-10-16",
+          "entry_date": "2019-10-16",
+          "anniversary_date": "2020-10-16",
+          "exit_date": "2020-10-16",
+          "return_pct": -6.99,
+          "ending_value": 930.1
+        },
+        {
+          "purchase_date": "2020-10-16",
+          "entry_date": "2020-10-16",
+          "anniversary_date": "2021-10-16",
+          "exit_date": "2021-10-18",
+          "return_pct": 18.84,
+          "ending_value": 1188.4
+        },
+        {
+          "purchase_date": "2025-08-07",
+          "entry_date": "2025-08-07",
+          "anniversary_date": "2026-08-07",
+          "exit_date": "2026-08-07",
+          "return_pct": -2.72,
+          "ending_value": 972.8
+        },
+        {
+          "purchase_date": "2025-10-16",
+          "entry_date": "2025-10-16",
+          "anniversary_date": "2026-10-16",
+          "exit_date": "2026-10-16",
+          "return_pct": -14.31,
+          "ending_value": 856.9
+        }
+      ],
+      "6": [
+        {
+          "purchase_date": "2019-10-16",
+          "entry_date": "2019-10-16",
+          "anniversary_date": "2025-10-16",
+          "exit_date": "2025-10-16",
+          "return_pct": 164.59,
+          "ending_value": 2645.9
+        },
+        {
+          "purchase_date": "2020-10-16",
+          "entry_date": "2020-10-16",
+          "anniversary_date": "2026-10-16",
+          "exit_date": "2026-10-16",
+          "return_pct": 143.75,
+          "ending_value": 2437.5
+        }
+      ],
+      "event_return_via_engine_helper": {
+        "entry": "2026-08-07",
+        "exit": "2026-08-10",
+        "entry_close": 237.28,
+        "exit_close": 236.31,
+        "return_pct": -0.41
+      }
+    },
+    "same_vintage_provider": {
+      "1": [
+        {
+          "purchase_date": "2019-10-16",
+          "entry_date": "2019-10-16",
+          "anniversary_date": "2020-10-16",
+          "exit_date": "2020-10-16",
+          "return_pct": -6.99,
+          "ending_value": 930.1
+        },
+        {
+          "purchase_date": "2020-10-16",
+          "entry_date": "2020-10-16",
+          "anniversary_date": "2021-10-16",
+          "exit_date": "2021-10-18",
+          "return_pct": 18.84,
+          "ending_value": 1188.4
+        },
+        {
+          "purchase_date": "2025-08-07",
+          "entry_date": "2025-08-07",
+          "anniversary_date": "2026-08-07",
+          "exit_date": "2026-08-07",
+          "return_pct": -2.72,
+          "ending_value": 972.8
+        },
+        {
+          "purchase_date": "2025-10-16",
+          "entry_date": "2025-10-16",
+          "anniversary_date": "2026-10-16",
+          "exit_date": "2026-10-16",
+          "return_pct": -13.7,
+          "ending_value": 863.0
+        }
+      ],
+      "6": [
+        {
+          "purchase_date": "2019-10-16",
+          "entry_date": "2019-10-16",
+          "anniversary_date": "2025-10-16",
+          "exit_date": "2025-10-16",
+          "return_pct": 164.83,
+          "ending_value": 2648.3
+        },
+        {
+          "purchase_date": "2020-10-16",
+          "entry_date": "2020-10-16",
+          "anniversary_date": "2026-10-16",
+          "exit_date": "2026-10-16",
+          "return_pct": 145.72,
+          "ending_value": 2457.2
+        }
+      ],
+      "event_return_via_engine_helper": {
+        "entry": "2026-08-07",
+        "exit": "2026-08-10",
+        "entry_close": 235.59,
+        "exit_close": 236.31,
+        "return_pct": 0.31
+      }
+    }
+  }
+}

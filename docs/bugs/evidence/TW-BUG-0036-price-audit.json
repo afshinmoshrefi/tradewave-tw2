@@ -1,0 +1,327 @@
+{
+  "checked_at": "2026-10-18T20:13:37.386677+00:00",
+  "requests": [
+    {
+      "symbol": "MSFT",
+      "endpoint": "eod",
+      "from": "2019-01-01",
+      "to": "2026-10-16",
+      "status": 200
+    },
+    {
+      "symbol": "AAPL",
+      "endpoint": "eod",
+      "from": "2019-01-01",
+      "to": "2026-10-16",
+      "status": 200
+    },
+    {
+      "symbol": "IBM",
+      "endpoint": "eod",
+      "from": "2019-01-01",
+      "to": "2026-10-16",
+      "status": 200
+    }
+  ],
+  "samples": {
+    "MSFT": {
+      "local_sha256": "cfbf22231565ba2849b517975715404465e470df5f9dbe0a2b0727034247df8c",
+      "local_rows": 10024,
+      "provider_rows": 1959,
+      "compared_rows": 1959,
+      "mismatch_count_tolerance_0_00015": 0,
+      "first_mismatches": [],
+      "last_mismatches": [],
+      "selected_rows": [
+        {
+          "date": "2020-08-28",
+          "stored_close": 217.6936,
+          "provider_adjusted_close": 217.6936,
+          "provider_raw_close": 228.91
+        },
+        {
+          "date": "2020-08-31",
+          "stored_close": 214.4792,
+          "provider_adjusted_close": 214.4792,
+          "provider_raw_close": 225.53
+        },
+        {
+          "date": "2025-08-14",
+          "stored_close": 517.3658,
+          "provider_adjusted_close": 517.3658,
+          "provider_raw_close": 522.48
+        },
+        {
+          "date": "2026-02-18",
+          "stored_close": 397.0808,
+          "provider_adjusted_close": 397.0808,
+          "provider_raw_close": 399.6
+        },
+        {
+          "date": "2026-02-19",
+          "stored_close": 396.8518,
+          "provider_adjusted_close": 396.8518,
+          "provider_raw_close": 398.46
+        },
+        {
+          "date": "2026-05-20",
+          "stored_close": 419.3606,
+          "provider_adjusted_close": 419.3606,
+          "provider_raw_close": 421.06
+        },
+        {
+          "date": "2026-05-21",
+          "stored_close": 418.3025,
+          "provider_adjusted_close": 418.3025,
+          "provider_raw_close": 419.09
+        },
+        {
+          "date": "2026-08-19",
+          "stored_close": 483.4,
+          "provider_adjusted_close": 483.4,
+          "provider_raw_close": 484.31
+        },
+        {
+          "date": "2026-08-20",
+          "stored_close": 481.15,
+          "provider_adjusted_close": 481.15,
+          "provider_raw_close": 481.15
+        },
+        {
+          "date": "2026-10-16",
+          "stored_close": 529.05,
+          "provider_adjusted_close": 529.05,
+          "provider_raw_close": 529.05
+        }
+      ]
+    },
+    "AAPL": {
+      "local_sha256": "25098933bb71b1b8860c438190b2a05cd65caf8b82a6da6e4cf4e5844412715a",
+      "local_rows": 11541,
+      "provider_rows": 1959,
+      "compared_rows": 1959,
+      "mismatch_count_tolerance_0_00015": 0,
+      "first_mismatches": [],
+      "last_mismatches": [],
+      "selected_rows": [
+        {
+          "date": "2020-08-28",
+          "stored_close": 120.9557,
+          "provider_adjusted_close": 120.9557,
+          "provider_raw_close": 499.23
+        },
+        {
+          "date": "2020-08-31",
+          "stored_close": 125.0575,
+          "provider_adjusted_close": 125.0575,
+          "provider_raw_close": 129.04
+        },
+        {
+          "date": "2025-08-14",
+          "stored_close": 231.9233,
+          "provider_adjusted_close": 231.9233,
+          "provider_raw_close": 232.78
+        },
+        {
+          "date": "2026-02-18",
+          "stored_close": 263.8791,
+          "provider_adjusted_close": 263.8791,
+          "provider_raw_close": 264.35
+        },
+        {
+          "date": "2026-02-19",
+          "stored_close": 260.1158,
+          "provider_adjusted_close": 260.1158,
+          "provider_raw_close": 260.58
+        },
+        {
+          "date": "2026-05-20",
+          "stored_close": 301.9895,
+          "provider_adjusted_close": 301.9895,
+          "provider_raw_close": 302.25
+        },
+        {
+          "date": "2026-05-21",
+          "stored_close": 304.7272,
+          "provider_adjusted_close": 304.7272,
+          "provider_raw_close": 304.99
+        },
+        {
+          "date": "2026-08-19",
+          "stored_close": 316.83,
+          "provider_adjusted_close": 316.83,
+          "provider_raw_close": 316.83
+        },
+        {
+          "date": "2026-08-20",
+          "stored_close": 311.3,
+          "provider_adjusted_close": 311.3,
+          "provider_raw_close": 311.3
+        },
+        {
+          "date": "2026-10-16",
+          "stored_close": 343.46,
+          "provider_adjusted_close": 343.46,
+          "provider_raw_close": 343.46
+        }
+      ]
+    },
+    "IBM": {
+      "local_sha256": "5553d0d7466ce60d0d37b826e8667a19d4a7bba8eb5b87605ec816cf871b9a85",
+      "local_rows": 16055,
+      "provider_rows": 1959,
+      "compared_rows": 1959,
+      "mismatch_count_tolerance_0_00015": 1910,
+      "first_mismatches": [
+        {
+          "date": "2019-01-02",
+          "stored_close": 80.1438,
+          "provider_adjusted_close": 79.501,
+          "stored_factor": 0.6956323235830223,
+          "provider_raw_close": 110.0444
+        },
+        {
+          "date": "2019-01-03",
+          "stored_close": 78.5438,
+          "provider_adjusted_close": 77.9139,
+          "stored_factor": 0.695632535322412,
+          "provider_raw_close": 107.8476
+        },
+        {
+          "date": "2019-01-04",
+          "stored_close": 81.6115,
+          "provider_adjusted_close": 80.957,
+          "stored_factor": 0.6956316058643028,
+          "provider_raw_close": 112.0598
+        },
+        {
+          "date": "2019-01-07",
+          "stored_close": 82.1889,
+          "provider_adjusted_close": 81.5298,
+          "stored_factor": 0.6956318239526026,
+          "provider_raw_close": 112.8526
+        },
+        {
+          "date": "2019-01-08",
+          "stored_close": 83.3576,
+          "provider_adjusted_close": 82.6891,
+          "stored_factor": 0.6956321455395144,
+          "provider_raw_close": 114.4573
+        },
+        {
+          "date": "2019-01-09",
+          "stored_close": 83.9558,
+          "provider_adjusted_close": 83.2825,
+          "stored_factor": 0.6956317839091888,
+          "provider_raw_close": 115.2787
+        }
+      ],
+      "last_mismatches": [
+        {
+          "date": "2026-07-31",
+          "stored_close": 223.65,
+          "provider_adjusted_close": 222.0571,
+          "stored_factor": 1.0,
+          "provider_raw_close": 223.65
+        },
+        {
+          "date": "2026-08-03",
+          "stored_close": 226.31,
+          "provider_adjusted_close": 224.6981,
+          "stored_factor": 1.0,
+          "provider_raw_close": 226.31
+        },
+        {
+          "date": "2026-08-04",
+          "stored_close": 235.15,
+          "provider_adjusted_close": 233.4752,
+          "stored_factor": 1.0,
+          "provider_raw_close": 235.15
+        },
+        {
+          "date": "2026-08-05",
+          "stored_close": 235.92,
+          "provider_adjusted_close": 234.2397,
+          "stored_factor": 1.0,
+          "provider_raw_close": 235.92
+        },
+        {
+          "date": "2026-08-06",
+          "stored_close": 233.43,
+          "provider_adjusted_close": 231.7674,
+          "stored_factor": 1.0,
+          "provider_raw_close": 233.43
+        },
+        {
+          "date": "2026-08-07",
+          "stored_close": 237.28,
+          "provider_adjusted_close": 235.59,
+          "stored_factor": 1.0,
+          "provider_raw_close": 237.28
+        }
+      ],
+      "selected_rows": [
+        {
+          "date": "2020-08-28",
+          "stored_close": 94.5857,
+          "provider_adjusted_close": 93.8271,
+          "provider_raw_close": 119.4624
+        },
+        {
+          "date": "2020-08-31",
+          "stored_close": 93.2547,
+          "provider_adjusted_close": 92.5068,
+          "provider_raw_close": 117.7813
+        },
+        {
+          "date": "2025-08-14",
+          "stored_close": 232.7599,
+          "provider_adjusted_close": 231.1021,
+          "provider_raw_close": 237.11
+        },
+        {
+          "date": "2026-02-18",
+          "stored_close": 258.8846,
+          "provider_adjusted_close": 257.0407,
+          "provider_raw_close": 260.79
+        },
+        {
+          "date": "2026-02-19",
+          "stored_close": 254.4076,
+          "provider_adjusted_close": 252.5956,
+          "provider_raw_close": 256.28
+        },
+        {
+          "date": "2026-05-20",
+          "stored_close": 225.0,
+          "provider_adjusted_close": 223.3975,
+          "provider_raw_close": 225
+        },
+        {
+          "date": "2026-05-21",
+          "stored_close": 252.97,
+          "provider_adjusted_close": 251.1682,
+          "provider_raw_close": 252.97
+        },
+        {
+          "date": "2026-08-19",
+          "stored_close": 237.16,
+          "provider_adjusted_close": 237.16,
+          "provider_raw_close": 237.16
+        },
+        {
+          "date": "2026-08-20",
+          "stored_close": 233.69,
+          "provider_adjusted_close": 233.69,
+          "provider_raw_close": 233.69
+        },
+        {
+          "date": "2026-10-16",
+          "stored_close": 232.14,
+          "provider_adjusted_close": 232.14,
+          "provider_raw_close": 232.14
+        }
+      ]
+    }
+  }
+}
