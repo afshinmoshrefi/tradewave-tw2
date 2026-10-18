@@ -58,6 +58,37 @@ to resume work. The owner wants interchangeable agents with no provider preferen
 
 ---
 
+### Buy & Hold Across Time (TW-TASK-0025)
+
+Phase-one engine endpoint `/buy_hold_across_time` accepts the existing appserver JWT,
+a US-stock resource ID (0..4), up to three exact group-member symbols and up to three
+calendar-year horizons from 1,2,4,6,10,15,20. It checks current market entitlement,
+rejects date-locked tiers, and bounds earliest purchase by the existing history cap.
+The React Analysis menu opens a dedicated responsive historical comparison view;
+seasonal Years and existing Buy & Hold behavior remain separate.
+
+`holding_returns.long_return_pct` owns the unchanged rounded close-to-close formula
+previously inline in ChartData4; ChartData4 and `buy_hold_across_time.completed_holds`
+share it. The new engine iterator is necessary because ChartData4 is an annual
+seasonal sample with day-count alignment, not an every-purchase-date calendar-year
+series. No calculation is copied into React. Each point buys at an observed trading
+close, adds calendar years (February 29 -> February 28 when needed), and exits on the
+first observed session on/after that anniversary. An unobserved exit produces no point.
+Unlike the existing seasonal December-31 convention, this new fixed-year contract never
+shortens a holding period. Every series ends independently at its latest completed hold.
+The engine returns total gain rounded to two decimals and hypothetical $1,000 ending
+value derived from that same rounded gain; no annualization, ML or forecasts.
+
+Price basis is the existing stored adjusted close returned by `get_symbol_csv`.
+EODHD documents its adjusted_close as split AND dividend adjusted:
+https://eodhd.com/financial-apis/api-for-historical-data-and-volumes .
+`get_symbol_csv.adjust` and `data_updater/EOD_downloader3.adjust` store this as close
+and retain adj_factor. However, `update_client2` appends incoming rows without
+retroactively rescaling prior history. Dividend completeness across update vintages
+is unverified (TW-BUG-0036); this view discloses the limitation and does not promise an
+explicit cash-dividend ledger or dividend-reinvestment-account simulation. Never add
+cash dividends on top of the adjusted series without resolving double counting.
+
 ## 2. TW1 (the system being replaced)
 
 **Box:** TW1 dev = `192.168.1.151` (Ubuntu 20.04, Python 3.8). TW1 **prod** web =

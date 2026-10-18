@@ -63,3 +63,5 @@ Status belongs in each record and this index; update both together. Preserve res
 
 
 | [TW-BUG-0035](TW-BUG-0035.md) | P1 | open, reproduced on production | Manual watchlist validation accepts a different ticker from provider search |
+
+| [TW-BUG-0036](TW-BUG-0036.md) | P2 | open, suspected | Append-only historical data may mix dividend adjustment vintages |

@@ -28,3 +28,10 @@ Branch codex/buy-hold-across-time-20261018; worktree /home/tradewave-worktrees/b
 
 ## Environment Verification
 Dev pending. Staging and production not deployed by this task.
+
+## Implementation milestone
+Engine implementation and existing ChartData4 regression checks: 29 passed. Real stored
+MSFT/AAPL/WMT x 4/6/10-year series calculated in 0.755s; all last exits <= October16,
+2026, with independent holding-period cutoffs. UI implementation is on sibling task
+branch, integration pending. Confirmed EODHD dividend adjustment convention, but stored
+history consistency needs separate event audit (TW-BUG-0036); label this explicitly.

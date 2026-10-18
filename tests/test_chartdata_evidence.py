@@ -5,6 +5,7 @@ startup. Authentication, CSV IO and Redis are fakes; the year loop and statistic
 calculations under test are the production function, not a copied implementation.
 """
 import ast
+import sys
 import calendar
 import datetime
 import json
@@ -15,6 +16,8 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 from flask import Flask, jsonify, request
+
+sys.path.insert(0, str(Path(__file__).parents[1] / 'appserver/appserver'))
 
 pytestmark = pytest.mark.unit
 
@@ -34,6 +37,7 @@ def engine():
         return date.replace(year=year, day=min(date.day, calendar.monthrange(year, date.month)[1])).isoformat()
     namespace = {
         'app': app, 'request': request, 'jsonify': jsonify, 'datetime': datetime,
+        'long_return_pct': __import__('holding_returns').long_return_pct,
         'calendar': calendar, 'statistics': statistics, 'json': json,
         'config': SimpleNamespace(exchange_mapping={'2':'test'}, csv_folder='/unused/',
                                   min_required_years=1, free_return=4, chart_data_expire_time=60),

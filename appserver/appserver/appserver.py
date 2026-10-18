@@ -4174,7 +4174,7 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         # Calculate percentages
         ph = round(100 * (high - c0) / c0, 2)
         pl = round(100 * (low - c0) / c0, 2)
-        p = round(100 * (c1 - c0) / c0, 2)
+        p = long_return_pct(c0, c1)
         p_low = round(100 * (low - c0) / c0, 2)
         p_high = round(100 * (high - c0) / c0, 2)
 
@@ -9114,6 +9114,8 @@ def risk_profile():
     # return jsonify({'status':'ok','cs_exp':option_values0_exp,'cs_current':option_values0_current,'cs_labels':stock_price_range})
 
 #-----------------------------------------------------------------------------------------------------
+from holding_returns import long_return_pct
+from buy_hold_across_time import register_buy_hold_across_time
 from portfolio_scenarios import register_portfolio_scenarios
 
 def _scenario_symbol_in_resource(resource_id, symbol):
@@ -9126,6 +9128,12 @@ register_portfolio_scenarios(
     symbols_for_market=_symbols_for_market, chart_data=getChartData4,
     last_price=getStockLastPrice, market_today=_market_today,
     symbol_in_resource=_scenario_symbol_in_resource,
+)
+
+register_buy_hold_across_time(
+    app, config=config, check_for_token=check_for_token, limiter=limiter,
+    load_prices=get_symbol_csv, symbol_in_resource=_scenario_symbol_in_resource,
+    market_today=_market_today, years_cap=_years_cap, is_date_locked=_is_date_locked,
 )
 
 if __name__ == '__main__':
