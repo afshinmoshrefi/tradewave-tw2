@@ -1,6 +1,6 @@
 # TW-BUG-0035: Manual watchlist validation accepts a different ticker
 
-- Status: in-progress
+- Status: fixed candidate; live Dev API verified, browser confirmation pending; previous Dev restored
 - Priority: P1
 - Confidence: reproduced with read-only production API calls and current provider search results
 - Owner: Codex chat 01a13f7d-e3a3-7460-aa4e-4a9dae97833f, October 16, 2026
@@ -43,3 +43,98 @@ valid and BATS/US cannot validate as CIGI; BP/US still works; duplicate feedback
 distinct from validity. No customer-list cleanup without separately reviewed scope.
 No browser reproduction or original customer CSV upload was performed in this audit.
 No code changes, restarts, deployments, campaigns, or email replies.
+
+
+## October 17 permanent repair candidate
+
+Owner authorization supersedes the October 16 investigation-only boundary. Codex
+implemented this candidate on `codex/exact-ticker-20261017`, worktree
+`/home/tradewave-worktrees/exact-ticker-20261017`. Shared claim accepted on main
+at `d6a4fccd`; diagnosis preserved in `11dc4ef9`. Parent session owns integration,
+Dev activation and browser/live verification. Last update: 2026-10-17T19:33:33.133635+00:00.
+
+- Provider-backed names require normalized exact Code AND Exchange; no substring,
+  fuzzy-name or cross-exchange substitution. Existing local CSV lookup remains exact.
+- Shared name helper uses normalized `security_name_exact_v2_{exchange}_{symbol}`
+  keys. Old persistent fuzzy-match entries remain untouched and are never read.
+- Direct manual insertion checks the stored watchlist's resource/market and exact
+  identity before duplicate checks or writes. Missing watchlists return
+  `invalid_watchlist`; nonmatches/provider failure return `invalid_symbol`.
+  Valid duplicates and limits retain their existing response contracts.
+- The React caller shows a server error for any non-array result and preserves
+  current list state. This covers stale clients or failures between preview/add.
+- Resources 0..4 remain US, 5/6 INDX, 8/9 FOREX through existing exchange_mapping.
+  No new universe restrictions or customer-list edits; no bulk-entry enhancement.
+
+Validation: `/home/flask/venv/bin/python -m pytest -q
+ tests/test_manual_ticker_identity.py tests/test_watchlist_csv_validation.py`:
+36 passed. New tests reproduce BFA/BFAM and BATS/CIGI, preserve BATS/LSE and BP/US,
+exercise whitespace/case, provider outage, exact CSV fallback, legacy cache bypass,
+direct insertion rejection/no writes, valid duplicate, missing list and merged groups.
+Self-verification only; provider rows are mocked. Parent must prove live provider
+behavior and rendered watchlist flow after integration.
+
+Affected files: resolver, NameFromTicker/write route, WatchlistSettings error guard,
+focused tests, this record/index and ecosystem. No dependencies, migrations or config.
+Frontend requires `npm run build` with source provenance; appserver restart required.
+Dev/staging/production: not deployed by this task. Rollback is previous source and
+frontend pointers/restart; legacy cache keys remain intact, so no data migration.
+Exact candidate SHA: `git log -1 -- docs/bugs/TW-BUG-0035.md` (commit cannot name itself).
+Next: parent reviews pushed candidate, activates Dev, exercises GET exact cases and
+synthetic watchlist insertion/browser feedback, records live proof and advances main.
+
+
+Candidate frontend validation: `CI=true npm test -- --watchAll=false --runInBand
+--runTestsByPath src/components/WatchlistSettings.test.js`: 2 rendered component
+tests passed. Both invalid_symbol and invalid_watchlist after a stale successful
+name preview show rejection, preserve the existing AAPL list and typed input,
+leave default-list state unchanged, and do not show success. `npm run build` passed
+with the repository's existing warnings. Artifact source stamp is
+`9b78c515678e29a25c5d3823d50cf0f619878f65`; this successor adds tests/docs only,
+so the application tree is unchanged and no second build is required.
+
+## Parent live verification and temporary rollback - October 17
+
+Candidate `870eacf1f11954b2fd47a9935497094739d03c5c` was activated on actual Dev
+with frontend source `9b78c515678e29a25c5d3823d50cf0f619878f65`, bundle
+`main.56f479ab.js`. All 5 exact name cases, 3 CSV regressions and 6 synthetic
+manual-save cases passed, including invalid additions rejected without persisting,
+BP/BFAM accepted, valid duplicate preserved and London BATS accepted. Synthetic
+watchlist keys were cleaned; no customer lists changed. Portable receipt:
+[evidence](evidence/TW-BUG-0035-dev-20261017.json).
+
+Two test-harness failures preceded the pass: preflight initially counted a frontend
+test-only successor as runtime drift and stopped before switching; first activation
+used legacy level3 (no watchlist allowance), so synthetic list creation failed and
+automatic rollback verified restoration. Corrected fixture uses Strategist level6.
+No application changes were needed for those test-harness errors.
+
+Browser normal Google sign-in succeeded, but Dev displays a terms agreement.
+Browser policy requires owner confirmation before accepting it; question pending.
+Parent deliberately restored previous backend/frontend pointers and released the
+Dev activation lock instead of leaving a partial rollout or holding a lock waiting.
+Backend: `/home/tradewave-worktrees/tw2-20261015-01`; frontend:
+`/home/flask/web-react/releases/build-c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce`.
+Appserver health passed after restoration. Staging and production unchanged.
+
+Next: after owner confirms terms, refetch main, integrate if needed, reuse unchanged
+build, acquire short lock, activate candidate with API smoke, complete rendered
+manual watchlist test, advance main non-forced, record parity and release lock.
+Prepared activation/rollback and API test scripts are under
+`/var/lib/tradewave/release-state/exact-ticker-20261017/` on Dev. Update their
+expected candidate SHA/base for documentation-only successor before reusing them.
+
+
+## October 18 current-main integration
+
+Parent resumed after Chrome terms block cleared. Integration base is
+`fa3d7934dfa21bce8851fad7c81f6293cd220df9`; exact prior candidate
+`60fb1e8ea2c26774ec5b1389dc730b12bacd5da0` merged on branch
+`codex/exact-ticker-integrated-20261018` in
+`/home/tradewave-worktrees/exact-ticker-integrated-20261018`.
+Buy-and-hold source and zoom controls retained. Only merge conflict was adjacent
+bug-index entries; both TW-BUG-0035 status and TW-BUG-0036 retained. Policies
+unchanged from prior claim. Parent owns the brief integration/activation window;
+this worker does not activate or advance main. Re-run focused ticker/CSV and
+buy-and-hold backend checks, rendered rejection/affected chart checks, rebuild
+React and stamp exact integration SHA before handing candidate to parent.

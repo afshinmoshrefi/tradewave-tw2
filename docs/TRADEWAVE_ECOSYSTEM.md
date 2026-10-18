@@ -3302,9 +3302,13 @@ Non-US imports and all-constituent matches retain their previous path. Selection
 ambiguity (for example a BP-only file selecting London) is not automatically
 reinterpreted as a US listing. See TW-BUG-0033 for tests and live evidence.
 
-Manual watchlist validation remains a separate path: NameFromTicker uses
-get_name_from_ticker.get_security_name_from_ticker, which currently returns the
-first provider search result matching only Exchange, without matching Code.
-The name is cached without expiry; the UI accepts a nonempty name but stores the
-original input ticker. This can accept BFA using BFAM's name or US BATS using CIGI's
-name. Confirmed production follow-up: TW-BUG-0035 (October16); repair pending.
+Manual watchlist names require normalized exact provider Code and Exchange in
+`get_name_from_ticker.get_security_name_from_ticker`; non-provider markets retain
+exact local CSV lookup. NameFromTicker and direct insertion share the normalized
+`security_name_exact_v2_{exchange}_{symbol}` cache namespace, bypassing old persistent
+fuzzy-match entries without mutating them. Manual insertion validates against the
+stored watchlist resource's exchange before duplicate checks or writes; the caller
+preserves its list and displays server rejection when no items array is returned.
+Resource groups keep their existing exchange mapping. This does not rewrite existing
+customer lists or change the separate CSV detection policy. TW-BUG-0035 owns candidate
+and environment verification evidence.

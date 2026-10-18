@@ -21,7 +21,10 @@ token = config.EOD_token
 #----------------------------------------------------------------------------------------------------------------
 def get_security_name_from_ticker(exchange: str, ticker: str) -> str:
     valid_exchanges = ['US', 'LSE', 'TA', 'TO', 'MX', 'MC', 'VN']
-    exchange = exchange.upper()
+    exchange = exchange.strip().upper()
+    ticker = ticker.strip().upper()
+    if not exchange or not ticker:
+        return None
     if exchange not in valid_exchanges:
         return get_security_name_from_csv(exchange, ticker)
 
@@ -32,7 +35,8 @@ def get_security_name_from_ticker(exchange: str, ticker: str) -> str:
         resp.raise_for_status()
         results = resp.json() or []
         for item in results:
-            if item.get('Exchange', '').upper() == exchange:
+            if (str(item.get('Exchange', '')).strip().upper() == exchange
+                    and str(item.get('Code', '')).strip().upper() == ticker):
                 return item.get('Name')
     except Exception as e:
         print(f"EODHD lookup error: {e}")

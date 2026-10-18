@@ -3805,26 +3805,26 @@ def get_realtime_prices_cached(symbols):
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # This API returns the securiy name based on the resourceID and symbol
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------------
-@app.route('/NameFromTicker/<string:resourceID>/<string:symbol>', methods=['GET']) # 7/26/2025
-@check_for_token
-def NameFromTicker(resourceID, symbol):
-    exchange = config.exchange_mapping[resourceID]
-    redis_key_name = f'security_name_{exchange}_{symbol}'
-
+def _exact_security_name(exchange, symbol):
+    exchange = exchange.strip().upper()
+    symbol = symbol.strip().upper()
+    # Legacy keys may contain names obtained from unrelated fuzzy search hits.
+    redis_key_name = f'security_name_exact_v2_{exchange}_{symbol}'
     name_redis = redis_client.get(redis_key_name)
     if name_redis is not None:
-        name = json.loads(name_redis)
-        return jsonify({'name': name})
+        return json.loads(name_redis)
 
-    # Lookup name
     name = get_security_name_from_ticker(exchange, symbol)
-
-    # Only cache if name is valid (not None, not empty)
     if name:
         redis_client.set(redis_key_name, json.dumps(name))
-        # redis_client.expire(redis_key_name, config.chart_data_expire_time)
+    return name
 
-    # If name is None, return empty string (or whatever default you want)
+
+@app.route('/NameFromTicker/<string:resourceID>/<string:symbol>', methods=['GET'])
+@check_for_token
+def NameFromTicker(resourceID, symbol):
+    exchange = config.exchange_mapping.get(resourceID)
+    name = _exact_security_name(exchange, symbol) if exchange else None
     return jsonify({'name': name if name else ''})
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -6897,7 +6897,15 @@ def add_user_watchlist_item(watchlist_name, symbol):
     raw = redis_client2.get(items_key)
     items = json.loads(raw) if raw else []
 
-    symbol = symbol.upper()
+    symbol = symbol.strip().upper()
+    raw_watchlists = redis_client2.get(f'user_watchlists_{userid}')
+    watchlists = json.loads(raw_watchlists) if raw_watchlists else []
+    watchlist = next((w for w in watchlists if w['name'] == watchlist_name), None)
+    exchange = config.exchange_mapping.get(str(watchlist.get('resourceId'))) if watchlist else None
+    if not exchange:
+        return jsonify({'watchlist_items': 'invalid_watchlist', 'message': 'Select a valid watchlist'})
+    if not symbol or not _exact_security_name(exchange, symbol):
+        return jsonify({'watchlist_items': 'invalid_symbol', 'message': f'{symbol} not found in this market'})
 
     if symbol in items:
         return jsonify({'watchlist_items': 'duplicate'})
