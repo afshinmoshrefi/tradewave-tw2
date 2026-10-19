@@ -73,3 +73,11 @@ exist with expected hashes and remain unpublished; C is pending. No new direct
 approval or current-day backup confirmation arrived in this worker. Do not infer
 permission from the defect report. Parent owns pending bounded approval.
 See [public scope](evidence/TW-BUG-0027/20261019/PUBLIC-ARTICLE-HERO-SCOPE.md).
+
+### Conditional approval received, October 19 16:17 UTC
+
+Afshin approved the four prepared public image repairs along with the tested
+deployment, after current backup verification. Parent confirms required full-
+server backup completion is still unconfirmed. Four overrides remain unpublished;
+C remains pending. Targeted rollback backup preparation is authorized and complete,
+but does not replace the full-server prerequisite. No subscriber mail is allowed.

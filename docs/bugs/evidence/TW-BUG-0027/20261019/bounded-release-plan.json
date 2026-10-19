@@ -1,6 +1,6 @@
 {
   "utc": "2026-10-19T13:02:39.803971+00:00",
-  "status": "prepared; explicit bounded production cutover/four-backfill approval pending",
+  "status": "conditionally approved; targeted rollback preimages restore-verified; live actions held for required full-server backup confirmation",
   "candidate_sha": "55afe01a5683c6f2471e0d578867ad77390bb739",
   "production_baseline": "2b0075c85e45d8cd547c95b8868f8560532cf86b",
   "host": "seasonalmarketnews",
@@ -239,12 +239,24 @@
     }
   ],
   "current_bounded_authority": {
-    "interpretation": "Parent reported automatic approval review rejected the live cutover/backfill instruction for insufficient explicit production authorization; parent has asked Afshin for bounded approval. No activation/backfill until approval arrives; qualification/preparation remain valid.",
+    "interpretation": "Afshin approved the bounded tested deployment and four image repairs at 16:17:01 UTC, conditional on verified current backup. Parent explicitly permits targeted rollback backup preparation. Required full-server backup completion remains unconfirmed; hold live cutover and public backfills.",
     "direct_visible_history": "User explicitly approved the b61b37f release and actual-SMN backup on October 9, subsequently granted blanket repair authority and up to 60 daily jobs, and directed publication restoration and continued repair.",
     "current_completion_reference": "Coordinator-supplied October 19 12:40:53 UTC instruction: get started on it and do not stop until it is complete, in the context of one integrated release.",
     "scope": "Candidate 55afe01a and the bounded source/service/pointer changes. Factual-review policy preserved. No subscriber send, paid image generation, new credentials or invented recipient in this worker.",
     "snapshot_scope": "Actual SMN single host seasonalmarketnews / 209.182.216.112. An unrelated TradeWave web/app pair and October 9 confirmation do not establish October 19 completion.",
-    "if_parent_finds_actual_executor_scope_gap": "Use only the exact one-time wording in the plan; do not repeat the blanket authorization or ask about all future releases."
+    "if_parent_finds_actual_executor_scope_gap": "Use only the exact one-time wording in the plan; do not repeat the blanket authorization or ask about all future releases.",
+    "explicit_approval_reference": {
+      "source_thread": "01a113a7-f3d3-77f1-a6b8-b856d5a1400c",
+      "human": "Afshin",
+      "utc": "2026-10-19T16:17:01Z",
+      "message_reference": "Sentinel_d4de0cc2fec0819183cb687d32d4a8c4",
+      "human_reply": "I approve",
+      "approved_prompt": "Deploy the tested SMN repair and restore four prepared article images, after a current backup is verified, with rollback on live-check failure; no email resend.",
+      "parent_direction": "Targeted restore-verifiable rollback backup preparation is permitted if safe and within plan; do not claim it replaces the required full-server backup.",
+      "candidate": "55afe01a5683c6f2471e0d578867ad77390bb739",
+      "full_server_backup_confirmed": false,
+      "subscriber_mail_authorized": false
+    }
   },
   "target_qualification": {
     "proof": "target-isolated-proof.json",
@@ -261,7 +273,15 @@
     "live_invariants_unchanged": true,
     "scope": "Private-path transient units with kernel network and write isolation; no live activation."
   },
-  "missing_input_bundle_for_parent": "Use the already pending exact live-action approval. Confirm actual-SMN backup completed on current UTC day; unknown provider/ID/clock can remain null. If replacing that with targeted rollback files, obtain explicit scope acceptance. For monitoring, name an authorized operator recipient and existing usable Resend credential/authorized transport setup; do not invent a recipient or create credentials without authority.",
+  "missing_input_bundle_for_parent": "Do not ask for deployment/four-image approval again: explicit approval reference Sentinel_d4de0cc2fec0819183cb687d32d4a8c4 is received. Confirm actual required full-server backup completion before live cutover/backfills. Targeted backup does not satisfy that gate. Subscriber mail remains excluded; alert destination/credential/transport setup remains separately unresolved.",
   "backup_gate_clarification": "Retained gate accepts current-day human-confirmed actual-SMN backup with unknown provider/ID/exact clock left null. A targeted rollback backup is feasible but not automatically a full-server substitute.",
-  "minimal_backup_alert_prerequisites": "backup-alert-prerequisites.json"
+  "minimal_backup_alert_prerequisites": "backup-alert-prerequisites.json",
+  "targeted_rollback_backup": {
+    "proof": "targeted-rollback-backup-proof.json",
+    "server_root": "/var/tmp/smn-targeted-rollback-backup-20261019-0g4qf6jf",
+    "manifest_sha256": "8a0e49122d96012893c102be980c179720f1f647dd9392c2c295bf93d0744932",
+    "restore_verified": true,
+    "full_server_backup": false,
+    "fulfills_full_backup_gate": false
+  }
 }

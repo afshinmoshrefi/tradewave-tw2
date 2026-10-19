@@ -40,11 +40,11 @@ mail advancement require classification, never an old mail-state restore.
 
 ## Backup and authority
 
-Preparation and isolated qualification remain authorized. Automatic approval
-review rejected the live cutover and public backfills for insufficient explicit
-production authorization. The parent has asked Afshin for the exact bounded
-approval; it is pending. Do not activate or backfill until received. No new
-standing permission or factual-review policy is a prerequisite.
+Explicit bounded deployment and four-image approval arrived at 16:17:01 UTC,
+reference Sentinel_d4de0cc2fec0819183cb687d32d4a8c4. An actual targeted rollback
+backup is now restore-verified. Required full-server backup completion remains
+unconfirmed, so live cutover and public backfills stay held. No subscriber mail
+is authorized. No new standing permission or review policy is required.
 
 **Current-day actual-SMN backup completion remains unverified.** The inspected
 local backup locations and metadata show package-manager backups and no qualifying
@@ -101,3 +101,5 @@ active and no October 19 campaign exists. No activation or recovery was retried.
 See [continuity verification](continuity-verification.json).
 
 Current approval and backup/alert clarification: [minimal prerequisites](BACKUP-ALERT-PREREQUISITES.md).
+
+Latest conditional approval and backup proof: [targeted rollback backup](TARGETED-ROLLBACK-BACKUP.md). The full-server backup condition is still unmet.

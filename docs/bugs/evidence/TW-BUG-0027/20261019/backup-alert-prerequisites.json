@@ -1,11 +1,13 @@
 {
   "utc": "2026-10-19T13:46:34.556072+00:00",
-  "status": "read_only_findings; exact live cutover and four public backfills await explicit one-time approval requested by parent",
+  "status": "conditional live approval received; actual targeted rollback backup prepared and restore-verified; required full-server backup unconfirmed",
   "application_candidate": "55afe01a5683c6f2471e0d578867ad77390bb739",
   "live_action_authority": {
-    "status": "pending",
-    "source": "Parent reported automatic approval review rejected the live cutover/backfill instruction for insufficient explicit production authorization; parent has asked Afshin for bounded approval.",
-    "restrictions": "Do not activate or publicly backfill until that answer. Do not create credentials, change alert configuration, send, or bypass the private export denial."
+    "status": "conditionally_approved",
+    "approval_reference": "Sentinel_d4de0cc2fec0819183cb687d32d4a8c4",
+    "human": "Afshin",
+    "utc": "2026-10-19T16:17:01Z",
+    "conditions": "Required full-server backup must be verified before live cutover/four backfills. No subscriber mail authorization. Targeted backup preparation explicitly permitted by parent."
   },
   "backup_gate": {
     "retained_operator_sha256": "4a4a020f19cce49bffb59de2bd4922b03eea6a6e53ee7ed9cb1a4ac04b474e2f",
@@ -36,7 +38,8 @@
       ],
       "verification": "After authorization, copy exact preimages to root-private release record, hash-check them, restore copies into a private rehearsal directory and compare bytes/modes/ownership; keep old immutable source intact.",
       "does_not_establish": "A complete server/VM recovery point or application/database-consistent full-system backup.",
-      "needed_authority": "Backup creation is a write and has not been done in this read-only phase. Use pending bounded approval. If intended to replace the current-day server-backup gate, Afshin must explicitly accept that narrower protection; do not silently relabel it."
+      "needed_authority": "Backup preparation is approved and completed. Live cutover/four public backfills remain conditional on required full-server backup confirmation.",
+      "actual_status": "Captured and restore-verified at 2026-10-19T16:19:45Z; six files and private pointer restore pass."
     },
     {
       "option": "Guest-native or full-server snapshot",
@@ -105,5 +108,13 @@
     "subscriber_sends": 0,
     "alert_sends": 0,
     "provider_calls": 0
+  },
+  "targeted_backup_now_prepared": {
+    "proof": "targeted-rollback-backup-proof.json",
+    "server_root": "/var/tmp/smn-targeted-rollback-backup-20261019-0g4qf6jf",
+    "manifest_sha256": "8a0e49122d96012893c102be980c179720f1f647dd9392c2c295bf93d0744932",
+    "restore_verified": true,
+    "full_server_backup": false,
+    "fulfills_full_backup_gate": false
   }
 }

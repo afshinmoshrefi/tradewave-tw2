@@ -1,0 +1,12 @@
+{
+  "source_thread": "01a113a7-f3d3-77f1-a6b8-b856d5a1400c",
+  "human": "Afshin",
+  "utc": "2026-10-19T16:17:01Z",
+  "message_reference": "Sentinel_d4de0cc2fec0819183cb687d32d4a8c4",
+  "human_reply": "I approve",
+  "approved_prompt": "Deploy the tested SMN repair and restore four prepared article images, after a current backup is verified, with rollback on live-check failure; no email resend.",
+  "parent_direction": "Targeted restore-verifiable rollback backup preparation is permitted if safe and within plan; do not claim it replaces the required full-server backup.",
+  "candidate": "55afe01a5683c6f2471e0d578867ad77390bb739",
+  "full_server_backup_confirmed": false,
+  "subscriber_mail_authorized": false
+}

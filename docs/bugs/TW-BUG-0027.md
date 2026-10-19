@@ -1,5 +1,21 @@
 # TW-BUG-0027: SMN Publication and Newsletter Continuity Failures
 
+## Explicit approval and actual targeted rollback backup, October 19 16:19 UTC
+
+Afshin approved the tested bounded deployment and four image repairs at 16:17:01
+UTC, reference Sentinel_d4de0cc2fec0819183cb687d32d4a8c4. Parent supplied the
+transcript and permitted targeted backup preparation. Required full-server backup
+completion remains unconfirmed; no live cutover or public backfill is performed.
+No subscriber mail authorization is included.
+
+Actual six-file backup captured on-server (three managed change targets plus
+three drop-ins); private restoration matched bytes/mode/UID/GID and the old source
+pointer. Old runtime hashes match frozen 2b0075c. Live files, pointer, units,
+timers, receipt and mail remain unchanged; no existing lock or task was touched.
+This is a targeted rollback backup, explicitly not a full-server substitute.
+[Current proof and approval](evidence/TW-BUG-0027/20261019/TARGETED-ROLLBACK-BACKUP.md).
+
+
 ## Website hero scope reverified, October 19 16:14 UTC
 
 Read-only follow-up confirms the missing heroes affect the five actual October

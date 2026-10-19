@@ -1,11 +1,17 @@
+Current update: exact bounded deployment/four-image approval has arrived.
+Targeted rollback preimages are restore-verified; required full-server backup
+completion is still unconfirmed. See [current backup proof](TARGETED-ROLLBACK-BACKUP.md).
+
 # Minimal SMN backup and alert prerequisites
 
-Live cutover and the four public hero backfills are **not authorized yet**: the
-parent reported that automatic approval review rejected its production instruction
-and has asked Afshin for exact bounded approval. That answer is pending. No live
-activation, backfill, backup creation, alert configuration or sending occurred in
-this read-only follow-up. Candidate 55afe01a and its passing qualification remain
-unchanged. No new standing permission or review-policy change is requested.
+The bounded live cutover and four public hero repairs were explicitly approved
+by Afshin at 16:17:01 UTC. Required full-server backup completion is still
+unconfirmed, so deployment and public backfills remain held. Targeted rollback
+preimages were captured and restore-verified at 16:19 UTC under that approval;
+they do not replace the full-server prerequisite. No live activation, public
+backfill, alert configuration or sending occurred. Candidate 55afe01a and its
+passing qualification remain unchanged. No new standing permission or review-
+policy change is requested.
 
 ## Backup: provider ID is not inherently mandatory
 
