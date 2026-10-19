@@ -1,13 +1,13 @@
-# TW-TASK-0026: October 18 TradeWave staging release
+# TW-TASK-0026: October 19 TradeWave staging release
 
-- Status: in-progress
-- Confidence: regression passed; live Dev qualification failed; staging not attempted
+- Status: complete - staging verified
+- Confidence: exact source and artifact passed required Dev and staging gates
 - Priority: P2
-- Executor: Codex chat 01a15227-2197-7d33-aa9d-e573769ad9c8
+- Executor: Codex release manager, session 01a15227-2197-7d33-aa9d-e573769ad9c8
 - Claim UTC: 2026-10-19T03:19:39.292131+00:00
-- Authorization: Afshin explicitly confirmed deployment of current Dev watchlist fix and Buy & Hold changes to staging. Production excluded.
-- Release: tw2-20261018-01; branch codex/release-20261018
-- Worktree: /home/tradewave-worktrees/tw2-20261018-01
+- Authorization: Afshin explicitly authorized the Dev load-latency repair and staging deployment. Production excluded.
+- Release: tw2-20261019-01; source SHA 0c67bb840fa152c8de9e427d8a3e801239caf6f0
+- Worktree: /home/tradewave-worktrees/load-latency-20261019
 
 ## Goal, Scope and Acceptance
 Promote current Dev behavior as one immutable source/frontend artifact. Include exact ticker validation TW-BUG-0035 and Buy & Hold Across Time with zoom TW-TASK-0025. Preserve financial calculations and disclosed TW-BUG-0036 data limitation; no data repair, customer messaging, or separate SMN deployment.
@@ -43,10 +43,20 @@ Dev: prior behavior verified; exact release qualification pending. Staging: unch
 - Staging remains unchanged at `c8ea5b0ec4e15d2e3eb33ff337f87ac87caf07ce`; no staging snapshots or deployment executed. Production excluded and untouched. Prepared staging scripts were not executed.
 - Release manifest is schema-valid `failed`; Dev `rolled_back`, rollback `verified`, staging `not_started`. Manager ownership and main freeze released. Candidate artifact and evidence retained. Temporary Explorer fixture service/tunnel stopped and credential-bearing fixture shells removed.
 - Evidence root `/var/lib/tradewave/release-state/tw2-20261018-01/`: `evidence/attempt-1/mvp-post-restart.log`, `evidence/mvp-post-restart.log`, `evidence/dev-activation.log`, `dev-rollback-verified.json`, `evidence/react-build-final.log`, `release.json`.
-- Next action: investigate the live load-gate latency under TW-BUG-0024 before a fresh qualification attempt. Deployment acceptance remains incomplete; do not promote this failed candidate or infer staging approval.
+- At that point, the next action was to investigate TW-BUG-0024 and requalify a fresh candidate. That work and a separate staging release are recorded below; the failed candidate remains unpromoted.
 
 ## Resume authorization
 User authorized fixing load latency and continuing staging, with production excluded. TW-BUG-0024 is claimed by the same session; staging remains unchanged while diagnosis runs.
 
 ## Replacement release
-After repairing TW-BUG-0024, qualify new release `tw2-20261019-01` from `/home/tradewave-worktrees/load-latency-20261019`. Prior release `tw2-20261018-01` remains failed with immutable evidence. New package `/root/tradewave-handoffs/tw2-20261019-01` supplies guarded Dev activation, fresh staging snapshots, rollback, and browser watchdog. Final SHA/build/qualification pending. Main will freeze at the final candidate until disposition.
+The failed release tw2-20261018-01 remains preserved with immutable evidence. Its failure was investigated under TW-BUG-0024 and resolved for the load-gate behavior in a separate release. Production remains excluded.
+
+## Staging release completion - 2026-10-19 UTC
+
+- Release tw2-20261019-01 promoted exact source/artifact SHA 0c67bb840fa152c8de9e427d8a3e801239caf6f0. The final manifest is complete, with staging verified and approved; production remains not started and untouched.
+- Full regressions passed: Python 1751, MCP 61, React 482. The 41-test focused metadata half-open regression also passed.
+- Dev load qualification passed after restart at p95 13.292s and warm at 8.081s, with 0% request errors. The existing 15-second p95 threshold and error limits were unchanged.
+- Staging runtime and live API receipts passed with zero failures and warnings. CUA verified the real Explorer CAT chart and public Buy & Hold MSFT/AAPL comparisons, including 4- and 6-year selections and series, measure, range, and reset controls.
+- During this release the scorer upstream remained unavailable on Dev. The app fails closed without fabricated scores; the metadata breaker prevents concurrent scan peers from creating a timeout storm. Production was not inspected or changed.
+- Snapshot evidence: the August 18 stage-WEB snapshot was archived to Dev at /root/tradewave-snapshot-archive/stage-web/tw2-20260818-03 with checksum-verified rsync; current release snapshots are ready.
+- Durable release evidence is under /var/lib/tradewave/release-state/tw2-20261019-01/evidence/: staging-deploy.log, staging-api.json, staging-runtime.json, staging-browser-gate.json, and browser screenshots. The prior failed October 18 release evidence remains under its separate release-state directory.
