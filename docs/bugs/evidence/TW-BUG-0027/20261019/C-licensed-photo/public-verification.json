@@ -1,0 +1,102 @@
+{
+  "utc": "2026-10-19T17:07:31.206859+00:00",
+  "status": "public_http_credit_and_browser_passed",
+  "url": "https://seasonalmarketnews.com/editions/2026-10-16/C/article.html",
+  "article_http": 200,
+  "hero_image": "https://seasonalmarketnews.com/editions/2026-10-16/C/assets/hero-reused-5ec98cc2eb93.jpg",
+  "hero_http": 200,
+  "asset_sha256": "5ec98cc2eb9327d7089714e03062708ef6666a0067e11b961ba417e742043a38",
+  "original_photo_bytes_preserved": true,
+  "attribution_links_verified": true,
+  "coverage": {
+    "edition_date": "2026-10-19",
+    "revision": 6,
+    "revision_id": "d7d5da783f0a8d7a3f76264094eb9f1a3e0d7276230104587661a4f2ec3308e7",
+    "transaction_id": "b8187785cdc2b6828553251886fb0064a1bb667f91b9fb19be5b622026efce0e",
+    "selection_sha256": "525cb014bd791fe05a6c131416e72daf0e5cc4209a4452322352d73b91219fda",
+    "selection_status": "frozen",
+    "expected_symbols": [
+      "QQQ",
+      "SPY",
+      "XLF",
+      "AMZN",
+      "CSX",
+      "CCK"
+    ],
+    "published_symbols": [
+      "QQQ",
+      "SPY",
+      "XLF",
+      "AMZN",
+      "CSX",
+      "CCK"
+    ],
+    "pending_symbols": [],
+    "coverage_status": "complete",
+    "complete": true,
+    "source_commit": "a849e8d5178e914621088982202f92db59c5ed65"
+  },
+  "browser": {
+    "passed": true,
+    "browser_version": "153.0.8010.12",
+    "pages": [
+      {
+        "viewport": "desktop",
+        "file": "C-hero-desktop.png",
+        "src": "https://seasonalmarketnews.com/editions/2026-10-16/C/assets/hero-reused-5ec98cc2eb93.jpg",
+        "natural_width": 4032,
+        "natural_height": 2268,
+        "width": 1010,
+        "caption": "388 Greenwich Street, New York, photographed February 14, 2025. Photo: Tdorante10 / Wikimedia Commons. CC BY-SA 4.0. Original photograph; no crop or retouch.",
+        "links": [
+          {
+            "href": "https://commons.wikimedia.org/wiki/File:Hudson_River_Park_td_(2025-02-14)_073_-_Pier_26,_388_Greenwich_Street.jpg",
+            "text": "Tdorante10 / Wikimedia Commons",
+            "rel": "noopener"
+          },
+          {
+            "href": "https://creativecommons.org/licenses/by-sa/4.0/",
+            "text": "CC BY-SA 4.0",
+            "rel": "license"
+          }
+        ]
+      },
+      {
+        "viewport": "mobile",
+        "file": "C-hero-mobile.png",
+        "src": "https://seasonalmarketnews.com/editions/2026-10-16/C/assets/hero-reused-5ec98cc2eb93.jpg",
+        "natural_width": 4032,
+        "natural_height": 2268,
+        "width": 358,
+        "caption": "388 Greenwich Street, New York, photographed February 14, 2025. Photo: Tdorante10 / Wikimedia Commons. CC BY-SA 4.0. Original photograph; no crop or retouch.",
+        "links": [
+          {
+            "href": "https://commons.wikimedia.org/wiki/File:Hudson_River_Park_td_(2025-02-14)_073_-_Pier_26,_388_Greenwich_Street.jpg",
+            "text": "Tdorante10 / Wikimedia Commons",
+            "rel": "noopener"
+          },
+          {
+            "href": "https://creativecommons.org/licenses/by-sa/4.0/",
+            "text": "CC BY-SA 4.0",
+            "rel": "license"
+          }
+        ]
+      }
+    ],
+    "private_root": "/var/tmp/smn-C-public-ui-20261019-qxlbv1jw"
+  },
+  "pixel_inspection": {
+    "actor": "Codex / 01a117d1-cc86-737e-a3f1-28b9a724802e",
+    "utc": "2026-10-19T17:09:16.948554+00:00",
+    "passed": true,
+    "scope": "Actually viewed C hero desktop and mobile screenshots. Full uncropped image and all dated author/source/license/modification text are visible and readable.",
+    "source_photo_sha256": "5ec98cc2eb9327d7089714e03062708ef6666a0067e11b961ba417e742043a38",
+    "screenshots": {
+      "C-hero-desktop.png": "3329462c28346708b1d1eee94b59afb91fee2e23bffc9972c323d6239dc1f0ed",
+      "C-hero-mobile.png": "d66c82cd157d26cbd902b700b0c633bb3f7f0b58d2334ce29d3096a1dec3ddfa"
+    }
+  },
+  "subscriber_sends": 0,
+  "provider_calls": 0,
+  "model_jobs": 0
+}

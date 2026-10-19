@@ -1,0 +1,62 @@
+{
+  "utc": "2026-10-19T17:02:24.871411+00:00",
+  "status": "prepared_and_target_qualified_not_activated",
+  "source_commit": "a849e8d5178e914621088982202f92db59c5ed65",
+  "baseline": "55afe01a5683c6f2471e0d578867ad77390bb739",
+  "private_root": "/var/tmp/smn-citi-licensed-20261019-dqdoa1ti",
+  "record": "/var/lib/tradewave/release-state/smn-citi-a849e8d5-20261019",
+  "backup_root": "/var/tmp/smn-citi-licensed-20261019-dqdoa1ti/backup",
+  "backup_manifest_sha256": "343f776d8198d38b6d9e02d2ab9fc2267c17409f8cbcff533346f11959971336",
+  "plan_path": "/var/tmp/smn-citi-licensed-20261019-dqdoa1ti/plan/unit-plan.json",
+  "runtime_hashes": {
+    "blog/newsletter_reader_snapshot.py": "6d53bc69afd54f655b75fd0eba4d25b24fd6ed6865ee6d6c1b48dbf2fa5f9f4b",
+    "blog/send_smn_emails.py": "737154f86b74fdb0ff6a5ddf0238fd3515f1b004bd714b0f0cd58d585bcdea8c",
+    "blog/home_quote_contract.py": "e8ef2e61a4487c51f758f4d1dde92816861255a1f3cac94578b5d65ac997ffc9",
+    "blog/public_delivery_contract.cjs": "c55e4aaabbb60b77cbe21ef70f3a117c12c26e5171ee4491a1e900171a084913",
+    "blog/subscription_inputs.py": "172b65bcaf06bce18e99c63993a3fa582624196f489569655a886982e8cb0228",
+    "blog/decorative_hero_reuse.py": "3a3e3aca5e470f7984dbc6f47307fd96814213b7d6fe3efbecd3b817df82733a",
+    "blog/presentation_fallback.py": "769f61ba3aa7c908e0c05a971a6cf52904a10221a7dafaf32c8654e0118abf07"
+  },
+  "protected_invariants": {
+    "/home/flask/blog/logs/sent_smn_emails.json": "b5c28d85552e1c289024896a5d5b55bec2bfee161e84a045a04acedaf332f240",
+    "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-19/chatgpt/production-publication-receipt.json": "f55168493347a1585632be39abfa4713153dcd71dbd3b3c43b94d1d743997034",
+    "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/production-publication-receipt.json": "86c901a7497d218ccfd569f7cc1d04b3dbad70d5dd04416196dc7ca31c75c3ab"
+  },
+  "artifact_sha256": "ed3552fc85f1079f57f6a472537b1f4de4158903031aebc6a450c55afcb85205",
+  "composition": {
+    "source_commit": "a849e8d5178e914621088982202f92db59c5ed65",
+    "baseline": "55afe01a5683c6f2471e0d578867ad77390bb739",
+    "runtime": {
+      "blog/newsletter_reader_snapshot.py": "6d53bc69afd54f655b75fd0eba4d25b24fd6ed6865ee6d6c1b48dbf2fa5f9f4b",
+      "blog/send_smn_emails.py": "737154f86b74fdb0ff6a5ddf0238fd3515f1b004bd714b0f0cd58d585bcdea8c",
+      "blog/home_quote_contract.py": "e8ef2e61a4487c51f758f4d1dde92816861255a1f3cac94578b5d65ac997ffc9",
+      "blog/public_delivery_contract.cjs": "c55e4aaabbb60b77cbe21ef70f3a117c12c26e5171ee4491a1e900171a084913",
+      "blog/subscription_inputs.py": "172b65bcaf06bce18e99c63993a3fa582624196f489569655a886982e8cb0228",
+      "blog/decorative_hero_reuse.py": "3a3e3aca5e470f7984dbc6f47307fd96814213b7d6fe3efbecd3b817df82733a",
+      "blog/presentation_fallback.py": "769f61ba3aa7c908e0c05a971a6cf52904a10221a7dafaf32c8654e0118abf07"
+    },
+    "planned": {
+      "/etc/SMN/subscription-primary.json": "0fe555f5988cae34fe4a38f3640d3a82c7a050f5ea729f60c951841fd5086f41",
+      "/etc/systemd/system/smn-subscription.service": "b0d877b3707f3225f6e6cfbedb9f56353bf9034bf41ad55020bcc24897b2d665",
+      "/etc/systemd/system/smn-weekday-newsletter.service": "8fc046dd6903e6201d09f7f4cc596321bd74c0fc73b2edf85aa1e8d2cec49b6c"
+    },
+    "bundle_sha256": "0704ee607ccdd82b6743857fc92800e17722b15d593431389bd0c6c03f34e922"
+  },
+  "changed_files": [
+    "blog/decorative_hero_reuse.py",
+    "blog/presentation_fallback.py",
+    "blog/tests/test_licensed_decorative_photo.py"
+  ],
+  "tests": {
+    "passed": true,
+    "count": 40,
+    "unit": "smn-citi-photo-qual-20261019-6ecb7804",
+    "python": "Python 3.12.3",
+    "stderr": "........................................\n----------------------------------------------------------------------\nRan 40 tests in 0.128s\n\nOK\n"
+  },
+  "photo_sha256": "5ec98cc2eb9327d7089714e03062708ef6666a0067e11b961ba417e742043a38",
+  "source_live_changes": 0,
+  "subscriber_sends": 0,
+  "model_jobs": 0,
+  "provider_calls": 0
+}

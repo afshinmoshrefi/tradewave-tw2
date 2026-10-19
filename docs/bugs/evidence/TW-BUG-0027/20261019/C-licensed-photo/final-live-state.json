@@ -1,0 +1,127 @@
+{
+  "utc": "2026-10-19T17:08:01.162531+00:00",
+  "status": "verified",
+  "host": "seasonalmarketnews",
+  "source_commit": "a849e8d5178e914621088982202f92db59c5ed65",
+  "editions": {
+    "2026-10-16": {
+      "receipt_sha256": "3d9120bda083a8b381dd42b8490c08d4e6421eba2082b40058e0a6abf7b66828",
+      "published_symbols": [
+        "MRK",
+        "XLK",
+        "C",
+        "PGR",
+        "GS"
+      ],
+      "pending_symbols": [
+        "DPZ"
+      ],
+      "source_commit": "a849e8d5178e914621088982202f92db59c5ed65",
+      "transaction_root": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/publication-revisions/1b84fa1b830afc2849375eb212f1c630427a148acdd3662c0a15d695488fd5ef/attempt-1",
+      "browser": {
+        "passed": true,
+        "article_layouts": 10,
+        "public_files": 200,
+        "origin": "https://seasonalmarketnews.com"
+      }
+    },
+    "2026-10-19": {
+      "receipt_sha256": "5210aec12a877295401ff6e51acaa23b87b0343fbd34e97735140fa6ec395e0d",
+      "published_symbols": [
+        "QQQ",
+        "SPY",
+        "XLF",
+        "AMZN",
+        "CSX",
+        "CCK"
+      ],
+      "pending_symbols": [],
+      "source_commit": "a849e8d5178e914621088982202f92db59c5ed65",
+      "transaction_root": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-19/chatgpt/publication-revisions/d7d5da783f0a8d7a3f76264094eb9f1a3e0d7276230104587661a4f2ec3308e7/attempt-2",
+      "browser": {
+        "passed": true,
+        "article_layouts": 12,
+        "public_files": 215,
+        "origin": "https://seasonalmarketnews.com"
+      }
+    }
+  },
+  "timers": {
+    "smn-subscription.timer": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "smn-weekday-newsletter.timer": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "smn-continuity@progress.timer": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "smn-continuity@deliver.timer": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "smn-continuity@reconcile.timer": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    }
+  },
+  "services": {
+    "smn-subscription.service": {
+      "MainPID": "3214747",
+      "Result": "success",
+      "ExecMainStatus": "0",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/releases/a849e8d5178e914621088982202f92db59c5ed65/blog/operational_schedule.py --target production ; ignore_errors=no ; start_time=[Mon 2026-10-19 17:08:00 UTC] ; stop_time=[n/a] ; pid=3214747 ; code=(null) ; status=0/0 }",
+      "WorkingDirectory": "/opt/smn-subscription/releases/a849e8d5178e914621088982202f92db59c5ed65/blog"
+    },
+    "smn-weekday-newsletter.service": {
+      "MainPID": "0",
+      "Result": "success",
+      "ExecMainStatus": "0",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/releases/a849e8d5178e914621088982202f92db59c5ed65/blog/operational_schedule.py --target production --newsletter-only ; ignore_errors=no ; start_time=[Mon 2026-10-19 17:08:00 UTC] ; stop_time=[Mon 2026-10-19 17:08:00 UTC] ; pid=3214693 ; code=exited ; status=0 }",
+      "WorkingDirectory": "/opt/smn-subscription/releases/a849e8d5178e914621088982202f92db59c5ed65/blog"
+    },
+    "smn-continuity@progress.service": {
+      "MainPID": "3214695",
+      "Result": "success",
+      "ExecMainStatus": "0",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/current/blog/production_continuity_schedule.py progress --enable-production-continuity ; ignore_errors=no ; start_time=[Mon 2026-10-19 17:08:00 UTC] ; stop_time=[n/a] ; pid=3214695 ; code=(null) ; status=0/0 }",
+      "WorkingDirectory": "/opt/smn-subscription/current/blog"
+    },
+    "smn-continuity@deliver.service": {
+      "MainPID": "3214694",
+      "Result": "success",
+      "ExecMainStatus": "0",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/current/blog/production_continuity_schedule.py deliver --enable-production-continuity ; ignore_errors=no ; start_time=[Mon 2026-10-19 17:08:00 UTC] ; stop_time=[n/a] ; pid=3214694 ; code=(null) ; status=0/0 }",
+      "WorkingDirectory": "/opt/smn-subscription/current/blog"
+    },
+    "smn-continuity@reconcile.service": {
+      "MainPID": "3214696",
+      "Result": "success",
+      "ExecMainStatus": "0",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/current/blog/reconcile_tick_guard.py --enable-production-continuity ; ignore_errors=no ; start_time=[Mon 2026-10-19 17:08:00 UTC] ; stop_time=[n/a] ; pid=3214696 ; code=(null) ; status=0/0 }",
+      "WorkingDirectory": "/opt/smn-subscription/current/blog"
+    }
+  },
+  "mail_journal_sha256": "b5c28d85552e1c289024896a5d5b55bec2bfee161e84a045a04acedaf332f240",
+  "mail_unchanged": true,
+  "activation_lock_released": true,
+  "repair_service": {
+    "Result": "success",
+    "ExecMainStatus": "0",
+    "ActiveState": "inactive"
+  },
+  "subscriber_sends": 0,
+  "provider_calls": 0,
+  "model_jobs": 0,
+  "C_public_nondecorative_bytes_unchanged": true,
+  "C_original_factual_artifacts_unchanged": true,
+  "other_four_article_hashes_unchanged": {
+    "GS": "4df5b9dfa296ae1a2833fc678250f13fe6f55ebdc2e90462b75ac9097f2cadaf",
+    "PGR": "6175053cd7a17aa7876ae2c2583b4f1baf3044ece808e943335667a7097248fc",
+    "XLK": "9eb09f7a9201109396810e1bd04d9a1ac3129c5841fb0d985a38ed29be8edc0d",
+    "MRK": "61834b7afafcedb3584906cd4ce7507aa9cb7ee17c8b57a00e37858ab327ed31"
+  }
+}

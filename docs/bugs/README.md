@@ -46,7 +46,7 @@ Status belongs in each record and this index; update both together. Preserve res
 | [TW-BUG-0025](TW-BUG-0025.md) | P2 | verified on dev | SMN private editor images/charts restored; original MSFT draft/assets unchanged, anonymous access denied |
 
 | [TW-BUG-0026](TW-BUG-0026.md) | P2 | verified on Dev | Mobile bar chart More control does not open extra controls |
-| [TW-BUG-0027](TW-BUG-0027.md) | P1 | in-progress | October 19 repair 55afe01a deployed and effective units verified; six articles public; four images restored and today coverage verified; C/mail/alerts pending |
+| [TW-BUG-0027](TW-BUG-0027.md) | P1 | in-progress | October 19 repair 55afe01a deployed and effective units verified; six articles public; all five October 16 images restored with current coverage verified; mail/alerts pending |
 
 | [TW-BUG-0028](TW-BUG-0028.md) | P2 | complete candidate privately verified; activation blocked | Webinar notification signup drops published Zoom link; scoped release provenance required |
 

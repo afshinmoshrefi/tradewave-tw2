@@ -1,0 +1,11 @@
+{
+  "actor": "Codex / 01a117d1-cc86-737e-a3f1-28b9a724802e",
+  "utc": "2026-10-19T17:09:16.948554+00:00",
+  "passed": true,
+  "scope": "Actually viewed C hero desktop and mobile screenshots. Full uncropped image and all dated author/source/license/modification text are visible and readable.",
+  "source_photo_sha256": "5ec98cc2eb9327d7089714e03062708ef6666a0067e11b961ba417e742043a38",
+  "screenshots": {
+    "C-hero-desktop.png": "3329462c28346708b1d1eee94b59afb91fee2e23bffc9972c323d6239dc1f0ed",
+    "C-hero-mobile.png": "d66c82cd157d26cbd902b700b0c633bb3f7f0b58d2334ce29d3096a1dec3ddfa"
+  }
+}

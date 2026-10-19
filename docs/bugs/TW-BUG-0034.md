@@ -85,3 +85,7 @@ but does not replace the full-server prerequisite. No subscriber mail is allowed
 ## October 19: four October 16 archive hero backfills verified
 
 GS, PGR, XLK and MRK now have explicit archive-captioned images, with original factual artifacts unchanged. Native public browser/hash gates passed and all eight rendered hero captures were actually inspected. C remains without qualified artwork. No new generation or credits were used. See [repair proof](evidence/TW-BUG-0027/20261019/hero-repair-live-proof.json), [pixel inspection](evidence/TW-BUG-0027/20261019/hero-pixel-inspection.json) and [current handoff](evidence/TW-BUG-0027/20261019/TARGET-HANDOFF.md).
+
+## October 19 at 17:08 UTC: Citigroup licensed photo verified
+
+The separately approved C photograph is public with author/source/license links and an unmodified-photo disclosure. Source `a849e8d5178e914621088982202f92db59c5ed65` adds only truthful licensed-photo derivative/credit support, preserving the newsletter repair. 40 actual-target focused tests and both native/public browser passes passed. C non-hero public bytes, all original factual artifacts, the other four repaired articles and six current articles are unchanged. All five timers restored and mail journal unchanged. All five October 16 hero repairs are complete. [Exact completion, approval and receipts](evidence/TW-BUG-0027/20261019/C-licensed-photo/README.md).

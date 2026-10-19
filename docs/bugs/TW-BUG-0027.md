@@ -340,3 +340,7 @@ Actual production now runs `55afe01a5683c6f2471e0d578867ad77390bb739`. Both pinn
 ## October 19 at 16:38 UTC: four historical images publicly repaired
 
 GS, PGR, XLK and MRK October 16 pages passed native live browser and public asset hash verification. October 19 homepage coverage was restored through a separate native publication-only transaction; all six current article bytes remain unchanged. Original factual artifacts are intact, no model/image jobs or subscriber sends occurred, mail journal unchanged and all timers restored. C image and actual alert delivery remain pending. [Repair proof](evidence/TW-BUG-0027/20261019/hero-repair-live-proof.json).
+
+## October 19 at 17:08 UTC: Citigroup licensed photo verified
+
+The separately approved C photograph is public with author/source/license links and an unmodified-photo disclosure. Source `a849e8d5178e914621088982202f92db59c5ed65` adds only truthful licensed-photo derivative/credit support, preserving the newsletter repair. 40 actual-target focused tests and both native/public browser passes passed. C non-hero public bytes, all original factual artifacts, the other four repaired articles and six current articles are unchanged. All five timers restored and mail journal unchanged. All five October 16 hero repairs are complete. [Exact completion, approval and receipts](evidence/TW-BUG-0027/20261019/C-licensed-photo/README.md).

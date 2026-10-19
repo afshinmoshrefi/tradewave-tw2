@@ -1,3 +1,5 @@
+> Latest update, October 19 at 17:08 UTC: Citigroup is now restored and verified under its separate 16:55:52 approval. All five October 16 images are public, current October 19 coverage is restored, and actual live source is `a849e8d5178e914621088982202f92db59c5ed65`, preserving the 55afe01a newsletter repair. [C completion and receipts](C-licensed-photo/README.md). No C blocker remains. Earlier checkpoints below are historical.
+
 # SMN live cutover and image recovery
 
 **Code deployed and verified October 19, 2026 at 16:34:35 UTC.** Actual SMN
