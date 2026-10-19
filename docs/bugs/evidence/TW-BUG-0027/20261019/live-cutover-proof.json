@@ -1,0 +1,64 @@
+{
+  "utc": "2026-10-19T16:34:34.118694+00:00",
+  "status": "active_verified",
+  "source_commit": "55afe01a5683c6f2471e0d578867ad77390bb739",
+  "baseline_source_commit": "2b0075c85e45d8cd547c95b8868f8560532cf86b",
+  "operator_sha256": "81f3c454678ef633b1b8464b6d9d8f39b5bfaf19a84fd97255d56f5ec9e5c24c",
+  "qualified_primitives_sha256": "4a4a020f19cce49bffb59de2bd4922b03eea6a6e53ee7ed9cb1a4ac04b474e2f",
+  "baseline_sha256": "b034979a2426b0cc4a53486c2a0038e7626c9fe3d09cbebf7c6060662b78335b",
+  "artifact_sha256": "12713bc0ed20cf115314cd4e8d6522f4d5e2465177c56fe491dae8619792f41b",
+  "targeted_backup": "/var/tmp/smn-targeted-rollback-backup-20261019-0g4qf6jf",
+  "full_backup_human_confirmed": true,
+  "subscriber_sends": 0,
+  "provider_calls": 0,
+  "model_jobs": 0,
+  "public_content_writes": 0,
+  "effective_units": {
+    "smn-subscription.service": {
+      "MainPID": "0",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739/blog/operational_schedule.py --target production ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }",
+      "WorkingDirectory": "/opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739/blog",
+      "ActiveState": "inactive",
+      "FragmentPath": "/etc/systemd/system/smn-subscription.service",
+      "DropInPaths": "/etc/systemd/system/smn-subscription.service.d/10-release-git.conf /etc/systemd/system/smn-subscription.service.d/20-cutover-start.conf"
+    },
+    "smn-weekday-newsletter.service": {
+      "MainPID": "0",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739/blog/operational_schedule.py --target production --newsletter-only ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }",
+      "WorkingDirectory": "/opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739/blog",
+      "ActiveState": "inactive",
+      "FragmentPath": "/etc/systemd/system/smn-weekday-newsletter.service",
+      "DropInPaths": "/etc/systemd/system/smn-weekday-newsletter.service.d/10-release-git.conf"
+    },
+    "smn-continuity@progress.service": {
+      "MainPID": "0",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/current/blog/production_continuity_schedule.py progress --enable-production-continuity ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }",
+      "WorkingDirectory": "/opt/smn-subscription/current/blog",
+      "ActiveState": "inactive",
+      "FragmentPath": "/etc/systemd/system/smn-continuity@.service",
+      "DropInPaths": "/etc/systemd/system/smn-continuity@.service.d/10-release-git.conf"
+    },
+    "smn-continuity@deliver.service": {
+      "MainPID": "0",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/current/blog/production_continuity_schedule.py deliver --enable-production-continuity ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }",
+      "WorkingDirectory": "/opt/smn-subscription/current/blog",
+      "ActiveState": "inactive",
+      "FragmentPath": "/etc/systemd/system/smn-continuity@.service",
+      "DropInPaths": "/etc/systemd/system/smn-continuity@.service.d/10-release-git.conf"
+    },
+    "smn-continuity@reconcile.service": {
+      "MainPID": "0",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/current/blog/reconcile_tick_guard.py --enable-production-continuity ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }",
+      "WorkingDirectory": "/opt/smn-subscription/current/blog",
+      "ActiveState": "inactive",
+      "FragmentPath": "/etc/systemd/system/smn-continuity@.service",
+      "DropInPaths": "/etc/systemd/system/smn-continuity@.service.d/10-release-git.conf /etc/systemd/system/smn-continuity@reconcile.service.d/10-supervisor-bounds.conf"
+    }
+  },
+  "verified_utc": "2026-10-19T16:34:35.080636+00:00",
+  "reader_articles_verified": 6,
+  "native_edition_files_verified": 123,
+  "non_sending_capture_and_reservation_passed": true,
+  "current_pointer": "/opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739",
+  "timers_restored": true
+}

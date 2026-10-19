@@ -1,0 +1,87 @@
+{
+  "utc": "2026-10-19T16:37:31.005622+00:00",
+  "status": "live_verified",
+  "source_commit": "55afe01a5683c6f2471e0d578867ad77390bb739",
+  "original_factual_artifact_hashes": {
+    "GS": {
+      "article.json": "3a31922dbd6a88f38013406cf7dbdf2d48c002bf1329d7fdd4329028e06adad0",
+      "article.html": "6ab53626f991db80a46b255c6ac38850d244085def415c1fd56734ea09ddbc64",
+      "hero-asset.json": "4c6137672a1369a99174fc4a3a876f2a5687c4ddf7dfd8866904d41539ce893d"
+    },
+    "PGR": {
+      "article.json": "550d42518c46378d76a4c4b300dbf1995ecdf0cf89e13bf7980d8184d28e0af5",
+      "article.html": "9b5d9d52f7900ddadc5aef9de5c889f1d0747ff89dbdca5d9bec7f09e855f447",
+      "hero-asset.json": "3eb3e773f57981edac2f3ef00101dd3f18b13133365682302e3760e021a93f73"
+    },
+    "XLK": {
+      "article.json": "234b03e1caac0b23361221e4210cddec922325592eda274cebdb95f3859065c4",
+      "article.html": "5cac6c6f16a4af0dc480843c9995060ab9fc505ec25587cad7c39da20e48e387",
+      "hero-asset.json": "0430880465a026a88d8b1682fd442ad268ca27d08a37076b6b7703aec6c577cc"
+    },
+    "MRK": {
+      "article.json": "9b3c7c4253a1aed832218fc6534de64a6fd6e8bb49d69b5767cb0220e3fedfdb",
+      "article.html": "422a1fccf2f96124aef29e9952a0d6e13caf5fd6116e904e207c87022437ef7d",
+      "hero-asset.json": "a81b22dee6076f1e5d552179db7f12a5aadd40470504cdbf2f5a0460d3f7568a"
+    }
+  },
+  "subscriber_sends": 0,
+  "provider_calls": 0,
+  "new_image_generations": 0,
+  "model_jobs": 0,
+  "C": "pending_no_existing_qualified_asset",
+  "DPZ": "held_unchanged",
+  "oct16": {
+    "status": "live_verified",
+    "transaction_root": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/publication-revisions/6ff9554de4d2fc27d963cc3e774afa071ec5bd7dc1c701f7c8cfd1063b25c5bc/attempt-1",
+    "receipt_sha256": "86c901a7497d218ccfd569f7cc1d04b3dbad70d5dd04416196dc7ca31c75c3ab"
+  },
+  "oct19_home_restoration": {
+    "status": "live_verified",
+    "transaction_root": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-19/chatgpt/publication-revisions/0ba691d7490dc8332bd553540a2e96e2f9ade04109bfeca7a58b338c1805c025/attempt-2",
+    "receipt_sha256": "f55168493347a1585632be39abfa4713153dcd71dbd3b3c43b94d1d743997034",
+    "article_bytes_unchanged": true
+  },
+  "articles": [
+    {
+      "symbol": "GS",
+      "status": "live_verified",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/GS/article.html",
+      "hero_image": "https://seasonalmarketnews.com/editions/2026-10-16/GS/assets/hero-reused-d4e872c3bdd1.jpg",
+      "asset_sha256": "d4e872c3bdd19486196d60c946b12a359ba81ec3902a02b683fb767a6764345f",
+      "original_factual_artifacts_unchanged": true,
+      "retained_visual_warnings": []
+    },
+    {
+      "symbol": "PGR",
+      "status": "live_verified",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/PGR/article.html",
+      "hero_image": "https://seasonalmarketnews.com/editions/2026-10-16/PGR/assets/hero-reused-4bdb77fe78ec.jpg",
+      "asset_sha256": "4bdb77fe78ec2de7ace454e0aa4603042555729ed560ada705925eaa881c1645",
+      "original_factual_artifacts_unchanged": true,
+      "retained_visual_warnings": [
+        "Existing archive image contains a black upper band and stylized front-body damage. These visual warnings are retained; no new image or fake quality review is created."
+      ]
+    },
+    {
+      "symbol": "XLK",
+      "status": "live_verified",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/XLK/article.html",
+      "hero_image": "https://seasonalmarketnews.com/editions/2026-10-16/XLK/assets/hero-reused-748fa7d51e26.jpg",
+      "asset_sha256": "748fa7d51e264beb4dd3732c805a5f8ade7f4953512c2fb148b12b1826fe876b",
+      "original_factual_artifacts_unchanged": true,
+      "retained_visual_warnings": []
+    },
+    {
+      "symbol": "MRK",
+      "status": "live_verified",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/MRK/article.html",
+      "hero_image": "https://seasonalmarketnews.com/editions/2026-10-16/MRK/assets/hero-reused-12e5aaaf3758.jpg",
+      "asset_sha256": "12e5aaaf3758280e57cef33d09052cdecf23e41d015aa7e61d26aeebc340ff76",
+      "original_factual_artifacts_unchanged": true,
+      "retained_visual_warnings": []
+    }
+  ],
+  "verified_utc": "2026-10-19T16:38:28.189994+00:00",
+  "mail_journal_unchanged": true,
+  "timers_restored": true
+}

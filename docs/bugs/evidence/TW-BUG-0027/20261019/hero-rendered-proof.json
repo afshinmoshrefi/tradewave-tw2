@@ -1,0 +1,103 @@
+{
+  "passed": true,
+  "browser_version": "153.0.8010.12",
+  "pages": [
+    {
+      "symbol": "GS",
+      "viewport": "desktop",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/GS/article.html",
+      "file": "GS-hero-desktop.png",
+      "src": "https://seasonalmarketnews.com/editions/2026-10-16/GS/assets/hero-reused-d4e872c3bdd1.jpg",
+      "natural_width": 1536,
+      "natural_height": 640,
+      "width": 1010,
+      "height": 443.921875,
+      "caption": "Conceptual illustration from the Seasonal Market News archive."
+    },
+    {
+      "symbol": "GS",
+      "viewport": "mobile",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/GS/article.html",
+      "file": "GS-hero-mobile.png",
+      "src": "https://seasonalmarketnews.com/editions/2026-10-16/GS/assets/hero-reused-d4e872c3bdd1.jpg",
+      "natural_width": 1536,
+      "natural_height": 640,
+      "width": 358,
+      "height": 195.34375,
+      "caption": "Conceptual illustration from the Seasonal Market News archive."
+    },
+    {
+      "symbol": "PGR",
+      "viewport": "desktop",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/PGR/article.html",
+      "file": "PGR-hero-desktop.png",
+      "src": "https://seasonalmarketnews.com/editions/2026-10-16/PGR/assets/hero-reused-4bdb77fe78ec.jpg",
+      "natural_width": 1536,
+      "natural_height": 640,
+      "width": 1010,
+      "height": 443.921875,
+      "caption": "Conceptual illustration from the Seasonal Market News archive."
+    },
+    {
+      "symbol": "PGR",
+      "viewport": "mobile",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/PGR/article.html",
+      "file": "PGR-hero-mobile.png",
+      "src": "https://seasonalmarketnews.com/editions/2026-10-16/PGR/assets/hero-reused-4bdb77fe78ec.jpg",
+      "natural_width": 1536,
+      "natural_height": 640,
+      "width": 358,
+      "height": 195.34375,
+      "caption": "Conceptual illustration from the Seasonal Market News archive."
+    },
+    {
+      "symbol": "XLK",
+      "viewport": "desktop",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/XLK/article.html",
+      "file": "XLK-hero-desktop.png",
+      "src": "https://seasonalmarketnews.com/editions/2026-10-16/XLK/assets/hero-reused-748fa7d51e26.jpg",
+      "natural_width": 2176,
+      "natural_height": 960,
+      "width": 1010,
+      "height": 468.671875,
+      "caption": "Conceptual illustration from the Seasonal Market News archive."
+    },
+    {
+      "symbol": "XLK",
+      "viewport": "mobile",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/XLK/article.html",
+      "file": "XLK-hero-mobile.png",
+      "src": "https://seasonalmarketnews.com/editions/2026-10-16/XLK/assets/hero-reused-748fa7d51e26.jpg",
+      "natural_width": 2176,
+      "natural_height": 960,
+      "width": 358,
+      "height": 204.125,
+      "caption": "Conceptual illustration from the Seasonal Market News archive."
+    },
+    {
+      "symbol": "MRK",
+      "viewport": "desktop",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/MRK/article.html",
+      "file": "MRK-hero-desktop.png",
+      "src": "https://seasonalmarketnews.com/editions/2026-10-16/MRK/assets/hero-reused-12e5aaaf3758.jpg",
+      "natural_width": 2176,
+      "natural_height": 960,
+      "width": 1010,
+      "height": 468.671875,
+      "caption": "Conceptual illustration from the Seasonal Market News archive."
+    },
+    {
+      "symbol": "MRK",
+      "viewport": "mobile",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/MRK/article.html",
+      "file": "MRK-hero-mobile.png",
+      "src": "https://seasonalmarketnews.com/editions/2026-10-16/MRK/assets/hero-reused-12e5aaaf3758.jpg",
+      "natural_width": 2176,
+      "natural_height": 960,
+      "width": 358,
+      "height": 204.125,
+      "caption": "Conceptual illustration from the Seasonal Market News archive."
+    }
+  ],
+  "private_root": "/var/tmp/smn-public-hero-ui-20261019-3my_tqxe"
+}

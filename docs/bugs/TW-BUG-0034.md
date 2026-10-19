@@ -81,3 +81,7 @@ deployment, after current backup verification. Parent confirms required full-
 server backup completion is still unconfirmed. Four overrides remain unpublished;
 C remains pending. Targeted rollback backup preparation is authorized and complete,
 but does not replace the full-server prerequisite. No subscriber mail is allowed.
+
+## October 19: four October 16 archive hero backfills verified
+
+GS, PGR, XLK and MRK now have explicit archive-captioned images, with original factual artifacts unchanged. Native public browser/hash gates passed and all eight rendered hero captures were actually inspected. C remains without qualified artwork. No new generation or credits were used. See [repair proof](evidence/TW-BUG-0027/20261019/hero-repair-live-proof.json), [pixel inspection](evidence/TW-BUG-0027/20261019/hero-pixel-inspection.json) and [current handoff](evidence/TW-BUG-0027/20261019/TARGET-HANDOFF.md).

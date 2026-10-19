@@ -5,8 +5,23 @@
   "message_reference": "Sentinel_d4de0cc2fec0819183cb687d32d4a8c4",
   "human_reply": "I approve",
   "approved_prompt": "Deploy the tested SMN repair and restore four prepared article images, after a current backup is verified, with rollback on live-check failure; no email resend.",
-  "parent_direction": "Targeted restore-verifiable rollback backup preparation is permitted if safe and within plan; do not claim it replaces the required full-server backup.",
+  "parent_direction": "Proceed with bounded code cutover and four hero repairs. No subscriber mail.",
   "candidate": "55afe01a5683c6f2471e0d578867ad77390bb739",
-  "full_server_backup_confirmed": false,
-  "subscriber_mail_authorized": false
+  "full_server_backup_confirmed": true,
+  "subscriber_mail_authorized": false,
+  "backup_confirmation": {
+    "human": "Afshin",
+    "utc": "2026-10-19T16:24:02Z",
+    "message_reference": "Sentinel_f0bc366526dc81918d8e15bb29117d7e",
+    "human_reply": "yes do it",
+    "question_context": "Explicit confirmation that the actual seasonalmarketnews / 209.182.216.112 full-server backup completed today, October 19",
+    "evidence_kind": "human-confirmed-current-day",
+    "provider": null,
+    "snapshot_reference": null,
+    "completed_at_utc": null,
+    "source_commit": "55afe01a5683c6f2471e0d578867ad77390bb739",
+    "operator_sha256": "81f3c454678ef633b1b8464b6d9d8f39b5bfaf19a84fd97255d56f5ec9e5c24c",
+    "baseline_sha256": "b034979a2426b0cc4a53486c2a0038e7626c9fe3d09cbebf7c6060662b78335b",
+    "artifact_sha256": "12713bc0ed20cf115314cd4e8d6522f4d5e2465177c56fe491dae8619792f41b"
+  }
 }

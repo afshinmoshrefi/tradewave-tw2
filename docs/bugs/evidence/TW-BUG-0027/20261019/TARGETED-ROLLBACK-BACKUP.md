@@ -1,3 +1,5 @@
+> Current update, October 19 at 16:42 UTC: Afshin confirmed the current-day actual-SMN full-server backup at 16:24:02 UTC. The code cutover and four image repairs are now live-verified. Backup/approval are satisfied for this exact action. See [current handoff](TARGET-HANDOFF.md) and [final live state](final-live-state.json). The earlier observations below remain historical evidence.
+
 # Targeted SMN rollback backup verified
 
 Afshin explicitly approved the tested bounded SMN deployment and four prepared

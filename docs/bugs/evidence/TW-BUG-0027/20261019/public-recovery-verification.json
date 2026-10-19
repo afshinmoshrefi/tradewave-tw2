@@ -1,0 +1,149 @@
+{
+  "utc": "2026-10-19T16:39:38.816646+00:00",
+  "status": "public_http_and_asset_hashes_passed",
+  "articles": [
+    {
+      "symbol": "GS",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/GS/article.html",
+      "article_http": 200,
+      "hero_http": 200,
+      "asset_sha256": "d4e872c3bdd19486196d60c946b12a359ba81ec3902a02b683fb767a6764345f",
+      "archive_caption_visible": true
+    },
+    {
+      "symbol": "PGR",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/PGR/article.html",
+      "article_http": 200,
+      "hero_http": 200,
+      "asset_sha256": "4bdb77fe78ec2de7ace454e0aa4603042555729ed560ada705925eaa881c1645",
+      "archive_caption_visible": true
+    },
+    {
+      "symbol": "XLK",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/XLK/article.html",
+      "article_http": 200,
+      "hero_http": 200,
+      "asset_sha256": "748fa7d51e264beb4dd3732c805a5f8ade7f4953512c2fb148b12b1826fe876b",
+      "archive_caption_visible": true
+    },
+    {
+      "symbol": "MRK",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/MRK/article.html",
+      "article_http": 200,
+      "hero_http": 200,
+      "asset_sha256": "12e5aaaf3758280e57cef33d09052cdecf23e41d015aa7e61d26aeebc340ff76",
+      "archive_caption_visible": true
+    }
+  ],
+  "coverage": {
+    "edition_date": "2026-10-19",
+    "revision": 4,
+    "revision_id": "0ba691d7490dc8332bd553540a2e96e2f9ade04109bfeca7a58b338c1805c025",
+    "transaction_id": "8fef3a68910c4feb6c83a2a7b6ec05f64b5d1cb99829f359488a40cda14ee725",
+    "selection_sha256": "525cb014bd791fe05a6c131416e72daf0e5cc4209a4452322352d73b91219fda",
+    "selection_status": "frozen",
+    "expected_symbols": [
+      "QQQ",
+      "SPY",
+      "XLF",
+      "AMZN",
+      "CSX",
+      "CCK"
+    ],
+    "published_symbols": [
+      "QQQ",
+      "SPY",
+      "XLF",
+      "AMZN",
+      "CSX",
+      "CCK"
+    ],
+    "pending_symbols": [],
+    "coverage_status": "complete",
+    "complete": true,
+    "source_commit": "55afe01a5683c6f2471e0d578867ad77390bb739"
+  },
+  "screenshots": [
+    {
+      "symbol": "GS",
+      "viewport": "desktop",
+      "path": "GS-desktop.png",
+      "sha256": "3b1c5a21238e03fc96afd6e20c681f2be5b0e4efd953a126e35ca03efec5a420",
+      "scope": "Screenshot of already public page from native live browser gate"
+    },
+    {
+      "symbol": "GS",
+      "viewport": "mobile",
+      "path": "GS-mobile.png",
+      "sha256": "05b78719edb8ebfb805f969d1de73366d4b39c096dd71771f43c5448bc0888a5",
+      "scope": "Screenshot of already public page from native live browser gate"
+    },
+    {
+      "symbol": "PGR",
+      "viewport": "desktop",
+      "path": "PGR-desktop.png",
+      "sha256": "e9bf58cc008c279efbc51ebe07d00851fc90f9686187c10e4e29e1c72fa05330",
+      "scope": "Screenshot of already public page from native live browser gate"
+    },
+    {
+      "symbol": "PGR",
+      "viewport": "mobile",
+      "path": "PGR-mobile.png",
+      "sha256": "0ab0838b2521960468ae4d76ecf185ef30924a2cc36c28c562d7c7eae63716f7",
+      "scope": "Screenshot of already public page from native live browser gate"
+    },
+    {
+      "symbol": "XLK",
+      "viewport": "desktop",
+      "path": "XLK-desktop.png",
+      "sha256": "aa46649a5863992849f4c85be02c365ac099e58042ee7dc9112d46f85f889d9a",
+      "scope": "Screenshot of already public page from native live browser gate"
+    },
+    {
+      "symbol": "XLK",
+      "viewport": "mobile",
+      "path": "XLK-mobile.png",
+      "sha256": "0d8406238617fe5e020901246d3e7291aa568e14d74ac0d6f66efe3f71bc479b",
+      "scope": "Screenshot of already public page from native live browser gate"
+    },
+    {
+      "symbol": "MRK",
+      "viewport": "desktop",
+      "path": "MRK-desktop.png",
+      "sha256": "247ddc02ff9e64604126805bb62ec260f274eb70736eb4dcf20c0e28bb908c79",
+      "scope": "Screenshot of already public page from native live browser gate"
+    },
+    {
+      "symbol": "MRK",
+      "viewport": "mobile",
+      "path": "MRK-mobile.png",
+      "sha256": "7f7b952807a3611d09706712c41fccbee9bf80110fd62d899736b2aa8c117fa0",
+      "scope": "Screenshot of already public page from native live browser gate"
+    }
+  ],
+  "pixel_inspection": {
+    "actor": "Codex / 01a117d1-cc86-737e-a3f1-28b9a724802e",
+    "utc": "2026-10-19T16:43:36.627838+00:00",
+    "scope": "Actually viewed all eight public hero-figure captures, desktop and mobile for GS/PGR/XLK/MRK; all four images and truthful archive captions render without clipping.",
+    "passed": true,
+    "warnings": {
+      "PGR": [
+        "Existing archive black upper band and stylized front-body damage retained; no new quality pass for the image itself."
+      ]
+    },
+    "screenshots": {
+      "GS-hero-desktop.png": "18c97f63fcf809be36012df782124a8e9c5fb773c7ccfe1c68e0d88e8a42672d",
+      "GS-hero-mobile.png": "e74a9af639963f8a0e192526ea23bb0172e3c7d46d0b343179c76c06f760459d",
+      "PGR-hero-desktop.png": "028235747134c4250a06732f26cb68d67a4ba09420a0b3038dc5aa94993f2275",
+      "PGR-hero-mobile.png": "f77ed96bb8e1d71a63c9dc77d2bc2be2e4d4b0184ebea8d515a58c9964814b43",
+      "XLK-hero-desktop.png": "a8f68de074a17042b2e9803c67f807bdb36354c09331f97e78db503729052b5c",
+      "XLK-hero-mobile.png": "a69220c3f0afd87a6ba237c63157b906e5b682df44a10b8fdfdc4162a463826d",
+      "MRK-hero-desktop.png": "8bb0f8e0dbe89907b12e631b43909224e224c6ff7223c6df69cb109c97ad3ed7",
+      "MRK-hero-mobile.png": "8fd0e28cd0550b63d51d6c7ab717e00767049a7ca45da67c2a7d9d138e2aeff1"
+    },
+    "unmodified_body_observation": "Existing mobile evidence tables wrap some labels and numeric strings tightly. The native top screenshots were captured at the body chart after scrolling; separate hero-figure captures were therefore taken and actually viewed. No broad table/layout change was made."
+  },
+  "subscriber_sends": 0,
+  "provider_calls": 0,
+  "model_jobs": 0
+}
