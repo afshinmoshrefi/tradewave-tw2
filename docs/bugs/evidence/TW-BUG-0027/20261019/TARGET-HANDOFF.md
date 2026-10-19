@@ -79,3 +79,7 @@ Lock/retry defects remain engineering responsibilities, not owner-policy choices
 ## Final independent verification
 
 [Final live state](final-live-state.json) confirms source 55afe01a, native receipts for both dates, correct effective pinned units, all five enabled/active timers, released activation lock and unchanged mail journal after scheduled ticks resumed. The two native browser passes checked 10 historical and 12 current article layouts, with 199 and 215 public files respectively. [Eight actually viewed hero captures](hero-pixel-inspection.json) confirm desktop/mobile figures and archive captions. Existing tight mobile evidence-table wrapping is retained as an advisory observation, outside this image repair. No remaining code-deployment or four-image blocker exists.
+
+## Citigroup read-only investigation
+
+A suitable existing 4032 x 2268 photograph of 388 Greenwich Street was found, author/license verified, byte-checked and actually viewed. [Proposed source and exact constraints](C-READONLY-ASSET-PROPOSAL.md). C remains unchanged in production. No C image was uploaded to the server or shared repository, no generation was run and no receipt was fabricated. Separate C publication authorization and truthful licensed-source provenance integration remain.
