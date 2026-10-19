@@ -1,0 +1,16 @@
+{
+  "candidate": "55afe01a5683c6f2471e0d578867ad77390bb739",
+  "status": "passed",
+  "native_complete_receipt_accepted_without_source_relabel": true,
+  "receipt_source_commit": "2b0075c85e45d8cd547c95b8868f8560532cf86b",
+  "receipt_sha256": "ab218a6a81071b0431c3bc1758f58a91ab8a49a04c26fceff3f62ac001095510",
+  "publication_id": "smn-production-2026-10-19-1e1558be4ad75910",
+  "article_count": 6,
+  "edition_files_verified": 123,
+  "production_mutations": 0,
+  "locks_acquired": 0,
+  "provider_calls": 0,
+  "model_jobs": 0,
+  "subscriber_sends": 0,
+  "private_content_exported": false
+}

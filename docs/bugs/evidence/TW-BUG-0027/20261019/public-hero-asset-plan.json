@@ -1,0 +1,123 @@
+{
+  "utc": "2026-10-19T13:18:24.367908+00:00",
+  "status": "preparation_only_no_publication",
+  "retention_receipt": {
+    "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-19/chatgpt/production-publication-receipt.json",
+    "sha256": "ab218a6a81071b0431c3bc1758f58a91ab8a49a04c26fceff3f62ac001095510",
+    "id": "smn-production-2026-10-19-1e1558be4ad75910",
+    "status": "live_verified",
+    "production_written": true
+  },
+  "assets": [
+    {
+      "symbol": "GS",
+      "status": "visually_inspected_existing_public_asset",
+      "local_path": "C:\\Users\\afshin\\Documents\\Codex\\2026-10-07\\task-2\\smn-oct19-hero-backfill-preparation\\GS-d4e872c3bdd1.jpg",
+      "source_asset_url": "https://seasonalmarketnews.com/editions/2026-10-12/GS/assets/hero-reused-d4e872c3bdd1.jpg",
+      "source_publication_url": "https://seasonalmarketnews.com/editions/2026-10-12/GS/article.html",
+      "sha256": "d4e872c3bdd19486196d60c946b12a359ba81ec3902a02b683fb767a6764345f",
+      "width": 1536,
+      "height": 640,
+      "source_publication_date": "2026-10-12T00:00:04Z",
+      "retained_asset_and_article_verified": true,
+      "original_target_files": {
+        "article.json": "3a31922dbd6a88f38013406cf7dbdf2d48c002bf1329d7fdd4329028e06adad0",
+        "article.html": "6ab53626f991db80a46b255c6ac38850d244085def415c1fd56734ea09ddbc64",
+        "hero-asset.json": "4c6137672a1369a99174fc4a3a876f2a5687c4ddf7dfd8866904d41539ce893d"
+      },
+      "visual_inspection": {
+        "actor": "Codex / 01a117d1-cc86-737e-a3f1-28b9a724802e",
+        "utc": "2026-10-19T13:20:04.362405+00:00",
+        "passed_for_decorative_archive_reuse": true,
+        "scope": "Observed the exact existing public image; no dated financial figure or forecast claim accepted as data.",
+        "alt": "Conceptual Goldman Sachs office illustration",
+        "warnings": []
+      }
+    },
+    {
+      "symbol": "PGR",
+      "status": "visually_inspected_existing_public_asset",
+      "local_path": "C:\\Users\\afshin\\Documents\\Codex\\2026-10-07\\task-2\\smn-oct19-hero-backfill-preparation\\PGR-4bdb77fe78ec.jpg",
+      "source_asset_url": "https://seasonalmarketnews.com/articles/US/2026/03/02/hero_PGR.jpg",
+      "source_publication_url": "https://seasonalmarketnews.com/articles/US/2026/03/02/progressive-corporation-pgr-has-rallied-in-10-of-10-midterm-spring-windows.html",
+      "sha256": "4bdb77fe78ec2de7ace454e0aa4603042555729ed560ada705925eaa881c1645",
+      "width": 1536,
+      "height": 640,
+      "source_publication_date": "2026-03-02T04:51:14Z",
+      "retained_asset_and_article_verified": true,
+      "original_target_files": {
+        "article.json": "550d42518c46378d76a4c4b300dbf1995ecdf0cf89e13bf7980d8184d28e0af5",
+        "article.html": "9b5d9d52f7900ddadc5aef9de5c889f1d0747ff89dbdca5d9bec7f09e855f447",
+        "hero-asset.json": "3eb3e773f57981edac2f3ef00101dd3f18b13133365682302e3760e021a93f73"
+      },
+      "visual_inspection": {
+        "actor": "Codex / 01a117d1-cc86-737e-a3f1-28b9a724802e",
+        "utc": "2026-10-19T13:20:04.362922+00:00",
+        "passed_for_decorative_archive_reuse": true,
+        "scope": "Observed the exact existing public image; no dated financial figure or forecast claim accepted as data.",
+        "alt": "Conceptual automobile insurance illustration",
+        "warnings": [
+          "Existing archive image contains a black upper band and stylized front-body damage. These visual warnings are retained; no new image or fake quality review is created."
+        ]
+      }
+    },
+    {
+      "symbol": "C",
+      "status": "no_qualified_existing_asset_found"
+    },
+    {
+      "symbol": "XLK",
+      "status": "visually_inspected_existing_public_asset",
+      "local_path": "C:\\Users\\afshin\\Documents\\Codex\\2026-10-07\\task-2\\smn-oct19-hero-backfill-preparation\\XLK-748fa7d51e26.jpg",
+      "source_asset_url": "https://seasonalmarketnews.com/editions/2026-10-12/XLK/assets/hero-reused-748fa7d51e26.jpg",
+      "source_publication_url": "https://seasonalmarketnews.com/editions/2026-10-12/XLK/article.html",
+      "sha256": "748fa7d51e264beb4dd3732c805a5f8ade7f4953512c2fb148b12b1826fe876b",
+      "width": 2176,
+      "height": 960,
+      "source_publication_date": "2026-10-12T00:00:02Z",
+      "retained_asset_and_article_verified": true,
+      "original_target_files": {
+        "article.json": "234b03e1caac0b23361221e4210cddec922325592eda274cebdb95f3859065c4",
+        "article.html": "5cac6c6f16a4af0dc480843c9995060ab9fc505ec25587cad7c39da20e48e387",
+        "hero-asset.json": "0430880465a026a88d8b1682fd442ad268ca27d08a37076b6b7703aec6c577cc"
+      },
+      "visual_inspection": {
+        "actor": "Codex / 01a117d1-cc86-737e-a3f1-28b9a724802e",
+        "utc": "2026-10-19T13:20:04.365454+00:00",
+        "passed_for_decorative_archive_reuse": true,
+        "scope": "Observed the exact existing public image; no dated financial figure or forecast claim accepted as data.",
+        "alt": "Conceptual technology infrastructure illustration",
+        "warnings": []
+      }
+    },
+    {
+      "symbol": "MRK",
+      "status": "visually_inspected_existing_public_asset",
+      "local_path": "C:\\Users\\afshin\\Documents\\Codex\\2026-10-07\\task-2\\smn-oct19-hero-backfill-preparation\\MRK-12e5aaaf3758.jpg",
+      "source_asset_url": "https://seasonalmarketnews.com/editions/2026-10-08/MRK/assets/hero-12e5aaaf3758.jpg",
+      "source_publication_url": "https://seasonalmarketnews.com/editions/2026-10-08/MRK/article.html",
+      "sha256": "12e5aaaf3758280e57cef33d09052cdecf23e41d015aa7e61d26aeebc340ff76",
+      "width": 2176,
+      "height": 960,
+      "source_publication_date": "2026-10-08T00:00:01Z",
+      "retained_asset_and_article_verified": true,
+      "original_target_files": {
+        "article.json": "9b3c7c4253a1aed832218fc6534de64a6fd6e8bb49d69b5767cb0220e3fedfdb",
+        "article.html": "422a1fccf2f96124aef29e9952a0d6e13caf5fd6116e904e207c87022437ef7d",
+        "hero-asset.json": "a81b22dee6076f1e5d552179db7f12a5aadd40470504cdbf2f5a0460d3f7568a"
+      },
+      "visual_inspection": {
+        "actor": "Codex / 01a117d1-cc86-737e-a3f1-28b9a724802e",
+        "utc": "2026-10-19T13:20:04.367033+00:00",
+        "passed_for_decorative_archive_reuse": true,
+        "scope": "Observed the exact existing public image; no dated financial figure or forecast claim accepted as data.",
+        "alt": "Conceptual Merck research campus illustration",
+        "warnings": []
+      }
+    }
+  ],
+  "new_image_generations": 0,
+  "private_production_files_copied_to_local": 0,
+  "subscriber_sends": 0,
+  "production_mutations": 0
+}

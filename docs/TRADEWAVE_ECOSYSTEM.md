@@ -158,7 +158,11 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   records exact submitted mail HTML/media before POST, and includes the typed
   version-4 quote contract. 151 Linux tests, including six real scheduler/sender/
   alert CLI fixture cases, and the native JavaScript contract pass. Actual target
-  Python 3.12.3 read-only replay passes; the candidate is not activated. Fresh-hero
+  Python 3.12.3 now passes the full 151 + 90 target suites and eight private
+  rollback cases (also repeated with root-owned files); installed target Chromium
+  passes contract replay. Unique transient qualification units deny network and
+  writes outside private /var/tmp roots. Exact existing-file source-path updates
+  are prepared; the candidate is not activated. Fresh-hero
   runtime files retain the installed hashes. Live mail/alert and consecutive-run
   acceptance remain separate; see the reconciled TW-BUG-0027 inventory. Effective newsletter units can
   pin a versioned ExecStart and WorkingDirectory, so a current-symlink change

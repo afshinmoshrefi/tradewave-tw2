@@ -1,0 +1,18 @@
+{
+  "utc": "2026-10-19T13:29:26.640790+00:00",
+  "status": "passed",
+  "source_commit": "55afe01a5683c6f2471e0d578867ad77390bb739",
+  "host": "seasonalmarketnews",
+  "root_owned_private_files": true,
+  "private_root": "/var/tmp/smn-root-rollback-qual-20261019-64sp115k",
+  "unit": "smn-root-rollback-qual-20261019-1cedc2ab",
+  "effective_unit": "User=root\nReadWritePaths=/var/tmp/smn-root-rollback-qual-20261019-64sp115k\nPrivateNetwork=yes\nProtectSystem=strict\n",
+  "exit_code": 0,
+  "stdout": "",
+  "stderr": "test_ambiguous_native_execstart_is_rejected (test_bounded_release_rehearsal.BoundedOperatorRehearsal.test_ambiguous_native_execstart_is_rejected) ... ok\ntest_apply_then_exact_rollback_preserves_policy_and_mail (test_bounded_release_rehearsal.BoundedOperatorRehearsal.test_apply_then_exact_rollback_preserves_policy_and_mail) ... ok\ntest_interrupted_partial_config_write_can_restore_before_pointer_change (test_bounded_release_rehearsal.BoundedOperatorRehearsal.test_interrupted_partial_config_write_can_restore_before_pointer_change) ... ok\ntest_live_owner_prevents_rollback (test_bounded_release_rehearsal.BoundedOperatorRehearsal.test_live_owner_prevents_rollback) ... ok\ntest_mail_advance_is_never_restored_from_backup (test_bounded_release_rehearsal.BoundedOperatorRehearsal.test_mail_advance_is_never_restored_from_backup) ... ok\ntest_peer_owned_config_edit_is_preserved (test_bounded_release_rehearsal.BoundedOperatorRehearsal.test_peer_owned_config_edit_is_preserved) ... ok\ntest_postwrite_failure_uses_same_guarded_rollback (test_bounded_release_rehearsal.BoundedOperatorRehearsal.test_postwrite_failure_uses_same_guarded_rollback) ... ok\ntest_tampered_backup_prevents_destructive_restoration (test_bounded_release_rehearsal.BoundedOperatorRehearsal.test_tampered_backup_prevents_destructive_restoration) ... ok\n\n----------------------------------------------------------------------\nRan 8 tests in 0.160s\n\nOK\n",
+  "scope": "Eight retained-operator atomic/config/pointer rollback tests with root-owned private fixtures; service reload/timer controls remain mocked.",
+  "production_activations": 0,
+  "subscriber_sends": 0,
+  "provider_calls": 0,
+  "model_jobs": 0
+}

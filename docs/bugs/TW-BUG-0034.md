@@ -49,3 +49,15 @@ helper retains existing placeholder receipts rather than automatically upgrading
 them. Keep this five-image follow-up open until its own content receipts verify.
 See [current proof](evidence/TW-BUG-0027/20261019/weekly-hero-http-proof.json) and
 [reconciled inventory](evidence/TW-BUG-0027/20261019/STABILIZATION.md).
+
+### No-cost preparation, October 19 13:20 UTC
+
+Existing same-symbol public GS, PGR, XLK and MRK illustrations were byte-verified
+against the current retained publication receipt and visually inspected. Native
+decorative overrides are prepared at `/var/tmp/smn-hero-backfill-20261019-twywv3vf` on actual SMN.
+Native override/replace checks pass; all original live source artifacts and all
+non-hero HTML bytes remain unchanged. PGR's black upper band/stylized damage
+warning is retained. No new image, model job or publication was performed.
+C has no prior catalog/retained artwork; its only October private hero receipt is
+a neutral placeholder. C remains pending under the no-spending instruction.
+See [prepared overrides](evidence/TW-BUG-0027/20261019/hero-backfill-preparation.json).

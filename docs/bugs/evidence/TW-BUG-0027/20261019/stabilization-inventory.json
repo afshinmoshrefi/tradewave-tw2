@@ -1,6 +1,6 @@
 {
   "utc": "2026-10-19T12:57:51.497458+00:00",
-  "status": "tested isolated candidate; production activation and full unattended acceptance incomplete",
+  "status": "target-qualified candidate and prepared exact live-file/content plans; not deployed",
   "repository": "https://github.com/afshinmoshrefi/SMN",
   "branch": "codex/smn-oct19-stabilization-candidate",
   "candidate_sha": "55afe01a5683c6f2471e0d578867ad77390bb739",
@@ -23,7 +23,7 @@
     "real_cli_cases": 6,
     "real_cli_scope": "private fixtures; actual scheduler/sender/alert programs; external provider/model boundaries mocked",
     "target_python": "3.12.3",
-    "target_scope": "Target interpreter compilation, actual retained home/recap read-only replay, anonymous-memory lease semantics; no scheduled send or persistent target staging.",
+    "target_scope": "Actual target interpreter and transient OS-sandboxed qualification units; retained operator atomic/pointer/config/rollback functions use private file fixtures and mocked service control. No live application activation.",
     "preserved_fresh_hero_hashes": {
       "blog/subscription_inputs.py": "172b65bcaf06bce18e99c63993a3fa582624196f489569655a886982e8cb0228",
       "blog/decorative_hero_reuse.py": "a0817ecc36514dad8feb637c71910f0d26ee2b392e217edd99df18e5fa743bcc"
@@ -62,13 +62,13 @@
     "Actual weekday, partial, Sunday, restart/unknown-provider and alert CLI behavior against isolated fixtures."
   ],
   "still_unverified_or_incomplete": [
-    "Today daily newsletter is absent as of 12:34 UTC; scheduled attempts 1/2/3 failed before POST with publication lease contention. Code installation does not reopen terminal attempt 3.",
-    "Live alert settings disabled with zero recipients. Mocked acceptance/delivery/failure proof is not actual operator delivery.",
-    "Friday GS/PGR/C/XLK/MRK have hero_status unavailable and no public hero URL; neutral private placeholders are not illustrations. Weekly recap intentionally renders fallback ticker blocks for these five. Other eleven URLs returned HTTP 200 and match origin bytes.",
-    "No automatic post-publication hero recovery queue is demonstrated. Existing fresh decorative derivative workflow can repair the five articles without a new renderer deployment, but that content operation is not executed here.",
-    "Malformed selector ranking can still become zero-score rows with exit zero; no integrated repair for that defect is qualified here.",
-    "Automatic abandoned activation recovery and causal quote formatting recovery remain unproved; Monday manual recoveries do not establish either.",
-    "Final guarded activation/rollback/browser rehearsal and consecutive actual unattended runs remain required."
+    "Actual current-day SMN server snapshot/backup completion is not verified. Inspected local metadata contains package-manager backups, no current-day SMN server attestation. This does not establish that no provider snapshot exists; parent must obtain its real reference/completion time and current-day confirmation.",
+    "Live activation has not occurred. Parent release owner must acquire the existing coordination window, recheck baseline hashes/live tasks, preserve rollback bytes/timer states, install the exact immutable source and three prepared managed files, switch current, reload and verify effective units and public invariants.",
+    "The eight rollback cases exercise retained operator primitives with private paths and mocked daemon/timer controls, repeated as root. They do not authorize executing the retained October 9 full operator, whose historic apply preconditions are not adapted for this release.",
+    "Actual alert delivery remains unavailable: observer units absent, alerts disabled, no configured recipient, no Resend key in the designated secrets file. An authorized operator destination and usable existing credential/transport are missing. No actual delivery success is claimed.",
+    "Today daily newsletter attempt 3 remains terminal after pre-POST lock failures; code activation alone does not reopen it. Parent retains receipt-aware recovery ownership. This worker sends no subscriber mail.",
+    "Four October 16 hero overrides are prepared, not published. Normal continuity transaction and browser gates remain. C has no qualified existing artwork; its only private October receipt is a neutral placeholder. No image generation/spending is performed.",
+    "Full live native cutover/post-cutover browser verification, actual provider receipts and at least three consecutive unattended weekday runs remain necessary before claiming reliable operation. Malformed selector output and automatic abandoned-activation/causal-format recovery remain separate open defects."
   ],
   "next_actions": [
     "One release owner must reconcile this exact composition with the ongoing parent release assessment; preserve installed fresh-hero code and the production-specific source line. Do not promote SMN main or whole old 308d172 branch.",
@@ -82,7 +82,7 @@
     "human_instructions": "Publish usable coverage without polish blocking the edition; allow up to 60 daily jobs; routine fixes have blanket approval and should not repeatedly ask.",
     "historic_exact_release_approval": "October 9 b61b37f7a6683f0fc173b8aef52bcd5067f6bbe5 and October 9 actual-SMN backup were directly confirmed; this is historical evidence, not a current-day snapshot.",
     "fresh_media_preference": "TW-BUG-0034 records direct human instruction: yes fresh is the way its been for ever.",
-    "pending_policy_answers": "Broad future-policy questions are optional and are not prerequisites for this bounded repair. Preserve current review policy. Parent handles any genuinely missing one-time release or alert destination decision."
+    "pending_policy_answers": "Not prerequisites. Current bounded repair authority is reconciled above; parent handles missing backup facts and alert setup only."
   },
   "actions_in_this_qualification": {
     "real_provider_calls": 0,
@@ -90,7 +90,12 @@
     "subscriber_sends": 0,
     "production_activations": 0,
     "timer_changes": 0,
-    "new_credentials": 0
+    "new_credentials": 0,
+    "target_private_artifact_writes": true,
+    "transient_isolated_qualification_units_created": true,
+    "existing_smn_units_changed": false,
+    "live_release_pointer_changed": false,
+    "private_production_contents_exported": false
   },
   "proof_notes": [
     "Target Python 3.12.3 checks compile candidate source and replay read-only current home/weekly metadata with anonymous-memory lease semantics; not a full target filesystem scheduled send.",
@@ -105,5 +110,56 @@
     "remaining_decisions_handled_by": "parent release owner",
     "configured_alert_destination": null
   },
-  "qualification_harness_corrections": "First additional run blocked one legitimate read-only asset-preflight subprocess. Added only that exact committed script to the offline subprocess allowlist; 90/90 then passed. Original failing proof retained. No product code or factual-review policy changed."
+  "qualification_harness_corrections": "First additional run blocked one legitimate read-only asset-preflight subprocess. Added only that exact committed script to the offline subprocess allowlist; 90/90 then passed. Original failing proof retained. No product code or factual-review policy changed.",
+  "target_qualification": {
+    "proof": "target-isolated-proof.json",
+    "python": "3.12.3",
+    "tests_passed": [
+      151,
+      90,
+      8
+    ],
+    "rollback_eight_repeated_with_root_owned_files": true,
+    "target_node_contract_passed": true,
+    "target_chromium": "153.0.8010.12",
+    "target_browser_contract_passed": true,
+    "live_invariants_unchanged": true,
+    "scope": "Private-path transient units with kernel network and write isolation; no live activation."
+  },
+  "current_receipt_compatibility": {
+    "candidate": "55afe01a5683c6f2471e0d578867ad77390bb739",
+    "status": "passed",
+    "native_complete_receipt_accepted_without_source_relabel": true,
+    "receipt_source_commit": "2b0075c85e45d8cd547c95b8868f8560532cf86b",
+    "receipt_sha256": "ab218a6a81071b0431c3bc1758f58a91ab8a49a04c26fceff3f62ac001095510",
+    "publication_id": "smn-production-2026-10-19-1e1558be4ad75910",
+    "article_count": 6,
+    "edition_files_verified": 123,
+    "production_mutations": 0,
+    "locks_acquired": 0,
+    "provider_calls": 0,
+    "model_jobs": 0,
+    "subscriber_sends": 0,
+    "private_content_exported": false
+  },
+  "prepared_live_file_plan": "prepared-live-unit-plan.json",
+  "prepared_hero_overrides": "hero-backfill-preparation.json",
+  "remaining_blockers_and_followup": [
+    "Actual current-day SMN server snapshot/backup completion is not verified. Inspected local metadata contains package-manager backups, no current-day SMN server attestation. This does not establish that no provider snapshot exists; parent must obtain its real reference/completion time and current-day confirmation.",
+    "Live activation has not occurred. Parent release owner must acquire the existing coordination window, recheck baseline hashes/live tasks, preserve rollback bytes/timer states, install the exact immutable source and three prepared managed files, switch current, reload and verify effective units and public invariants.",
+    "The eight rollback cases exercise retained operator primitives with private paths and mocked daemon/timer controls, repeated as root. They do not authorize executing the retained October 9 full operator, whose historic apply preconditions are not adapted for this release.",
+    "Actual alert delivery remains unavailable: observer units absent, alerts disabled, no configured recipient, no Resend key in the designated secrets file. An authorized operator destination and usable existing credential/transport are missing. No actual delivery success is claimed.",
+    "Today daily newsletter attempt 3 remains terminal after pre-POST lock failures; code activation alone does not reopen it. Parent retains receipt-aware recovery ownership. This worker sends no subscriber mail.",
+    "Four October 16 hero overrides are prepared, not published. Normal continuity transaction and browser gates remain. C has no qualified existing artwork; its only private October receipt is a neutral placeholder. No image generation/spending is performed.",
+    "Full live native cutover/post-cutover browser verification, actual provider receipts and at least three consecutive unattended weekday runs remain necessary before claiming reliable operation. Malformed selector output and automatic abandoned-activation/causal-format recovery remain separate open defects."
+  ],
+  "current_bounded_authority": {
+    "interpretation": "The latest completion instruction in the context of the proposed integrated repair, together with existing blanket routine-repair authority, supports continuing this bounded repair. Do not require a new standing permission or review-policy change.",
+    "direct_visible_history": "User explicitly approved the b61b37f release and actual-SMN backup on October 9, subsequently granted blanket repair authority and up to 60 daily jobs, and directed publication restoration and continued repair.",
+    "current_completion_reference": "Coordinator-supplied October 19 12:40:53 UTC instruction: get started on it and do not stop until it is complete, in the context of one integrated release.",
+    "scope": "Candidate 55afe01a and the bounded source/service/pointer changes. Factual-review policy preserved. No subscriber send, paid image generation, new credentials or invented recipient in this worker.",
+    "snapshot_scope": "Actual SMN single host seasonalmarketnews / 209.182.216.112. An unrelated TradeWave web/app pair and October 9 confirmation do not establish October 19 completion.",
+    "if_parent_finds_actual_executor_scope_gap": "Use only the exact one-time wording in the plan; do not repeat the blanket authorization or ask about all future releases."
+  },
+  "planned_composition_sha256": "12713bc0ed20cf115314cd4e8d6522f4d5e2465177c56fe491dae8619792f41b"
 }

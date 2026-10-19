@@ -1,0 +1,545 @@
+{
+  "utc": "2026-10-19T13:16:43.951719+00:00",
+  "host": "seasonalmarketnews",
+  "ip": "209.182.216.112",
+  "source": "/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b",
+  "production_mutations": 0,
+  "provider_calls": 0,
+  "sends": 0,
+  "new_image_generations": 0,
+  "backup_evidence": {
+    "scope": "Existing local metadata only; no provider API or backup creation.",
+    "roots": [
+      {
+        "path": "/var/backups",
+        "recent_entries": [
+          {
+            "path": "/var/backups/dpkg.arch.0",
+            "kind": "file",
+            "bytes": 0,
+            "mtime_utc": "2026-10-17T00:00:00.079558+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/dpkg.status.0",
+            "kind": "file",
+            "bytes": 885590,
+            "mtime_utc": "2026-10-16T06:31:06.252698+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/dpkg.arch.1.gz",
+            "kind": "file",
+            "bytes": 32,
+            "mtime_utc": "2026-10-16T00:00:00.403408+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/dpkg.status.1.gz",
+            "kind": "file",
+            "bytes": 211248,
+            "mtime_utc": "2026-10-15T06:46:13.954936+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/apt.extended_states.0",
+            "kind": "file",
+            "bytes": 47812,
+            "mtime_utc": "2026-10-15T06:46:13.795938+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/dpkg.arch.2.gz",
+            "kind": "file",
+            "bytes": 32,
+            "mtime_utc": "2026-10-14T00:00:00.402874+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/dpkg.status.2.gz",
+            "kind": "file",
+            "bytes": 211137,
+            "mtime_utc": "2026-10-13T06:03:50.658127+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/dpkg.arch.3.gz",
+            "kind": "file",
+            "bytes": 32,
+            "mtime_utc": "2026-10-10T00:00:00.385058+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/dpkg.status.3.gz",
+            "kind": "file",
+            "bytes": 211138,
+            "mtime_utc": "2026-10-09T06:08:38.825547+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/apt.extended_states.1.gz",
+            "kind": "file",
+            "bytes": 5124,
+            "mtime_utc": "2026-10-09T06:08:37.919548+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/dpkg.arch.4.gz",
+            "kind": "file",
+            "bytes": 32,
+            "mtime_utc": "2026-10-09T00:00:00.479946+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/dpkg.status.4.gz",
+            "kind": "file",
+            "bytes": 211062,
+            "mtime_utc": "2026-10-08T06:52:41.822205+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/dpkg.arch.5.gz",
+            "kind": "file",
+            "bytes": 32,
+            "mtime_utc": "2026-10-03T00:00:00.776260+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/dpkg.status.5.gz",
+            "kind": "file",
+            "bytes": 211058,
+            "mtime_utc": "2026-10-02T06:54:29.316298+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/dpkg.arch.6.gz",
+            "kind": "file",
+            "bytes": 32,
+            "mtime_utc": "2026-10-02T00:00:02.111019+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/dpkg.status.6.gz",
+            "kind": "file",
+            "bytes": 211059,
+            "mtime_utc": "2026-10-01T06:23:12.060485+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/apt.extended_states.2.gz",
+            "kind": "file",
+            "bytes": 5131,
+            "mtime_utc": "2026-09-28T15:18:15.386775+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/apt.extended_states.3.gz",
+            "kind": "file",
+            "bytes": 4894,
+            "mtime_utc": "2026-09-24T06:40:48.181872+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/apt.extended_states.4.gz",
+            "kind": "file",
+            "bytes": 4891,
+            "mtime_utc": "2026-09-05T06:42:29.888476+00:00",
+            "current_day_mtime": false
+          },
+          {
+            "path": "/var/backups/alternatives.tar.0",
+            "kind": "file",
+            "bytes": 51200,
+            "mtime_utc": "2026-09-03T00:00:00.333928+00:00",
+            "current_day_mtime": false
+          }
+        ]
+      },
+      {
+        "path": "/var/lib/tradewave/release-state",
+        "recent_entries": [
+          {
+            "path": "/var/lib/tradewave/release-state/smn-oct13-code-refresh-a380505188ed-snapshot-copy-accounting-v1",
+            "kind": "directory",
+            "bytes": 4096,
+            "mtime_utc": "2026-10-13T11:15:50.485547+00:00",
+            "current_day_mtime": false
+          }
+        ]
+      }
+    ],
+    "attestations": [],
+    "timers": [
+      "Tue 2026-10-20 00:00:00 UTC           10h Mon 2026-10-19 00:00:00 UTC       13h ago dpkg-db-backup.timer           dpkg-db-backup.service"
+    ]
+  },
+  "heroes": {
+    "GS": {
+      "symbol": "GS",
+      "base_files": {
+        "article.json": {
+          "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/results/GS/article.json",
+          "sha256": "3a31922dbd6a88f38013406cf7dbdf2d48c002bf1329d7fdd4329028e06adad0",
+          "bytes": 7517
+        },
+        "article.html": {
+          "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/results/GS/article.html",
+          "sha256": "6ab53626f991db80a46b255c6ac38850d244085def415c1fd56734ea09ddbc64",
+          "bytes": 25179
+        },
+        "hero-asset.json": {
+          "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/results/GS/hero-asset.json",
+          "sha256": "4c6137672a1369a99174fc4a3a876f2a5687c4ddf7dfd8866904d41539ce893d",
+          "bytes": 852
+        }
+      },
+      "candidates": [
+        {
+          "published_date": "2026-10-12T00:00:04Z",
+          "article_url": "https://seasonalmarketnews.com/editions/2026-10-12/GS/article.html",
+          "asset_url": "https://seasonalmarketnews.com/editions/2026-10-12/GS/assets/hero-reused-d4e872c3bdd1.jpg",
+          "hero_status": "available",
+          "slug": "gs-subscription-2026-10-12",
+          "article_exists": true,
+          "article_sha256": "719f6ea9072c29dfa6742c658d9b92f34d7725ec5e85a3d57284abb5f60ad29c",
+          "article_retention_match": true,
+          "asset_exists": true,
+          "asset_sha256": "d4e872c3bdd19486196d60c946b12a359ba81ec3902a02b683fb767a6764345f",
+          "asset_retention_match": true,
+          "bytes": 197338,
+          "width": 1536,
+          "height": 640,
+          "format": "JPEG",
+          "not_neutral_placeholder": true
+        },
+        {
+          "published_date": "2026-04-15T07:19:59Z",
+          "article_url": "https://seasonalmarketnews.com/articles/US/2026/04/21/premarket-drop-in-goldman-sachs-gs-meets-a-bearish-midterm-year-april-stretch.html",
+          "asset_url": "https://seasonalmarketnews.com/articles/US/2026/04/21/hero_GS_ce254c60.jpg",
+          "hero_status": null,
+          "slug": "premarket-drop-in-goldman-sachs-gs-meets-a-bearish-midterm-year-april-stretch",
+          "article_exists": true,
+          "article_sha256": "8e656c5a7ef094656d16c5b0dc169d976c24122a81305fedf32083f04b33031c",
+          "article_retention_match": true,
+          "asset_exists": true,
+          "asset_sha256": "d4e872c3bdd19486196d60c946b12a359ba81ec3902a02b683fb767a6764345f",
+          "asset_retention_match": true,
+          "bytes": 197338,
+          "width": 1536,
+          "height": 640,
+          "format": "JPEG",
+          "not_neutral_placeholder": true
+        },
+        {
+          "published_date": "2026-04-06T07:12:16Z",
+          "article_url": "https://seasonalmarketnews.com/articles/US/2026/04/21/goldman-sachs-gs-has-dropped-in-5-of-6-midterm-windows-starting-apr-21.html",
+          "asset_url": "https://seasonalmarketnews.com/articles/US/2026/04/21/hero_GS_a4809755.jpg",
+          "hero_status": null,
+          "slug": "goldman-sachs-gs-has-dropped-in-5-of-6-midterm-windows-starting-apr-21",
+          "article_exists": true,
+          "article_sha256": "fc63c9cd7f21ac111f21ebdf976b09bab525eb22776b41779ecf21848e3d2440",
+          "article_retention_match": true,
+          "asset_exists": true,
+          "asset_sha256": "17f8322b071937d6fffce8c4425e06704aa30c7605eb09fb654aa3ef30fa870b",
+          "asset_retention_match": true,
+          "bytes": 190332,
+          "width": 1536,
+          "height": 640,
+          "format": "JPEG",
+          "not_neutral_placeholder": true
+        }
+      ],
+      "library_entries": [
+        {
+          "symbol": "GS",
+          "asset_path": "articles/US/2026/04/21/hero_GS_ce254c60.jpg",
+          "article_path": "articles/US/2026/04/21/premarket-drop-in-goldman-sachs-gs-meets-a-bearish-midterm-year-april-stretch.html",
+          "alt": "Conceptual illustration of an investment bank entrance",
+          "asset_sha256": "d4e872c3bdd19486196d60c946b12a359ba81ec3902a02b683fb767a6764345f",
+          "article_sha256": "8e656c5a7ef094656d16c5b0dc169d976c24122a81305fedf32083f04b33031c",
+          "width": 1536,
+          "height": 640,
+          "approved_utc": "2026-10-12T16:52:49.042437+00:00",
+          "actor": "Codex",
+          "inspection": "Unchanged conceptual illustration visually inspected October 12; no dated financial chart or forecast text",
+          "publication_receipt_sha256": "d5136c489784ec4f10c03eec791a3871b40063e013d7eea18964070b6fb36cd5"
+        }
+      ]
+    },
+    "PGR": {
+      "symbol": "PGR",
+      "base_files": {
+        "article.json": {
+          "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/results/PGR/article.json",
+          "sha256": "550d42518c46378d76a4c4b300dbf1995ecdf0cf89e13bf7980d8184d28e0af5",
+          "bytes": 8084
+        },
+        "article.html": {
+          "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/results/PGR/article.html",
+          "sha256": "9b5d9d52f7900ddadc5aef9de5c889f1d0747ff89dbdca5d9bec7f09e855f447",
+          "bytes": 26272
+        },
+        "hero-asset.json": {
+          "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/results/PGR/hero-asset.json",
+          "sha256": "3eb3e773f57981edac2f3ef00101dd3f18b13133365682302e3760e021a93f73",
+          "bytes": 855
+        }
+      },
+      "candidates": [
+        {
+          "published_date": "2026-03-02T04:51:14Z",
+          "article_url": "https://seasonalmarketnews.com/articles/US/2026/03/02/progressive-corporation-pgr-has-rallied-in-10-of-10-midterm-spring-windows.html",
+          "asset_url": "https://seasonalmarketnews.com/articles/US/2026/03/02/hero_PGR.jpg",
+          "hero_status": null,
+          "slug": "progressive-corporation-pgr-has-rallied-in-10-of-10-midterm-spring-windows",
+          "article_exists": true,
+          "article_sha256": "9f758bc099ce38b4819db7c7f2cbf9f3c11dcd1f998a4d5ddf9e21bd15a49eb1",
+          "article_retention_match": true,
+          "asset_exists": true,
+          "asset_sha256": "4bdb77fe78ec2de7ace454e0aa4603042555729ed560ada705925eaa881c1645",
+          "asset_retention_match": true,
+          "bytes": 97285,
+          "width": 1536,
+          "height": 640,
+          "format": "JPEG",
+          "not_neutral_placeholder": true
+        }
+      ],
+      "library_entries": []
+    },
+    "C": {
+      "symbol": "C",
+      "base_files": {
+        "article.json": {
+          "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/results/C/article.json",
+          "sha256": "60036331f47b80b57304671285429dd6aecbbfdbe9361f8a512af2da3db2fe58",
+          "bytes": 6891
+        },
+        "article.html": {
+          "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/results/C/article.html",
+          "sha256": "10151bd0545f8972a3d0a35a2eb99304003ec22eb91b443b7e7bc6ce74b30608",
+          "bytes": 24876
+        },
+        "hero-asset.json": {
+          "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/results/C/hero-asset.json",
+          "sha256": "12a07fc508431db2700de69aba0ee66deaab11921b1d59938b1ef5e14cbae4cf",
+          "bytes": 849
+        }
+      },
+      "candidates": [],
+      "library_entries": []
+    },
+    "XLK": {
+      "symbol": "XLK",
+      "base_files": {
+        "article.json": {
+          "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/results/XLK/article.json",
+          "sha256": "234b03e1caac0b23361221e4210cddec922325592eda274cebdb95f3859065c4",
+          "bytes": 6776
+        },
+        "article.html": {
+          "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/results/XLK/article.html",
+          "sha256": "5cac6c6f16a4af0dc480843c9995060ab9fc505ec25587cad7c39da20e48e387",
+          "bytes": 24641
+        },
+        "hero-asset.json": {
+          "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/results/XLK/hero-asset.json",
+          "sha256": "0430880465a026a88d8b1682fd442ad268ca27d08a37076b6b7703aec6c577cc",
+          "bytes": 856
+        }
+      },
+      "candidates": [
+        {
+          "published_date": "2026-10-12T00:00:02Z",
+          "article_url": "https://seasonalmarketnews.com/editions/2026-10-12/XLK/article.html",
+          "asset_url": "https://seasonalmarketnews.com/editions/2026-10-12/XLK/assets/hero-reused-748fa7d51e26.jpg",
+          "hero_status": "available",
+          "slug": "xlk-subscription-2026-10-12",
+          "article_exists": true,
+          "article_sha256": "7b1ead50104572447cfdcd539809561b3309bcd410229b5e69665b40c5aa8529",
+          "article_retention_match": true,
+          "asset_exists": true,
+          "asset_sha256": "748fa7d51e264beb4dd3732c805a5f8ade7f4953512c2fb148b12b1826fe876b",
+          "asset_retention_match": true,
+          "bytes": 438055,
+          "width": 2176,
+          "height": 960,
+          "format": "JPEG",
+          "not_neutral_placeholder": true
+        },
+        {
+          "published_date": "2026-10-06T00:00:02Z",
+          "article_url": "https://seasonalmarketnews.com/editions/2026-10-06/XLK/article.html",
+          "asset_url": "https://seasonalmarketnews.com/editions/2026-10-06/XLK/assets/hero-748fa7d51e26.jpg",
+          "hero_status": null,
+          "slug": "xlk-subscription-2026-10-06",
+          "article_exists": true,
+          "article_sha256": "63d58ddebcd0895c393e026ab8a496081aaa26ea47e3c6c6b1fc9a2586ae5946",
+          "article_retention_match": true,
+          "asset_exists": true,
+          "asset_sha256": "748fa7d51e264beb4dd3732c805a5f8ade7f4953512c2fb148b12b1826fe876b",
+          "asset_retention_match": true,
+          "bytes": 438055,
+          "width": 2176,
+          "height": 960,
+          "format": "JPEG",
+          "not_neutral_placeholder": true
+        },
+        {
+          "published_date": "2026-10-02T03:07:46Z",
+          "article_url": "https://seasonalmarketnews.com/articles/ETF/2026/10/25/s-p-500-technology-sector-spdr-xlk-has-risen-in-6-of-6-midterm-oct-may-windows-averaging-12-02.html",
+          "asset_url": "https://seasonalmarketnews.com/articles/ETF/2026/10/25/hero_XLK_89b90712.jpg",
+          "hero_status": null,
+          "slug": "s-p-500-technology-sector-spdr-xlk-has-risen-in-6-of-6-midterm-oct-may-windows-averaging-12-02",
+          "article_exists": true,
+          "article_sha256": "6dd2d537a0356989da014a4a9e88a477ab69ab4369f0f2771d0f642e664f7ebd",
+          "article_retention_match": true,
+          "asset_exists": true,
+          "asset_sha256": "68d18c3b05f915aad296c5a21529369e602f38730e9c907da5ac340d63386149",
+          "asset_retention_match": true,
+          "bytes": 348056,
+          "width": 2176,
+          "height": 960,
+          "format": "JPEG",
+          "not_neutral_placeholder": true
+        },
+        {
+          "published_date": "2026-09-28T03:04:00Z",
+          "article_url": "https://seasonalmarketnews.com/articles/ETF/2026/10/25/s-p-500-technology-sector-spdr-xlk-has-rallied-in-6-of-6-midterm-oct-may-windows.html",
+          "asset_url": "https://seasonalmarketnews.com/articles/ETF/2026/10/25/hero_XLK_f6c1406a.jpg",
+          "hero_status": null,
+          "slug": "s-p-500-technology-sector-spdr-xlk-has-rallied-in-6-of-6-midterm-oct-may-windows",
+          "article_exists": true,
+          "article_sha256": "c74bef7b429862a8c2076505ee94415e9ed3adb9cee92fa213f95cccb722c75c",
+          "article_retention_match": true,
+          "asset_exists": true,
+          "asset_sha256": "a259b97bf11e5206701219a6792e55f500b553b5e105f8506862194bf7d0c0d6",
+          "asset_retention_match": true,
+          "bytes": 537558,
+          "width": 3136,
+          "height": 1344,
+          "format": "JPEG",
+          "not_neutral_placeholder": true
+        }
+      ],
+      "library_entries": [
+        {
+          "symbol": "XLK",
+          "asset_path": "editions/2026-10-06/XLK/assets/hero-748fa7d51e26.jpg",
+          "article_path": "editions/2026-10-06/XLK/article.html",
+          "alt": "Conceptual illustration of technology infrastructure",
+          "asset_sha256": "748fa7d51e264beb4dd3732c805a5f8ade7f4953512c2fb148b12b1826fe876b",
+          "article_sha256": "63d58ddebcd0895c393e026ab8a496081aaa26ea47e3c6c6b1fc9a2586ae5946",
+          "width": 2176,
+          "height": 960,
+          "approved_utc": "2026-10-12T16:52:49.034883+00:00",
+          "actor": "Codex",
+          "inspection": "Unchanged conceptual illustration visually inspected October 12; no dated financial chart or forecast text",
+          "publication_receipt_sha256": "d5136c489784ec4f10c03eec791a3871b40063e013d7eea18964070b6fb36cd5"
+        }
+      ]
+    },
+    "MRK": {
+      "symbol": "MRK",
+      "base_files": {
+        "article.json": {
+          "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/results/MRK/article.json",
+          "sha256": "9b3c7c4253a1aed832218fc6534de64a6fd6e8bb49d69b5767cb0220e3fedfdb",
+          "bytes": 8223
+        },
+        "article.html": {
+          "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/results/MRK/article.html",
+          "sha256": "422a1fccf2f96124aef29e9952a0d6e13caf5fd6116e904e207c87022437ef7d",
+          "bytes": 27985
+        },
+        "hero-asset.json": {
+          "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/results/MRK/hero-asset.json",
+          "sha256": "a81b22dee6076f1e5d552179db7f12a5aadd40470504cdbf2f5a0460d3f7568a",
+          "bytes": 855
+        }
+      },
+      "candidates": [
+        {
+          "published_date": "2026-10-08T00:00:01Z",
+          "article_url": "https://seasonalmarketnews.com/editions/2026-10-08/MRK/article.html",
+          "asset_url": "https://seasonalmarketnews.com/editions/2026-10-08/MRK/assets/hero-12e5aaaf3758.jpg",
+          "hero_status": null,
+          "slug": "mrk-subscription-2026-10-08",
+          "article_exists": true,
+          "article_sha256": "aadc72284c7eb05f3bbe1ab284589075affb7420bf3182f53df31a9b6cd1ccc4",
+          "article_retention_match": true,
+          "asset_exists": true,
+          "asset_sha256": "12e5aaaf3758280e57cef33d09052cdecf23e41d015aa7e61d26aeebc340ff76",
+          "asset_retention_match": true,
+          "bytes": 332311,
+          "width": 2176,
+          "height": 960,
+          "format": "JPEG",
+          "not_neutral_placeholder": true
+        },
+        {
+          "published_date": "2026-09-22T03:01:44Z",
+          "article_url": "https://seasonalmarketnews.com/articles/US/2026/10/20/merck-co-mrk-has-rallied-in-14-of-15-midterm-oct-20-apr-29-windows-averaging-18-11.html",
+          "asset_url": "https://seasonalmarketnews.com/articles/US/2026/10/20/hero_MRK_0601d64a.jpg",
+          "hero_status": null,
+          "slug": "merck-co-mrk-has-rallied-in-14-of-15-midterm-oct-20-apr-29-windows-averaging-18-11",
+          "article_exists": true,
+          "article_sha256": "3e665ccb89bacb1cec8953f4bf882f9adb69e6801442ae0e0132ca91665e767a",
+          "article_retention_match": true,
+          "asset_exists": true,
+          "asset_sha256": "34ac42ed205eecf5f7ea2973dae96c637607b74350952005b2f6feb6ee1cdaaf",
+          "asset_retention_match": true,
+          "bytes": 577280,
+          "width": 3136,
+          "height": 1344,
+          "format": "JPEG",
+          "not_neutral_placeholder": true
+        },
+        {
+          "published_date": "2026-09-16T03:06:04Z",
+          "article_url": "https://seasonalmarketnews.com/articles/US/2026/10/15/merck-co-mrk-has-risen-in-14-of-15-midterm-oct-apr-windows-averaging-nearly-20-gains.html",
+          "asset_url": "https://seasonalmarketnews.com/articles/US/2026/10/15/hero_MRK_45775630.jpg",
+          "hero_status": null,
+          "slug": "merck-co-mrk-has-risen-in-14-of-15-midterm-oct-apr-windows-averaging-nearly-20-gains",
+          "article_exists": true,
+          "article_sha256": "a90b503c6b1611e5eb646139fa3e99f168eedc8d29271e7692b0742ece3917c8",
+          "article_retention_match": true,
+          "asset_exists": true,
+          "asset_sha256": "50f174caefb3b5dfae6e76adf08a9b41633fcd2081fb5fe299dae6c9bb3ad109",
+          "asset_retention_match": true,
+          "bytes": 479441,
+          "width": 3136,
+          "height": 1344,
+          "format": "JPEG",
+          "not_neutral_placeholder": true
+        },
+        {
+          "published_date": "2026-09-08T03:08:00Z",
+          "article_url": "https://seasonalmarketnews.com/articles/US/2026/09/05/near-record-highs-merck-co-mrk-rides-a-93-profitable-midterm-sep-apr-rally-history.html",
+          "asset_url": "https://seasonalmarketnews.com/articles/US/2026/09/05/hero_MRK_64e61eaf.jpg",
+          "hero_status": null,
+          "slug": "near-record-highs-merck-co-mrk-rides-a-93-profitable-midterm-sep-apr-rally-history",
+          "article_exists": true,
+          "article_sha256": "88bd8a521371665a3507af63dc79d26747a831d2261bde50764f193e01a03d99",
+          "article_retention_match": true,
+          "asset_exists": true,
+          "asset_sha256": "52853bdf1694f12eecb60f5f783c14af4e1353250a720a5be8f7c371cce84436",
+          "asset_retention_match": true,
+          "bytes": 222453,
+          "width": 3136,
+          "height": 1344,
+          "format": "JPEG",
+          "not_neutral_placeholder": true
+        }
+      ],
+      "library_entries": []
+    }
+  },
+  "retention_receipt": {
+    "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-19/chatgpt/production-publication-receipt.json",
+    "sha256": "ab218a6a81071b0431c3bc1758f58a91ab8a49a04c26fceff3f62ac001095510",
+    "id": "smn-production-2026-10-19-1e1558be4ad75910",
+    "status": "live_verified",
+    "production_written": true
+  }
+}

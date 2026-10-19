@@ -1,48 +1,94 @@
-# Bounded SMN release handoff
+# SMN bounded target qualification and handoff
 
-Exact candidate: `55afe01a5683c6f2471e0d578867ad77390bb739`. Production baseline: `2b0075c85e45d8cd547c95b8868f8560532cf86b`.
-Code and factual-review policy are unchanged since the 151-test proof; no factual
-review bypass is proposed. Broad future-release permissions and a new review
-window are not prerequisites. The parent owns any bounded release decision.
+Application `55afe01a5683c6f2471e0d578867ad77390bb739` remains pushed and unchanged. The code candidate is qualified
+on actual SMN Python **3.12.3**: **151 mail/runtime tests, 90 publication/accounting
+tests, eight private activation/rollback cases, and native JavaScript checks all
+pass**. The eight rollback cases also pass with root-owned files. Actual installed
+Chromium **153.0.8010.12** passes four Python/JavaScript
+quote-contract comparisons and rejection cases. See [target proof](target-isolated-proof.json),
+[root rollback](target-root-rollback-proof.json), and [browser proof](target-browser-proof.json).
 
-The [release plan](bounded-release-plan.json) gives exact old/new service commands,
-proposed owned drop-ins, backup capture, activation and conditional rollback
-steps. It is prepared, not executed. Source-code diff: 18 files total, four runtime
-modules plus tests, exact captured HTML fixtures and the runbook. The fresh-hero
-code remains identical to installed production.
+All target runs used unique transient qualification units with PrivateNetwork=yes,
+ProtectSystem=strict and ReadWritePaths limited to newly created /var/tmp roots.
+No live SMN unit, current pointer, credential, subscriber campaign or public file
+was changed. The initial read-isolation and browser temporary-owner mistakes in
+the harness were corrected; failed proofs are retained. No product code changed.
+The candidate's read-only native verifier also accepts today's unchanged six-
+article receipt and **123 edition files**, retaining original source provenance:
+[current receipt proof](candidate-current-receipt-proof.json).
 
-151 Linux tests and native JavaScript checks pass. Six tests run real weekday,
-partial-edition, Sunday, duplicate/restart, uncertain-provider and alert programs
-with only external provider/model boundaries mocked. The full suite is on Dev
-Python 3.13.7; actual SMN Python 3.12.3 checks compile and read-only replay, without
-running the full private-filesystem scheduled suite there. Final systemd runtime,
-native publication/browser/rollback rehearsal, current-day actual-SMN backup,
-real provider/alert delivery and consecutive scheduled days remain unverified.
+## Exact release action
 
-The [fresh 13:00 UTC inventory](alert-release-inventory.json) finds alerts disabled,
-zero recipients, no alert service/timer, and no Resend key in their designated
-secrets file. No destination was found in inspected configuration or cron MAILTO;
-the newsletter sender is not automatically an alert recipient. Parent should
-resolve this concrete monitoring gap without blocking code qualification on a
-new general notification policy.
+The [prepared live-file plan](prepared-live-unit-plan.json) is on-server at
+`/var/tmp/smn-stabilization-plan-20261019-69e2ov2p/unit-plan.json`. It prepares exactly **three existing
+files**: activation JSON (source_commit and record only), smn-subscription.service,
+and smn-weekday-newsletter.service. Each unit changes only the old immutable
+source path to the new SHA; existing drop-ins remain intact. The current pointer
+changes from installed 2b0075c to 55afe01a. Continuity units already follow current.
+This uses the retained operator's path replacement/atomic/pointer/rollback
+primitives; the earlier new-drop-in proposal is superseded. Do not execute the
+retained October 9 full operator with its historical apply preconditions.
 
-Today's six web articles are live. Newsletter attempts remain exhausted after
-pre-POST lock failures; code activation does not reset them. No subscriber send
-was performed. The October 18 recap's five missing pictures are an unfinished
-October 16 media backfill: neutral placeholders had no public hero tags/URLs.
-The other eleven images work. Backfill uses the existing fresh derivative
-workflow and cannot add image tags to an already delivered recap.
+The [release plan](bounded-release-plan.json) records exact commands, before and
+planned hashes, source bundle, backup capture, coordination and rollback. Planned
+composition SHA256: `12713bc0ed20cf115314cd4e8d6522f4d5e2465177c56fe491dae8619792f41b`. The parent release owner must refresh
+hashes and live-task custody, preserve the three prior byte images and pointer,
+apply the exact immutable candidate, reload, verify effective ExecStart and
+WorkingDirectory plus public/mail invariants, and restore prior timer states.
+Rollback restores only owned matching bytes and the old pointer; peer edits or
+mail advancement require classification, never an old mail-state restore.
 
-The plan includes a precise one-time deployment wording only if the parent finds
-an actual gap in existing approval. It must not be used to repeat the user's
-blanket approval or require an all-future release authorization.
+## Backup and authority
 
-Additional checks, 13:05 UTC: **90/90 existing native publication/accounting
-tests pass** on the same candidate. The original harness refusal of one exact
-asset-preflight subprocess is retained in a separate failure proof and corrected
-in the allowlist. No product code changed. **Actual local Chrome 155** also passes
-four Python/JavaScript fixture contract comparisons, cash/futures and unavailable
-quote transitions, old-receipt rejection, peer-edit rejection and malformed quote
-rejection. This is an offline real-browser contract replay, not a target-system
-publication/browser/rollback rehearsal. The standard Dev browser package path is
-absent; no browser or dependency was installed there.
+Existing user blanket authority and the current instruction to complete the
+proposed integrated repair are sufficient to continue this bounded work. No new
+standing permission or review policy is a prerequisite. The plan includes exact
+one-time wording only if the parent finds an actual executor-scope gap.
+
+**Current-day actual-SMN backup completion remains unverified.** The inspected
+local backup locations and metadata show package-manager backups and no qualifying
+October 19 server snapshot attestation. This does not prove that a provider-side
+snapshot does not exist. Parent needs its real completion/reference/evidence for
+seasonalmarketnews / 209.182.216.112. October 9 confirmation and unrelated
+TradeWave servers do not establish October 19 coverage.
+
+## Four hero overrides prepared; Citigroup remains pending
+
+No image was generated and no credits were spent. Existing public GS, PGR, XLK
+and MRK illustrations were downloaded through public URLs, byte-checked against
+retained publication proof, and visually inspected. Their native decorative
+overrides are prepared and validated at `/var/tmp/smn-hero-backfill-20261019-twywv3vf`.
+[Preparation summary](hero-backfill-preparation.json) verifies the live original
+artifacts and every non-hero HTML byte stayed unchanged. PGR's existing black
+upper band/stylized vehicle-damage warning is retained. The archive caption makes
+reuse explicit; no human review badge or factual pass was invented.
+
+C has only its unavailable October 16 placeholder, no prior catalog artwork or
+retained C asset, and no qualified existing image was found. Keep its image pending
+under the no-spending boundary. The other four can proceed through the existing
+content transaction and browser gates under the parent owner's authority. Nothing
+has been publicly backfilled yet. The delivered recap cannot gain absent image
+tags retroactively; no resend is included.
+
+## Exact remaining work
+
+- Obtain current-day actual-SMN backup evidence; perform the coordinated live
+  cutover and post-cutover effective-unit/public/browser checks. Private rehearsals
+  are passed; live activation is not claimed.
+- Restore today's daily newsletter through the parent's receipt-aware operation
+  if authorized. Attempt 3 remains terminal; code installation alone does not
+  reset it. This worker sends no subscriber mail.
+- Alerts remain nonfunctional: disabled, zero recipients, observer units absent,
+  and no Resend key in the designated secrets file. Parent must resolve the
+  destination and usable authorized credential/transport; actual delivery remains
+  unverified. No recipient was invented or new credential created.
+- Finish ordinary content-publication/browser gates for the four prepared heroes;
+  leave C pending until a qualified asset is available without violating scope.
+- Observe at least three real unattended scheduled weekdays and real provider/
+  alert receipts before claiming stable operation. Selector malformed-output and
+  automatic abandoned-activation/causal-format recovery defects remain separate
+  open issues; this patch does not claim to resolve them.
+
+Automatic approval review rejected an initial proposal to export private article
+and receipt contents. The work continued using metadata-only inspection and
+on-server preparation; those private contents were never copied to this workspace.

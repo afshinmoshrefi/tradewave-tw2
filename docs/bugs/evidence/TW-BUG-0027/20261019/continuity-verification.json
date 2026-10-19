@@ -1,0 +1,14 @@
+{
+  "utc": "2026-10-19T13:35:00.336475+00:00",
+  "host": "seasonalmarketnews",
+  "current_source": "/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b",
+  "active_qualification_units": [],
+  "canonical_receipt_sha256": "ab218a6a81071b0431c3bc1758f58a91ab8a49a04c26fceff3f62ac001095510",
+  "mail_journal_sha256": "b5c28d85552e1c289024896a5d5b55bec2bfee161e84a045a04acedaf332f240",
+  "daily_campaign_present": false,
+  "actions": "read_only_receipt_and_unit_reconciliation",
+  "activation_or_recovery_retried": false,
+  "subscriber_sends": 0,
+  "model_jobs": 0,
+  "provider_calls": 0
+}

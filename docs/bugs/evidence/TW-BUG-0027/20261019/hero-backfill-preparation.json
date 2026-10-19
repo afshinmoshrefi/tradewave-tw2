@@ -1,0 +1,72 @@
+{
+  "utc": "2026-10-19T13:20:04.575010+00:00",
+  "status": "isolated_preparation_only",
+  "private_root": "/var/tmp/smn-hero-backfill-20261019-twywv3vf",
+  "source_commit": "2b0075c85e45d8cd547c95b8868f8560532cf86b",
+  "new_image_generations": 0,
+  "provider_calls": 0,
+  "subscriber_sends": 0,
+  "live_publication_writes": 0,
+  "private_content_exported": false,
+  "articles": [
+    {
+      "symbol": "GS",
+      "status": "native_override_prepared_and_validated",
+      "override_path": "/var/tmp/smn-hero-backfill-20261019-twywv3vf/results/GS/decorative-hero-reuse.json",
+      "override_sha256": "d9de5b5cd3511fd3c2367a28592e665e41a10c8db801de09965ac9fe74424f45",
+      "asset_sha256": "d4e872c3bdd19486196d60c946b12a359ba81ec3902a02b683fb767a6764345f",
+      "source_publication_url": "https://seasonalmarketnews.com/editions/2026-10-12/GS/article.html",
+      "source_asset_url": "https://seasonalmarketnews.com/editions/2026-10-12/GS/assets/hero-reused-d4e872c3bdd1.jpg",
+      "source_receipt_sha256": "ab218a6a81071b0431c3bc1758f58a91ab8a49a04c26fceff3f62ac001095510",
+      "original_live_artifacts_unchanged": true,
+      "nondecorative_html_bytes_unchanged": true,
+      "retained_visual_warnings": []
+    },
+    {
+      "symbol": "PGR",
+      "status": "native_override_prepared_and_validated",
+      "override_path": "/var/tmp/smn-hero-backfill-20261019-twywv3vf/results/PGR/decorative-hero-reuse.json",
+      "override_sha256": "5383cba692312385477e3158cf958186d8d0e38f9cf7893591593a4d49085c99",
+      "asset_sha256": "4bdb77fe78ec2de7ace454e0aa4603042555729ed560ada705925eaa881c1645",
+      "source_publication_url": "https://seasonalmarketnews.com/articles/US/2026/03/02/progressive-corporation-pgr-has-rallied-in-10-of-10-midterm-spring-windows.html",
+      "source_asset_url": "https://seasonalmarketnews.com/articles/US/2026/03/02/hero_PGR.jpg",
+      "source_receipt_sha256": "ab218a6a81071b0431c3bc1758f58a91ab8a49a04c26fceff3f62ac001095510",
+      "original_live_artifacts_unchanged": true,
+      "nondecorative_html_bytes_unchanged": true,
+      "retained_visual_warnings": [
+        "Existing archive image contains a black upper band and stylized front-body damage. These visual warnings are retained; no new image or fake quality review is created."
+      ]
+    },
+    {
+      "symbol": "C",
+      "status": "pending_no_existing_qualified_asset",
+      "reason": "No prior C article/retained same-symbol artwork found; no generation/spending authorized."
+    },
+    {
+      "symbol": "XLK",
+      "status": "native_override_prepared_and_validated",
+      "override_path": "/var/tmp/smn-hero-backfill-20261019-twywv3vf/results/XLK/decorative-hero-reuse.json",
+      "override_sha256": "ea1e9c08abbed3e7d6cc0d7f995653234a1432761bab79bcc60af645dcfe10d5",
+      "asset_sha256": "748fa7d51e264beb4dd3732c805a5f8ade7f4953512c2fb148b12b1826fe876b",
+      "source_publication_url": "https://seasonalmarketnews.com/editions/2026-10-12/XLK/article.html",
+      "source_asset_url": "https://seasonalmarketnews.com/editions/2026-10-12/XLK/assets/hero-reused-748fa7d51e26.jpg",
+      "source_receipt_sha256": "ab218a6a81071b0431c3bc1758f58a91ab8a49a04c26fceff3f62ac001095510",
+      "original_live_artifacts_unchanged": true,
+      "nondecorative_html_bytes_unchanged": true,
+      "retained_visual_warnings": []
+    },
+    {
+      "symbol": "MRK",
+      "status": "native_override_prepared_and_validated",
+      "override_path": "/var/tmp/smn-hero-backfill-20261019-twywv3vf/results/MRK/decorative-hero-reuse.json",
+      "override_sha256": "b7b1fd041ff3b35d3879a46ff08de9d415828fa32eed724962cc193421820199",
+      "asset_sha256": "12e5aaaf3758280e57cef33d09052cdecf23e41d015aa7e61d26aeebc340ff76",
+      "source_publication_url": "https://seasonalmarketnews.com/editions/2026-10-08/MRK/article.html",
+      "source_asset_url": "https://seasonalmarketnews.com/editions/2026-10-08/MRK/assets/hero-12e5aaaf3758.jpg",
+      "source_receipt_sha256": "ab218a6a81071b0431c3bc1758f58a91ab8a49a04c26fceff3f62ac001095510",
+      "original_live_artifacts_unchanged": true,
+      "nondecorative_html_bytes_unchanged": true,
+      "retained_visual_warnings": []
+    }
+  ]
+}

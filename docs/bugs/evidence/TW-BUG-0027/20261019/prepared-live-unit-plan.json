@@ -1,0 +1,92 @@
+{
+  "utc": "2026-10-19T13:22:07.912509+00:00",
+  "status": "prepared_not_applied",
+  "candidate": "55afe01a5683c6f2471e0d578867ad77390bb739",
+  "host": "seasonalmarketnews",
+  "ip": "209.182.216.112",
+  "private_root": "/var/tmp/smn-stabilization-plan-20261019-69e2ov2p",
+  "planned_files": [
+    {
+      "live_path": "/etc/SMN/subscription-primary.json",
+      "before_sha256": "66707f1cd51877f02ed0e3b5f46cf2be9f6abd66c6a2d6767d3836670ae07c22",
+      "planned_sha256": "00dd5d7ccdcdfcfc1bb0c9346d139bc6c0f4cc92d80ab3b8f51b7ee26af09e7d",
+      "prepared_file": "/var/tmp/smn-stabilization-plan-20261019-69e2ov2p/cce537d43ae64d44ad1c7e27a1d1a1d4a8e593c12ff4a3d217f56118396f2ef0",
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0
+    },
+    {
+      "live_path": "/etc/systemd/system/smn-subscription.service",
+      "before_sha256": "45301e6984db08e7be25e72dd4882af010346ce6532ee11ba3b0ff27148090e3",
+      "planned_sha256": "a9de1ca319dae416301fb660b6fee2898f35df41cc03f72624f70bb07ffc793f",
+      "prepared_file": "/var/tmp/smn-stabilization-plan-20261019-69e2ov2p/58581cec35de508865bb422bd7d51982b7f629acb6c16d467e1a0bfc7ffe1fb2",
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0,
+      "only_exact_source_path_replaced": true,
+      "planned_command_lines": [
+        "WorkingDirectory=/opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739/blog",
+        "ExecStart=/home/flask/venv/bin/python /opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739/blog/operational_schedule.py --target production"
+      ]
+    },
+    {
+      "live_path": "/etc/systemd/system/smn-weekday-newsletter.service",
+      "before_sha256": "80cb238b026e17622b46874bade40ef194c15c54572585463adf6ff1fdbe93e3",
+      "planned_sha256": "188677b536fed1e948459cd776bc490cc43c5640e56da74a4c831b7f4fac7296",
+      "prepared_file": "/var/tmp/smn-stabilization-plan-20261019-69e2ov2p/934abe846c235ec4d451239cfdc4ba340491effc9aa0d4e5bc56f7f21b0d85dd",
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0,
+      "only_exact_source_path_replaced": true,
+      "planned_command_lines": [
+        "WorkingDirectory=/opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739/blog",
+        "ExecStart=/home/flask/venv/bin/python /opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739/blog/operational_schedule.py --target production --newsletter-only"
+      ]
+    }
+  ],
+  "pointer": {
+    "before": "/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b",
+    "after": "/opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739"
+  },
+  "effective_service_baseline": {
+    "smn-subscription.service": {
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/operational_schedule.py --target production ; ignore_errors=no ; start_time=[Mon 2026-10-19 13:22:00 UTC] ; stop_time=[Mon 2026-10-19 13:22:01 UTC] ; pid=3099577 ; code=exited ; status=0 }",
+      "WorkingDirectory": "/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog",
+      "FragmentPath": "/etc/systemd/system/smn-subscription.service",
+      "DropInPaths": "/etc/systemd/system/smn-subscription.service.d/10-release-git.conf /etc/systemd/system/smn-subscription.service.d/20-cutover-start.conf"
+    },
+    "smn-weekday-newsletter.service": {
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/operational_schedule.py --target production --newsletter-only ; ignore_errors=no ; start_time=[Mon 2026-10-19 13:22:00 UTC] ; stop_time=[Mon 2026-10-19 13:22:00 UTC] ; pid=3099570 ; code=exited ; status=0 }",
+      "WorkingDirectory": "/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog",
+      "FragmentPath": "/etc/systemd/system/smn-weekday-newsletter.service",
+      "DropInPaths": "/etc/systemd/system/smn-weekday-newsletter.service.d/10-release-git.conf"
+    }
+  },
+  "activation_fields_changed": [
+    "source_commit",
+    "record"
+  ],
+  "all_other_activation_fields_unchanged": true,
+  "existing_dropins_preserved": true,
+  "mechanism": "Retained operator planned_files performs exact path replacement in existing pinned base/drop-in files; no new override is needed.",
+  "live_writes": 0,
+  "subscriber_sends": 0,
+  "new_image_generations": 0,
+  "provider_calls": 0,
+  "browser_runtime_probe": {
+    "playwright_package": true,
+    "node": true,
+    "browser_executables": []
+  },
+  "private_C_hero_receipt_metadata": [
+    {
+      "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-16/chatgpt/results/C/hero-asset.json",
+      "sha256": "12a07fc508431db2700de69aba0ee66deaab11921b1d59938b1ef5e14cbae4cf",
+      "asset_kind": null,
+      "method": null,
+      "provider": "SMN deterministic neutral placeholder",
+      "image_sha256": "b40c88ee7cd2b0c360fbc2d16199b4a323e2f292188337d862f54483e1a02d76",
+      "available": null
+    }
+  ]
+}

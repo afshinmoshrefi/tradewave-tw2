@@ -1,5 +1,31 @@
 # TW-BUG-0027: SMN Publication and Newsletter Continuity Failures
 
+## Actual-target qualification and bounded handoff, October 19 13:31 UTC
+
+Candidate remains `55afe01a5683c6f2471e0d578867ad77390bb739`. Actual SMN Python 3.12.3 passes 151 runtime/mail,
+90 native publication/accounting, eight private rollback tests and native Node
+checks; eight rollback cases also pass with root-owned files. Existing target
+Chromium 153 passes quote-contract replay. Private qualification uses kernel
+network/write isolation and unique transient units. No live activation or mail.
+The candidate accepts today's unchanged complete receipt and 123 edition files.
+
+[Current target handoff](evidence/TW-BUG-0027/20261019/TARGET-HANDOFF.md) supersedes
+the earlier target-Python and new-drop-in proposals. Three existing managed files
+and current-pointer changes are prepared with exact hashes using retained operator
+primitives; existing drop-ins and factual-review policy are preserved. Parent owns
+cutover coordination and any receipt-aware subscriber recovery. New standing
+permissions are not prerequisites; current one-time repair authority is reconciled.
+
+No qualifying October 19 actual-SMN server snapshot evidence found in inspected
+local metadata; provider-side completion/reference needs confirmation. Alerts
+remain nonfunctional (no units/recipient/key). Four no-cost existing hero overrides
+are prepared on-server, not published; C has no qualified existing asset. No private
+article/receipt contents were exported after automatic review blocked that proposal.
+Full live cutover/post-cutover verification, actual delivery and consecutive real
+scheduled runs remain. Original failed qualification proofs are retained with
+their harness-only repairs; application code is unchanged.
+
+
 ## Bounded release handoff, October 19 13:05 UTC
 
 Executor/session remains Codex `01a117d1-cc86-737e-a3f1-28b9a724802e`; isolated

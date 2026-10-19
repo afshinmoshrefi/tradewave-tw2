@@ -1,0 +1,49 @@
+{
+  "utc": "2026-10-19T13:28:08.735828+00:00",
+  "status": "passed",
+  "source_commit": "55afe01a5683c6f2471e0d578867ad77390bb739",
+  "host": "seasonalmarketnews",
+  "unit": "smn-stabilization-qual-browser-20261019-16d53238",
+  "effective_unit": "ExecStart={ path=/opt/smn-shadow/node/bin/node ; argv[]=/opt/smn-shadow/node/bin/node /var/tmp/smn-browser-qual-20261019-55afe01a-l7csvyng/qualification/target-browser.cjs /var/tmp/smn-browser-qual-20261019-55afe01a-l7csvyng/qualification/offline-quote-browser.html ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }\nUser=root\nReadWritePaths=/var/tmp/smn-browser-qual-20261019-55afe01a-l7csvyng\nPrivateNetwork=yes\nProtectSystem=strict\nNoNewPrivileges=yes\n",
+  "kernel_properties": [
+    "PrivateNetwork=yes",
+    "ProtectSystem=strict",
+    "ReadWritePaths=/var/tmp/smn-browser-qual-20261019-55afe01a-l7csvyng",
+    "ProtectHome=read-only",
+    "NoNewPrivileges=yes",
+    "User=root",
+    "MemoryMax=650M",
+    "CPUWeight=1",
+    "IOWeight=1",
+    "Nice=19",
+    "TasksMax=128",
+    "RuntimeMaxSec=70s",
+    "WorkingDirectory=/var/tmp/smn-browser-qual-20261019-55afe01a-l7csvyng/qualification"
+  ],
+  "exit_code": 0,
+  "stdout": "{\"passed\":true,\"browser_version\":\"153.0.8010.12\",\"result\":{\"passed\":true,\"fixtures\":4,\"cross_language_contracts\":4,\"cash_futures\":true,\"unavailable_quotes\":true,\"old_receipt_rejected\":true,\"peer_edit_rejected\":true,\"unknown_markup_rejected\":true,\"user_agent\":\"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36\",\"secure_context\":true}}\n",
+  "stderr": "2026-10-19T13:28:08.304Z pw:browser <launching> /root/.cache/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/var/tmp/smn-browser-qual-20261019-55afe01a-l7csvyng/tmp/playwright_chromiumdev_profile-PDqILb --remote-debugging-pipe --no-startup-window\n2026-10-19T13:28:08.308Z pw:browser <launched> pid=3103142\n2026-10-19T13:28:08.352Z pw:browser [pid=3103142][err] [1019/132808.352190:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are \"tcp\" and on UNIX \"unix\")\n2026-10-19T13:28:08.374Z pw:browser [pid=3103142][err] [1019/132808.363189:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: \n2026-10-19T13:28:08.374Z pw:browser [pid=3103142][err] [1019/132808.363318:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are \"tcp\" and on UNIX \"unix\")\n2026-10-19T13:28:08.375Z pw:browser [pid=3103142][err] [1019/132808.368620:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: \n2026-10-19T13:28:08.436Z pw:browser [pid=3103142][err] [1019/132808.434026:WARNING:sandbox/policy/linux/sandbox_linux.cc:405] InitializeSandbox() called with multiple threads in process gpu-process.\n2026-10-19T13:28:08.669Z pw:browser [pid=3103142] <gracefully close start>\n2026-10-19T13:28:08.705Z pw:browser [pid=3103142] <process did exit: exitCode=0, signal=null>\n2026-10-19T13:28:08.706Z pw:browser [pid=3103142] starting temporary directories cleanup\n2026-10-19T13:28:08.716Z pw:browser [pid=3103142] finished temporary directories cleanup\n2026-10-19T13:28:08.717Z pw:browser [pid=3103142] <gracefully close end>\n",
+  "scope": "Actual installed target Playwright/Chromium against four embedded retained quote fixtures; no live site activation.",
+  "private_root": "/var/tmp/smn-browser-qual-20261019-55afe01a-l7csvyng",
+  "ownership": "root-owned private browser directory, matching live runner user",
+  "provider_calls": 0,
+  "model_jobs": 0,
+  "subscriber_sends": 0,
+  "production_activations": 0,
+  "browser": {
+    "passed": true,
+    "browser_version": "153.0.8010.12",
+    "result": {
+      "passed": true,
+      "fixtures": 4,
+      "cross_language_contracts": 4,
+      "cash_futures": true,
+      "unavailable_quotes": true,
+      "old_receipt_rejected": true,
+      "peer_edit_rejected": true,
+      "unknown_markup_rejected": true,
+      "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+      "secure_context": true
+    }
+  }
+}
