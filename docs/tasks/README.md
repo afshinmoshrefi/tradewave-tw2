@@ -40,3 +40,5 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0024](TW-TASK-0024.md) | in-progress | October 15 full TradeWave staging release qualification |
 
 | [TW-TASK-0025](TW-TASK-0025.md) | verified in Dev | Buy & Hold Across Time: completed historical company/horizon comparisons, engine-owned values, desktop/mobile verified |
+
+| [TW-TASK-0026](TW-TASK-0026.md) | in-progress | October 18 staging qualification: exact watchlist validation and Buy & Hold Across Time |
