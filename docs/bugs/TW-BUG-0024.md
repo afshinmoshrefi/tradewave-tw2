@@ -1,11 +1,11 @@
 # TW-BUG-0024: API scan load gate is not repeatable during release qualification
 
-- Status: verified on staging
-- Confidence: reproduced; exact release behavior verified on Dev and staging
+- Status: verified on production
+- Confidence: reproduced; exact release behavior verified on Dev, staging, and production
 - Priority: P2 - concurrent scorer metadata timeouts blocked repeatable release load qualification; ordinary low-volume requests remained healthy
 - First observed / last updated: 2026-10-02 / 2026-10-19
 - Executor/session: Codex release manager, session 01a15227-2197-7d33-aa9d-e573769ad9c8
-- Authorization: Afshin authorized the latency repair and staging release; production excluded. No engine mathematics, entitlements, thresholds, or score fabrication.
+- Authorization: Afshin authorized the latency repair and staging release, then separately authorized autonomous production deployment after staging retest, with rollback on failure. No engine mathematics, entitlements, thresholds, or score fabrication.
 
 ## User Impact and Reproduction
 
@@ -57,4 +57,10 @@ Half-open refinement focused checks: 41 passed. The concurrency regression holds
 - Dev load gate passed after restart at p95 13.292s and warm at 8.081s with 0% errors. Thresholds were not changed. Staging runtime and live API receipts passed. CUA verified Explorer CAT chart loading and public Buy & Hold MSFT/AAPL comparison controls (4- and 6-year selections, series, measure, range, reset).
 - Scorer upstream remained unavailable on Dev during qualification. The system continues to return unavailable/fail closed without fabricated scores; upstream connectivity remains a separate dependency, not a failed staging gate.
 - Staging evidence: /var/lib/tradewave/release-state/tw2-20261019-01/evidence/staging-deploy.log, staging-api.json, staging-runtime.json, staging-browser-gate.json, and screenshots. The October 18 failed candidate evidence remains preserved at /var/lib/tradewave/release-state/tw2-20261018-01/evidence/.
-- Production was not inspected or changed.
+- Production was deployed and verified on the exact candidate; runtime, live API, and rendered browser gates passed. Staging remains verified on the same source/artifact.
+
+## Production verification - 2026-10-19 UTC
+
+Afshin explicitly authorized production deployment after staging retest and confirmed provider snapshots for both production servers; fresh on-box snapshots were also completed and verified. Exact release 0c67bb840fa152c8de9e427d8a3e801239caf6f0 passed production runtime, live API, and rendered browser gates with 0 failures and 0 warnings. Production scoring metadata health returned HTTP 200 in 5 ms. The scorer upstream was healthy during this verification. Browser coverage used transaction-only synthetic Explorer/Strategist shells bound to the exact bundle and public production API because fresh owner WorkOS sign-in presented a human challenge; request logs are retained and no permanent users were created. The watchdog verified and disarmed; no rollback occurred.
+
+Staging browser attribution was corrected: the earlier Explorer receipt reflected a Dev-proxied view; evidence/staging-browser-evidence-correction.json records the correction and evidence/staging-retest-browser.json is the superseding public staging receipt.

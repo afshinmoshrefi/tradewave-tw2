@@ -1,11 +1,11 @@
-# TW-TASK-0026: October 19 TradeWave staging release
+# TW-TASK-0026: October 19 TradeWave release
 
-- Status: complete - staging verified
-- Confidence: exact source and artifact passed required Dev and staging gates
+- Status: complete - production verified
+- Confidence: exact source and artifact passed Dev, staging, and production gates
 - Priority: P2
 - Executor: Codex release manager, session 01a15227-2197-7d33-aa9d-e573769ad9c8
 - Claim UTC: 2026-10-19T03:19:39.292131+00:00
-- Authorization: Afshin explicitly authorized the Dev load-latency repair and staging deployment. Production excluded.
+- Authorization: Afshin explicitly authorized the Dev load-latency repair, staging deployment, and (after staging retest) autonomous production deployment with rollback on failure. The production verification and final receipts are recorded below.
 - Release: tw2-20261019-01; source SHA 0c67bb840fa152c8de9e427d8a3e801239caf6f0
 - Worktree: /home/tradewave-worktrees/load-latency-20261019
 
@@ -18,7 +18,7 @@ Keep main frozen after this claim until release disposition. Other task branches
 2. Full safe Python/MCP/React regression, one source-stamped release build, mandatory authenticated API/MCP load gate.
 3. Activate exact artifact on Dev with prior pointers retained; verify Explorer date contract, chart loading, ticker validation and Buy & Hold interactions.
 4. Audit and capture staging rollback; deploy exact artifact with automatic rollback, verify runtime hashes, services, contracts and rendered behavior.
-5. Finalize manifest and shared evidence; production requires separate authorization.
+5. Finalize manifest and shared evidence; production deployment proceeds only against the exact approved source/artifact, after current snapshots and preflight, with automatic rollback on failure.
 
 ## Evidence and handoff
 Baseline main 4aa02c6b36efe0d6e3d766ed4a0136ba3b4def70 differs from live fa9ffc510929ac9b829479118a6836daef258e38 only in three bug documentation files. Dev backend /home/tradewave-worktrees/exact-ticker-integrated-20261018; frontend /home/flask/web-react/releases/build-fa9ffc510929ac9b829479118a6836daef258e38.
@@ -60,3 +60,12 @@ The failed release tw2-20261018-01 remains preserved with immutable evidence. It
 - During this release the scorer upstream remained unavailable on Dev. The app fails closed without fabricated scores; the metadata breaker prevents concurrent scan peers from creating a timeout storm. Production was not inspected or changed.
 - Snapshot evidence: the August 18 stage-WEB snapshot was archived to Dev at /root/tradewave-snapshot-archive/stage-web/tw2-20260818-03 with checksum-verified rsync; current release snapshots are ready.
 - Durable release evidence is under /var/lib/tradewave/release-state/tw2-20261019-01/evidence/: staging-deploy.log, staging-api.json, staging-runtime.json, staging-browser-gate.json, and browser screenshots. The prior failed October 18 release evidence remains under its separate release-state directory.
+
+## Production handoff - 2026-10-19 UTC
+
+- Afshin explicitly authorized autonomous production deployment after staging retest and confirmed provider snapshots for both production servers. Fresh on-box APP and WEB snapshots were also completed and verified before activation.
+- Staging retest passed on the exact source/artifact. Public staging verification confirmed the CAT Explorer chart and Buy & Hold MSFT/AAPL comparisons, 4- and 6-year selections, measure, range, and reset. The earlier Explorer receipt was corrected because it showed a Dev-proxied view; evidence/staging-browser-evidence-correction.json documents the attribution and evidence/staging-retest-browser.json is the superseding receipt.
+- Exact candidate 0c67bb840fa152c8de9e427d8a3e801239caf6f0 completed production deployment CLEAN with 0 failures and 0 warnings. Runtime heads and frontend hashes matched the release artifact on both production targets. The live API receipt passed Explorer rows, Buy & Hold MSFT/AAPL 4- and 6-year four-series comparisons, 403 for an invalid token, exact US ticker validation, and an LSE HSBA add/duplicate/cleanup flow. Scorer health returned HTTP 200 in 5 ms.
+- CUA confirmed the rendered production CAT chart (one canvas, no placeholder) and Buy & Hold series, measure, range, and reset controls. Because fresh owner WorkOS sign-in presents a pre-existing human challenge, browser verification used transaction-only synthetic Explorer/Strategist shells bound to the exact bundle and proxied to the public production API; request logs are retained and no permanent users were created. This is a verification-method limitation, not a failed gate.
+- The watchdog verified and disarmed; no rollback occurred and production remains live. The manifest is complete, production verified, and manager released.
+- Receipts are under /var/lib/tradewave/release-state/tw2-20261019-01/evidence/: production-api.json, production-scorer-health.json, production-browser-gate.json, prod-fixture-requests.jsonl, production-snapshots.log, production-audit-targets.json, and production-readonly-preflight.log. The current-day snapshot summary is /root/tradewave-handoffs/tw2-20261019-01/prod/snapshots/summary.txt.

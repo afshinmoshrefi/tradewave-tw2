@@ -41,4 +41,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 
 | [TW-TASK-0025](TW-TASK-0025.md) | verified in Dev | Buy & Hold Across Time: completed historical company/horizon comparisons, engine-owned values, desktop/mobile verified |
 
-| [TW-TASK-0026](TW-TASK-0026.md) | complete - staging verified | October 19 release 0c67bb84 verified on staging; load gate, live API/runtime and Explorer/Buy & Hold browser checks passed; production untouched |
+| [TW-TASK-0026](TW-TASK-0026.md) | complete - production verified | October 19 release 0c67bb84 passed exact-artifact Dev, staging, and production gates; production snapshots, runtime/API/browser receipts, and rollback readiness verified |
