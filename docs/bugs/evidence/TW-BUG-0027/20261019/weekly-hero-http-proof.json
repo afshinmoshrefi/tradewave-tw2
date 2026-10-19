@@ -1,0 +1,201 @@
+{
+  "utc": "2026-10-19T12:32:28.948995+00:00",
+  "campaign_id": "201655856717104488",
+  "rows": [
+    {
+      "slug": "gs-subscription-2026-10-16",
+      "symbol": "GS",
+      "hero_status": "unavailable",
+      "email_hero_url": null,
+      "private_receipt_kind": "neutral_placeholder",
+      "unused_original_asset": {
+        "url": "https://seasonalmarketnews.com/articles/US/2026/10/22/hero_GS_9917537791a9cf17.jpg",
+        "exists": false
+      },
+      "http_check": "no image URL was assigned"
+    },
+    {
+      "slug": "pgr-subscription-2026-10-16",
+      "symbol": "PGR",
+      "hero_status": "unavailable",
+      "email_hero_url": null,
+      "private_receipt_kind": "neutral_placeholder",
+      "unused_original_asset": {
+        "url": "https://seasonalmarketnews.com/articles/US/2026/11/02/hero_PGR_d34a90fb13869241.jpg",
+        "exists": false
+      },
+      "http_check": "no image URL was assigned"
+    },
+    {
+      "slug": "c-subscription-2026-10-16",
+      "symbol": "C",
+      "hero_status": "unavailable",
+      "email_hero_url": null,
+      "private_receipt_kind": "neutral_placeholder",
+      "unused_original_asset": {
+        "url": "https://seasonalmarketnews.com/articles/US/2026/10/27/hero_C_40d02b47d11097a5.jpg",
+        "exists": false
+      },
+      "http_check": "no image URL was assigned"
+    },
+    {
+      "slug": "xlk-subscription-2026-10-16",
+      "symbol": "XLK",
+      "hero_status": "unavailable",
+      "email_hero_url": null,
+      "private_receipt_kind": "neutral_placeholder",
+      "unused_original_asset": {
+        "url": "https://seasonalmarketnews.com/articles/ETF/2026/10/25/hero_XLK_bf58f6d1fe024503.jpg",
+        "exists": false
+      },
+      "http_check": "no image URL was assigned"
+    },
+    {
+      "slug": "mrk-subscription-2026-10-16",
+      "symbol": "MRK",
+      "hero_status": "unavailable",
+      "email_hero_url": null,
+      "private_receipt_kind": "neutral_placeholder",
+      "unused_original_asset": {
+        "url": "https://seasonalmarketnews.com/articles/US/2026/11/10/hero_MRK_bc8a73418a2b8941.jpg",
+        "exists": false
+      },
+      "http_check": "no image URL was assigned"
+    },
+    {
+      "slug": "spx-subscription-2026-10-15",
+      "symbol": "SPX",
+      "hero_status": "available",
+      "email_hero_url": "https://seasonalmarketnews.com/editions/2026-10-15/SPX/assets/hero-fresh-e528e8732479.jpg",
+      "http_status": 200,
+      "final_url": "https://seasonalmarketnews.com/editions/2026-10-15/SPX/assets/hero-fresh-e528e8732479.jpg",
+      "content_type": "image/jpeg",
+      "bytes": 235825,
+      "sha256": "e528e8732479baa8a9d5e0db8d2a61391a776463edee0ef7dac1f37d6c2978be",
+      "matches_origin": true
+    },
+    {
+      "slug": "ozk-subscription-2026-10-15",
+      "symbol": "OZK",
+      "hero_status": "available",
+      "email_hero_url": "https://seasonalmarketnews.com/editions/2026-10-15/OZK/assets/hero-fresh-9a2c107ae132.jpg",
+      "http_status": 200,
+      "final_url": "https://seasonalmarketnews.com/editions/2026-10-15/OZK/assets/hero-fresh-9a2c107ae132.jpg",
+      "content_type": "image/jpeg",
+      "bytes": 384065,
+      "sha256": "9a2c107ae1321bf476ca1196094162f1bb6dfe8392a6b97439a83a51b450ffbc",
+      "matches_origin": true
+    },
+    {
+      "slug": "asml-subscription-2026-10-15",
+      "symbol": "ASML",
+      "hero_status": "available",
+      "email_hero_url": "https://seasonalmarketnews.com/editions/2026-10-15/ASML/assets/hero-fresh-07ce8d6578ce.jpg",
+      "http_status": 200,
+      "final_url": "https://seasonalmarketnews.com/editions/2026-10-15/ASML/assets/hero-fresh-07ce8d6578ce.jpg",
+      "content_type": "image/jpeg",
+      "bytes": 324265,
+      "sha256": "07ce8d6578ce2248ef94aba473c7e9a50b39bac08eb6020fe92bccae90185ae7",
+      "matches_origin": true
+    },
+    {
+      "slug": "msft-subscription-2026-10-14",
+      "symbol": "MSFT",
+      "hero_status": "available",
+      "email_hero_url": "https://seasonalmarketnews.com/editions/2026-10-14/MSFT/assets/hero-fresh-e3fbe8434b9c.jpg",
+      "http_status": 200,
+      "final_url": "https://seasonalmarketnews.com/editions/2026-10-14/MSFT/assets/hero-fresh-e3fbe8434b9c.jpg",
+      "content_type": "image/jpeg",
+      "bytes": 234631,
+      "sha256": "e3fbe8434b9ce7b7d6fb5948f1df6daf47645370a0fcc28971e898abd567735e",
+      "matches_origin": true
+    },
+    {
+      "slug": "nvda-subscription-2026-10-14",
+      "symbol": "NVDA",
+      "hero_status": "available",
+      "email_hero_url": "https://seasonalmarketnews.com/editions/2026-10-14/NVDA/assets/hero-fresh-46b4e481d842.jpg",
+      "http_status": 200,
+      "final_url": "https://seasonalmarketnews.com/editions/2026-10-14/NVDA/assets/hero-fresh-46b4e481d842.jpg",
+      "content_type": "image/jpeg",
+      "bytes": 274588,
+      "sha256": "46b4e481d842a8652da3a2bf7be7f98d8a00652115436e41e1471352d6e3dc63",
+      "matches_origin": true
+    },
+    {
+      "slug": "amzn-subscription-2026-10-14",
+      "symbol": "AMZN",
+      "hero_status": "available",
+      "email_hero_url": "https://seasonalmarketnews.com/editions/2026-10-14/AMZN/assets/hero-fresh-16b7f2c70599.jpg",
+      "http_status": 200,
+      "final_url": "https://seasonalmarketnews.com/editions/2026-10-14/AMZN/assets/hero-fresh-16b7f2c70599.jpg",
+      "content_type": "image/jpeg",
+      "bytes": 271864,
+      "sha256": "16b7f2c70599791e93c5e22912c19ea580d713f72a85f3803160c7dde46f7161",
+      "matches_origin": true
+    },
+    {
+      "slug": "qqq-subscription-2026-10-14",
+      "symbol": "QQQ",
+      "hero_status": "available",
+      "email_hero_url": "https://seasonalmarketnews.com/editions/2026-10-14/QQQ/assets/hero-fresh-5c449dc616eb.jpg",
+      "http_status": 200,
+      "final_url": "https://seasonalmarketnews.com/editions/2026-10-14/QQQ/assets/hero-fresh-5c449dc616eb.jpg",
+      "content_type": "image/jpeg",
+      "bytes": 301495,
+      "sha256": "5c449dc616eb0654d75ded233b4cafb7efd7323ed1cfe4048081e28f9028f2ed",
+      "matches_origin": true
+    },
+    {
+      "slug": "spy-subscription-2026-10-14",
+      "symbol": "SPY",
+      "hero_status": "available",
+      "email_hero_url": "https://seasonalmarketnews.com/editions/2026-10-14/SPY/assets/hero-fresh-8b19f8c2e2ad.jpg",
+      "http_status": 200,
+      "final_url": "https://seasonalmarketnews.com/editions/2026-10-14/SPY/assets/hero-fresh-8b19f8c2e2ad.jpg",
+      "content_type": "image/jpeg",
+      "bytes": 387344,
+      "sha256": "8b19f8c2e2ad3ad447758d0b5a392b1aaa1638970249a565e001e011cd539a73",
+      "matches_origin": true
+    },
+    {
+      "slug": "gc-subscription-2026-10-14",
+      "symbol": "GC",
+      "hero_status": "available",
+      "email_hero_url": "https://seasonalmarketnews.com/editions/2026-10-14/GC/assets/hero-fresh-d616c551fbc2.jpg",
+      "http_status": 200,
+      "final_url": "https://seasonalmarketnews.com/editions/2026-10-14/GC/assets/hero-fresh-d616c551fbc2.jpg",
+      "content_type": "image/jpeg",
+      "bytes": 247330,
+      "sha256": "d616c551fbc2f1f839600cbd13c76c77364c16785436ce916ea70765ac7f2b2f",
+      "matches_origin": true
+    },
+    {
+      "slug": "wfc-subscription-2026-10-13",
+      "symbol": "WFC",
+      "hero_status": "available",
+      "email_hero_url": "https://seasonalmarketnews.com/editions/2026-10-13/WFC/assets/hero-reused-0c1f9e9f1dc0.jpg",
+      "http_status": 200,
+      "final_url": "https://seasonalmarketnews.com/editions/2026-10-13/WFC/assets/hero-reused-0c1f9e9f1dc0.jpg",
+      "content_type": "image/jpeg",
+      "bytes": 309233,
+      "sha256": "0c1f9e9f1dc0d5ba499e6e1d482d20343f65d5ed3d72315a887d28e52e46b7af",
+      "matches_origin": true
+    },
+    {
+      "slug": "csx-subscription-2026-10-13",
+      "symbol": "CSX",
+      "hero_status": "available",
+      "email_hero_url": "https://seasonalmarketnews.com/editions/2026-10-13/CSX/assets/hero-reused-4451a79da15a.jpg",
+      "http_status": 200,
+      "final_url": "https://seasonalmarketnews.com/editions/2026-10-13/CSX/assets/hero-reused-4451a79da15a.jpg",
+      "content_type": "image/jpeg",
+      "bytes": 312511,
+      "sha256": "4451a79da15a80250a3182cf524caa5ada4e0c21809859439aa334acebd22d14",
+      "matches_origin": true
+    }
+  ],
+  "mutations": 0,
+  "provider_api_calls": 0,
+  "public_image_gets": 11
+}

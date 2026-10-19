@@ -25,3 +25,27 @@ Rollback code: restore activation config and the two unit backups from the recor
 
 Status: verified on production. Claim released. No remaining work for the reported missing-image incident.
 
+
+## Separate October 16 media gap confirmed October 19
+
+The original October 14/15 nine-image repair remains verified. The October 18
+weekly recap nevertheless has five unavailable heroes: GS, PGR, C, XLK and MRK
+from October 16. Read-only October 19 proof confirms catalog and immutable
+publication entries have `hero_status: unavailable`, null hero URLs and only
+neutral private compatibility placeholders. Friday recovery disabled paid hero
+generation; no subsequent genuine image backfill is demonstrated. The actual
+article HTML has no hero tags. The recap's first five cards therefore render
+ticker fallback blocks; the other eleven hero URLs returned HTTP 200 and their
+bytes match origin. This is incomplete media recovery, not a new URL defect or
+evidence that the deployed fresh-generation repair regressed. Monday all six
+articles have assigned genuine heroes.
+
+Remaining content work: use the existing fresh decorative derivative workflow,
+generation/inspection receipts and continuity publication to repair the five
+articles without altering factual source artifacts. Existing delivered recap HTML
+cannot acquire missing tags through an image upload; no resend was attempted.
+No automatic post-publication media queue has been qualified. The current input
+helper retains existing placeholder receipts rather than automatically upgrading
+them. Keep this five-image follow-up open until its own content receipts verify.
+See [current proof](evidence/TW-BUG-0027/20261019/weekly-hero-http-proof.json) and
+[reconciled inventory](evidence/TW-BUG-0027/20261019/STABILIZATION.md).

@@ -153,9 +153,14 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   publication lease as the rolling publisher, followed by the catalog lease.
   Only an unchanged verified snapshot may persist campaign intent before POST;
   existing/uncertain intents forbid duplicate creation. Production currently
-  acquires that lease nonblockingly. Scoped candidate `d89fabcd` adds a maximum
-  30-second monotonic wait per acquisition, without replaying the protected body;
-  it is isolated-test qualified and not activated. Effective newsletter units can
+  acquires that lease nonblockingly. Integrated candidate `55afe01a` shares a
+  bounded 30-second acquisition deadline across publication and catalog locks,
+  records exact submitted mail HTML/media before POST, and includes the typed
+  version-4 quote contract. 151 Linux tests, including six real scheduler/sender/
+  alert CLI fixture cases, and the native JavaScript contract pass. Actual target
+  Python 3.12.3 read-only replay passes; the candidate is not activated. Fresh-hero
+  runtime files retain the installed hashes. Live mail/alert and consecutive-run
+  acceptance remain separate; see the reconciled TW-BUG-0027 inventory. Effective newsletter units can
   pin a versioned ExecStart and WorkingDirectory, so a current-symlink change
   alone does not establish that new code runs. Current SMN main predates this
   installed scoped production line; preserve exact source/artifact composition

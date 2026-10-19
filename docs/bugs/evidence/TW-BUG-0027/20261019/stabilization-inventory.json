@@ -1,0 +1,88 @@
+{
+  "utc": "2026-10-19T12:57:51.497458+00:00",
+  "status": "tested isolated candidate; production activation and full unattended acceptance incomplete",
+  "repository": "https://github.com/afshinmoshrefi/SMN",
+  "branch": "codex/smn-oct19-stabilization-candidate",
+  "candidate_sha": "55afe01a5683c6f2471e0d578867ad77390bb739",
+  "installed_source": "2b0075c85e45d8cd547c95b8868f8560532cf86b",
+  "installed_observed_utc": "2026-10-19T12:34:28.318440+00:00",
+  "target": "seasonalmarketnews / 209.182.216.112",
+  "runtime_files": {
+    "blog/home_quote_contract.py": "e8ef2e61a4487c51f758f4d1dde92816861255a1f3cac94578b5d65ac997ffc9",
+    "blog/newsletter_reader_snapshot.py": "6d53bc69afd54f655b75fd0eba4d25b24fd6ed6865ee6d6c1b48dbf2fa5f9f4b",
+    "blog/public_delivery_contract.cjs": "c55e4aaabbb60b77cbe21ef70f3a117c12c26e5171ee4491a1e900171a084913",
+    "blog/send_smn_emails.py": "737154f86b74fdb0ff6a5ddf0238fd3515f1b004bd714b0f0cd58d585bcdea8c"
+  },
+  "qualified": {
+    "linux_python_tests": 151,
+    "failed": 0,
+    "skipped": 0,
+    "python": "3.13.7",
+    "node_contract_passed": true,
+    "node_version": "v22.22.2",
+    "real_cli_cases": 6,
+    "real_cli_scope": "private fixtures; actual scheduler/sender/alert programs; external provider/model boundaries mocked",
+    "target_python": "3.12.3",
+    "target_scope": "Target interpreter compilation, actual retained home/recap read-only replay, anonymous-memory lease semantics; no scheduled send or persistent target staging.",
+    "preserved_fresh_hero_hashes": {
+      "blog/subscription_inputs.py": "172b65bcaf06bce18e99c63993a3fa582624196f489569655a886982e8cb0228",
+      "blog/decorative_hero_reuse.py": "a0817ecc36514dad8feb637c71910f0d26ee2b392e217edd99df18e5fa743bcc"
+    }
+  },
+  "source_archive_sha256": "c0ee2a511f627d4d64bbb823233946ad94ae86a86e21214b70e1ba0ebef5f50f",
+  "bundle": {
+    "path": "C:\\Users\\afshin\\Documents\\Codex\\2026-10-07\\task-2\\smn-oct19-combined-qualification\\candidate-55afe01a.bundle",
+    "sha256": "677c4027d552491a961895bd5afa9d3bc1a16974edab7a5585dd9caf69511b96"
+  },
+  "patch": {
+    "path": "C:\\Users\\afshin\\Documents\\Codex\\2026-10-07\\task-2\\smn-oct19-combined-qualification\\stabilization.patch",
+    "sha256": "e67a9d452151f0bf5d089392e8cee874102c1ed32434ad023cee672592f7ee12"
+  },
+  "deployed_and_active": [
+    "Installed 2b007 source includes restored normal fresh-hero generation, qualified partial web publication and 60-job cumulative accounting.",
+    "Monday October 19 complete six-article publication verified at 08:57:34 UTC; native generation/delivery receipts complete.",
+    "October 14/15 nine-image recovery is complete; October 16 five-image recovery is a different unfinished operation."
+  ],
+  "tested_not_activated": [
+    "Shared 30-second publication/catalog lease acquisition deadline with native contention regressions.",
+    "Pre-POST exact submitted HTML, SHA256 and ordered media/warnings journal.",
+    "Version-4 home quote contract and unavailable/typed price handling; old receipts are not reinterpreted.",
+    "Actual weekday, partial, Sunday, restart/unknown-provider and alert CLI behavior against isolated fixtures."
+  ],
+  "still_unverified_or_incomplete": [
+    "Today daily newsletter is absent as of 12:34 UTC; scheduled attempts 1/2/3 failed before POST with publication lease contention. Code installation does not reopen terminal attempt 3.",
+    "Live alert settings disabled with zero recipients. Mocked acceptance/delivery/failure proof is not actual operator delivery.",
+    "Friday GS/PGR/C/XLK/MRK have hero_status unavailable and no public hero URL; neutral private placeholders are not illustrations. Weekly recap intentionally renders fallback ticker blocks for these five. Other eleven URLs returned HTTP 200 and match origin bytes.",
+    "No automatic post-publication hero recovery queue is demonstrated. Existing fresh decorative derivative workflow can repair the five articles without a new renderer deployment, but that content operation is not executed here.",
+    "Malformed selector ranking can still become zero-score rows with exit zero; no integrated repair for that defect is qualified here.",
+    "Automatic abandoned activation recovery and causal quote formatting recovery remain unproved; Monday manual recoveries do not establish either.",
+    "Final guarded activation/rollback/browser rehearsal and consecutive actual unattended runs remain required."
+  ],
+  "next_actions": [
+    "One release owner must reconcile this exact composition with the ongoing parent release assessment; preserve installed fresh-hero code and the production-specific source line. Do not promote SMN main or whole old 308d172 branch.",
+    "Audit both effective ExecStart and WorkingDirectory for pinned scheduler/newsletter units; switching current alone does not switch those processes. Bind backup evidence for actual SMN on the release day and record executable rollback.",
+    "Apply existing direct user authorization wherever it covers this operation; do not require another blanket approval. Resolve only a genuinely missing scope decision. This isolated worker has not activated production or taken over the parent publication operation.",
+    "For a coordinated one-time daily newsletter recovery, retain all three failed markers, freshly reconcile native and provider campaign absence, and use atomic pre-POST intent. Any uncertain/existing intent must be reconciled without a duplicate send.",
+    "Use the operator alert destination supplied by the user, existing authorized transport/credential if available, and obtain actual delivery evidence. Do not invent a recipient or create credentials.",
+    "After activation, verify at least three consecutive actual weekday scheduled runs: coverage at deadline, exact public receipt, bounded jobs, repeated ticks/restart deduplication, one date campaign and provider result, plus a delivered operator alert from a coordinated failure exercise."
+  ],
+  "approval_provenance": {
+    "human_instructions": "Publish usable coverage without polish blocking the edition; allow up to 60 daily jobs; routine fixes have blanket approval and should not repeatedly ask.",
+    "historic_exact_release_approval": "October 9 b61b37f7a6683f0fc173b8aef52bcd5067f6bbe5 and October 9 actual-SMN backup were directly confirmed; this is historical evidence, not a current-day snapshot.",
+    "fresh_media_preference": "TW-BUG-0034 records direct human instruction: yes fresh is the way its been for ever.",
+    "pending_policy_answers": "Future automatic repair deployment policy, whether optional review may delay the scheduled deadline, and operator alert destination were asked together October 19; no answer inferred."
+  },
+  "actions_in_this_qualification": {
+    "real_provider_calls": 0,
+    "new_model_jobs": 0,
+    "subscriber_sends": 0,
+    "production_activations": 0,
+    "timer_changes": 0,
+    "new_credentials": 0
+  },
+  "proof_notes": [
+    "Target Python 3.12.3 checks compile candidate source and replay read-only current home/weekly metadata with anonymous-memory lease semantics; not a full target filesystem scheduled send.",
+    "The source archive precedes the final runbook-only documentation addition; all executable/runtime/test blobs are individually verified against the final commit.",
+    "Exact captured HTML fixtures retain original whitespace; executable-source diff check passed, whole-patch captured-fixture whitespace is intentionally retained."
+  ]
+}

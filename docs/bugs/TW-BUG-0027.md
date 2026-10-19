@@ -1,5 +1,41 @@
 # TW-BUG-0027: SMN Publication and Newsletter Continuity Failures
 
+## Reconciled stabilization checkpoint, October 19 12:55 UTC
+
+Current integrated candidate is SMN `55afe01a5683c6f2471e0d578867ad77390bb739`
+on `codex/smn-oct19-stabilization-candidate`, based on installed `2b0075c`.
+151 Linux tests and the native JavaScript delivery contract pass. Six cases
+launch the actual weekday/Sunday scheduler, sender restart and alert CLI against
+private fixtures: complete and partial coverage, real HTML, unknown provider
+creation, duplicate suppression, accepted-versus-delivered alert evidence and
+bounded relay failure. Actual SMN Python 3.12.3 read-only compilation/replay also
+passes. No deployment, subscriber mail, model jobs or timer changes occurred in
+this qualification. Fresh-hero runtime files remain byte-identical to active
+`2b0075c`. Four runtime files change: newsletter snapshot locks, sender HTML/media
+journal, and Python/JavaScript version-4 quote contract.
+
+One current [inventory](evidence/TW-BUG-0027/20261019/STABILIZATION.md), with
+[source/test hashes and remaining actions](evidence/TW-BUG-0027/20261019/stabilization-inventory.json),
+supersedes the earlier 58-test candidate as the proposed composition. The first
+candidate bounded only the edition lease; this one shares a 30-second deadline
+across edition and catalog leases and tests actual rendering and CLI entrypoints.
+Do not replace active fresh-hero code with the whole older prepared branch.
+
+Web publication is complete at six articles. Daily mail remained absent at the
+12:34 UTC observation after three pre-POST lease failures; an install does not
+reopen terminal attempt 3. Parent release owner retains coordination of any
+receipt-aware recovery. Live alerts are disabled with no recipient; mocked
+delivery is not actual delivery. User blanket authorization and the 60-job limit
+must be honored without repeating already answered permission questions. The
+remaining operator destination and future operating-policy questions are pending.
+
+Final guarded release/rollback/browser qualification, effective pinned unit paths,
+current-day actual-SMN backup evidence, live alert delivery and three consecutive
+scheduled weekday runs remain. Malformed selector ranking, automatic abandoned
+activation recovery and causal-quote formatting recovery are still unverified;
+the combined patch does not claim to fix every incident cause.
+
+
 ## October 19 Recap Media and Full-Lock Validation Follow-Up
 
 The scoped follow-up is pushed at SMN `6f1007487870d6e011e8495ee14c5cae1e000bb7`, with 64 Linux offline tests passing, including real HTML and combined catalog contention. This does not backfill missing illustrations, send mail or activate production. The same owner is now preparing a separate isolated composition branch `codex/smn-oct19-stabilization-candidate` from that candidate plus only the three already prepared quote-guard commits fb21b8d, 5f0e691 and 49dd60f. The current fresh-generation files will be hash-protected against the observed 2b0075c baseline. This removes a known integration hazard: promoting the entire older 308d172 branch would revert the active fresh-hero fix. Composition and focused regression qualification are local/Dev-test only; the coordinator retains release ownership.

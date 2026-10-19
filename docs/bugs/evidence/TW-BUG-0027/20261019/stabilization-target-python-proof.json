@@ -1,0 +1,31 @@
+{
+  "utc": "2026-10-19T12:46:31.903285+00:00",
+  "python": "3.12.3",
+  "host": "seasonalmarketnews",
+  "compiled_source_hashes": {
+    "blog/newsletter_reader_snapshot.py": "6d53bc69afd54f655b75fd0eba4d25b24fd6ed6865ee6d6c1b48dbf2fa5f9f4b",
+    "blog/send_smn_emails.py": "737154f86b74fdb0ff6a5ddf0238fd3515f1b004bd714b0f0cd58d585bcdea8c",
+    "blog/home_quote_contract.py": "e8ef2e61a4487c51f758f4d1dde92816861255a1f3cac94578b5d65ac997ffc9",
+    "blog/subscriber_copy.py": "c2126f1f92e1a7fe0bedee5df55637239897a07cb33646eea13a56f20f0d75ad"
+  },
+  "actual_home_quote_v4_match": true,
+  "actual_weekly_metadata_real_template": {
+    "cards": 16,
+    "hero_images": 11,
+    "omitted_heroes": [
+      "GS",
+      "PGR",
+      "C",
+      "XLK",
+      "MRK"
+    ]
+  },
+  "native_anonymous_lease_timeout_and_release": true,
+  "persistent_files_written": 0,
+  "edition_catalog_locks_acquired": 0,
+  "provider_calls": 0,
+  "model_jobs": 0,
+  "campaign_mutations": 0,
+  "runtime_activation": false,
+  "scope": "Target interpreter compilation, actual retained home/recap read-only replay, anonymous-memory lease semantics; no scheduled send or persistent target staging."
+}

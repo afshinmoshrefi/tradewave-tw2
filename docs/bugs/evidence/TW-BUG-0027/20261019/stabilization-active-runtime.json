@@ -1,0 +1,163 @@
+{
+  "utc": "2026-10-19T12:34:28.318440+00:00",
+  "source": "/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b",
+  "units": {
+    "smn-subscription.service": {
+      "MainPID": "0",
+      "Result": "success",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/operational_schedule.py --target production ; ignore_errors=no ; start_time=[Mon 2026-10-19 12:34:00 UTC] ; stop_time=[Mon 2026-10-19 12:34:02 UTC] ; pid=3074428 ; code=exited ; status=0 }",
+      "WorkingDirectory": "/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog",
+      "ActiveState": "inactive"
+    },
+    "smn-weekday-newsletter.service": {
+      "MainPID": "0",
+      "Result": "success",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/operational_schedule.py --target production --newsletter-only ; ignore_errors=no ; start_time=[Mon 2026-10-19 12:34:00 UTC] ; stop_time=[Mon 2026-10-19 12:34:00 UTC] ; pid=3074421 ; code=exited ; status=0 }",
+      "WorkingDirectory": "/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog",
+      "ActiveState": "inactive"
+    },
+    "smn-continuity@progress.service": {
+      "MainPID": "0",
+      "Result": "success",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/current/blog/production_continuity_schedule.py progress --enable-production-continuity ; ignore_errors=no ; start_time=[Mon 2026-10-19 12:34:00 UTC] ; stop_time=[Mon 2026-10-19 12:34:02 UTC] ; pid=3074423 ; code=exited ; status=0 }",
+      "WorkingDirectory": "/opt/smn-subscription/current/blog",
+      "ActiveState": "inactive"
+    },
+    "smn-continuity@deliver.service": {
+      "MainPID": "0",
+      "Result": "success",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/current/blog/production_continuity_schedule.py deliver --enable-production-continuity ; ignore_errors=no ; start_time=[Mon 2026-10-19 12:34:00 UTC] ; stop_time=[Mon 2026-10-19 12:34:04 UTC] ; pid=3074422 ; code=exited ; status=0 }",
+      "WorkingDirectory": "/opt/smn-subscription/current/blog",
+      "ActiveState": "inactive"
+    }
+  },
+  "mutations": 0,
+  "provider_calls": 0,
+  "manual_sends": 0,
+  "activation": {
+    "source_commit": "2b0075c85e45d8cd547c95b8868f8560532cf86b",
+    "publication_policy": "continuity-v1",
+    "reader_provider": "chatgpt"
+  },
+  "hero_deployment": {
+    "COMPLETE.json": {
+      "path": "/var/lib/tradewave/release-state/smn-hero-repair-20261015/COMPLETE.json",
+      "exists": true,
+      "sha256": "68d55f339464ed0782b631cbe1685202f1745d1bfae11ec1a7ecd18d166afe76",
+      "value": [
+        {
+          "date": "2026-10-14",
+          "status": "live_verified",
+          "record": "smn-production-2026-10-14-d3f519624249c72a",
+          "symbols": [
+            "GC",
+            "SPY",
+            "QQQ",
+            "AMZN",
+            "NVDA",
+            "MSFT"
+          ],
+          "transaction_root": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-14/chatgpt/publication-revisions/0057582662eb79f8925af2ddd724c0df146a37cfa40ca52e5e9816e3d51b9880/attempt-1",
+          "original_files_unchanged": true
+        },
+        {
+          "date": "2026-10-15",
+          "status": "live_verified",
+          "record": "smn-production-2026-10-15-c04456a13bbf63a7",
+          "symbols": [
+            "ASML",
+            "OZK",
+            "SPX"
+          ],
+          "transaction_root": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-15/chatgpt/publication-revisions/0a8135b51f475319144e099f7431f7c9fb9eff44d0545d114b38cff4158f6d93/attempt-2",
+          "original_files_unchanged": true
+        }
+      ]
+    },
+    "code-activation.json": {
+      "path": "/var/lib/tradewave/release-state/smn-hero-repair-20261015/code-activation.json",
+      "exists": true,
+      "sha256": "5161291c6d516397764106e6e77e8e6189bc1c51c049f82c32b0d682a7a7e460",
+      "value": {
+        "old": "94023f7d75cc5a96d4d2f81b1073eaa9d3fcf0df",
+        "new": "2b0075c85e45d8cd547c95b8868f8560532cf86b",
+        "utc": "2026-10-15T14:51:59.430126+00:00",
+        "tests": 51
+      }
+    }
+  },
+  "daily_campaign_present": false,
+  "daily_campaign": null,
+  "daily_marker": {
+    "path": "/var/lib/smn-dashboard/schedule-runs/production-weekday_newsletter-2026-10-19.json",
+    "exists": true,
+    "sha256": "8de1b3000ea02dd32fb3df0f5655a078ae35f46bca1caa01a95e3f79d6319b03",
+    "value": {
+      "target": "production",
+      "phase": "weekday_newsletter",
+      "date": "2026-10-19",
+      "started_at": "2026-10-19T11:12:00.530964+00:00",
+      "status": "failed",
+      "attempt": 3,
+      "retry_history": [
+        {
+          "archive": "production-weekday_newsletter-2026-10-19.attempt-1-251d498e1ade9dd27c12875dadeb0d093a460480ca3c17791983683e880a82a5.json",
+          "sha256": "251d498e1ade9dd27c12875dadeb0d093a460480ca3c17791983683e880a82a5",
+          "status": "failed",
+          "exit_code": 1,
+          "finished_at": "2026-10-19T11:00:04.051300+00:00",
+          "retry_checked_utc": "2026-10-19T11:06:00.517132+00:00",
+          "pre_post_evidence": {
+            "campaign_state_sha256": "b5c28d85552e1c289024896a5d5b55bec2bfee161e84a045a04acedaf332f240",
+            "campaign_key": "daily:2026-10-19",
+            "unreserved_slugs": [
+              "cck-subscription-2026-10-19",
+              "csx-subscription-2026-10-19",
+              "amzn-subscription-2026-10-19",
+              "xlf-subscription-2026-10-19",
+              "spy-subscription-2026-10-19",
+              "qqq-subscription-2026-10-19"
+            ],
+            "checked_utc": "2026-10-19T11:06:02.790576+00:00",
+            "proof": "readable native journal has no date intent or reserved lineup"
+          }
+        },
+        {
+          "archive": "production-weekday_newsletter-2026-10-19.attempt-2-be21daadd06cde7ec9b803177f992dc0d85c420ab0e03bc869f1f3f3e0cf44a1.json",
+          "sha256": "be21daadd06cde7ec9b803177f992dc0d85c420ab0e03bc869f1f3f3e0cf44a1",
+          "status": "failed",
+          "exit_code": 1,
+          "finished_at": "2026-10-19T11:06:05.224808+00:00",
+          "retry_checked_utc": "2026-10-19T11:12:00.530964+00:00",
+          "pre_post_evidence": {
+            "campaign_state_sha256": "b5c28d85552e1c289024896a5d5b55bec2bfee161e84a045a04acedaf332f240",
+            "campaign_key": "daily:2026-10-19",
+            "unreserved_slugs": [
+              "cck-subscription-2026-10-19",
+              "csx-subscription-2026-10-19",
+              "amzn-subscription-2026-10-19",
+              "xlf-subscription-2026-10-19",
+              "spy-subscription-2026-10-19",
+              "qqq-subscription-2026-10-19"
+            ],
+            "checked_utc": "2026-10-19T11:12:02.810555+00:00",
+            "proof": "readable native journal has no date intent or reserved lineup"
+          }
+        }
+      ],
+      "finished_at": "2026-10-19T11:12:05.354158+00:00",
+      "exit_code": 1
+    }
+  },
+  "alerts": {
+    "enabled": false,
+    "recipient_count": 0
+  },
+  "runtime_files": {
+    "newsletter_reader_snapshot.py": "4fe5911ce80aba12d012569763067a9302bcc476a5887a037c9d352012a96b31",
+    "send_smn_emails.py": "1111035feaaba611087e7078048f0c591a64883612fc690ccce9e872a3ad80ad",
+    "home_quote_contract.py": "d11971baccb318099e38819515f6b94408715cf78c0320d6687c7324897e7e93",
+    "subscription_inputs.py": "172b65bcaf06bce18e99c63993a3fa582624196f489569655a886982e8cb0228",
+    "decorative_hero_reuse.py": "a0817ecc36514dad8feb637c71910f0d26ee2b392e217edd99df18e5fa743bcc"
+  }
+}
