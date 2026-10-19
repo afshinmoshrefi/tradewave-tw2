@@ -1,6 +1,6 @@
 # TW-BUG-0024: API scan load gate is not repeatable during release qualification
 
-- Status: open
+- Status: in-progress
 - Confidence: reproduced
 - Priority: P2 - blocks SMN dashboard/auth release promotion; ordinary low-volume requests remain healthy
 - First observed / last updated: 2026-10-02
@@ -26,3 +26,9 @@ No repair. Candidate/artifact preserved in tw2-20261002-02/release.json; statusf
 ## Environment Verification
 
 Dev: failure reproduced and rollback verified October2. Staging/prod: read-only source/runtime audits pass at priorc25ffd5; no deployment.
+
+## Authorized repair claim - 2026-10-19T03:43:30.457704+00:00
+- Executor: Codex session 01a15227-2197-7d33-aa9d-e573769ad9c8; branch codex/load-latency-20261019; worktree /home/tradewave-worktrees/load-latency-20261019.
+- User explicitly authorized investigation and repair of load-test latency, followed by staging deployment; production excluded. Related release task TW-TASK-0026.
+- New reproduction: candidate 370a2ecc, p95 33.784s then 28.541s with zero errors; both automatic Dev rollbacks verified. Evidence in /var/lib/tradewave/release-state/tw2-20261018-01/evidence.
+- Plan: separate client/network/auth/cache/upstream timing; reproduce bottleneck; minimal fix with focused regression preserving authentication, entitlements, rate limits and complete engine output. Then unchanged 200-request/concurrency50 gate after restart and warm, full exact-artifact staging qualification and guarded deploy. Preserve prior runtime rollback; no threshold relaxation or production writes.

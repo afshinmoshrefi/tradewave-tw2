@@ -1,6 +1,6 @@
 # TW-TASK-0026: October 18 TradeWave staging release
 
-- Status: blocked
+- Status: in-progress
 - Confidence: regression passed; live Dev qualification failed; staging not attempted
 - Priority: P2
 - Executor: Codex chat 01a15227-2197-7d33-aa9d-e573769ad9c8
@@ -44,3 +44,6 @@ Dev: prior behavior verified; exact release qualification pending. Staging: unch
 - Release manifest is schema-valid `failed`; Dev `rolled_back`, rollback `verified`, staging `not_started`. Manager ownership and main freeze released. Candidate artifact and evidence retained. Temporary Explorer fixture service/tunnel stopped and credential-bearing fixture shells removed.
 - Evidence root `/var/lib/tradewave/release-state/tw2-20261018-01/`: `evidence/attempt-1/mvp-post-restart.log`, `evidence/mvp-post-restart.log`, `evidence/dev-activation.log`, `dev-rollback-verified.json`, `evidence/react-build-final.log`, `release.json`.
 - Next action: investigate the live load-gate latency under TW-BUG-0024 before a fresh qualification attempt. Deployment acceptance remains incomplete; do not promote this failed candidate or infer staging approval.
+
+## Resume authorization
+User authorized fixing load latency and continuing staging, with production excluded. TW-BUG-0024 is claimed by the same session; staging remains unchanged while diagnosis runs.
