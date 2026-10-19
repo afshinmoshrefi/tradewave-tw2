@@ -1,6 +1,6 @@
 {
   "utc": "2026-10-19T13:02:39.803971+00:00",
-  "status": "exact existing-file plan prepared; isolated target qualification passed; not applied",
+  "status": "prepared; explicit bounded production cutover/four-backfill approval pending",
   "candidate_sha": "55afe01a5683c6f2471e0d578867ad77390bb739",
   "production_baseline": "2b0075c85e45d8cd547c95b8868f8560532cf86b",
   "host": "seasonalmarketnews",
@@ -239,7 +239,7 @@
     }
   ],
   "current_bounded_authority": {
-    "interpretation": "The latest completion instruction in the context of the proposed integrated repair, together with existing blanket routine-repair authority, supports continuing this bounded repair. Do not require a new standing permission or review-policy change.",
+    "interpretation": "Parent reported automatic approval review rejected the live cutover/backfill instruction for insufficient explicit production authorization; parent has asked Afshin for bounded approval. No activation/backfill until approval arrives; qualification/preparation remain valid.",
     "direct_visible_history": "User explicitly approved the b61b37f release and actual-SMN backup on October 9, subsequently granted blanket repair authority and up to 60 daily jobs, and directed publication restoration and continued repair.",
     "current_completion_reference": "Coordinator-supplied October 19 12:40:53 UTC instruction: get started on it and do not stop until it is complete, in the context of one integrated release.",
     "scope": "Candidate 55afe01a and the bounded source/service/pointer changes. Factual-review policy preserved. No subscriber send, paid image generation, new credentials or invented recipient in this worker.",
@@ -261,5 +261,7 @@
     "live_invariants_unchanged": true,
     "scope": "Private-path transient units with kernel network and write isolation; no live activation."
   },
-  "missing_input_bundle_for_parent": "Confirm October 19 actual-SMN snapshot/backup completion with provider/reference/completion time and evidence. Identify one authorized operator-alert destination and an existing usable Resend credential or explicitly authorized transport setup through the established secret store. Do not ask for a new all-future release permission or review policy. C remains text-only without new image authorization; it does not hold code repair or the other four prepared images."
+  "missing_input_bundle_for_parent": "Use the already pending exact live-action approval. Confirm actual-SMN backup completed on current UTC day; unknown provider/ID/clock can remain null. If replacing that with targeted rollback files, obtain explicit scope acceptance. For monitoring, name an authorized operator recipient and existing usable Resend credential/authorized transport setup; do not invent a recipient or create credentials without authority.",
+  "backup_gate_clarification": "Retained gate accepts current-day human-confirmed actual-SMN backup with unknown provider/ID/exact clock left null. A targeted rollback backup is feasible but not automatically a full-server substitute.",
+  "minimal_backup_alert_prerequisites": "backup-alert-prerequisites.json"
 }

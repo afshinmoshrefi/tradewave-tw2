@@ -1,0 +1,109 @@
+{
+  "utc": "2026-10-19T13:46:34.556072+00:00",
+  "status": "read_only_findings; exact live cutover and four public backfills await explicit one-time approval requested by parent",
+  "application_candidate": "55afe01a5683c6f2471e0d578867ad77390bb739",
+  "live_action_authority": {
+    "status": "pending",
+    "source": "Parent reported automatic approval review rejected the live cutover/backfill instruction for insufficient explicit production authorization; parent has asked Afshin for bounded approval.",
+    "restrictions": "Do not activate or publicly backfill until that answer. Do not create credentials, change alert configuration, send, or bypass the private export denial."
+  },
+  "backup_gate": {
+    "retained_operator_sha256": "4a4a020f19cce49bffb59de2bd4922b03eea6a6e53ee7ed9cb1a4ac04b474e2f",
+    "function": "snapshot_attestation, lines 494-510 in retained October 9 operator",
+    "accepted_evidence_kind": "human-confirmed-current-day",
+    "required_confirmation": "Afshin confirms completed backup of actual seasonalmarketnews / 209.182.216.112 on current UTC date; bind confirmation/evidence reference and source/operator/baseline/artifact hashes.",
+    "provider_API_snapshot_ID_mandatory": false,
+    "unknown_provider_fields": "Retained gate explicitly requires provider, snapshot_reference and completed_at_utc to be null when those details are unknown. Do not invent them or demand another provider-ID reply after an adequate current-day human confirmation.",
+    "scope": "Actual SMN single host; not the unrelated TradeWave web/app pair.",
+    "caveat": "This is evidence about retained gate behavior, not authority to run the unchanged historic full operator or substitute an unapproved backup scope."
+  },
+  "backup_options": [
+    {
+      "option": "Existing completed actual-SMN server backup",
+      "available_now": "Not established by inspected local metadata. A provider-side backup may exist; no provider API call or credential access was made.",
+      "minimum_prerequisite": "Current-day direct human confirmation, with whatever genuine reference is available; unknown provider ID/exact completion clock need not be invented."
+    },
+    {
+      "option": "Fresh targeted rollback backup for the bounded code cutover",
+      "feasible_with_existing_access": true,
+      "basis": "Root SSH and Python atomic file/pointer restore were verified in isolated target tests; tar and rsync are installed; immutable old release 2b0075c is retained.",
+      "scope": [
+        "Exact current activation JSON",
+        "Both current pinned base-unit byte images and metadata",
+        "Current symlink target",
+        "Existing drop-in hashes and effective commands",
+        "Prior timer states and public/mail invariant hashes"
+      ],
+      "verification": "After authorization, copy exact preimages to root-private release record, hash-check them, restore copies into a private rehearsal directory and compare bytes/modes/ownership; keep old immutable source intact.",
+      "does_not_establish": "A complete server/VM recovery point or application/database-consistent full-system backup.",
+      "needed_authority": "Backup creation is a write and has not been done in this read-only phase. Use pending bounded approval. If intended to replace the current-day server-backup gate, Afshin must explicitly accept that narrower protection; do not silently relabel it."
+    },
+    {
+      "option": "Guest-native or full-server snapshot",
+      "available_now": "Not established. Btrfs/LVM commands exist, but mounted filesystem type, volumes and free extents were not established in the permitted audit.",
+      "caveat": "Command presence does not prove local snapshot support. Provider/hypervisor snapshot control is not established by guest root access alone. No snapshot, archive or database dump was created."
+    }
+  ],
+  "alert_transport": {
+    "implemented_operational_adapter": "Resend HTTPS with accepted/delivered receipts and bounded retries.",
+    "subscriber_adapter": "MailerLite campaign helper; it is not an installed operator-alert transport. No subscriber groups or campaigns were repurposed.",
+    "standard_local_MTA_commands_found": false,
+    "known_configuration_from_prior_allowed_inventory": "Observer service/timer absent; alerts disabled; recipients empty; no Resend key in designated /etc/tradewave/secrets.env.",
+    "sender_not_recipient": "info@tradewave.ai is the newsletter sender; help@tradewave.ai is the observer default From address. Neither establishes an authorized alert To address.",
+    "minimum_prerequisites": [
+      "Named authorized operator recipient",
+      "Existing usable Resend credential supplied through the established secret store, or explicit authorization for another transport/credential setup",
+      "Approved observer installation/configuration on exact SMN source, preserving single-host backup semantics rather than fabricating web/app backup flags",
+      "Explicitly authorized operator-only delivery exercise and matching provider delivery evidence; no subscriber test or resend"
+    ],
+    "not_claimed": "No alert was sent or delivered. No broader SMTP/relay configuration has been verified."
+  },
+  "audit_limit": {
+    "automatic_approval_review_rejected": "Broader remote scan/export of production configuration, recipient addresses, filesystem/storage metadata and credential-presence details to local files.",
+    "safe_alternative_completed": "Installed command availability only; no production configuration, credential files, recipient settings or storage details read/exported by that check.",
+    "if_more_audit_is_needed": "Parent must obtain explicit authorization for the narrowly enumerated configuration metadata and destination. No indirect or equivalent private export is attempted."
+  },
+  "capability_only_result": {
+    "installed_commands": {
+      "tar": true,
+      "rsync": true,
+      "borg": false,
+      "restic": false,
+      "rclone": false,
+      "mysqldump": false,
+      "mariadb-dump": false,
+      "sqlite3": false,
+      "pg_dump": false,
+      "zfs": false,
+      "btrfs": true,
+      "lvs": true,
+      "lvcreate": true,
+      "fsfreeze": true,
+      "virsh": false,
+      "sendmail": false,
+      "postfix": false,
+      "exim": false,
+      "exim4": false,
+      "msmtp": false,
+      "mail": false,
+      "mailx": false,
+      "ssmtp": false
+    },
+    "configuration_read": false,
+    "credential_files_read": false,
+    "recipient_settings_read": false,
+    "storage_details_exported": false,
+    "provider_calls": 0,
+    "mutations": 0,
+    "sends": 0
+  },
+  "actions": {
+    "production_mutations": 0,
+    "backup_created": false,
+    "configuration_changed": false,
+    "credentials_created": false,
+    "subscriber_sends": 0,
+    "alert_sends": 0,
+    "provider_calls": 0
+  }
+}

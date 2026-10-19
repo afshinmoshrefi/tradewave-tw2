@@ -1,5 +1,28 @@
 # TW-BUG-0027: SMN Publication and Newsletter Continuity Failures
 
+## Live approval pending; minimal backup/alert prerequisites, October 19
+
+Parent reported automatic approval review rejected live cutover/four public hero
+backfills for insufficient explicit production authorization and has requested
+Afshin's exact bounded approval. It remains pending: no activate/backfill action.
+Candidate 55afe01a and completed target qualification are unchanged.
+
+[Backup/alert clarification](evidence/TW-BUG-0027/20261019/BACKUP-ALERT-PREREQUISITES.md):
+the retained October 9 gate accepts current-day human confirmation of actual SMN
+backup completion and explicitly leaves unknown provider/ID/exact clock null.
+Provider API evidence is not inherently required. Root plus installed tar/rsync
+can capture/restore-verify the three-file/pointer rollback scope after approval;
+that is not automatically a complete server snapshot substitute. Existing full-
+server backup availability remains unestablished.
+
+Fresh permitted command inventory found no standard local MTA. Operational code
+uses Resend; subscriber helpers use MailerLite. Recipient, usable authorized
+credential/transport and delivered operator-only exercise remain missing. Broader
+configuration/storage/recipient/credential-metadata export was rejected; a safe
+command-availability check succeeded, with no forbidden fields read or exported.
+No new credentials, configuration, backup, external messages or subscriber send.
+
+
 ## Actual-target qualification and bounded handoff, October 19 13:31 UTC
 
 Candidate remains `55afe01a5683c6f2471e0d578867ad77390bb739`. Actual SMN Python 3.12.3 passes 151 runtime/mail,

@@ -40,16 +40,18 @@ mail advancement require classification, never an old mail-state restore.
 
 ## Backup and authority
 
-Existing user blanket authority and the current instruction to complete the
-proposed integrated repair are sufficient to continue this bounded work. No new
-standing permission or review policy is a prerequisite. The plan includes exact
-one-time wording only if the parent finds an actual executor-scope gap.
+Preparation and isolated qualification remain authorized. Automatic approval
+review rejected the live cutover and public backfills for insufficient explicit
+production authorization. The parent has asked Afshin for the exact bounded
+approval; it is pending. Do not activate or backfill until received. No new
+standing permission or factual-review policy is a prerequisite.
 
 **Current-day actual-SMN backup completion remains unverified.** The inspected
 local backup locations and metadata show package-manager backups and no qualifying
 October 19 server snapshot attestation. This does not prove that a provider-side
-snapshot does not exist. Parent needs its real completion/reference/evidence for
-seasonalmarketnews / 209.182.216.112. October 9 confirmation and unrelated
+snapshot does not exist. Parent needs current-day confirmation for seasonalmarketnews / 209.182.216.112.
+The retained gate supports unknown provider/ID/exact clock fields as null;
+genuine available references are recorded without inventing missing details. October 9 confirmation and unrelated
 TradeWave servers do not establish October 19 coverage.
 
 ## Four hero overrides prepared; Citigroup remains pending
@@ -97,3 +99,5 @@ Continuity check after the disconnect, 13:35 UTC: actual SMN remains on 2b0075c;
 complete receipt and mail journal hashes are unchanged; no qualification unit is
 active and no October 19 campaign exists. No activation or recovery was retried.
 See [continuity verification](continuity-verification.json).
+
+Current approval and backup/alert clarification: [minimal prerequisites](BACKUP-ALERT-PREREQUISITES.md).

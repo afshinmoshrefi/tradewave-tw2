@@ -1,6 +1,6 @@
 {
   "utc": "2026-10-19T12:57:51.497458+00:00",
-  "status": "target-qualified candidate and prepared exact live-file/content plans; not deployed",
+  "status": "target-qualified and prepared; exact live cutover/backfill approval requested by parent is pending",
   "repository": "https://github.com/afshinmoshrefi/SMN",
   "branch": "codex/smn-oct19-stabilization-candidate",
   "candidate_sha": "55afe01a5683c6f2471e0d578867ad77390bb739",
@@ -154,12 +154,14 @@
     "Full live native cutover/post-cutover browser verification, actual provider receipts and at least three consecutive unattended weekday runs remain necessary before claiming reliable operation. Malformed selector output and automatic abandoned-activation/causal-format recovery remain separate open defects."
   ],
   "current_bounded_authority": {
-    "interpretation": "The latest completion instruction in the context of the proposed integrated repair, together with existing blanket routine-repair authority, supports continuing this bounded repair. Do not require a new standing permission or review-policy change.",
+    "interpretation": "Parent reported automatic approval review rejected the live cutover/backfill instruction for insufficient explicit production authorization; parent has asked Afshin for bounded approval. No activation/backfill until approval arrives; qualification/preparation remain valid.",
     "direct_visible_history": "User explicitly approved the b61b37f release and actual-SMN backup on October 9, subsequently granted blanket repair authority and up to 60 daily jobs, and directed publication restoration and continued repair.",
     "current_completion_reference": "Coordinator-supplied October 19 12:40:53 UTC instruction: get started on it and do not stop until it is complete, in the context of one integrated release.",
     "scope": "Candidate 55afe01a and the bounded source/service/pointer changes. Factual-review policy preserved. No subscriber send, paid image generation, new credentials or invented recipient in this worker.",
     "snapshot_scope": "Actual SMN single host seasonalmarketnews / 209.182.216.112. An unrelated TradeWave web/app pair and October 9 confirmation do not establish October 19 completion.",
     "if_parent_finds_actual_executor_scope_gap": "Use only the exact one-time wording in the plan; do not repeat the blanket authorization or ask about all future releases."
   },
-  "planned_composition_sha256": "12713bc0ed20cf115314cd4e8d6522f4d5e2465177c56fe491dae8619792f41b"
+  "planned_composition_sha256": "12713bc0ed20cf115314cd4e8d6522f4d5e2465177c56fe491dae8619792f41b",
+  "backup_gate_clarification": "Retained gate accepts current-day human-confirmed actual-SMN backup with unknown provider/ID/exact clock left null. A targeted rollback backup is feasible but not automatically a full-server substitute.",
+  "minimal_backup_alert_prerequisites": "backup-alert-prerequisites.json"
 }
