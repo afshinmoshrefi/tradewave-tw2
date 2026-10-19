@@ -26,3 +26,12 @@ Manifest /var/lib/tradewave/release-state/tw2-20261018-01/release.json. Qualific
 
 ## Environment verification
 Dev: prior behavior verified; exact release qualification pending. Staging: unchanged. Production: excluded and unchanged.
+
+
+## Regression qualification (2026-10-19 UTC)
+- Exact starting candidate: `1ac16255fb39a5f4954a95fa9d360535ac00d518`; frozen `origin/main` matched before qualification.
+- Safe Python regression: `/home/flask/venv/bin/python -m pytest -ra --tb=short` from the candidate worktree - **1740 passed, 5 skipped, 10 warnings**. The skips are missing optional MCP imports in this venv, two ungenerated quickstart snippets, and the documented deferred AI-branch React contract.
+- Separate MCP regression: `/home/flask/venv-api/bin/python -m pytest tests/test_mcpserver.py -ra --tb=short` - **61 passed**.
+- Initial React regression found one stale expected menu list: `Common.js` already includes `Buy & Hold Across Time` between `Buy & Hold` and `Reverse Date Range`. Updated only the test expectation to include the exact existing value and label. Focused test: **3 passed**. Full React regression: `npm test -- --watchAll=false --runInBand` - **52 suites, 482 tests passed**.
+- The first React build completed for the starting SHA `1ac16255fb39a5f4954a95fa9d360535ac00d518`, but is superseded by the test/documentation commit. No activation was performed. A provenance-stamped build of the final commit is required before continuing qualification.
+- Logs: `/var/lib/tradewave/release-state/tw2-20261018-01/evidence/pytest-full.log`, `pytest-mcpserver.log`, `react-npm-test.log` (initial failure), `react-date-range-targeted.log`, `react-npm-test-after-fix.log`, and `react-build.log` (superseded build).

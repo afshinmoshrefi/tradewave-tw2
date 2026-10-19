@@ -26,6 +26,7 @@ describe('Wave Viewer date-range controls', () => {
       expect.objectContaining({ value: 'Compare Symbols' }),
       expect.objectContaining({ value: 'Compare Date Ranges', label: 'Compare Date Ranges...' }),
       expect.objectContaining({ value: 'Buy & Hold', label: 'Buy & Hold' }),
+      expect.objectContaining({ value: 'Buy & Hold Across Time', label: 'Buy & Hold Across Time' }),
       expect.objectContaining({ value: 'Reverse Date Range', label: 'Exclude Current Range' }),
     ])
   })
