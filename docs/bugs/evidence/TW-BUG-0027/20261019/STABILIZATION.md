@@ -38,3 +38,5 @@ selector, activation and evidence-formatting defects.
 Portable candidate bundle: `candidate-55afe01a.bundle` (local qualification directory).
 Runtime/test hashes match the final Git commit. The final runbook text was added
 after source packaging; executable source is unchanged from the passing proof.
+
+Current bounded handoff: [exact service, backup, rollback and remaining proof plan](BOUNDED-RELEASE.md). Standing future-release permissions and a new review policy are not prerequisites.

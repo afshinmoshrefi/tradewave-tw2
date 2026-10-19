@@ -1,6 +1,6 @@
 # TW-BUG-0034: SMN missing daily hero images
 
-- Status: verified on production; P1; reproduced and repaired 2026-10-15.
+- Status: original October 14/15 incident verified on production; separate October 16 five-image backfill remains open; P1.
 - Owner: Codex, session 01a14002-8375-7632-a953-941939d35b99; claim 2026-10-15 UTC.
 - Authorization: Afshin explicitly requested diagnosis and repair of missing SMN hero images. Scope includes production repair of this defect only; no mail, facts, studies or model configuration changes.
 - Scope: subscription input hero selection, approved archive, decorative recovery for nine live October 14/15 articles, and focused verification. Worktree C:/Users/afshin/Documents/smn-hero-record-20261015; code branch codex/smn-hero-repair-20261015.

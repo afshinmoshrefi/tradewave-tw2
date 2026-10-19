@@ -1,0 +1,301 @@
+{
+  "utc": "2026-10-19T13:00:39.442856+00:00",
+  "host": "seasonalmarketnews",
+  "source": "/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b",
+  "mutations": 0,
+  "network_calls": 0,
+  "provider_calls": 0,
+  "sends": 0,
+  "settings": {
+    "path": "/var/lib/smn-dashboard/operational-settings.json",
+    "alerts_enabled": false,
+    "alert_recipients": []
+  },
+  "units": {
+    "smn-subscription.service": {
+      "MainPID": "0",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/operational_schedule.py --target production ; ignore_errors=no ; start_time=[Mon 2026-10-19 13:00:00 UTC] ; stop_time=[Mon 2026-10-19 13:00:02 UTC] ; pid=3087909 ; code=exited ; status=0 }",
+      "EnvironmentFiles": "/etc/tradewave/secrets.env (ignore_errors=no)",
+      "WorkingDirectory": "/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog",
+      "LoadState": "loaded",
+      "ActiveState": "inactive",
+      "FragmentPath": "/etc/systemd/system/smn-subscription.service",
+      "DropInPaths": "/etc/systemd/system/smn-subscription.service.d/10-release-git.conf /etc/systemd/system/smn-subscription.service.d/20-cutover-start.conf",
+      "UnitFileState": "static",
+      "files": [
+        {
+          "path": "/etc/systemd/system/smn-subscription.service",
+          "sha256": "45301e6984db08e7be25e72dd4882af010346ce6532ee11ba3b0ff27148090e3",
+          "operational_lines": [
+            "EnvironmentFile=/etc/tradewave/secrets.env",
+            "WorkingDirectory=/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog",
+            "ExecStart=/home/flask/venv/bin/python /opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/operational_schedule.py --target production",
+            "TimeoutStartSec=6h"
+          ]
+        },
+        {
+          "path": "/etc/systemd/system/smn-subscription.service.d/10-release-git.conf",
+          "sha256": "92f004daa182e970b82806e97f9b3d4356edd406068edccb7008bd7f622997d5",
+          "operational_lines": []
+        },
+        {
+          "path": "/etc/systemd/system/smn-subscription.service.d/20-cutover-start.conf",
+          "sha256": "944bda4f0441fe4983127681f1927412b75de0076a45e3670eebd5166562d116",
+          "operational_lines": []
+        }
+      ]
+    },
+    "smn-weekday-newsletter.service": {
+      "MainPID": "0",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/operational_schedule.py --target production --newsletter-only ; ignore_errors=no ; start_time=[Mon 2026-10-19 13:00:00 UTC] ; stop_time=[Mon 2026-10-19 13:00:00 UTC] ; pid=3087900 ; code=exited ; status=0 }",
+      "EnvironmentFiles": "/etc/tradewave/secrets.env (ignore_errors=no)",
+      "WorkingDirectory": "/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog",
+      "LoadState": "loaded",
+      "ActiveState": "inactive",
+      "FragmentPath": "/etc/systemd/system/smn-weekday-newsletter.service",
+      "DropInPaths": "/etc/systemd/system/smn-weekday-newsletter.service.d/10-release-git.conf",
+      "UnitFileState": "static",
+      "files": [
+        {
+          "path": "/etc/systemd/system/smn-weekday-newsletter.service",
+          "sha256": "80cb238b026e17622b46874bade40ef194c15c54572585463adf6ff1fdbe93e3",
+          "operational_lines": [
+            "EnvironmentFile=/etc/tradewave/secrets.env",
+            "WorkingDirectory=/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog",
+            "ExecStart=/home/flask/venv/bin/python /opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/operational_schedule.py --target production --newsletter-only",
+            "TimeoutStartSec=30m"
+          ]
+        },
+        {
+          "path": "/etc/systemd/system/smn-weekday-newsletter.service.d/10-release-git.conf",
+          "sha256": "92f004daa182e970b82806e97f9b3d4356edd406068edccb7008bd7f622997d5",
+          "operational_lines": []
+        }
+      ]
+    },
+    "smn-continuity@progress.service": {
+      "MainPID": "0",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/current/blog/production_continuity_schedule.py progress --enable-production-continuity ; ignore_errors=no ; start_time=[Mon 2026-10-19 13:00:00 UTC] ; stop_time=[Mon 2026-10-19 13:00:02 UTC] ; pid=3087903 ; code=exited ; status=0 }",
+      "EnvironmentFiles": "/etc/tradewave/secrets.env (ignore_errors=no)",
+      "WorkingDirectory": "/opt/smn-subscription/current/blog",
+      "LoadState": "loaded",
+      "ActiveState": "inactive",
+      "FragmentPath": "/etc/systemd/system/smn-continuity@.service",
+      "DropInPaths": "/etc/systemd/system/smn-continuity@.service.d/10-release-git.conf",
+      "UnitFileState": "static",
+      "files": [
+        {
+          "path": "/etc/systemd/system/smn-continuity@.service",
+          "sha256": "73aade1e6ea3b2fdcf7ce864aabfc545fd4d7c5931a37c5df63d79da683dbea4",
+          "operational_lines": [
+            "User=root",
+            "EnvironmentFile=/etc/tradewave/secrets.env",
+            "WorkingDirectory=/opt/smn-subscription/current/blog",
+            "ExecStart=/home/flask/venv/bin/python /opt/smn-subscription/current/blog/production_continuity_schedule.py %i --enable-production-continuity",
+            "TimeoutStartSec=6h"
+          ]
+        },
+        {
+          "path": "/etc/systemd/system/smn-continuity@.service.d/10-release-git.conf",
+          "sha256": "92f004daa182e970b82806e97f9b3d4356edd406068edccb7008bd7f622997d5",
+          "operational_lines": []
+        }
+      ]
+    },
+    "smn-continuity@deliver.service": {
+      "MainPID": "0",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/current/blog/production_continuity_schedule.py deliver --enable-production-continuity ; ignore_errors=no ; start_time=[Mon 2026-10-19 13:00:00 UTC] ; stop_time=[Mon 2026-10-19 13:00:04 UTC] ; pid=3087902 ; code=exited ; status=0 }",
+      "EnvironmentFiles": "/etc/tradewave/secrets.env (ignore_errors=no)",
+      "WorkingDirectory": "/opt/smn-subscription/current/blog",
+      "LoadState": "loaded",
+      "ActiveState": "inactive",
+      "FragmentPath": "/etc/systemd/system/smn-continuity@.service",
+      "DropInPaths": "/etc/systemd/system/smn-continuity@.service.d/10-release-git.conf",
+      "UnitFileState": "static",
+      "files": [
+        {
+          "path": "/etc/systemd/system/smn-continuity@.service",
+          "sha256": "73aade1e6ea3b2fdcf7ce864aabfc545fd4d7c5931a37c5df63d79da683dbea4",
+          "operational_lines": [
+            "User=root",
+            "EnvironmentFile=/etc/tradewave/secrets.env",
+            "WorkingDirectory=/opt/smn-subscription/current/blog",
+            "ExecStart=/home/flask/venv/bin/python /opt/smn-subscription/current/blog/production_continuity_schedule.py %i --enable-production-continuity",
+            "TimeoutStartSec=6h"
+          ]
+        },
+        {
+          "path": "/etc/systemd/system/smn-continuity@.service.d/10-release-git.conf",
+          "sha256": "92f004daa182e970b82806e97f9b3d4356edd406068edccb7008bd7f622997d5",
+          "operational_lines": []
+        }
+      ]
+    },
+    "smn-operational-alerts.service": {
+      "MainPID": "0",
+      "WorkingDirectory": "",
+      "LoadState": "not-found",
+      "ActiveState": "inactive",
+      "FragmentPath": "",
+      "DropInPaths": "",
+      "UnitFileState": "",
+      "files": []
+    },
+    "smn-operational-alerts.timer": {
+      "LoadState": "not-found",
+      "ActiveState": "inactive",
+      "FragmentPath": "",
+      "DropInPaths": "",
+      "UnitFileState": "",
+      "files": []
+    },
+    "smn-subscription.timer": {
+      "LoadState": "loaded",
+      "ActiveState": "active",
+      "FragmentPath": "/etc/systemd/system/smn-subscription.timer",
+      "DropInPaths": "",
+      "UnitFileState": "enabled",
+      "files": [
+        {
+          "path": "/etc/systemd/system/smn-subscription.timer",
+          "sha256": "d23c660d56779443bb5d3bbaceed4b969686c10bd918786be7737bdb85440745",
+          "operational_lines": [
+            "OnCalendar=*-*-* *:*:00 UTC",
+            "Persistent=false"
+          ]
+        }
+      ]
+    },
+    "smn-weekday-newsletter.timer": {
+      "LoadState": "loaded",
+      "ActiveState": "active",
+      "FragmentPath": "/etc/systemd/system/smn-weekday-newsletter.timer",
+      "DropInPaths": "",
+      "UnitFileState": "enabled",
+      "files": [
+        {
+          "path": "/etc/systemd/system/smn-weekday-newsletter.timer",
+          "sha256": "c000c6f3231945acd5b5f01cd3ff502a7817e7864dd2776e8b3308229d12e5c5",
+          "operational_lines": [
+            "OnCalendar=*-*-* *:*:00 UTC",
+            "Persistent=false"
+          ]
+        }
+      ]
+    },
+    "smn-continuity@progress.timer": {
+      "LoadState": "loaded",
+      "ActiveState": "active",
+      "FragmentPath": "/etc/systemd/system/smn-continuity@.timer",
+      "DropInPaths": "",
+      "UnitFileState": "enabled",
+      "files": [
+        {
+          "path": "/etc/systemd/system/smn-continuity@.timer",
+          "sha256": "332ff58c734b6c81d2d89d07cda2b90785d64d031d702b172ca4ee74ea16fbd2",
+          "operational_lines": [
+            "OnCalendar=*-*-* *:*:00 UTC",
+            "Persistent=false",
+            "Unit=smn-continuity@%i.service"
+          ]
+        }
+      ]
+    },
+    "smn-continuity@deliver.timer": {
+      "LoadState": "loaded",
+      "ActiveState": "active",
+      "FragmentPath": "/etc/systemd/system/smn-continuity@.timer",
+      "DropInPaths": "",
+      "UnitFileState": "enabled",
+      "files": [
+        {
+          "path": "/etc/systemd/system/smn-continuity@.timer",
+          "sha256": "332ff58c734b6c81d2d89d07cda2b90785d64d031d702b172ca4ee74ea16fbd2",
+          "operational_lines": [
+            "OnCalendar=*-*-* *:*:00 UTC",
+            "Persistent=false",
+            "Unit=smn-continuity@%i.service"
+          ]
+        }
+      ]
+    }
+  },
+  "configuration": [
+    {
+      "path": "/etc/tradewave/secrets.env",
+      "mode": "0o600",
+      "owner_uid": 0,
+      "alert_destinations": {},
+      "credential_presence": {}
+    },
+    {
+      "path": "/home/flask/config.py",
+      "alert_destinations": {},
+      "sender_addresses": {
+        "smn_from_email": [
+          "info@tradewave.ai"
+        ]
+      }
+    },
+    {
+      "path": "/etc/crontab",
+      "alert_destinations": {},
+      "sender_addresses": {}
+    },
+    {
+      "crontab_account": "root",
+      "MAILTO": []
+    },
+    {
+      "crontab_account": "flask",
+      "MAILTO": []
+    }
+  ],
+  "same_day_release_state_entries_not_snapshot_proof": [
+    {
+      "path": "/var/lib/tradewave/release-state/smn-production-2026-10-19-be441a621d18ac24",
+      "name_only": true
+    },
+    {
+      "path": "/var/lib/tradewave/release-state/smn-production-2026-10-19-e9e8e32a80e3080d",
+      "name_only": true
+    },
+    {
+      "path": "/var/lib/tradewave/release-state/smn-production-2026-10-19-272800099deb1531",
+      "name_only": true
+    },
+    {
+      "path": "/var/lib/tradewave/release-state/smn-production-2026-10-19-e36ffe952b95837f",
+      "name_only": true
+    },
+    {
+      "path": "/var/lib/tradewave/release-state/smn-production-2026-10-19-051544a99ad2995b",
+      "name_only": true
+    },
+    {
+      "path": "/var/lib/tradewave/release-state/smn-production-2026-10-19-b4a392c887fe081e",
+      "name_only": true
+    },
+    {
+      "path": "/var/lib/tradewave/release-state/smn-production-2026-10-19-1e1558be4ad75910",
+      "name_only": true
+    },
+    {
+      "path": "/var/lib/tradewave/release-state/smn-production-2026-10-19-a2a9d4e645be9520",
+      "name_only": true
+    },
+    {
+      "path": "/var/lib/tradewave/release-state/smn-production-2026-10-19-dbbc7ef0bcf69caf",
+      "name_only": true
+    },
+    {
+      "path": "/var/lib/tradewave/release-state/smn-production-2026-10-19-30c41840e4307275",
+      "name_only": true
+    },
+    {
+      "path": "/var/lib/tradewave/release-state/smn-production-2026-10-19-cbabc748a81adf56",
+      "name_only": true
+    }
+  ],
+  "snapshot_evidence_status": "No verified current-day server snapshot attestation established by this read; same-day content transaction directories do not satisfy the gate."
+}

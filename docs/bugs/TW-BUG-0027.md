@@ -1,5 +1,31 @@
 # TW-BUG-0027: SMN Publication and Newsletter Continuity Failures
 
+## Bounded release handoff, October 19 13:05 UTC
+
+Executor/session remains Codex `01a117d1-cc86-737e-a3f1-28b9a724802e`; isolated
+candidate remains `55afe01a5683c6f2471e0d578867ad77390bb739`. Parent owns production
+release coordination. [Exact bounded plan](evidence/TW-BUG-0027/20261019/BOUNDED-RELEASE.md)
+now includes old/new effective service commands, owned drop-ins, backup and
+rollback steps, conditional one-time approval wording, actual alert inventory and
+remaining target-equivalent gaps. New standing permissions or a new review-window
+policy are not prerequisites. All factual/source/metric/security review remains.
+
+The original 151 Linux tests and JavaScript checks pass; another **90 native
+publication/accounting tests pass**, plus offline actual-Chrome contract replay
+against four retained fixtures. First additional run's harness refusal of an
+asset-preflight child is preserved, with the exact allowlist correction recorded;
+there was no product-code change. Production Python 3.12 proof is narrower than
+the full Dev 3.13 suite; live systemd/native publication/browser/rollback rehearsal
+and external delivery proof remain unverified. No production or subscriber action.
+
+Fresh 13:00 UTC target inventory: alert settings disabled, no recipient, no alert
+service/timer, and no Resend key in the designated secrets file. Inspected config
+and cron also yielded no alert destination. `info@tradewave.ai` is the newsletter
+sender and cannot be assumed to be the alert recipient. Parent handles this
+bounded monitoring input. Current-day content transaction directories are not
+server snapshot evidence. The release plan does not call them a verified backup.
+
+
 ## Reconciled stabilization checkpoint, October 19 12:55 UTC
 
 Current integrated candidate is SMN `55afe01a5683c6f2471e0d578867ad77390bb739`
@@ -27,7 +53,7 @@ reopen terminal attempt 3. Parent release owner retains coordination of any
 receipt-aware recovery. Live alerts are disabled with no recipient; mocked
 delivery is not actual delivery. User blanket authorization and the 60-job limit
 must be honored without repeating already answered permission questions. The
-remaining operator destination and future operating-policy questions are pending.
+operator destination is a concrete pending input; optional future-policy questions do not block this bounded repair.
 
 Final guarded release/rollback/browser qualification, effective pinned unit paths,
 current-day actual-SMN backup evidence, live alert delivery and three consecutive

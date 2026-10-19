@@ -27,6 +27,18 @@
     "preserved_fresh_hero_hashes": {
       "blog/subscription_inputs.py": "172b65bcaf06bce18e99c63993a3fa582624196f489569655a886982e8cb0228",
       "blog/decorative_hero_reuse.py": "a0817ecc36514dad8feb637c71910f0d26ee2b392e217edd99df18e5fa743bcc"
+    },
+    "additional_native_publication_tests": {
+      "passed": 90,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "Existing isolated native publication, scheduling, qualified-artifact reuse and copy/budget accounting suites; not a deployed activation rehearsal."
+    },
+    "offline_real_browser": {
+      "passed": true,
+      "engine": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+      "scope": "Local Chrome browser quote-contract replay on retained fixtures; no production browser or native publication activation.",
+      "javascript_sha256": "c55e4aaabbb60b77cbe21ef70f3a117c12c26e5171ee4491a1e900171a084913"
     }
   },
   "source_archive_sha256": "c0ee2a511f627d4d64bbb823233946ad94ae86a86e21214b70e1ba0ebef5f50f",
@@ -70,7 +82,7 @@
     "human_instructions": "Publish usable coverage without polish blocking the edition; allow up to 60 daily jobs; routine fixes have blanket approval and should not repeatedly ask.",
     "historic_exact_release_approval": "October 9 b61b37f7a6683f0fc173b8aef52bcd5067f6bbe5 and October 9 actual-SMN backup were directly confirmed; this is historical evidence, not a current-day snapshot.",
     "fresh_media_preference": "TW-BUG-0034 records direct human instruction: yes fresh is the way its been for ever.",
-    "pending_policy_answers": "Future automatic repair deployment policy, whether optional review may delay the scheduled deadline, and operator alert destination were asked together October 19; no answer inferred."
+    "pending_policy_answers": "Broad future-policy questions are optional and are not prerequisites for this bounded repair. Preserve current review policy. Parent handles any genuinely missing one-time release or alert destination decision."
   },
   "actions_in_this_qualification": {
     "real_provider_calls": 0,
@@ -84,5 +96,14 @@
     "Target Python 3.12.3 checks compile candidate source and replay read-only current home/weekly metadata with anonymous-memory lease semantics; not a full target filesystem scheduled send.",
     "The source archive precedes the final runbook-only documentation addition; all executable/runtime/test blobs are individually verified against the final commit.",
     "Exact captured HTML fixtures retain original whitespace; executable-source diff check passed, whole-patch captured-fixture whitespace is intentionally retained."
-  ]
+  ],
+  "bounded_current_release": {
+    "plan": "bounded-release-plan.json",
+    "alert_inventory": "alert-release-inventory.json",
+    "standing_policy_not_prerequisite": true,
+    "factual_review_policy_preserved": true,
+    "remaining_decisions_handled_by": "parent release owner",
+    "configured_alert_destination": null
+  },
+  "qualification_harness_corrections": "First additional run blocked one legitimate read-only asset-preflight subprocess. Added only that exact committed script to the offline subprocess allowlist; 90/90 then passed. Original failing proof retained. No product code or factual-review policy changed."
 }

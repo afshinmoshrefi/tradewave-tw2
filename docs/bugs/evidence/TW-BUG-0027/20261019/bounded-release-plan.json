@@ -1,0 +1,156 @@
+{
+  "utc": "2026-10-19T13:02:39.803971+00:00",
+  "status": "prepared plan, not an executed deployment or rollback",
+  "candidate_sha": "55afe01a5683c6f2471e0d578867ad77390bb739",
+  "production_baseline": "2b0075c85e45d8cd547c95b8868f8560532cf86b",
+  "host": "seasonalmarketnews",
+  "ip": "209.182.216.112",
+  "artifact": {
+    "path": "C:\\Users\\afshin\\Documents\\Codex\\2026-10-07\\task-2\\smn-oct19-combined-qualification\\candidate-55afe01a.bundle",
+    "sha256": "677c4027d552491a961895bd5afa9d3bc1a16974edab7a5585dd9caf69511b96"
+  },
+  "service_changes": {
+    "smn-subscription.service": {
+      "old_working_directory": "/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog",
+      "new_working_directory": "/opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739/blog",
+      "old_exec_start": "/home/flask/venv/bin/python /opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/operational_schedule.py --target production",
+      "new_exec_start": "/home/flask/venv/bin/python /opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739/blog/operational_schedule.py --target production",
+      "existing_files": [
+        {
+          "path": "/etc/systemd/system/smn-subscription.service",
+          "sha256": "45301e6984db08e7be25e72dd4882af010346ce6532ee11ba3b0ff27148090e3",
+          "operational_lines": [
+            "EnvironmentFile=/etc/tradewave/secrets.env",
+            "WorkingDirectory=/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog",
+            "ExecStart=/home/flask/venv/bin/python /opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/operational_schedule.py --target production",
+            "TimeoutStartSec=6h"
+          ]
+        },
+        {
+          "path": "/etc/systemd/system/smn-subscription.service.d/10-release-git.conf",
+          "sha256": "92f004daa182e970b82806e97f9b3d4356edd406068edccb7008bd7f622997d5",
+          "operational_lines": []
+        },
+        {
+          "path": "/etc/systemd/system/smn-subscription.service.d/20-cutover-start.conf",
+          "sha256": "944bda4f0441fe4983127681f1927412b75de0076a45e3670eebd5166562d116",
+          "operational_lines": []
+        }
+      ],
+      "proposed_owned_dropin": "/etc/systemd/system/smn-subscription.service.d/90-smn-stabilization-20261019.conf",
+      "dropin_text": "[Service]\nWorkingDirectory=/opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739/blog\nExecStart=\nExecStart=/home/flask/venv/bin/python /opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739/blog/operational_schedule.py --target production\n"
+    },
+    "smn-weekday-newsletter.service": {
+      "old_working_directory": "/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog",
+      "new_working_directory": "/opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739/blog",
+      "old_exec_start": "/home/flask/venv/bin/python /opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/operational_schedule.py --target production --newsletter-only",
+      "new_exec_start": "/home/flask/venv/bin/python /opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739/blog/operational_schedule.py --target production --newsletter-only",
+      "existing_files": [
+        {
+          "path": "/etc/systemd/system/smn-weekday-newsletter.service",
+          "sha256": "80cb238b026e17622b46874bade40ef194c15c54572585463adf6ff1fdbe93e3",
+          "operational_lines": [
+            "EnvironmentFile=/etc/tradewave/secrets.env",
+            "WorkingDirectory=/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog",
+            "ExecStart=/home/flask/venv/bin/python /opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/operational_schedule.py --target production --newsletter-only",
+            "TimeoutStartSec=30m"
+          ]
+        },
+        {
+          "path": "/etc/systemd/system/smn-weekday-newsletter.service.d/10-release-git.conf",
+          "sha256": "92f004daa182e970b82806e97f9b3d4356edd406068edccb7008bd7f622997d5",
+          "operational_lines": []
+        }
+      ],
+      "proposed_owned_dropin": "/etc/systemd/system/smn-weekday-newsletter.service.d/90-smn-stabilization-20261019.conf",
+      "dropin_text": "[Service]\nWorkingDirectory=/opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739/blog\nExecStart=\nExecStart=/home/flask/venv/bin/python /opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739/blog/operational_schedule.py --target production --newsletter-only\n"
+    }
+  },
+  "pointer_change": {
+    "path": "/opt/smn-subscription/current",
+    "before": "/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b",
+    "after": "/opt/smn-subscription/releases/55afe01a5683c6f2471e0d578867ad77390bb739"
+  },
+  "activation_config_change": {
+    "path": "/etc/SMN/subscription-primary.json",
+    "fields": "Change only recorded source_commit and any already-existing source path field bound to old; retain all policy/account/budget/provider fields.",
+    "must_preserve": {
+      "publication_policy": "continuity-v1",
+      "reader_provider": "chatgpt"
+    },
+    "unmodified_policy": "All existing factual/source/metric/security and AI review validators remain in force."
+  },
+  "unchanged_service_paths": {
+    "smn-continuity@.service": "/home/flask/venv/bin/python /opt/smn-subscription/current/blog/production_continuity_schedule.py %i --enable-production-continuity",
+    "smn-continuity_working_directory": "/opt/smn-subscription/current/blog"
+  },
+  "test_counts": {
+    "tests.test_deadline_partial_newsletter": 4,
+    "tests.test_decorative_hero_reuse": 4,
+    "tests.test_hero_asset_quality": 3,
+    "tests.test_home_quote_contract": 16,
+    "tests.test_inspected_archive_hero": 3,
+    "tests.test_newsletter_lock_contention": 6,
+    "tests.test_newsletter_lock_wait_native": 8,
+    "tests.test_newsletter_rendered_media": 3,
+    "tests.test_newsletter_safe_retry": 31,
+    "tests.test_scheduled_newsletter_entrypoints": 6,
+    "tests.test_smn_newsletter_state": 11,
+    "tests.test_smn_operational_alerts": 39,
+    "tests.test_subscription_inputs": 11,
+    "tests.test_verified_newsletter": 1,
+    "tests.test_workflow_audit_observer": 5
+  },
+  "remaining_production_equivalent_gaps": [
+    "Full scheduled-process suite was run on unprivileged Dev Python 3.13.7 with private files; actual SMN Python 3.12.3 has read-only compilation/template/current-home/anonymous-lease proof, not the full private-filesystem CLI suite.",
+    "Six CLI process tests use real production flags and program code, but do not load actual systemd environment/resources/drop-ins or exercise live timer ownership. Effective unit/pointer/source audit after activation remains.",
+    "Final composition has not completed a native publication prepare/activate/browser/rollback/crash rehearsal. Current-home v4 compatibility and quote restore fixtures pass; these are narrower proofs.",
+    "No live release activation or executable rollback rehearsal has been performed for 55afe01a. The service override and backup plan below require coordinated operator implementation/rehearsal.",
+    "No real campaign creation/scheduling/delivery or real alert acceptance/delivery was invoked; offline provider boundaries are mocked. Native journal still has no daily intent at the last observed state.",
+    "No current-day server snapshot attestation established here. October 9 confirmation cannot be called October 19 evidence.",
+    "Three actual consecutive unattended weekday runs, with deadline coverage, provider receipts and a delivered alert exercise, remain necessary before claiming stable operation."
+  ],
+  "backup_plan": [
+    "Before any production write, the parent release owner binds existing direct authorization and current-day backup/snapshot evidence for actual seasonalmarketnews 209.182.216.112 to this source and artifact. The unrelated TradeWave web/app pair is not the SMN target. Do not ask for a new all-future release policy.",
+    "Acquire the existing exclusive production activation window only after candidate/source/artifact checks. Check all four scheduler/continuity MainPIDs and native activation ownership; wait for live tasks rather than terminating or stealing locks.",
+    "In a private root-owned release record, capture current symlink target; activation JSON exact bytes/mode/hash; base units and every existing drop-in exact bytes/mode/hash; timer active/enabled state; effective ExecStart/WorkingDirectory and source-file hashes.",
+    "Record canonical publication receipt, current public catalog/home and selected article asset hashes, last-run status and campaign journal hash as invariants. Preserve copies of the failed newsletter marker and its two archived attempts. Do not mutate campaign/mail state as part of code activation.",
+    "Briefly pause only the recorded affected minute timers in the coordinated window; do not stop an active job. Recheck no writer started and that target hashes/ownership have not changed before changing pointers/config/owned overrides.",
+    "Stage the exact clean immutable source from the verified bundle. Keep the old release intact. Do not run initial-cutover install_smn_subscription.py on an existing installation: it correctly refuses existing activation. Do not run the old alert installer against unrelated web/app snapshot fields."
+  ],
+  "activation_plan": [
+    "Use an exact clean 55afe01a checkout and verified four runtime hashes. No npm/frontend build, dependencies or database migration is required.",
+    "Add only the two recorded task-owned service drop-ins after asserting they do not already exist. Preserve every existing base/drop-in; clear and set ExecStart plus WorkingDirectory exactly as recorded. Update the existing current symlink and source-bound activation fields atomically.",
+    "Run systemctl daemon-reload, inspect effective commands/directories/drop-in precedence, and prove all release-managed processes resolve to the intended source. Preserve any unrelated environment directives.",
+    "Run non-sending source/import/current-home/receipt invariants and affected browser/runtime checks. Do not invoke an actual sender as a smoke test; do not reset terminal newsletter attempts or run --force.",
+    "If checks pass, restore precisely the previously active timers and record source/artifact/units/rollback evidence. This does not authorize a subscriber send in this worker; the parent coordinates any separately bounded receipt-aware recovery."
+  ],
+  "rollback_plan": [
+    "On a mandatory post-write gate failure, within the same coordinated operator action keep affected timers paused and wait for started tasks to finish; never kill a publication or mail process.",
+    "Verify that current pointer, changed config bytes and both new owned drop-ins still match the recorded installed values. If unknown peer changes exist, do not overwrite them; mark rollback_required and retain evidence.",
+    "Atomically restore /opt/smn-subscription/current to the preserved 2b007 release, restore exact activation JSON bytes, and remove only the two attributable newly created overrides if their hashes match. Existing base units/drop-ins were not edited.",
+    "Run systemctl daemon-reload; verify old effective ExecStart/WorkingDirectory, source hashes, current pointer and policy values. Recheck publication receipt/public files and mail journal invariants. Never restore an old mail journal over newer campaign state.",
+    "Restore only the recorded timer active/enabled states; retain old/new releases and append rollback proof. Any failed restoration remains rollback_required and must not be reported as a completed release."
+  ],
+  "bounded_approval_template_if_parent_determines_existing_grant_insufficient": "Authorize the designated release operator to deploy SMN 55afe01a5683c6f2471e0d578867ad77390bb739 and its verified artifact to seasonalmarketnews (209.182.216.112), after current-day actual-SMN backup and remaining release checks pass, including the recorded service/pointer changes and automatic rollback on failed checks. This one code release preserves factual-review policy and does not include subscriber sending or a new standing policy.",
+  "approval_note": "This template is for the parent only if an actual scope gap remains. Existing explicit blanket authorization must not be re-asked, and this preparation is not blocked on approval for all future releases or on a new review policy.",
+  "alerts": {
+    "existing_destination": null,
+    "inspected": {
+      "path": "/var/lib/smn-dashboard/operational-settings.json",
+      "alerts_enabled": false,
+      "alert_recipients": []
+    },
+    "additional_scope": "Inspected designated environment files, literal alert/notification/recipient configuration and root/flask cron MAILTO; none yielded an alert destination. info@tradewave.ai is a sender, not a verified alert recipient.",
+    "observer_service": "not-found",
+    "observer_timer": "not-found",
+    "designated_secret_file": "/etc/tradewave/secrets.env",
+    "resend_key_present": false,
+    "missing": "Parent must resolve a bounded recipient/authorized transport decision; do not create credentials, invent a destination, or silently change transport. No alert or subscriber message sent."
+  },
+  "additional_qualification": {
+    "native_tests_passed": 90,
+    "browser": "Actual local Chrome 155 on four retained fixture contracts; Python/JavaScript hash agreement and rejection cases pass.",
+    "remaining_scope": "No actual target systemd activation/browser/rollback rehearsal or delivered external mail/alert."
+  }
+}

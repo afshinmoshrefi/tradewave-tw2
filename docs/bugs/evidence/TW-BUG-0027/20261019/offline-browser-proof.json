@@ -1,0 +1,41 @@
+{
+  "utc": "2026-10-19T13:05:33.538785+00:00",
+  "browser_exit": 0,
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "scope": "Local Chrome browser quote-contract replay on retained fixtures; no production browser or native publication activation.",
+  "result": {
+    "passed": true,
+    "fixtures": 4,
+    "cross_language_contracts": 4,
+    "cash_futures": true,
+    "unavailable_quotes": true,
+    "old_receipt_rejected": true,
+    "peer_edit_rejected": true,
+    "unknown_markup_rejected": true,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+    "secure_context": true
+  },
+  "javascript_sha256": "c55e4aaabbb60b77cbe21ef70f3a117c12c26e5171ee4491a1e900171a084913",
+  "fixtures": [
+    {
+      "name": "oct14-home-quotes/candidate-home.html",
+      "sha256": "7ed5444126750439af61ea31a2785efd1d844d7345c3041126900ed46e5d236c"
+    },
+    {
+      "name": "oct14-home-quotes/live-home.html",
+      "sha256": "19fac80636c456fa596d94b1276e23c578f1ca210baf9e7cfd9f3bf416918bde"
+    },
+    {
+      "name": "quote-unavailable/normal-futures.html",
+      "sha256": "1e86891074fa870fb4745dc6cf04a66637c78d492f7157c77d13cfc520bb6b8b"
+    },
+    {
+      "name": "quote-unavailable/empty-futures.html",
+      "sha256": "a8ba2820c78ad538935836ff08b2e1e44ebbf676a45d31b92a147c2263e3a0c6"
+    }
+  ],
+  "provider_calls": 0,
+  "model_jobs": 0,
+  "production_actions": 0,
+  "network": "External traffic blocked through dead local proxy and resolver rules; page uses only embedded fixture bytes and JavaScript."
+}
