@@ -1034,6 +1034,76 @@ def test_concurrent_metadata_failure_is_singleflight_and_recovers_after_cooldown
 
 
 
+def test_half_open_probe_is_singleflight_and_success_clears_outage_state():
+    class BlockedHealthHTTP(MetadataHealthHTTP):
+        def __init__(self):
+            super().__init__("exception")
+            self.block_probe = False
+            self.probe_entered = threading.Event()
+            self.release_probe = threading.Event()
+            self.owner_thread = None
+
+        def get(self, url, timeout):
+            if not self.block_probe:
+                return super().get(url, timeout)
+            assert url.endswith("/health") and timeout == 3
+            with self.mutex:
+                self.calls += 1
+                self.owner_thread = threading.get_ident()
+            self.probe_entered.set()
+            if not self.release_probe.wait(timeout=5):
+                raise RuntimeError("test probe release timed out")
+            if self.outcome == "exception":
+                raise RuntimeError("scorer unavailable")
+            return FakeResponse({"feature_count": 62, **METADATA})
+
+    backend = FakeRedis()
+    http = BlockedHealthHTTP()
+    service = metadata_service(backend, http)
+    assert service.legacy_scorer_metadata() is None
+    assert backend.expirations[service._metadata_failure_key()] - backend._now == 30
+    assert backend.expirations[service._metadata_retry_key()] - backend._now == 5
+
+    assert service.legacy_scorer_metadata() is None
+    assert http.calls == 1
+    backend.advance(6)
+    http.block_probe = True
+    start = threading.Barrier(12)
+    worker_indexes = {}
+
+    def lookup(index):
+        worker_indexes[threading.get_ident()] = index
+        start.wait()
+        return service.legacy_scorer_metadata()
+
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        futures = [pool.submit(lookup, index) for index in range(12)]
+        assert http.probe_entered.wait(timeout=2)
+        owner_index = worker_indexes[http.owner_thread]
+        try:
+            for index, future in enumerate(futures):
+                if index != owner_index:
+                    assert future.result(timeout=2) is None
+        finally:
+            http.release_probe.set()
+        assert [future.result(timeout=2) for future in futures] == [None] * 12
+
+    assert http.calls == 2
+    assert backend.expirations[service._metadata_failure_key()] - backend._now == 30
+    assert backend.expirations[service._metadata_retry_key()] - backend._now == 5
+    assert service.legacy_scorer_metadata() is None
+    assert http.calls == 2
+
+    backend.advance(6)
+    http.block_probe = False
+    http.outcome = "success"
+    assert service.legacy_scorer_metadata() == normalize_scorer_metadata(METADATA)
+    assert http.calls == 3
+    assert backend.get(service._metadata_failure_key()) is None
+    assert backend.get(service._metadata_retry_key()) is None
+    assert backend.expirations[service._metadata_key] - backend._now == 60
+
+
 @pytest.mark.parametrize("outcome", ["non_200", "malformed", "invalid_json", "exception"])
 def test_invalid_scorer_metadata_is_cooled_down_then_recovers(outcome):
     backend = FakeRedis()

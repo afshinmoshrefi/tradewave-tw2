@@ -2321,8 +2321,9 @@ remains entirely inside the scorer. In `auto` mode TradeWave detects the contrac
 operators can pin either version with `TW2_ML_SCORER_MODE=v2|v3`.
 Metadata discovery uses a shared Redis single-flight lock scoped to scorer URL and mode.
 Validated identity retains its 60-second cache lifetime; unavailable/invalid health
-responses receive a separate five-second retry cooldown. Concurrent callers wait at
-most 3.5 seconds, then return unavailable rather than inventing scores or reading
+responses receive a separate five-second retry cooldown. A 30-second recent-outage
+marker allows one recovery probe while peers immediately retain unavailable status.
+Healthy cold callers wait at most 3.5 seconds, then return unavailable rather than inventing scores or reading
 unverified stale scores. The ten-second lock expires if its owner fails. This prevents
 a scorer outage from causing a metadata timeout per scan (TW-BUG-0024); API quota,
 entitlements, rate limits, and complete scan-core caching remain unchanged.

@@ -38,6 +38,7 @@ CHECKPOINT_CALENDAR_DAYS = (30, 60, 90)
 ALLOWED_RESOURCE_IDS = frozenset({"0", "1", "2", "3", "4", "11"})
 USAGE_MAX_STORED_ROWS = 100
 USAGE_RETENTION_SECONDS = 21 * 24 * 60 * 60
+SCORER_METADATA_FAILURE_MARKER_SECONDS = 30
 SCORER_METADATA_FAILURE_COOLDOWN_SECONDS = 5
 SCORER_METADATA_LOCK_SECONDS = 10
 SCORER_METADATA_WAITER_SECONDS = 3.5
@@ -1446,20 +1447,31 @@ class CheckpointScoringService:
     def _metadata_failure_key(self) -> str:
         return self._metadata_key + ":unavailable"
 
-    def _read_metadata_result(self) -> Tuple[Optional[Dict[str, str]], bool]:
-        """Return (valid metadata, cooling_down) using only Redis-backed state."""
+    def _metadata_retry_key(self) -> str:
+        return self._metadata_key + ":retry"
+
+    def _read_metadata_result(self) -> Tuple[Optional[Dict[str, str]], bool, bool]:
+        """Return (valid metadata, outage known, retry cooling down)."""
         cached = self._cached_legacy_scorer_metadata()
         if cached is not None:
-            return cached, False
-        return None, self.redis.get(self._metadata_failure_key()) is not None
+            return cached, False, False
+        unavailable = self.redis.get(self._metadata_failure_key()) is not None
+        cooling_down = self.redis.get(self._metadata_retry_key()) is not None
+        return None, unavailable, cooling_down
 
     def _cache_metadata_failure(self) -> bool:
         try:
-            return bool(self.redis.setex(
+            marker_stored = bool(self.redis.setex(
                 self._metadata_failure_key(),
+                SCORER_METADATA_FAILURE_MARKER_SECONDS,
+                "1",
+            ))
+            cooldown_stored = bool(self.redis.setex(
+                self._metadata_retry_key(),
                 SCORER_METADATA_FAILURE_COOLDOWN_SECONDS,
                 "1",
             ))
+            return marker_stored and cooldown_stored
         except Exception:
             # Keep the short expiring lock if Redis cannot publish the cooldown.
             logging.warning("ML checkpoint metadata cooldown could not be stored")
@@ -1520,8 +1532,8 @@ class CheckpointScoringService:
             except Exception:
                 return None
         try:
-            cached, cooling_down = self._read_metadata_result()
-            if cached is not None or cooling_down:
+            cached, unavailable, cooling_down = self._read_metadata_result()
+            if cached is not None or (unavailable and cooling_down):
                 return cached
             lock_key = self._metadata_key + ":lock"
             token = uuid.uuid4().hex
@@ -1534,15 +1546,17 @@ class CheckpointScoringService:
             return None
 
         if not acquired:
+            if unavailable:
+                return None
             deadline = time.monotonic() + SCORER_METADATA_WAITER_SECONDS
             while time.monotonic() < deadline:
                 time.sleep(min(SCORER_METADATA_POLL_SECONDS,
                                max(0.0, deadline - time.monotonic())))
                 try:
-                    cached, cooling_down = self._read_metadata_result()
+                    cached, outage_known, _cooling_down = self._read_metadata_result()
                 except Exception:
                     return None
-                if cached is not None or cooling_down:
+                if cached is not None or outage_known:
                     return cached
             return None
 
@@ -1551,10 +1565,10 @@ class CheckpointScoringService:
             # Recheck after winning the lock in case another worker published between
             # the initial read and SET NX.
             try:
-                cached, cooling_down = self._read_metadata_result()
+                cached, outage_known, cooling_down = self._read_metadata_result()
             except Exception:
                 return None
-            if cached is not None or cooling_down:
+            if cached is not None or (outage_known and cooling_down):
                 return cached
 
             metadata = self._fetch_legacy_scorer_metadata()
@@ -1564,7 +1578,7 @@ class CheckpointScoringService:
             try:
                 # Preserve the existing successful metadata lifetime and exact identity.
                 self.redis.set(self._metadata_key, _canonical_json(metadata), ex=60)
-                self.redis.delete(self._metadata_failure_key())
+                self.redis.delete(self._metadata_failure_key(), self._metadata_retry_key())
             except Exception:
                 logging.warning("ML checkpoint scorer metadata could not be cached")
                 release_lock = self._cache_metadata_failure()
