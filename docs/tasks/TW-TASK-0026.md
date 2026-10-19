@@ -47,3 +47,6 @@ Dev: prior behavior verified; exact release qualification pending. Staging: unch
 
 ## Resume authorization
 User authorized fixing load latency and continuing staging, with production excluded. TW-BUG-0024 is claimed by the same session; staging remains unchanged while diagnosis runs.
+
+## Replacement release
+After repairing TW-BUG-0024, qualify new release `tw2-20261019-01` from `/home/tradewave-worktrees/load-latency-20261019`. Prior release `tw2-20261018-01` remains failed with immutable evidence. New package `/root/tradewave-handoffs/tw2-20261019-01` supplies guarded Dev activation, fresh staging snapshots, rollback, and browser watchdog. Final SHA/build/qualification pending. Main will freeze at the final candidate until disposition.

@@ -2319,6 +2319,13 @@ days using its 59-feature models and metadata-free `/score` response. V3 provide
 contract, complete scorer provenance, and recalculated duration comparisons. Feature construction
 remains entirely inside the scorer. In `auto` mode TradeWave detects the contract from `/health`;
 operators can pin either version with `TW2_ML_SCORER_MODE=v2|v3`.
+Metadata discovery uses a shared Redis single-flight lock scoped to scorer URL and mode.
+Validated identity retains its 60-second cache lifetime; unavailable/invalid health
+responses receive a separate five-second retry cooldown. Concurrent callers wait at
+most 3.5 seconds, then return unavailable rather than inventing scores or reading
+unverified stale scores. The ten-second lock expires if its owner fails. This prevents
+a scorer outage from causing a metadata timeout per scan (TW-BUG-0024); API quota,
+entitlements, rate limits, and complete scan-core caching remain unchanged.
 
 Checkpoint profile validation compares the qualifying historical combination set as well
 as model inputs. Owner clarification on September 22: an exact break-even is a long win

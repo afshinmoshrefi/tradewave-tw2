@@ -19,6 +19,7 @@ import logging
 import math
 import re
 import time
+import uuid
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 from zoneinfo import ZoneInfo
 
@@ -37,6 +38,17 @@ CHECKPOINT_CALENDAR_DAYS = (30, 60, 90)
 ALLOWED_RESOURCE_IDS = frozenset({"0", "1", "2", "3", "4", "11"})
 USAGE_MAX_STORED_ROWS = 100
 USAGE_RETENTION_SECONDS = 21 * 24 * 60 * 60
+SCORER_METADATA_FAILURE_COOLDOWN_SECONDS = 5
+SCORER_METADATA_LOCK_SECONDS = 10
+SCORER_METADATA_WAITER_SECONDS = 3.5
+SCORER_METADATA_POLL_SECONDS = 0.025
+
+_METADATA_LOCK_RELEASE_SCRIPT = """
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0
+"""
 
 DEFAULT_CONSECUTIVE_CONTEXTS = {
     "0": ("10", "8"),
@@ -1424,37 +1436,143 @@ class CheckpointScoringService:
             f"{hashlib.sha256(self.scorer_url.encode('utf-8')).hexdigest()[:20]}"
         )
 
-    def legacy_scorer_metadata(self) -> Optional[Dict[str, str]]:
+    def _cached_legacy_scorer_metadata(self) -> Optional[Dict[str, str]]:
         cached = _redis_json(self.redis.get(self._metadata_key))
-        if isinstance(cached, Mapping):
-            normalized = normalize_scorer_metadata(cached)
-            if valid_legacy_scorer_metadata(normalized):
-                return normalized
+        if not isinstance(cached, Mapping):
+            return None
+        normalized = normalize_scorer_metadata(cached)
+        return normalized if valid_legacy_scorer_metadata(normalized) else None
+
+    def _metadata_failure_key(self) -> str:
+        return self._metadata_key + ":unavailable"
+
+    def _read_metadata_result(self) -> Tuple[Optional[Dict[str, str]], bool]:
+        """Return (valid metadata, cooling_down) using only Redis-backed state."""
+        cached = self._cached_legacy_scorer_metadata()
+        if cached is not None:
+            return cached, False
+        return None, self.redis.get(self._metadata_failure_key()) is not None
+
+    def _cache_metadata_failure(self) -> bool:
+        try:
+            return bool(self.redis.setex(
+                self._metadata_failure_key(),
+                SCORER_METADATA_FAILURE_COOLDOWN_SECONDS,
+                "1",
+            ))
+        except Exception:
+            # Keep the short expiring lock if Redis cannot publish the cooldown.
+            logging.warning("ML checkpoint metadata cooldown could not be stored")
+            return False
+
+    def _release_metadata_lock(self, lock_key: str, token: str) -> None:
+        try:
+            self.redis.eval(_METADATA_LOCK_RELEASE_SCRIPT, 1, lock_key, token)
+        except Exception:
+            # The expiring lock remains bounded if Redis cannot release it.
+            logging.warning("ML checkpoint metadata lock release failed")
+
+    def _fetch_legacy_scorer_metadata(self) -> Optional[Dict[str, str]]:
         if not self.scorer_url:
             return None
-        response = self.http.get(f"{self.scorer_url}/health", timeout=3)
-        if response.status_code != 200:
-            return None
-        payload = response.json()
-        if not isinstance(payload, Mapping):
-            return None
         try:
-            feature_count = int(payload.get("feature_count"))
-        except (TypeError, ValueError):
-            return None
-        detected_mode = "v2" if feature_count == 59 else "v3" if feature_count == 62 else None
-        if detected_mode is None:
-            return None
-        if self.scorer_mode != "auto" and self.scorer_mode != detected_mode:
-            return None
-        if detected_mode == "v2":
-            metadata = _legacy_v2_metadata(payload, self.scorer_url)
-        else:
-            metadata = normalize_scorer_metadata(payload.get("metadata", payload))
-            if not valid_scorer_metadata(metadata):
+            response = self.http.get(f"{self.scorer_url}/health", timeout=3)
+            if response.status_code != 200:
+                logging.warning("ML checkpoint scorer metadata health returned non-200")
                 return None
-        self.redis.set(self._metadata_key, _canonical_json(metadata), ex=60)
-        return metadata
+            payload = response.json()
+            if not isinstance(payload, Mapping):
+                logging.warning("ML checkpoint scorer metadata health payload was invalid")
+                return None
+            try:
+                feature_count = int(payload.get("feature_count"))
+            except (TypeError, ValueError):
+                logging.warning("ML checkpoint scorer metadata feature count was invalid")
+                return None
+            detected_mode = "v2" if feature_count == 59 else "v3" if feature_count == 62 else None
+            if detected_mode is None:
+                logging.warning("ML checkpoint scorer metadata feature contract was unsupported")
+                return None
+            if self.scorer_mode != "auto" and self.scorer_mode != detected_mode:
+                logging.warning("ML checkpoint scorer metadata mode did not match configuration")
+                return None
+            if detected_mode == "v2":
+                metadata = _legacy_v2_metadata(payload, self.scorer_url)
+            else:
+                metadata = normalize_scorer_metadata(payload.get("metadata", payload))
+                if not valid_scorer_metadata(metadata):
+                    logging.warning("ML checkpoint scorer metadata validation failed")
+                    return None
+            if not valid_legacy_scorer_metadata(metadata):
+                logging.warning("ML checkpoint scorer metadata validation failed")
+                return None
+            return metadata
+        except Exception as exc:
+            # Health metadata is optional. Do not log exception text, which may carry
+            # scorer URL details; the type is enough to classify the one owner failure.
+            logging.warning("ML checkpoint scorer metadata lookup failed (%s)", type(exc).__name__)
+            return None
+
+    def legacy_scorer_metadata(self) -> Optional[Dict[str, str]]:
+        if not self.scorer_url:
+            try:
+                return self._cached_legacy_scorer_metadata()
+            except Exception:
+                return None
+        try:
+            cached, cooling_down = self._read_metadata_result()
+            if cached is not None or cooling_down:
+                return cached
+            lock_key = self._metadata_key + ":lock"
+            token = uuid.uuid4().hex
+            acquired = bool(self.redis.set(
+                lock_key, token, nx=True, ex=SCORER_METADATA_LOCK_SECONDS
+            ))
+        except Exception:
+            # Redis is the cross-worker coordination authority; without it, avoid
+            # making an uncoordinated health request on every scan.
+            return None
+
+        if not acquired:
+            deadline = time.monotonic() + SCORER_METADATA_WAITER_SECONDS
+            while time.monotonic() < deadline:
+                time.sleep(min(SCORER_METADATA_POLL_SECONDS,
+                               max(0.0, deadline - time.monotonic())))
+                try:
+                    cached, cooling_down = self._read_metadata_result()
+                except Exception:
+                    return None
+                if cached is not None or cooling_down:
+                    return cached
+            return None
+
+        release_lock = True
+        try:
+            # Recheck after winning the lock in case another worker published between
+            # the initial read and SET NX.
+            try:
+                cached, cooling_down = self._read_metadata_result()
+            except Exception:
+                return None
+            if cached is not None or cooling_down:
+                return cached
+
+            metadata = self._fetch_legacy_scorer_metadata()
+            if metadata is None:
+                release_lock = self._cache_metadata_failure()
+                return None
+            try:
+                # Preserve the existing successful metadata lifetime and exact identity.
+                self.redis.set(self._metadata_key, _canonical_json(metadata), ex=60)
+                self.redis.delete(self._metadata_failure_key())
+            except Exception:
+                logging.warning("ML checkpoint scorer metadata could not be cached")
+                release_lock = self._cache_metadata_failure()
+                return None
+            return metadata
+        finally:
+            if release_lock:
+                self._release_metadata_lock(lock_key, token)
 
     def scorer_metadata(self) -> Optional[Dict[str, str]]:
         """Return metadata only when the V3 context contract is available."""

@@ -32,3 +32,14 @@ Dev: failure reproduced and rollback verified October2. Staging/prod: read-only 
 - User explicitly authorized investigation and repair of load-test latency, followed by staging deployment; production excluded. Related release task TW-TASK-0026.
 - New reproduction: candidate 370a2ecc, p95 33.784s then 28.541s with zero errors; both automatic Dev rollbacks verified. Evidence in /var/lib/tradewave/release-state/tw2-20261018-01/evidence.
 - Plan: separate client/network/auth/cache/upstream timing; reproduce bottleneck; minimal fix with focused regression preserving authentication, entitlements, rate limits and complete engine output. Then unchanged 200-request/concurrency50 gate after restart and warm, full exact-artifact staging qualification and guarded deploy. Preserve prior runtime rollback; no threshold relaxation or production writes.
+
+## October 19 diagnosis
+- At concurrency 50, local scan p95 25.430s (1 MISS,44 WAIT,5 HIT), public authenticated `/me` p95 0.612s, public scan p95 18.575s (50 HIT). Gateway scan work remains slow after the shared core cache; public TLS/auth is not the dominant delay.
+- Isolated real-environment Flask profile: warm scan 3.607s, `ml_scores` 3.128s. Traced MLScoreBatch took 3.027s and returned no scores/two pending; MLScorePending took 0.079s, also no scores/two pending.
+- Direct scorer metadata probe reproduced ConnectTimeout in 3.009s/3.013s and ConnectionError in 0.043s/0.077s. Current code caches valid metadata for 60s but neither coordinates misses nor backs off failures. Concurrent scans repeatedly occupy appserver threads attempting the unavailable scorer.
+- Remediation in progress: shared metadata single-flight and bounded failure cooldown, retaining fail-closed unavailable results and successful identity TTL. Scorer connectivity itself is a separate unresolved dependency; this task must not fabricate ML scores or alter production to repair it.
+- Sanitized diagnostics and repeatable scripts live in the prior release evidence directory: latency-diagnostic.jsonl, profile-scan.py, profile-metadata.py, metadata-outage.log.
+
+## Implementation and focused checks
+`ml_checkpoint_context.py` now coordinates health metadata lookups across workers with a URL/mode-scoped Redis token lock, a 3.5-second bounded waiter, and a separate five-second failure cooldown. Valid metadata still expires after 60 seconds; all validation and score identity rules remain. Redis failure fails closed; failed cooldown publication retains the expiring lock to prevent repeated probes. Sanitized owner-side warnings omit URL and exception text.
+Focused regression: 40 tests passed in `tests/test_ml_checkpoint_context.py`, including concurrent success/failure, recovery, malformed/non-200 responses, identity isolation, stale-owner release, Redis failure, and positive-cache precedence. Full regression and exact live qualification pending; no fix verified yet.

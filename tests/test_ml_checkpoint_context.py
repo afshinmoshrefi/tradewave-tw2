@@ -6,6 +6,9 @@ import datetime as dt
 import json
 from pathlib import Path
 import sys
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -120,20 +123,69 @@ class FakeLock:
 class FakeRedis:
     def __init__(self):
         self.data = {}
+        self.expirations = {}
         self.zsets = {}
         self.locks = set()
+        self._mutex = threading.RLock()
+        self._now = 0.0
+
+    def _purge(self, key):
+        expires = self.expirations.get(key)
+        if expires is not None and expires <= self._now:
+            self.data.pop(key, None)
+            self.expirations.pop(key, None)
+
+    def advance(self, seconds):
+        with self._mutex:
+            self._now += seconds
 
     def get(self, key):
-        return self.data.get(key)
+        with self._mutex:
+            self._purge(key)
+            return self.data.get(key)
 
-    def set(self, key, value, ex=None):
-        del ex
-        self.data[key] = value.encode() if isinstance(value, str) else value
-        return True
+    def set(self, key, value, ex=None, nx=False):
+        with self._mutex:
+            self._purge(key)
+            if nx and key in self.data:
+                return None
+            self.data[key] = value.encode() if isinstance(value, str) else value
+            if ex is not None:
+                self.expirations[key] = self._now + ex
+            else:
+                self.expirations.pop(key, None)
+            return True
+
+    def setex(self, key, seconds, value):
+        return self.set(key, value, ex=seconds)
+
+    def delete(self, *keys):
+        deleted = 0
+        with self._mutex:
+            for key in keys:
+                self._purge(key)
+                if self.data.pop(key, None) is not None:
+                    deleted += 1
+                self.expirations.pop(key, None)
+        return deleted
+
+    def eval(self, script, numkeys, key, token):
+        del script, numkeys
+        with self._mutex:
+            self._purge(key)
+            if self.data.get(key) == (token.encode() if isinstance(token, str) else token):
+                del self.data[key]
+                self.expirations.pop(key, None)
+                return 1
+        return 0
 
     def expire(self, key, seconds):
-        del key, seconds
-        return True
+        with self._mutex:
+            self._purge(key)
+            if key not in self.data:
+                return False
+            self.expirations[key] = self._now + seconds
+            return True
 
     def pipeline(self, transaction=True):
         assert transaction is True
@@ -149,10 +201,7 @@ class FakeRedis:
         return zset[member]
 
     def zrevrange(self, key, start, end, withscores=False):
-        items = sorted(
-            self.zsets.get(key, {}).items(),
-            key=lambda item: (-item[1], item[0]),
-        )
+        items = sorted(self.zsets.get(key, {}).items(), key=lambda item: (-item[1], item[0]))
         sliced = items[start : end + 1]
         if withscores:
             return [(member.encode(), score) for member, score in sliced]
@@ -925,6 +974,137 @@ def test_explicit_scorer_mode_rejects_a_mismatched_feature_contract():
     )
 
     assert service.legacy_scorer_metadata() is None
+
+
+
+class MetadataHealthHTTP:
+    def __init__(self, outcome="success", delay=0.0):
+        self.outcome, self.delay, self.calls = outcome, delay, 0
+        self.mutex = threading.Lock()
+
+    def get(self, url, timeout):
+        assert url.endswith("/health") and timeout == 3
+        with self.mutex:
+            self.calls += 1
+        if self.delay:
+            time.sleep(self.delay)
+        if self.outcome == "exception":
+            raise RuntimeError("scorer unavailable")
+        if self.outcome == "non_200":
+            return FakeResponse({}, status_code=503)
+        if self.outcome == "malformed":
+            return FakeResponse({"feature_count": 62})
+        if self.outcome == "invalid_json":
+            class InvalidJSONResponse:
+                status_code = 200
+                def json(self):
+                    raise ValueError("invalid JSON")
+            return InvalidJSONResponse()
+        return FakeResponse({"feature_count": 62, **METADATA})
+
+
+def metadata_service(redis_client, http, scorer_url="http://scorer", mode="auto"):
+    return CheckpointScoringService(redis_client=redis_client, scorer_url=scorer_url,
+                                    http_client=http, ttl_seconds=300, scorer_mode=mode)
+
+
+def test_concurrent_metadata_failure_is_singleflight_and_recovers_after_cooldown():
+    backend = FakeRedis()
+    http = MetadataHealthHTTP("exception", delay=0.1)
+    service = metadata_service(backend, http)
+    start = threading.Barrier(12)
+
+    def lookup():
+        start.wait()
+        return service.legacy_scorer_metadata()
+
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        results = list(pool.map(lambda _i: lookup(), range(12)))
+    assert results == [None] * 12
+    assert http.calls == 1
+    assert backend.get(service._metadata_failure_key()) is not None
+    assert backend.get(service._metadata_key) is None
+    assert not any(key.endswith(":lock") for key in backend.data)
+
+    http.outcome = "success"
+    backend.advance(6)
+    assert service.legacy_scorer_metadata() == normalize_scorer_metadata(METADATA)
+    assert http.calls == 2
+    assert backend.expirations[service._metadata_key] - backend._now == 60
+
+
+
+@pytest.mark.parametrize("outcome", ["non_200", "malformed", "invalid_json", "exception"])
+def test_invalid_scorer_metadata_is_cooled_down_then_recovers(outcome):
+    backend = FakeRedis()
+    http = MetadataHealthHTTP(outcome)
+    service = metadata_service(backend, http)
+    assert service.legacy_scorer_metadata() is None
+    assert service.legacy_scorer_metadata() is None
+    assert http.calls == 1
+    assert backend.get(service._metadata_key) is None
+    backend.advance(6)
+    http.outcome = "success"
+    assert service.legacy_scorer_metadata() == normalize_scorer_metadata(METADATA)
+    assert http.calls == 2
+
+
+def test_successful_metadata_beats_a_leftover_failure_marker():
+    backend = FakeRedis()
+    service = metadata_service(backend, MetadataHealthHTTP())
+    backend.set(service._metadata_key, json.dumps(METADATA), ex=60)
+    backend.setex(service._metadata_failure_key(), 5, "1")
+    assert service.legacy_scorer_metadata() == normalize_scorer_metadata(METADATA)
+
+
+def test_metadata_release_does_not_delete_a_newer_lock_owner():
+    backend = FakeRedis()
+    service = metadata_service(backend, MetadataHealthHTTP())
+    key = service._metadata_key + ":lock"
+    backend.set(key, "new-owner", ex=10)
+    service._release_metadata_lock(key, "old-owner")
+    assert backend.get(key) == b"new-owner"
+
+
+def test_metadata_redis_failure_fails_closed_without_health_request():
+    class BrokenRedis:
+        def get(self, _key):
+            raise RuntimeError("redis unavailable")
+
+    http = MetadataHealthHTTP()
+    service = metadata_service(BrokenRedis(), http)
+    assert service.legacy_scorer_metadata() is None
+    assert http.calls == 0
+
+
+def test_metadata_cache_and_lock_identity_isolated_by_url_and_mode():
+    backend = FakeRedis()
+    auto_http = MetadataHealthHTTP()
+    v3_http = MetadataHealthHTTP()
+    other_url_http = MetadataHealthHTTP()
+    auto = metadata_service(backend, auto_http, mode="auto")
+    v3 = metadata_service(backend, v3_http, mode="v3")
+    other_url = metadata_service(backend, other_url_http, scorer_url="http://other")
+    assert len({auto._metadata_key, v3._metadata_key, other_url._metadata_key}) == 3
+    assert auto.legacy_scorer_metadata() == normalize_scorer_metadata(METADATA)
+    assert v3.legacy_scorer_metadata() == normalize_scorer_metadata(METADATA)
+    assert other_url.legacy_scorer_metadata() == normalize_scorer_metadata(METADATA)
+    assert [auto_http.calls, v3_http.calls, other_url_http.calls] == [1, 1, 1]
+
+
+
+def test_concurrent_cold_metadata_success_is_singleflight():
+    backend = FakeRedis()
+    http = MetadataHealthHTTP(delay=0.1)
+    service = metadata_service(backend, http)
+    start = threading.Barrier(10)
+    def lookup():
+        start.wait()
+        return service.legacy_scorer_metadata()
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        results = list(pool.map(lambda _i: lookup(), range(10)))
+    assert results == [normalize_scorer_metadata(METADATA)] * 10
+    assert http.calls == 1
 
 
 def test_usage_context_retains_short_rows_inside_displayed_one_to_nine_range():
