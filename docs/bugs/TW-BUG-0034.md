@@ -61,3 +61,15 @@ warning is retained. No new image, model job or publication was performed.
 C has no prior catalog/retained artwork; its only October private hero receipt is
 a neutral placeholder. C remains pending under the no-spending instruction.
 See [prepared overrides](evidence/TW-BUG-0027/20261019/hero-backfill-preparation.json).
+
+### Website scope reverified, October 19 16:14 UTC
+
+Afshin reported missing hero images on article pages themselves. Public HTTP
+inspection confirms the same five October 16 omissions (GS/PGR/C/XLK/MRK), not
+an email-only defect. Among 74 October 1–19 article pages checked, all other 69
+have hero tags and working public image responses; no additional affected edition
+found in this scope. All six October 19 pages pass. Four private overrides still
+exist with expected hashes and remain unpublished; C is pending. No new direct
+approval or current-day backup confirmation arrived in this worker. Do not infer
+permission from the defect report. Parent owns pending bounded approval.
+See [public scope](evidence/TW-BUG-0027/20261019/PUBLIC-ARTICLE-HERO-SCOPE.md).

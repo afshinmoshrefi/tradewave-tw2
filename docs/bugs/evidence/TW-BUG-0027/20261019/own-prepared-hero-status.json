@@ -1,0 +1,31 @@
+{
+  "utc": "2026-10-19T16:13:01.753252+00:00",
+  "scope": "This task own prepared override files only; no article contents exported",
+  "prepared_root": "/var/tmp/smn-hero-backfill-20261019-twywv3vf",
+  "overrides": [
+    {
+      "symbol": "GS",
+      "prepared_override_exists": true,
+      "sha256_matches_prepared": true
+    },
+    {
+      "symbol": "PGR",
+      "prepared_override_exists": true,
+      "sha256_matches_prepared": true
+    },
+    {
+      "symbol": "XLK",
+      "prepared_override_exists": true,
+      "sha256_matches_prepared": true
+    },
+    {
+      "symbol": "MRK",
+      "prepared_override_exists": true,
+      "sha256_matches_prepared": true
+    }
+  ],
+  "C": "pending_no_qualified_existing_asset",
+  "mutations": 0,
+  "subscriber_sends": 0,
+  "private_production_content_exported": false
+}

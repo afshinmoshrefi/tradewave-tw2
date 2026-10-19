@@ -1,0 +1,2763 @@
+{
+  "utc": "2026-10-19T16:14:04.182863+00:00",
+  "source": "https://seasonalmarketnews.com/posts.json",
+  "catalog_sha256": "3f64dfc3e768065b648e0a0b6357c061ab9a2e42be181c2913978c8478d6d14a",
+  "public_catalog_entries": 1016,
+  "scope": "Every published standard /editions/YYYY-MM-DD/SYMBOL/article.html entry in the public catalog, plus all other published .html article URLs dated October 1-19. HTML presence and public asset checks, not pixel visibility.",
+  "native_article_count": 61,
+  "total_article_pages_checked": 74,
+  "reused_recent_native_observations": 61,
+  "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00",
+  "by_date": {
+    "2026-10-19": {
+      "articles": 6,
+      "classifications": {
+        "hero_present_asset_verified": 6
+      },
+      "hero_omitted": [],
+      "broken_or_unverified": []
+    },
+    "2026-10-16": {
+      "articles": 5,
+      "classifications": {
+        "hero_omitted": 5
+      },
+      "hero_omitted": [
+        "XLK",
+        "PGR",
+        "MRK",
+        "GS",
+        "C"
+      ],
+      "broken_or_unverified": []
+    },
+    "2026-10-15": {
+      "articles": 3,
+      "classifications": {
+        "hero_present_asset_verified": 3
+      },
+      "hero_omitted": [],
+      "broken_or_unverified": []
+    },
+    "2026-10-14": {
+      "articles": 6,
+      "classifications": {
+        "hero_present_asset_verified": 6
+      },
+      "hero_omitted": [],
+      "broken_or_unverified": []
+    },
+    "2026-10-13": {
+      "articles": 6,
+      "classifications": {
+        "hero_present_asset_verified": 6
+      },
+      "hero_omitted": [],
+      "broken_or_unverified": []
+    },
+    "2026-10-12": {
+      "articles": 6,
+      "classifications": {
+        "hero_present_asset_verified": 6
+      },
+      "hero_omitted": [],
+      "broken_or_unverified": []
+    },
+    "2026-10-10": {
+      "articles": 1,
+      "classifications": {
+        "hero_present_asset_verified": 1
+      },
+      "hero_omitted": [],
+      "broken_or_unverified": []
+    },
+    "2026-10-09": {
+      "articles": 6,
+      "classifications": {
+        "hero_present_asset_verified": 6
+      },
+      "hero_omitted": [],
+      "broken_or_unverified": []
+    },
+    "2026-10-08": {
+      "articles": 6,
+      "classifications": {
+        "hero_present_asset_verified": 6
+      },
+      "hero_omitted": [],
+      "broken_or_unverified": []
+    },
+    "2026-10-07": {
+      "articles": 5,
+      "classifications": {
+        "hero_present_asset_verified": 5
+      },
+      "hero_omitted": [],
+      "broken_or_unverified": []
+    },
+    "2026-10-06": {
+      "articles": 6,
+      "classifications": {
+        "hero_present_asset_verified": 6
+      },
+      "hero_omitted": [],
+      "broken_or_unverified": []
+    },
+    "2026-10-05": {
+      "articles": 6,
+      "classifications": {
+        "hero_present_asset_verified": 6
+      },
+      "hero_omitted": [],
+      "broken_or_unverified": []
+    },
+    "2026-10-02": {
+      "articles": 6,
+      "classifications": {
+        "hero_present_asset_verified": 6
+      },
+      "hero_omitted": [],
+      "broken_or_unverified": []
+    },
+    "2026-10-01": {
+      "articles": 6,
+      "classifications": {
+        "hero_present_asset_verified": 6
+      },
+      "hero_omitted": [],
+      "broken_or_unverified": []
+    }
+  },
+  "affected": [
+    {
+      "date": "2026-10-16",
+      "symbol": "XLK",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/XLK/article.html",
+      "catalog_hero_status": "unavailable",
+      "catalog_hero_image": null,
+      "published_date": "2026-10-16T00:00:01Z",
+      "slug": "xlk-subscription-2026-10-16",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "0453287077d620051a13291a8193829b4ec726fbde0dfc24043050f1a6de4835",
+      "has_h1": true,
+      "hero_container_count": 0,
+      "total_image_tags": 4,
+      "hero_tags": [],
+      "classification": "hero_omitted",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-16",
+      "symbol": "PGR",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/PGR/article.html",
+      "catalog_hero_status": "unavailable",
+      "catalog_hero_image": null,
+      "published_date": "2026-10-16T00:00:03Z",
+      "slug": "pgr-subscription-2026-10-16",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "2c41837c35116fa34fc804ff475c59d6d87da0af4c82dd4a8f5af70da6f7d84f",
+      "has_h1": true,
+      "hero_container_count": 0,
+      "total_image_tags": 4,
+      "hero_tags": [],
+      "classification": "hero_omitted",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-16",
+      "symbol": "MRK",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/MRK/article.html",
+      "catalog_hero_status": "unavailable",
+      "catalog_hero_image": null,
+      "published_date": "2026-10-16T00:00:00Z",
+      "slug": "mrk-subscription-2026-10-16",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "254b51e077ab8135c39dedecba6710fbd09d65166a156d01cc1a8c101c160b88",
+      "has_h1": true,
+      "hero_container_count": 0,
+      "total_image_tags": 4,
+      "hero_tags": [],
+      "classification": "hero_omitted",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-16",
+      "symbol": "GS",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/GS/article.html",
+      "catalog_hero_status": "unavailable",
+      "catalog_hero_image": null,
+      "published_date": "2026-10-16T00:00:05Z",
+      "slug": "gs-subscription-2026-10-16",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "bd75220c3f50b638312e9e1c7130448f7336e739434d621ba700736cd2b2f15e",
+      "has_h1": true,
+      "hero_container_count": 0,
+      "total_image_tags": 4,
+      "hero_tags": [],
+      "classification": "hero_omitted",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-16",
+      "symbol": "C",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/C/article.html",
+      "catalog_hero_status": "unavailable",
+      "catalog_hero_image": null,
+      "published_date": "2026-10-16T00:00:02Z",
+      "slug": "c-subscription-2026-10-16",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "4f7ad6b27f9413f185fa73819a030a11c55026fe96861b776da57995f78e67bd",
+      "has_h1": true,
+      "hero_container_count": 0,
+      "total_image_tags": 4,
+      "hero_tags": [],
+      "classification": "hero_omitted",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    }
+  ],
+  "rows": [
+    {
+      "date": "2026-10-19",
+      "symbol": "XLF",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-19/XLF/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-19/XLF/assets/hero-ca0e0b55ebb8.jpg",
+      "published_date": "2026-10-19T00:00:02Z",
+      "slug": "xlf-subscription-2026-10-19",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "8ccf01d08d707d172ca4129a8c2e833b64c0c37d9a0b0b325f651e7ec5dc45d7",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-ca0e0b55ebb8.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of a financial sector fund beside bank earnings reports and an approaching payments company results date.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-19/XLF/assets/hero-ca0e0b55ebb8.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-19/XLF/assets/hero-ca0e0b55ebb8.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-19",
+      "symbol": "SPY",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-19/SPY/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-19/SPY/assets/hero-a1369ed9753b.jpg",
+      "published_date": "2026-10-19T00:00:01Z",
+      "slug": "spy-subscription-2026-10-19",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "a7bc532c6296d1c2255caacd7ab295a0cc597834192cb7709fcaf3bbf37a26b7",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-a1369ed9753b.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of a broad stock market fund beside an inflation report and an approaching calendar date.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-19/SPY/assets/hero-a1369ed9753b.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-19/SPY/assets/hero-a1369ed9753b.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-19",
+      "symbol": "QQQ",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-19/QQQ/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-19/QQQ/assets/hero-0e018a80a6ed.jpg",
+      "published_date": "2026-10-19T00:00:00Z",
+      "slug": "qqq-subscription-2026-10-19",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "4181d86225f86a68fbc46c4074028d91966a892396327387904e2d7836330fe9",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-0e018a80a6ed.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of a technology-focused exchange-traded fund approaching a calendar window, with several large holdings visually prominent.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-19/QQQ/assets/hero-0e018a80a6ed.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-19/QQQ/assets/hero-0e018a80a6ed.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-19",
+      "symbol": "CSX",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-19/CSX/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-19/CSX/assets/hero-9a961808e04b.jpg",
+      "published_date": "2026-10-19T00:00:04Z",
+      "slug": "csx-subscription-2026-10-19",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "93a4f551aabc4fa1e81ebe28b418b41ae6d3aa3a392fad97efb9516c32ce873a",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-9a961808e04b.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of a freight train approaching a junction beside an earnings calendar.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-19/CSX/assets/hero-9a961808e04b.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-19/CSX/assets/hero-9a961808e04b.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-19",
+      "symbol": "CCK",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-19/CCK/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-19/CCK/assets/hero-081f7a390ec4.jpg",
+      "published_date": "2026-10-19T00:00:05Z",
+      "slug": "cck-subscription-2026-10-19",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "3aac7e7e699949579d9fb903e102d869da8e776ebee0f5f2ca179351bedf6d09",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-081f7a390ec4.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of beverage cans moving through a packaging plant as an earnings announcement approaches.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-19/CCK/assets/hero-081f7a390ec4.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-19/CCK/assets/hero-081f7a390ec4.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-19",
+      "symbol": "AMZN",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-19/AMZN/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-19/AMZN/assets/hero-cc1b3fd04d00.jpg",
+      "published_date": "2026-10-19T00:00:03Z",
+      "slug": "amzn-subscription-2026-10-19",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "bc1a3d306375edc488bc9700118c02c72e22180b2903f5e574fe51f83bb4ade1",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-cc1b3fd04d00.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of cloud servers and delivery operations beside a calendar marking an approaching market window.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-19/AMZN/assets/hero-cc1b3fd04d00.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-19/AMZN/assets/hero-cc1b3fd04d00.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-16",
+      "symbol": "XLK",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/XLK/article.html",
+      "catalog_hero_status": "unavailable",
+      "catalog_hero_image": null,
+      "published_date": "2026-10-16T00:00:01Z",
+      "slug": "xlk-subscription-2026-10-16",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "0453287077d620051a13291a8193829b4ec726fbde0dfc24043050f1a6de4835",
+      "has_h1": true,
+      "hero_container_count": 0,
+      "total_image_tags": 4,
+      "hero_tags": [],
+      "classification": "hero_omitted",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-16",
+      "symbol": "PGR",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/PGR/article.html",
+      "catalog_hero_status": "unavailable",
+      "catalog_hero_image": null,
+      "published_date": "2026-10-16T00:00:03Z",
+      "slug": "pgr-subscription-2026-10-16",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "2c41837c35116fa34fc804ff475c59d6d87da0af4c82dd4a8f5af70da6f7d84f",
+      "has_h1": true,
+      "hero_container_count": 0,
+      "total_image_tags": 4,
+      "hero_tags": [],
+      "classification": "hero_omitted",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-16",
+      "symbol": "MRK",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/MRK/article.html",
+      "catalog_hero_status": "unavailable",
+      "catalog_hero_image": null,
+      "published_date": "2026-10-16T00:00:00Z",
+      "slug": "mrk-subscription-2026-10-16",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "254b51e077ab8135c39dedecba6710fbd09d65166a156d01cc1a8c101c160b88",
+      "has_h1": true,
+      "hero_container_count": 0,
+      "total_image_tags": 4,
+      "hero_tags": [],
+      "classification": "hero_omitted",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-16",
+      "symbol": "GS",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/GS/article.html",
+      "catalog_hero_status": "unavailable",
+      "catalog_hero_image": null,
+      "published_date": "2026-10-16T00:00:05Z",
+      "slug": "gs-subscription-2026-10-16",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "bd75220c3f50b638312e9e1c7130448f7336e739434d621ba700736cd2b2f15e",
+      "has_h1": true,
+      "hero_container_count": 0,
+      "total_image_tags": 4,
+      "hero_tags": [],
+      "classification": "hero_omitted",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-16",
+      "symbol": "C",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-16/C/article.html",
+      "catalog_hero_status": "unavailable",
+      "catalog_hero_image": null,
+      "published_date": "2026-10-16T00:00:02Z",
+      "slug": "c-subscription-2026-10-16",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "4f7ad6b27f9413f185fa73819a030a11c55026fe96861b776da57995f78e67bd",
+      "has_h1": true,
+      "hero_container_count": 0,
+      "total_image_tags": 4,
+      "hero_tags": [],
+      "classification": "hero_omitted",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-15",
+      "symbol": "SPX",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-15/SPX/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-15/SPX/assets/hero-fresh-e528e8732479.jpg",
+      "published_date": "2026-10-15T00:00:02Z",
+      "slug": "spx-subscription-2026-10-15",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "15b432fea56ade2fce3edc9692027c8f2b0a5e19c89383a45840023a4322c9ad",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-fresh-e528e8732479.jpg",
+          "data_src": null,
+          "alt": "AI-generated conceptual illustration for SPX",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-15/SPX/assets/hero-fresh-e528e8732479.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-15/SPX/assets/hero-fresh-e528e8732479.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-15",
+      "symbol": "OZK",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-15/OZK/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-15/OZK/assets/hero-fresh-9a2c107ae132.jpg",
+      "published_date": "2026-10-15T00:00:01Z",
+      "slug": "ozk-subscription-2026-10-15",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "769dc8a661b9ecafba6bc76bb64211c511887359d4a11c9cbd0ffc0c0158062a",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-fresh-9a2c107ae132.jpg",
+          "data_src": null,
+          "alt": "AI-generated conceptual illustration for OZK",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-15/OZK/assets/hero-fresh-9a2c107ae132.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-15/OZK/assets/hero-fresh-9a2c107ae132.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-15",
+      "symbol": "ASML",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-15/ASML/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-15/ASML/assets/hero-fresh-07ce8d6578ce.jpg",
+      "published_date": "2026-10-15T00:00:00Z",
+      "slug": "asml-subscription-2026-10-15",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "1458842e3330d0c516d81442dcf596c547b1bb456ef89be161681f34efc4f8d5",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-fresh-07ce8d6578ce.jpg",
+          "data_src": null,
+          "alt": "AI-generated conceptual illustration for ASML",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-15/ASML/assets/hero-fresh-07ce8d6578ce.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-15/ASML/assets/hero-fresh-07ce8d6578ce.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-14",
+      "symbol": "SPY",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-14/SPY/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-14/SPY/assets/hero-fresh-8b19f8c2e2ad.jpg",
+      "published_date": "2026-10-14T00:00:01Z",
+      "slug": "spy-subscription-2026-10-14",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "4c2e046c05a1fcd09a9dd9c289f3f4d5489716975b467d1e1d889060098885d8",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-fresh-8b19f8c2e2ad.jpg",
+          "data_src": null,
+          "alt": "AI-generated conceptual illustration for SPY",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-14/SPY/assets/hero-fresh-8b19f8c2e2ad.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-14/SPY/assets/hero-fresh-8b19f8c2e2ad.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-14",
+      "symbol": "QQQ",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-14/QQQ/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-14/QQQ/assets/hero-fresh-5c449dc616eb.jpg",
+      "published_date": "2026-10-14T00:00:02Z",
+      "slug": "qqq-subscription-2026-10-14",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "366bec5644e987182458278031a02cf1fbdcb1967312ec716da8365f0aea583a",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-fresh-5c449dc616eb.jpg",
+          "data_src": null,
+          "alt": "AI-generated conceptual illustration for QQQ",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-14/QQQ/assets/hero-fresh-5c449dc616eb.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-14/QQQ/assets/hero-fresh-5c449dc616eb.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-14",
+      "symbol": "NVDA",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-14/NVDA/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-14/NVDA/assets/hero-fresh-46b4e481d842.jpg",
+      "published_date": "2026-10-14T00:00:04Z",
+      "slug": "nvda-subscription-2026-10-14",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "c0fd43f774321e6287cf3b5eeb921b5b798709e3ad16a89a1f84ee8348646922",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-fresh-46b4e481d842.jpg",
+          "data_src": null,
+          "alt": "AI-generated conceptual illustration for NVDA",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-14/NVDA/assets/hero-fresh-46b4e481d842.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-14/NVDA/assets/hero-fresh-46b4e481d842.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-14",
+      "symbol": "MSFT",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-14/MSFT/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-14/MSFT/assets/hero-fresh-e3fbe8434b9c.jpg",
+      "published_date": "2026-10-14T00:00:05Z",
+      "slug": "msft-subscription-2026-10-14",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "08ca2c7c8898f6b836fe095356c845b2f3f42d7a50f61a07b1de52704b2ecfb1",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-fresh-e3fbe8434b9c.jpg",
+          "data_src": null,
+          "alt": "AI-generated conceptual illustration for MSFT",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-14/MSFT/assets/hero-fresh-e3fbe8434b9c.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-14/MSFT/assets/hero-fresh-e3fbe8434b9c.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-14",
+      "symbol": "GC",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-14/GC/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-14/GC/assets/hero-fresh-d616c551fbc2.jpg",
+      "published_date": "2026-10-14T00:00:00Z",
+      "slug": "gc-subscription-2026-10-14",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "3a4f1b212871c3c0518328665dc8d4af4d32a63577fe2a1d0b6d52b3135df1f5",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-fresh-d616c551fbc2.jpg",
+          "data_src": null,
+          "alt": "AI-generated conceptual illustration for GC",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-14/GC/assets/hero-fresh-d616c551fbc2.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-14/GC/assets/hero-fresh-d616c551fbc2.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-14",
+      "symbol": "AMZN",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-14/AMZN/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-14/AMZN/assets/hero-fresh-16b7f2c70599.jpg",
+      "published_date": "2026-10-14T00:00:03Z",
+      "slug": "amzn-subscription-2026-10-14",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "7614cc713fba8503f0375ee355d46082ce610b00f47ef89adebfa8b24a6c2a6a",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-fresh-16b7f2c70599.jpg",
+          "data_src": null,
+          "alt": "AI-generated conceptual illustration for AMZN",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-14/AMZN/assets/hero-fresh-16b7f2c70599.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-14/AMZN/assets/hero-fresh-16b7f2c70599.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-13",
+      "symbol": "XLF",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-13/XLF/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-13/XLF/assets/hero-reused-c2708be5a91c.jpg",
+      "published_date": "2026-10-13T00:00:03Z",
+      "slug": "xlf-subscription-2026-10-13",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "7d7415e38786ac783d295b8030b95cf78641d46ea99980b366fce4ba8f1efb2d",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-reused-c2708be5a91c.jpg",
+          "data_src": null,
+          "alt": "Conceptual archive illustration of a financial-market trading floor and city skyline.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-13/XLF/assets/hero-reused-c2708be5a91c.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-13/XLF/assets/hero-reused-c2708be5a91c.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-13",
+      "symbol": "WFC",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-13/WFC/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-13/WFC/assets/hero-reused-0c1f9e9f1dc0.jpg",
+      "published_date": "2026-10-13T00:00:05Z",
+      "slug": "wfc-subscription-2026-10-13",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "6d8cced839e7375e195231c9f0185d29aaa596168315a3ef80fdfe5b83418d6e",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-reused-0c1f9e9f1dc0.jpg",
+          "data_src": null,
+          "alt": "Archive illustration of a building bearing Wells Fargo signage.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-13/WFC/assets/hero-reused-0c1f9e9f1dc0.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-13/WFC/assets/hero-reused-0c1f9e9f1dc0.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-13",
+      "symbol": "VIX",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-13/VIX/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-13/VIX/assets/hero-reused-091a19cc7953.jpg",
+      "published_date": "2026-10-13T00:00:02Z",
+      "slug": "vix-subscription-2026-10-13",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "ccfb9bae8d1e92817167b6613f27fa6ac1419b215643df1d0512e5f2d3bcccd4",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-reused-091a19cc7953.jpg",
+          "data_src": null,
+          "alt": "Conceptual archive illustration of market-monitoring screens with red price patterns.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-13/VIX/assets/hero-reused-091a19cc7953.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-13/VIX/assets/hero-reused-091a19cc7953.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-13",
+      "symbol": "IWM",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-13/IWM/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-13/IWM/assets/hero-reused-4657e3de903c.jpg",
+      "published_date": "2026-10-13T00:00:01Z",
+      "slug": "iwm-subscription-2026-10-13",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "f3e764196c3f741a9d8d607adc53ddd8a9801add1159b65327c67352913808a4",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-reused-4657e3de903c.jpg",
+          "data_src": null,
+          "alt": "Conceptual archive illustration of a stock-exchange trading floor.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-13/IWM/assets/hero-reused-4657e3de903c.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-13/IWM/assets/hero-reused-4657e3de903c.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-13",
+      "symbol": "CSX",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-13/CSX/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-13/CSX/assets/hero-reused-4451a79da15a.jpg",
+      "published_date": "2026-10-13T00:00:04Z",
+      "slug": "csx-subscription-2026-10-13",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "56c4c8df56cb3790a622aeb8cca4b3d9869c8238d9499921d0adb7682f4b9c39",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-reused-4451a79da15a.jpg",
+          "data_src": null,
+          "alt": "Conceptual archive illustration of equity-market monitoring screens and a cityscape.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-13/CSX/assets/hero-reused-4451a79da15a.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-13/CSX/assets/hero-reused-4451a79da15a.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-13",
+      "symbol": "BLK",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-13/BLK/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-13/BLK/assets/hero-reused-ad8e25d02f3b.jpg",
+      "published_date": "2026-10-13T00:00:00Z",
+      "slug": "blk-subscription-2026-10-13",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "5f611cf4c90d289284acf0e19e8e94936a5d1cb3e5a3c31566b856b6bec06435",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-reused-ad8e25d02f3b.jpg",
+          "data_src": null,
+          "alt": "Archive conceptual illustration of a financial-market trading floor with multiple monitoring screens.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-13/BLK/assets/hero-reused-ad8e25d02f3b.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-13/BLK/assets/hero-reused-ad8e25d02f3b.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-12",
+      "symbol": "XLK",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-12/XLK/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-12/XLK/assets/hero-reused-748fa7d51e26.jpg",
+      "published_date": "2026-10-12T00:00:02Z",
+      "slug": "xlk-subscription-2026-10-12",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "1854fe56df0c4453207eadec1f7ae7225fde5d34a47d481169d2f5dc93f9376e",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-reused-748fa7d51e26.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of technology infrastructure",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-12/XLK/assets/hero-reused-748fa7d51e26.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-12/XLK/assets/hero-reused-748fa7d51e26.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-12",
+      "symbol": "JPM",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-12/JPM/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-12/JPM/assets/hero-reused-6c390d6fa3f4.jpg",
+      "published_date": "2026-10-12T00:00:03Z",
+      "slug": "jpm-subscription-2026-10-12",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "01252676511c289e34edd82e698c799575a04cab78b24f81391d470b00562d88",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-reused-6c390d6fa3f4.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of a bank building",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-12/JPM/assets/hero-reused-6c390d6fa3f4.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-12/JPM/assets/hero-reused-6c390d6fa3f4.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-12",
+      "symbol": "JNJ",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-12/JNJ/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-12/JNJ/assets/hero-reused-26f6d9329199.jpg",
+      "published_date": "2026-10-12T00:00:05Z",
+      "slug": "jnj-subscription-2026-10-12",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "7c7802fdfcdabc7e720a607b14972ed97bd2d48dfb954bbe88328ae7ca3bac87",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-reused-26f6d9329199.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of healthcare technology",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-12/JNJ/assets/hero-reused-26f6d9329199.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-12/JNJ/assets/hero-reused-26f6d9329199.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-12",
+      "symbol": "GS",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-12/GS/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-12/GS/assets/hero-reused-d4e872c3bdd1.jpg",
+      "published_date": "2026-10-12T00:00:04Z",
+      "slug": "gs-subscription-2026-10-12",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "e739a0bcbfa1dc6d15ada6728530cb76bbd49233ceff53bd03cdd4a03c411e2a",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-reused-d4e872c3bdd1.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of an investment bank entrance",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-12/GS/assets/hero-reused-d4e872c3bdd1.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-12/GS/assets/hero-reused-d4e872c3bdd1.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-12",
+      "symbol": "CPRT",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-12/CPRT/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-12/CPRT/assets/hero-reused-a5118cf2a80b.jpg",
+      "published_date": "2026-10-12T00:00:00Z",
+      "slug": "cprt-subscription-2026-10-12",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "d80af049ac6b8847b5d216b834a1d8b450d9229cc43ea9d90ae2742e82e84deb",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-reused-a5118cf2a80b.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of a vehicle auction yard",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-12/CPRT/assets/hero-reused-a5118cf2a80b.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-12/CPRT/assets/hero-reused-a5118cf2a80b.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-12",
+      "symbol": "APH",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-12/APH/article.html",
+      "catalog_hero_status": "available",
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-12/APH/assets/hero-reused-a9e315cac713.jpg",
+      "published_date": "2026-10-12T00:00:01Z",
+      "slug": "aph-subscription-2026-10-12",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "cd302f7f0f9ac9057da2c48260abd256ee2f3e6e554fc4591b7ad92f0d452e91",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-reused-a9e315cac713.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of electronic component manufacturing",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-12/APH/assets/hero-reused-a9e315cac713.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-12/APH/assets/hero-reused-a9e315cac713.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-10",
+      "native_standard_edition": false,
+      "symbol": "SPX",
+      "url": "https://seasonalmarketnews.com/articles/INDX/2026/10/10/two-clocks-one-date-bullish-until-july-2027-then-cautious.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/articles/INDX/2026/10/10/assets/hero-two-clocks.jpg",
+      "published_date": "2026-10-10T12:21:50Z",
+      "slug": "two-clocks-one-date-bullish-until-july-2027-then-cautious",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "71772099a6e44ccb4c7d74ac2e6a9707669572c3a6aff98080b5d35abcfbb93f",
+      "has_h1": true,
+      "hero_container_count": 3,
+      "total_image_tags": 7,
+      "hero_tags": [
+        {
+          "src": "assets/hero-two-clocks.jpg",
+          "data_src": null,
+          "alt": "Two clocks, one gold with a calendar face and one blue with AI circuitry, floating above a rising market chart.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/articles/INDX/2026/10/10/assets/hero-two-clocks.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/articles/INDX/2026/10/10/assets/hero-two-clocks.jpg"
+          }
+        },
+        {
+          "src": "assets/ai-data-center.jpg",
+          "data_src": null,
+          "alt": "A vast AI data center with rows of server racks glowing orange as if running at full capacity, one person walking down the center aisle.",
+          "loading": "lazy",
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/articles/INDX/2026/10/10/assets/ai-data-center.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/articles/INDX/2026/10/10/assets/ai-data-center.jpg"
+          }
+        },
+        {
+          "src": "assets/autonomous-city.jpg",
+          "data_src": null,
+          "alt": "Humanoid robots carrying packages alongside pedestrians on a city street at sunrise, with a driverless taxi and delivery drones.",
+          "loading": "lazy",
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/articles/INDX/2026/10/10/assets/autonomous-city.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/articles/INDX/2026/10/10/assets/autonomous-city.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified"
+    },
+    {
+      "date": "2026-10-09",
+      "symbol": "XLF",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-09/XLF/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-09/XLF/assets/hero-c2708be5a91c.jpg",
+      "published_date": "2026-10-09T00:00:00Z",
+      "slug": "xlf-subscription-2026-10-09",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "cb4cbc158729096bbdab923aef1e790b88e8761ba70cedff4481f9f3b3245e6c",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-c2708be5a91c.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of a financial-sector fund beside a bank earnings calendar and employment chart.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-09/XLF/assets/hero-c2708be5a91c.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-09/XLF/assets/hero-c2708be5a91c.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-09",
+      "symbol": "SPY",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-09/SPY/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-09/SPY/assets/hero-ce721982c0c8.jpg",
+      "published_date": "2026-10-09T00:00:02Z",
+      "slug": "spy-subscription-2026-10-09",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "5940a5a25c4880dd9c89d95ca0ada596d560a5305a5fe4cfc8fc925aa39cf44a",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-ce721982c0c8.jpg",
+          "data_src": null,
+          "alt": "AI-generated conceptual illustration of an empty trading room with blue chart screens and a city skyline.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-09/SPY/assets/hero-ce721982c0c8.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-09/SPY/assets/hero-ce721982c0c8.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-09",
+      "symbol": "RPM",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-09/RPM/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-09/RPM/assets/hero-f45e5cf455ed.jpg",
+      "published_date": "2026-10-09T00:00:05Z",
+      "slug": "rpm-subscription-2026-10-09",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "13196e871344c25e027e57e1ae4eaf45dcf5c31c53589e29d88ad976d53ede21",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-f45e5cf455ed.jpg",
+          "data_src": null,
+          "alt": "AI-generated conceptual illustration of industrial equipment, pipes and drums at sunset.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-09/RPM/assets/hero-f45e5cf455ed.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-09/RPM/assets/hero-f45e5cf455ed.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-09",
+      "symbol": "QQQ",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-09/QQQ/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-09/QQQ/assets/hero-1df36505e259.jpg",
+      "published_date": "2026-10-09T00:00:03Z",
+      "slug": "qqq-subscription-2026-10-09",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "d732d3b699ac8396eb7f10fd6789c838d288098f01179cd14d9e16fd562a8e72",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-1df36505e259.jpg",
+          "data_src": null,
+          "alt": "AI-generated conceptual illustration of a trading room with market chart screens and sunlight through glass walls.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-09/QQQ/assets/hero-1df36505e259.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-09/QQQ/assets/hero-1df36505e259.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-09",
+      "symbol": "DJI",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-09/DJI/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-09/DJI/assets/hero-61e55c377bff.jpg",
+      "published_date": "2026-10-09T00:00:04Z",
+      "slug": "dji-subscription-2026-10-09",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "2d4e051e1a78a7fa3da0deed94156d0ffbd1eaa651efa6a21e0d80b840b7031d",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-61e55c377bff.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of a stock index display beside employment and inflation indicators on a calendar.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-09/DJI/assets/hero-61e55c377bff.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-09/DJI/assets/hero-61e55c377bff.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-09",
+      "symbol": "DAL",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-09/DAL/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-09/DAL/assets/hero-c468c2aa05b1.jpg",
+      "published_date": "2026-10-09T00:00:01Z",
+      "slug": "dal-subscription-2026-10-09",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "31d11b90a0fb4e65ed7620ce825aeacb255b1f870199be3dc74ae846e9e26ee3",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-c468c2aa05b1.jpg",
+          "data_src": null,
+          "alt": "AI-generated conceptual illustration of a Delta aircraft at an airport.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-09/DAL/assets/hero-c468c2aa05b1.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-09/DAL/assets/hero-c468c2aa05b1.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-08",
+      "symbol": "WMT",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-08/WMT/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-08/WMT/assets/hero-12b46a183c11.jpg",
+      "published_date": "2026-10-08T00:00:03Z",
+      "slug": "wmt-subscription-2026-10-08",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "383bcc22dfd4b463405fc001cf6b47d9d1b511b80c59a4251e15a7557851a54b",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-12b46a183c11.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of holiday shoppers using a retail app for pickup and delivery.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-08/WMT/assets/hero-12b46a183c11.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-08/WMT/assets/hero-12b46a183c11.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-08",
+      "symbol": "VIX",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-08/VIX/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-08/VIX/assets/hero-091a19cc7953.jpg",
+      "published_date": "2026-10-08T00:00:02Z",
+      "slug": "vix-subscription-2026-10-08",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "c92b84be1e9354d743dcd8138dfe0c258e77e71ed136bdd330fadde5fa5aa861",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-091a19cc7953.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of a volatility gauge beside a jobs report and a calendar turning toward an approaching market window.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-08/VIX/assets/hero-091a19cc7953.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-08/VIX/assets/hero-091a19cc7953.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-08",
+      "symbol": "OMC",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-08/OMC/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-08/OMC/assets/hero-e3a120deced5.jpg",
+      "published_date": "2026-10-08T00:00:00Z",
+      "slug": "omc-subscription-2026-10-08",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "19860320129868dd3caa6148d1533075dcf7f64310c24d21903048b31b5b04b0",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-e3a120deced5.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of interconnected advertising agencies and media channels alongside a calendar.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-08/OMC/assets/hero-e3a120deced5.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-08/OMC/assets/hero-e3a120deced5.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-08",
+      "symbol": "NG",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-08/NG/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-08/NG/assets/hero-af25780da2d0.jpg",
+      "published_date": "2026-10-08T00:00:04Z",
+      "slug": "ng-subscription-2026-10-08",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "1ce3bb5714e5341bbcbe14a1a4bf9a3f3e649a7c7c49c48c311d9a228359a7aa",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-af25780da2d0.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of a natural gas storage facility beneath a winter weather map and a futures price line.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-08/NG/assets/hero-af25780da2d0.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-08/NG/assets/hero-af25780da2d0.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-08",
+      "symbol": "MRK",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-08/MRK/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-08/MRK/assets/hero-12e5aaaf3758.jpg",
+      "published_date": "2026-10-08T00:00:01Z",
+      "slug": "mrk-subscription-2026-10-08",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "b0ed27af88e8a879b2cf1c7bf44d49050e6c9a3e991f7d5a34aa51cf6a3fbd44",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-12e5aaaf3758.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of a pharmaceutical research pipeline beside an earnings calendar.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-08/MRK/assets/hero-12e5aaaf3758.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-08/MRK/assets/hero-12e5aaaf3758.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-08",
+      "symbol": "HPQ",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-08/HPQ/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-08/HPQ/assets/hero-b77769a73771.jpg",
+      "published_date": "2026-10-08T00:00:05Z",
+      "slug": "hpq-subscription-2026-10-08",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "6b914197bce08f1dd1e202c63f7a697683576b438678457b3552e3ba5108dc8e",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-b77769a73771.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of an HP laptop and workstation beside a calendar marking an approaching product launch.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-08/HPQ/assets/hero-b77769a73771.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-08/HPQ/assets/hero-b77769a73771.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-07",
+      "symbol": "SPX",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-07/SPX/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-07/SPX/assets/hero-831158569b65.jpg",
+      "published_date": "2026-10-07T00:00:05Z",
+      "slug": "spx-subscription-2026-10-07",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "b6718a7d1122e8e139f904e8a248f27cb24aa2992a1e60d228e272219f725f18",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-831158569b65.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of a broad stock index reaching a high point while a calendar approaches a future seasonal window.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-07/SPX/assets/hero-831158569b65.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-07/SPX/assets/hero-831158569b65.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-07",
+      "symbol": "PEP",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-07/PEP/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-07/PEP/assets/hero-c7a90ef8fd80.jpg",
+      "published_date": "2026-10-07T00:00:03Z",
+      "slug": "pep-subscription-2026-10-07",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "757d8ac65a1587031b8fb3902a75cae8c563e27359d7b5c19124ac0348d2ccd8",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-c7a90ef8fd80.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of PepsiCo beverages and packaged foods beside a calendar marking an approaching earnings report.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-07/PEP/assets/hero-c7a90ef8fd80.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-07/PEP/assets/hero-c7a90ef8fd80.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-07",
+      "symbol": "IWM",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-07/IWM/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-07/IWM/assets/hero-4657e3de903c.jpg",
+      "published_date": "2026-10-07T00:00:01Z",
+      "slug": "iwm-subscription-2026-10-07",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "f74fb1e717f8a4cee2d1f6f2a57b45fb241e8cc33cf2d191c7e0cb181bcbffe5",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-4657e3de903c.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of small company shares beneath a market calendar and interest rate dial.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-07/IWM/assets/hero-4657e3de903c.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-07/IWM/assets/hero-4657e3de903c.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-07",
+      "symbol": "GC",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-07/GC/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-07/GC/assets/hero-88036fd7f2c4.jpg",
+      "published_date": "2026-10-07T00:00:04Z",
+      "slug": "gc-subscription-2026-10-07",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "a0e917bc15bc8e890762df1c504a6b35928b2b02735915d7ed64b48d740b781f",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-88036fd7f2c4.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of gold bars, a futures market screen and shifting interest-rate signals.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-07/GC/assets/hero-88036fd7f2c4.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-07/GC/assets/hero-88036fd7f2c4.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-07",
+      "symbol": "ALB",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-07/ALB/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-07/ALB/assets/hero-acf14896e67b.jpg",
+      "published_date": "2026-10-07T00:00:00Z",
+      "slug": "alb-subscription-2026-10-07",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "9d178a082550380056fab1c7ebca118d333d325a000d3b9770211fde6c6895f8",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-acf14896e67b.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of lithium materials, an energy storage facility and a calendar approaching a company earnings report.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-07/ALB/assets/hero-acf14896e67b.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-07/ALB/assets/hero-acf14896e67b.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-06",
+      "symbol": "XLK",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-06/XLK/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-06/XLK/assets/hero-748fa7d51e26.jpg",
+      "published_date": "2026-10-06T00:00:02Z",
+      "slug": "xlk-subscription-2026-10-06",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "44f35d21912df7400857665b32524876f108ed770fecd2d82b56e65dbeb43670",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-748fa7d51e26.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of a technology fund alongside chips, devices and cloud infrastructure ahead of an autumn calendar window.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-06/XLK/assets/hero-748fa7d51e26.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-06/XLK/assets/hero-748fa7d51e26.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-06",
+      "symbol": "MSFT",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-06/MSFT/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-06/MSFT/assets/hero-fa186518a42b.jpg",
+      "published_date": "2026-10-06T00:00:04Z",
+      "slug": "msft-subscription-2026-10-06",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "26ee770020352e5f346c7b7edb1367232abc4ab656d449ab28aff7b9fe343b1b",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-fa186518a42b.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of a cloud data center and workplace software beside a calendar marking an approaching stock market window.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-06/MSFT/assets/hero-fa186518a42b.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-06/MSFT/assets/hero-fa186518a42b.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-06",
+      "symbol": "IBM",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-06/IBM/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-06/IBM/assets/hero-96b6c72c71d7.jpg",
+      "published_date": "2026-10-06T00:00:03Z",
+      "slug": "ibm-subscription-2026-10-06",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "9fe6fb8ad42b29355d29e2b03e3719d47294b8be40465dba115c4c624ebd193e",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-96b6c72c71d7.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of an IBM computer system and enterprise software interface beside a calendar approaching autumn.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-06/IBM/assets/hero-96b6c72c71d7.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-06/IBM/assets/hero-96b6c72c71d7.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-06",
+      "symbol": "CPRT",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-06/CPRT/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-06/CPRT/assets/hero-a5118cf2a80b.jpg",
+      "published_date": "2026-10-06T00:00:00Z",
+      "slug": "cprt-subscription-2026-10-06",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "3b8e0f3151d29a788bc6253af2076434f19dc30fda09459e9e2503b78543c737",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-a5118cf2a80b.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of an online vehicle auction alongside a pending marketplace acquisition.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-06/CPRT/assets/hero-a5118cf2a80b.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-06/CPRT/assets/hero-a5118cf2a80b.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-06",
+      "symbol": "COST",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-06/COST/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-06/COST/assets/hero-363a1a96e5e5.jpg",
+      "published_date": "2026-10-06T00:00:05Z",
+      "slug": "cost-subscription-2026-10-06",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "ee8082a792530c74efaca1e0fd4abc85d5ad28cbd9a0c5eea77d9c4be2b3bd3a",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-363a1a96e5e5.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of a Costco warehouse entrance and shopping carts beside a calendar approaching autumn.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-06/COST/assets/hero-363a1a96e5e5.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-06/COST/assets/hero-363a1a96e5e5.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-06",
+      "symbol": "APH",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-06/APH/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-06/APH/assets/hero-a9e315cac713.jpg",
+      "published_date": "2026-10-06T00:00:01Z",
+      "slug": "aph-subscription-2026-10-06",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "1f9c153c89da5bd0bd884cca6eb34192109bb402fdacaba7431a4419355bc720",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-a9e315cac713.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of electronic connectors and data cables beside a calendar marking an approaching stock market window.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-06/APH/assets/hero-a9e315cac713.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-06/APH/assets/hero-a9e315cac713.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-05",
+      "symbol": "XLF",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/assets/hero-b9cceaeaa535.jpg",
+      "published_date": "2026-10-05T00:00:00Z",
+      "slug": "xlf-subscription-2026-10-05",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "43d07cfdaec66ee3248159383020834a59e658f7aa5c82d85ab1b5a7029f795f",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-b9cceaeaa535.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of a financial sector fund beside bank earnings reports and an interest rate dial.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/assets/hero-b9cceaeaa535.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-05/XLF/assets/hero-b9cceaeaa535.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-05",
+      "symbol": "SPY",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/assets/hero-d6fa0116502b.jpg",
+      "published_date": "2026-10-05T00:00:02Z",
+      "slug": "spy-subscription-2026-10-05",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "626d9cf41e248272306ace802352dc5266b541ce8563fe5e7ddb8b034ba9fbae",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-d6fa0116502b.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of an exchange-traded fund beside economic reports and a calendar approaching late October.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/assets/hero-d6fa0116502b.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-05/SPY/assets/hero-d6fa0116502b.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-05",
+      "symbol": "SI",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/SI/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-05/SI/assets/hero-f0b7e4043160.jpg",
+      "published_date": "2026-10-05T00:00:01Z",
+      "slug": "si-subscription-2026-10-05",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "606c34d406ff26f8bc78e7023131ae910870bd929ea198ee2cbc942b469f3f9b",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-f0b7e4043160.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of silver bars beside a futures market chart and a calendar.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-05/SI/assets/hero-f0b7e4043160.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-05/SI/assets/hero-f0b7e4043160.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-05",
+      "symbol": "QQQ",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/assets/hero-dacdcc6efc70.jpg",
+      "published_date": "2026-10-05T00:00:03Z",
+      "slug": "qqq-subscription-2026-10-05",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "7859cb89c13aa16c1c0132e1aa6bb6fdac65739d574d3356b44b14f88c4e04f7",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-dacdcc6efc70.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of a technology-focused exchange-traded fund approaching a calendar window, with shifting market activity in the background.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/assets/hero-dacdcc6efc70.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-05/QQQ/assets/hero-dacdcc6efc70.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-05",
+      "symbol": "NVDA",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/assets/hero-9b88122c2173.jpg",
+      "published_date": "2026-10-05T00:00:05Z",
+      "slug": "nvda-subscription-2026-10-05",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "5b164a2e27ceee23a857e3136b8949036c302e278b178205a493cedcc5e04ada",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-9b88122c2173.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of AI computing hardware and a stock certificate beside a calendar.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/assets/hero-9b88122c2173.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-05/NVDA/assets/hero-9b88122c2173.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-05",
+      "symbol": "AMZN",
+      "url": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/article.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/assets/hero-b81f2303c95c.jpg",
+      "published_date": "2026-10-05T00:00:04Z",
+      "slug": "amzn-subscription-2026-10-05",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "f28ab4810d361c6f3b724a0ae72e4235f5a75e77bf7b246b4dcfed1b04ade997",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "assets/hero-b81f2303c95c.jpg",
+          "data_src": null,
+          "alt": "Conceptual illustration of an Amazon delivery route alongside cloud data centers as investors look toward a future seasonal window.",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/assets/hero-b81f2303c95c.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/editions/2026-10-05/AMZN/assets/hero-b81f2303c95c.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified",
+      "native_standard_edition": true,
+      "reused_observation_utc": "2026-10-19T16:12:08.276934+00:00"
+    },
+    {
+      "date": "2026-10-02",
+      "native_standard_edition": false,
+      "symbol": "XLK",
+      "url": "https://seasonalmarketnews.com/articles/ETF/2026/10/25/s-p-500-technology-sector-spdr-xlk-has-risen-in-6-of-6-midterm-oct-may-windows-averaging-12-02.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/articles/ETF/2026/10/25/hero_XLK_89b90712.jpg",
+      "published_date": "2026-10-02T03:07:46Z",
+      "slug": "s-p-500-technology-sector-spdr-xlk-has-risen-in-6-of-6-midterm-oct-may-windows-averaging-12-02",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "3b55dade3816fd84979b27648a895b9cf5c268f2804756298a0083613d613db6",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "https://seasonalmarketnews.com/articles/ETF/2026/10/25/hero_XLK_89b90712.jpg",
+          "data_src": null,
+          "alt": "S&P 500 Technology Sector SPDR (XLK) market analysis and seasonal trends - TradeWave.ai",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/articles/ETF/2026/10/25/hero_XLK_89b90712.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/articles/ETF/2026/10/25/hero_XLK_89b90712.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified"
+    },
+    {
+      "date": "2026-10-02",
+      "native_standard_edition": false,
+      "symbol": "SPX",
+      "url": "https://seasonalmarketnews.com/articles/INDX/2026/10/31/options-leverage-keeps-s-p-500-spx-fragile-heading-into-historically-bullish-oct-31-stretch.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/articles/INDX/2026/10/31/hero_SPX_6f0cd118.jpg",
+      "published_date": "2026-10-02T03:09:28Z",
+      "slug": "options-leverage-keeps-s-p-500-spx-fragile-heading-into-historically-bullish-oct-31-stretch",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "5102402fb00b865236717f01affff1b5e664220af0817fc053990c6cca86a630",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "https://seasonalmarketnews.com/articles/INDX/2026/10/31/hero_SPX_6f0cd118.jpg",
+          "data_src": null,
+          "alt": "S&P 500 (SPX) market analysis and seasonal trends - TradeWave.ai",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/articles/INDX/2026/10/31/hero_SPX_6f0cd118.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/articles/INDX/2026/10/31/hero_SPX_6f0cd118.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified"
+    },
+    {
+      "date": "2026-10-02",
+      "native_standard_edition": false,
+      "symbol": "MSFT",
+      "url": "https://seasonalmarketnews.com/articles/US/2026/10/11/microsoft-msft-has-rallied-in-9-of-9-midterm-oct-11-20-windows-averaging-4-5-gains.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/articles/US/2026/10/11/hero_MSFT_af1729e0.jpg",
+      "published_date": "2026-10-02T03:11:34Z",
+      "slug": "microsoft-msft-has-rallied-in-9-of-9-midterm-oct-11-20-windows-averaging-4-5-gains",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "7348d023c780fb2b7924ee73cc9427603e68cd19b93b77114e0c61bf6cd88fed",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 6,
+      "hero_tags": [
+        {
+          "src": "https://seasonalmarketnews.com/articles/US/2026/10/11/hero_MSFT_af1729e0.jpg",
+          "data_src": null,
+          "alt": "Microsoft (MSFT) market analysis and seasonal trends - TradeWave.ai",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/articles/US/2026/10/11/hero_MSFT_af1729e0.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/articles/US/2026/10/11/hero_MSFT_af1729e0.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified"
+    },
+    {
+      "date": "2026-10-02",
+      "native_standard_edition": false,
+      "symbol": "IWM",
+      "url": "https://seasonalmarketnews.com/articles/ETF/2026/10/24/6-for-6-midterm-run-russell-2000-ishares-etf-iwm-eyes-bullish-40-day-late-october-window.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/articles/ETF/2026/10/24/hero_IWM_be3471d6.jpg",
+      "published_date": "2026-10-02T03:06:05Z",
+      "slug": "6-for-6-midterm-run-russell-2000-ishares-etf-iwm-eyes-bullish-40-day-late-october-window",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "191c8e29c4ea31dd48993004cc451a3a47dd3447325bae33e43cf698a9082ba1",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "https://seasonalmarketnews.com/articles/ETF/2026/10/24/hero_IWM_be3471d6.jpg",
+          "data_src": null,
+          "alt": "Russell 2000 Ishares ETF (IWM) market analysis and seasonal trends - TradeWave.ai",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/articles/ETF/2026/10/24/hero_IWM_be3471d6.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/articles/ETF/2026/10/24/hero_IWM_be3471d6.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified"
+    },
+    {
+      "date": "2026-10-02",
+      "native_standard_edition": false,
+      "symbol": "FDS",
+      "url": "https://seasonalmarketnews.com/articles/US/2026/10/29/factset-fds-eps-beat-and-higher-2027-guidance-align-with-bullish-late-fall-run.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/articles/US/2026/10/29/hero_FDS_f57fb5f8.jpg",
+      "published_date": "2026-10-02T03:04:08Z",
+      "slug": "factset-fds-eps-beat-and-higher-2027-guidance-align-with-bullish-late-fall-run",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "80758bdd27c2f3d74e2461e6fbcb0c9f364a2b07a0aa0963d992a6c6aba02291",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "https://seasonalmarketnews.com/articles/US/2026/10/29/hero_FDS_f57fb5f8.jpg",
+          "data_src": null,
+          "alt": "FactSet (FDS) market analysis and seasonal trends - TradeWave.ai",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/articles/US/2026/10/29/hero_FDS_f57fb5f8.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/articles/US/2026/10/29/hero_FDS_f57fb5f8.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified"
+    },
+    {
+      "date": "2026-10-02",
+      "native_standard_edition": false,
+      "symbol": "ADP",
+      "url": "https://seasonalmarketnews.com/articles/US/2026/10/11/automatic-data-processing-adp-has-rallied-in-9-of-10-midterm-oct-11-30-windows.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/articles/US/2026/10/11/hero_ADP_e2565505.jpg",
+      "published_date": "2026-10-02T03:01:57Z",
+      "slug": "automatic-data-processing-adp-has-rallied-in-9-of-10-midterm-oct-11-30-windows",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "abc3c44405b9d6f9016e2b438e061897e83c7ca2c0445c3d59afb347e91d6c4c",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "https://seasonalmarketnews.com/articles/US/2026/10/11/hero_ADP_e2565505.jpg",
+          "data_src": null,
+          "alt": "Automatic Data Processing (ADP) market analysis and seasonal trends - TradeWave.ai",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/articles/US/2026/10/11/hero_ADP_e2565505.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/articles/US/2026/10/11/hero_ADP_e2565505.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified"
+    },
+    {
+      "date": "2026-10-01",
+      "native_standard_edition": false,
+      "symbol": "SPGI",
+      "url": "https://seasonalmarketnews.com/articles/US/2026/10/06/10-for-10-midterm-run-s-p-global-spgi-has-averaged-24-4-gains-from-oct-6-to-jun-15.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/articles/US/2026/10/06/hero_SPGI_80e0e68d.jpg",
+      "published_date": "2026-10-01T03:06:05Z",
+      "slug": "10-for-10-midterm-run-s-p-global-spgi-has-averaged-24-4-gains-from-oct-6-to-jun-15",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "bbcf119d898eda2a7a7e55c42f8be36fe12bacbe63c767f3aa54c673776b6f3c",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "https://seasonalmarketnews.com/articles/US/2026/10/06/hero_SPGI_80e0e68d.jpg",
+          "data_src": null,
+          "alt": "S&P Global (SPGI) market analysis and seasonal trends - TradeWave.ai",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/articles/US/2026/10/06/hero_SPGI_80e0e68d.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/articles/US/2026/10/06/hero_SPGI_80e0e68d.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified"
+    },
+    {
+      "date": "2026-10-01",
+      "native_standard_edition": false,
+      "symbol": "SI",
+      "url": "https://seasonalmarketnews.com/articles/COMM/2026/10/31/silver-si-has-rallied-in-7-of-7-midterm-winters-averaging-11-29-gains-in-this-96-day-run.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/articles/COMM/2026/10/31/hero_SI_08b1f3a1.jpg",
+      "published_date": "2026-10-01T03:04:08Z",
+      "slug": "silver-si-has-rallied-in-7-of-7-midterm-winters-averaging-11-29-gains-in-this-96-day-run",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "25a3f7a14be34658f09d8e452bcdea0f1f4760190cc0427ed054b129ad7c7a03",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "https://seasonalmarketnews.com/articles/COMM/2026/10/31/hero_SI_08b1f3a1.jpg",
+          "data_src": null,
+          "alt": "Silver (SI) market analysis and seasonal trends - TradeWave.ai",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/articles/COMM/2026/10/31/hero_SI_08b1f3a1.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/articles/COMM/2026/10/31/hero_SI_08b1f3a1.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified"
+    },
+    {
+      "date": "2026-10-01",
+      "native_standard_edition": false,
+      "symbol": "OMC",
+      "url": "https://seasonalmarketnews.com/articles/US/2026/10/15/omnicom-group-omc-has-risen-10-of-10-midterm-autumns-averaging-8-61-gains.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/articles/US/2026/10/15/hero_OMC_38b808d5.jpg",
+      "published_date": "2026-10-01T03:02:22Z",
+      "slug": "omnicom-group-omc-has-risen-10-of-10-midterm-autumns-averaging-8-61-gains",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "511178323c4047fa27c62ae60c96e819184a762423e83ff265683d5797d7ab07",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "https://seasonalmarketnews.com/articles/US/2026/10/15/hero_OMC_38b808d5.jpg",
+          "data_src": null,
+          "alt": "Omnicom Group (OMC) market analysis and seasonal trends - TradeWave.ai",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/articles/US/2026/10/15/hero_OMC_38b808d5.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/articles/US/2026/10/15/hero_OMC_38b808d5.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified"
+    },
+    {
+      "date": "2026-10-01",
+      "native_standard_edition": false,
+      "symbol": "NVDA",
+      "url": "https://seasonalmarketnews.com/articles/US/2026/10/29/nvidia-nvda-rides-1-2t-ai-spending-wave-into-a-6-for-6-late-october-midterm-rally-window.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/articles/US/2026/10/29/hero_NVDA_b20db065.jpg",
+      "published_date": "2026-10-01T03:11:35Z",
+      "slug": "nvidia-nvda-rides-1-2t-ai-spending-wave-into-a-6-for-6-late-october-midterm-rally-window",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "4182857ad01c0c30cec758d34f75e9268d6e22722aea87fb749b80b8adff8068",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 6,
+      "hero_tags": [
+        {
+          "src": "https://seasonalmarketnews.com/articles/US/2026/10/29/hero_NVDA_b20db065.jpg",
+          "data_src": null,
+          "alt": "Nvidia (NVDA) market analysis and seasonal trends - TradeWave.ai",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/articles/US/2026/10/29/hero_NVDA_b20db065.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/articles/US/2026/10/29/hero_NVDA_b20db065.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified"
+    },
+    {
+      "date": "2026-10-01",
+      "native_standard_edition": false,
+      "symbol": "NKE",
+      "url": "https://seasonalmarketnews.com/articles/US/2026/10/18/nike-inc-nke-has-rallied-in-10-of-10-midterm-late-october-windows-averaging-5-67-gains.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/articles/US/2026/10/18/hero_NKE_4c1b5e07.jpg",
+      "published_date": "2026-10-01T03:09:50Z",
+      "slug": "nike-inc-nke-has-rallied-in-10-of-10-midterm-late-october-windows-averaging-5-67-gains",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "bc3871f2404898de72f2dbd2048538569194576550185f78a0a5a55b04877c0c",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "https://seasonalmarketnews.com/articles/US/2026/10/18/hero_NKE_4c1b5e07.jpg",
+          "data_src": null,
+          "alt": "Nike, Inc. (NKE) market analysis and seasonal trends - TradeWave.ai",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/articles/US/2026/10/18/hero_NKE_4c1b5e07.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/articles/US/2026/10/18/hero_NKE_4c1b5e07.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified"
+    },
+    {
+      "date": "2026-10-01",
+      "native_standard_edition": false,
+      "symbol": "GC",
+      "url": "https://seasonalmarketnews.com/articles/COMM/2026/10/03/geopolitical-jitters-and-call-buying-drive-gold-comex-gc-toward-its-bullish-oct-jan-stretch.html",
+      "catalog_hero_status": null,
+      "catalog_hero_image": "https://seasonalmarketnews.com/articles/COMM/2026/10/03/hero_GC_316ee9f8.jpg",
+      "published_date": "2026-10-01T03:08:04Z",
+      "slug": "geopolitical-jitters-and-call-buying-drive-gold-comex-gc-toward-its-bullish-oct-jan-stretch",
+      "http_status": 200,
+      "content_type": "text/html",
+      "article_sha256": "b3462ebf8237830913e8ab9270ef1d91d0bbd7338f183a4d9801f5253c8323f7",
+      "has_h1": true,
+      "hero_container_count": 1,
+      "total_image_tags": 5,
+      "hero_tags": [
+        {
+          "src": "https://seasonalmarketnews.com/articles/COMM/2026/10/03/hero_GC_316ee9f8.jpg",
+          "data_src": null,
+          "alt": "Gold (COMEX) (GC) market analysis and seasonal trends - TradeWave.ai",
+          "loading": null,
+          "style": null,
+          "resolved_url": "https://seasonalmarketnews.com/articles/COMM/2026/10/03/hero_GC_316ee9f8.jpg",
+          "asset_check": {
+            "http_status": 206,
+            "content_type": "image/jpeg",
+            "prefix_hex": "ffd8ffe000104a4649460001",
+            "public_image_verified": true,
+            "final_url": "https://seasonalmarketnews.com/articles/COMM/2026/10/03/hero_GC_316ee9f8.jpg"
+          }
+        }
+      ],
+      "classification": "hero_present_asset_verified"
+    }
+  ],
+  "private_production_files_read": false,
+  "production_mutations": 0,
+  "model_jobs": 0,
+  "paid_image_generations": 0,
+  "subscriber_sends": 0,
+  "approval_status_in_this_task": "No new direct release/backfill approval or current-day backup confirmation received since prior handoff. Parent says exact approval is pending."
+}

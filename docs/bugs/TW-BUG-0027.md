@@ -1,5 +1,16 @@
 # TW-BUG-0027: SMN Publication and Newsletter Continuity Failures
 
+## Website hero scope reverified, October 19 16:14 UTC
+
+Read-only follow-up confirms the missing heroes affect the five actual October
+16 article pages, not merely the delivered recap. Of 74 October 1–19 public
+article pages checked, the other 69 have hero tags and working image assets;
+no additional affected edition found. Four private GS/PGR/XLK/MRK overrides are
+unchanged and unpublished, C remains pending, and no new direct live approval or
+backup confirmation arrived in this worker. The parent is independently checking
+visible presentation. [Exact scope and evidence](evidence/TW-BUG-0027/20261019/PUBLIC-ARTICLE-HERO-SCOPE.md).
+
+
 ## Live approval pending; minimal backup/alert prerequisites, October 19
 
 Parent reported automatic approval review rejected live cutover/four public hero
