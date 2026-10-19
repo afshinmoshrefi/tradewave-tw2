@@ -140,20 +140,29 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   `_static/scorecard.html`. Reads `featured_history.json` + live prices.
 - **Tickers** (`blog/generate_top10_AI.py` / `top10_jobs_today_to_queue_cron.py`)
   - "AI" here = Sharpe-ranked OppList4, NOT an LLM.
-- **SMN October 5 operational update:** production subscription runtime remains
-  `08f8714`, with weekday research at 05:30 America/New_York and email after
-  07:00 only upon verified publication. The October 5 reader edition is held;
-  the working production dashboard does not imply successful publication.
-  Source-date/retry, reviewer-evidence, complete-lineup and runtime-asset fixes
-  are installed in production, but recovery held at43/46 jobs on additional
-  citation-format and SI chart-method prose defects. Citation correction is live
-  on Dev at `afd6f2e`; production candidate `2cc3167` needs new exact release
-  approval and a one-time49 cumulative cap (ordinary40 unchanged). Today's
-  snapshots are already confirmed. Receipt-bound SI copyedit plus fresh review,
-  article visuals and full publication remain pending. Observer units
-  and saved alert settings are absent in production. Exact evidence and operator
-  handoff: [TW-BUG-0027](bugs/TW-BUG-0027.md). The following July pipeline
-  description is historical and does not supersede this subscription runtime.
+- **SMN subscription runtime and newsletter coordination, October 19:** observed
+  production source is `2b0075c85e45d8cd547c95b8868f8560532cf86b` on
+  seasonalmarketnews / 209.182.216.112. Canonical date inputs, model accounting
+  and reader receipts are under `/var/lib/tradewave/smn-daily/subscription-primary`.
+  Selection starts at 03:00 America/New_York, generation at 04:00, and the
+  configured nonbinding publication/newsletter target is 07:00; the normal
+  cumulative model-attempt limit is 60. Production continuity admits genuinely
+  qualified partial coverage with explicit pending subjects and preserved AI
+  findings; source, engine, receipt and security checks remain essential.
+  Newsletter snapshot capture and pre-POST reservation use the same edition
+  publication lease as the rolling publisher, followed by the catalog lease.
+  Only an unchanged verified snapshot may persist campaign intent before POST;
+  existing/uncertain intents forbid duplicate creation. Production currently
+  acquires that lease nonblockingly. Scoped candidate `d89fabcd` adds a maximum
+  30-second monotonic wait per acquisition, without replaying the protected body;
+  it is isolated-test qualified and not activated. Effective newsletter units can
+  pin a versioned ExecStart and WorkingDirectory, so a current-symlink change
+  alone does not establish that new code runs. Current SMN main predates this
+  installed scoped production line; preserve exact source/artifact composition
+  rather than promoting unrelated main features. Real incident status, runtime
+  evidence, explicit approval boundaries and release requirements belong to
+  [TW-BUG-0027](bugs/TW-BUG-0027.md). Earlier October 5 observations and the
+  following July pipeline description are historical.
 - **SMN articles** (cron: `select_news_articles.py` 02:00 -> `daily_article_queue.py`
   03:00 -> always-running `article_processor.py`). THIS pipeline DOES use LLMs:
   Grok (`grok-3-mini`) for news extraction + research synthesis (Tavily search

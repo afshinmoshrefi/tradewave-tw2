@@ -1,0 +1,973 @@
+{
+  "utc": "2026-10-19T11:12:16.450187+00:00",
+  "eastern": "2026-10-19T07:12:16.450187-04:00",
+  "host": "seasonalmarketnews",
+  "source": "/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b",
+  "mutations": 0,
+  "provider_calls": 0,
+  "sends": 0,
+  "timer_changes": 0,
+  "units": {
+    "smn-weekday-newsletter.service": {
+      "TimeoutStartUSec": "30min",
+      "MainPID": "0",
+      "Result": "exit-code",
+      "ExecMainStartTimestamp": "Mon 2026-10-19 11:12:00 UTC",
+      "ExecMainExitTimestamp": "Mon 2026-10-19 11:12:05 UTC",
+      "ExecMainStatus": "1",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/operational_schedule.py --target production --newsletter-only ; ignore_errors=no ; start_time=[Mon 2026-10-19 11:12:00 UTC] ; stop_time=[Mon 2026-10-19 11:12:05 UTC] ; pid=3032938 ; code=exited ; status=1 }",
+      "ControlGroup": "",
+      "WorkingDirectory": "/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog",
+      "User": "",
+      "LoadState": "loaded",
+      "ActiveState": "failed",
+      "SubState": "failed",
+      "UnitFileState": "static",
+      "InvocationID": "bc665cfedc9a456fafd9485b1a0a0954"
+    },
+    "smn-weekday-newsletter.timer": {
+      "NextElapseUSecRealtime": "Mon 2026-10-19 11:13:00 UTC",
+      "LastTriggerUSec": "Mon 2026-10-19 11:12:00 UTC",
+      "Result": "success",
+      "LoadState": "loaded",
+      "ActiveState": "active",
+      "SubState": "waiting",
+      "UnitFileState": "enabled",
+      "InvocationID": "bec629edd755452fbe6f1fe7bfab5391"
+    },
+    "smn-continuity@reconcile.service": {
+      "TimeoutStartUSec": "1min 30s",
+      "MainPID": "0",
+      "Result": "success",
+      "ExecMainStartTimestamp": "Mon 2026-10-19 11:12:00 UTC",
+      "ExecMainExitTimestamp": "Mon 2026-10-19 11:12:07 UTC",
+      "ExecMainStatus": "0",
+      "ExecStart": "{ path=/home/flask/venv/bin/python ; argv[]=/home/flask/venv/bin/python /opt/smn-subscription/current/blog/reconcile_tick_guard.py --enable-production-continuity ; ignore_errors=no ; start_time=[Mon 2026-10-19 11:12:00 UTC] ; stop_time=[Mon 2026-10-19 11:12:07 UTC] ; pid=3032941 ; code=exited ; status=0 }",
+      "ControlGroup": "",
+      "WorkingDirectory": "/opt/smn-subscription/current/blog",
+      "User": "root",
+      "LoadState": "loaded",
+      "ActiveState": "inactive",
+      "SubState": "dead",
+      "UnitFileState": "static",
+      "InvocationID": "f1df47c9583d43ecb69c03e71f77d1b9"
+    }
+  },
+  "schedule_markers": {
+    "production-weekday_newsletter-2026-10-19.json": {
+      "path": "/var/lib/smn-dashboard/schedule-runs/production-weekday_newsletter-2026-10-19.json",
+      "exists": true,
+      "sha256": "8de1b3000ea02dd32fb3df0f5655a078ae35f46bca1caa01a95e3f79d6319b03",
+      "bytes": 1937,
+      "mtime_utc": "2026-10-19T11:12:05.352992+00:00",
+      "value": {
+        "target": "production",
+        "phase": "weekday_newsletter",
+        "date": "2026-10-19",
+        "started_at": "2026-10-19T11:12:00.530964+00:00",
+        "status": "failed",
+        "attempt": 3,
+        "retry_history": [
+          {
+            "archive": "production-weekday_newsletter-2026-10-19.attempt-1-251d498e1ade9dd27c12875dadeb0d093a460480ca3c17791983683e880a82a5.json",
+            "sha256": "251d498e1ade9dd27c12875dadeb0d093a460480ca3c17791983683e880a82a5",
+            "status": "failed",
+            "exit_code": 1,
+            "finished_at": "2026-10-19T11:00:04.051300+00:00",
+            "retry_checked_utc": "2026-10-19T11:06:00.517132+00:00",
+            "pre_post_evidence": {
+              "campaign_state_sha256": "b5c28d85552e1c289024896a5d5b55bec2bfee161e84a045a04acedaf332f240",
+              "campaign_key": "daily:2026-10-19",
+              "unreserved_slugs": [
+                "cck-subscription-2026-10-19",
+                "csx-subscription-2026-10-19",
+                "amzn-subscription-2026-10-19",
+                "xlf-subscription-2026-10-19",
+                "spy-subscription-2026-10-19",
+                "qqq-subscription-2026-10-19"
+              ],
+              "checked_utc": "2026-10-19T11:06:02.790576+00:00",
+              "proof": "readable native journal has no date intent or reserved lineup"
+            }
+          },
+          {
+            "archive": "production-weekday_newsletter-2026-10-19.attempt-2-be21daadd06cde7ec9b803177f992dc0d85c420ab0e03bc869f1f3f3e0cf44a1.json",
+            "sha256": "be21daadd06cde7ec9b803177f992dc0d85c420ab0e03bc869f1f3f3e0cf44a1",
+            "status": "failed",
+            "exit_code": 1,
+            "finished_at": "2026-10-19T11:06:05.224808+00:00",
+            "retry_checked_utc": "2026-10-19T11:12:00.530964+00:00",
+            "pre_post_evidence": {
+              "campaign_state_sha256": "b5c28d85552e1c289024896a5d5b55bec2bfee161e84a045a04acedaf332f240",
+              "campaign_key": "daily:2026-10-19",
+              "unreserved_slugs": [
+                "cck-subscription-2026-10-19",
+                "csx-subscription-2026-10-19",
+                "amzn-subscription-2026-10-19",
+                "xlf-subscription-2026-10-19",
+                "spy-subscription-2026-10-19",
+                "qqq-subscription-2026-10-19"
+              ],
+              "checked_utc": "2026-10-19T11:12:02.810555+00:00",
+              "proof": "readable native journal has no date intent or reserved lineup"
+            }
+          }
+        ],
+        "finished_at": "2026-10-19T11:12:05.354158+00:00",
+        "exit_code": 1
+      }
+    },
+    "production-weekday_newsletter-2026-10-19.attempt-2-be21daadd06cde7ec9b803177f992dc0d85c420ab0e03bc869f1f3f3e0cf44a1.json": {
+      "path": "/var/lib/smn-dashboard/schedule-runs/production-weekday_newsletter-2026-10-19.attempt-2-be21daadd06cde7ec9b803177f992dc0d85c420ab0e03bc869f1f3f3e0cf44a1.json",
+      "exists": true,
+      "sha256": "be21daadd06cde7ec9b803177f992dc0d85c420ab0e03bc869f1f3f3e0cf44a1",
+      "bytes": 1092,
+      "mtime_utc": "2026-10-19T11:12:02.811993+00:00",
+      "value": {
+        "target": "production",
+        "phase": "weekday_newsletter",
+        "date": "2026-10-19",
+        "started_at": "2026-10-19T11:06:00.517132+00:00",
+        "status": "failed",
+        "attempt": 2,
+        "retry_history": [
+          {
+            "archive": "production-weekday_newsletter-2026-10-19.attempt-1-251d498e1ade9dd27c12875dadeb0d093a460480ca3c17791983683e880a82a5.json",
+            "sha256": "251d498e1ade9dd27c12875dadeb0d093a460480ca3c17791983683e880a82a5",
+            "status": "failed",
+            "exit_code": 1,
+            "finished_at": "2026-10-19T11:00:04.051300+00:00",
+            "retry_checked_utc": "2026-10-19T11:06:00.517132+00:00",
+            "pre_post_evidence": {
+              "campaign_state_sha256": "b5c28d85552e1c289024896a5d5b55bec2bfee161e84a045a04acedaf332f240",
+              "campaign_key": "daily:2026-10-19",
+              "unreserved_slugs": [
+                "cck-subscription-2026-10-19",
+                "csx-subscription-2026-10-19",
+                "amzn-subscription-2026-10-19",
+                "xlf-subscription-2026-10-19",
+                "spy-subscription-2026-10-19",
+                "qqq-subscription-2026-10-19"
+              ],
+              "checked_utc": "2026-10-19T11:06:02.790576+00:00",
+              "proof": "readable native journal has no date intent or reserved lineup"
+            }
+          }
+        ],
+        "finished_at": "2026-10-19T11:06:05.224808+00:00",
+        "exit_code": 1
+      }
+    },
+    "production-weekday_newsletter-2026-10-19.attempt-1-251d498e1ade9dd27c12875dadeb0d093a460480ca3c17791983683e880a82a5.json": {
+      "path": "/var/lib/smn-dashboard/schedule-runs/production-weekday_newsletter-2026-10-19.attempt-1-251d498e1ade9dd27c12875dadeb0d093a460480ca3c17791983683e880a82a5.json",
+      "exists": true,
+      "sha256": "251d498e1ade9dd27c12875dadeb0d093a460480ca3c17791983683e880a82a5",
+      "bytes": 214,
+      "mtime_utc": "2026-10-19T11:06:02.789249+00:00",
+      "value": {
+        "target": "production",
+        "phase": "weekday_newsletter",
+        "date": "2026-10-19",
+        "started_at": "2026-10-19T11:00:00.520822+00:00",
+        "status": "failed",
+        "finished_at": "2026-10-19T11:00:04.051300+00:00",
+        "exit_code": 1
+      }
+    },
+    "production-selector-2026-10-19.json": {
+      "path": "/var/lib/smn-dashboard/schedule-runs/production-selector-2026-10-19.json",
+      "exists": true,
+      "sha256": "bab1d0898fd713df1ecb717d209037684361ffbd1ffd24c988090a7b7a5c97c5",
+      "bytes": 207,
+      "mtime_utc": "2026-10-19T07:04:33.112095+00:00",
+      "value": {
+        "target": "production",
+        "phase": "selector",
+        "date": "2026-10-19",
+        "started_at": "2026-10-19T07:00:01.628659+00:00",
+        "status": "completed",
+        "finished_at": "2026-10-19T07:04:33.112946+00:00",
+        "exit_code": 0
+      }
+    }
+  },
+  "processes": {},
+  "kernel_locks": [],
+  "newsletter_ledger": {
+    "path": "/home/flask/blog/logs/sent_smn_emails.json",
+    "exists": true,
+    "sha256": "b5c28d85552e1c289024896a5d5b55bec2bfee161e84a045a04acedaf332f240",
+    "bytes": 151186,
+    "mtime_utc": "2026-10-18T09:32:02.699900+00:00",
+    "top_keys": [
+      "daily_sent",
+      "weekly_sent",
+      "last_weekly_date",
+      "last_daily_narrative",
+      "last_weekly_narrative",
+      "campaigns"
+    ],
+    "daily_campaign_key": "daily:2026-10-19",
+    "today_campaign": null,
+    "today_matching_campaigns": {},
+    "last_daily_sent": null,
+    "last_daily_date": null,
+    "sent_slugs_count": 0
+  },
+  "publication": {
+    "path": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-19/chatgpt/production-publication-receipt.json",
+    "exists": true,
+    "sha256": "ab218a6a81071b0431c3bc1758f58a91ab8a49a04c26fceff3f62ac001095510",
+    "bytes": 337120,
+    "mtime_utc": "2026-10-19T08:57:34.661679+00:00",
+    "value": {
+      "id": "smn-production-2026-10-19-1e1558be4ad75910",
+      "status": "live_verified",
+      "edition_date": "2026-10-19",
+      "complete": true,
+      "published_symbols": [
+        "QQQ",
+        "SPY",
+        "XLF",
+        "AMZN",
+        "CSX",
+        "CCK"
+      ],
+      "pending_symbols": [],
+      "latest_update": "2026-10-19T08:57:34.649760+00:00",
+      "transaction_root": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-19/chatgpt/publication-revisions/f77b9b5312ac8a8924fb8524911d3be71e995fadef70fbb9fb56e74b189f4bd9/attempt-1"
+    }
+  },
+  "failure_journal": [
+    {
+      "utc_usec": "1792407000360109",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792407000589460",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792407000589989",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792407060358957",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792407060569943",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792407060570078",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792407120357887",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792407120572842",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792407120572951",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792407180358907",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792407180575018",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792407180575147",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792407240358952",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792407240563709",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792407240563808",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792407300361997",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792407300602015",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792407300602168",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792407360357721",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792407360562411",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792407360563534",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792407420362036",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792407420562839",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792407420562948",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792407480359466",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792407480571800",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792407480571903",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792407540358963",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792407540562800",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792407540562903",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792407600358767",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792407603647994",
+      "pid": "3026587",
+      "message": "SEND SMN EMAILS  —  Started 2026-10-19 11:00:03  —  Monday October 19, 2026"
+    },
+    {
+      "utc_usec": "1792407603648990",
+      "pid": "3026587",
+      "message": "Traceback (most recent call last):"
+    },
+    {
+      "utc_usec": "1792407603648990",
+      "pid": "3026587",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/send_smn_emails.py\", line 1025, in <module>"
+    },
+    {
+      "utc_usec": "1792407603648990",
+      "pid": "3026587",
+      "message": "    daily_send(verified_urls=urls, edition_date=local_today)"
+    },
+    {
+      "utc_usec": "1792407603648990",
+      "pid": "3026587",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/send_smn_emails.py\", line 147, in wrapped"
+    },
+    {
+      "utc_usec": "1792407603648990",
+      "pid": "3026587",
+      "message": "    return function(*args, **kwargs)"
+    },
+    {
+      "utc_usec": "1792407603648990",
+      "pid": "3026587",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "utc_usec": "1792407603648990",
+      "pid": "3026587",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/send_smn_emails.py\", line 864, in daily_send"
+    },
+    {
+      "utc_usec": "1792407603648990",
+      "pid": "3026587",
+      "message": "    record = _create_and_schedule(group_id, subject, html, name, state, 'daily', today, articles,"
+    },
+    {
+      "utc_usec": "1792407603650329",
+      "pid": "3026587",
+      "message": "             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "utc_usec": "1792407603650329",
+      "pid": "3026587",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/send_smn_emails.py\", line 647, in _create_and_schedule"
+    },
+    {
+      "utc_usec": "1792407603650329",
+      "pid": "3026587",
+      "message": "    reserve(reader_snapshot,articles,persist_intent,current=datetime.now(timezone.utc))"
+    },
+    {
+      "utc_usec": "1792407603650329",
+      "pid": "3026587",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/newsletter_reader_snapshot.py\", line 131, in reserve"
+    },
+    {
+      "utc_usec": "1792407603650329",
+      "pid": "3026587",
+      "message": "    with coordinated(snapshot.root,snapshot.day):"
+    },
+    {
+      "utc_usec": "1792407603650329",
+      "pid": "3026587",
+      "message": "  File \"/usr/lib/python3.12/contextlib.py\", line 137, in __enter__"
+    },
+    {
+      "utc_usec": "1792407603650849",
+      "pid": "3026587",
+      "message": "    return next(self.gen)"
+    },
+    {
+      "utc_usec": "1792407603650849",
+      "pid": "3026587",
+      "message": "           ^^^^^^^^^^^^^^"
+    },
+    {
+      "utc_usec": "1792407603650849",
+      "pid": "3026587",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/newsletter_reader_snapshot.py\", line 28, in coordinated"
+    },
+    {
+      "utc_usec": "1792407603650849",
+      "pid": "3026587",
+      "message": "    with _lock(edition):"
+    },
+    {
+      "utc_usec": "1792407603650849",
+      "pid": "3026587",
+      "message": "  File \"/usr/lib/python3.12/contextlib.py\", line 137, in __enter__"
+    },
+    {
+      "utc_usec": "1792407603650849",
+      "pid": "3026587",
+      "message": "    return next(self.gen)"
+    },
+    {
+      "utc_usec": "1792407603650849",
+      "pid": "3026587",
+      "message": "           ^^^^^^^^^^^^^^"
+    },
+    {
+      "utc_usec": "1792407603650849",
+      "pid": "3026587",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/production_continuity.py\", line 42, in _lock"
+    },
+    {
+      "utc_usec": "1792407603652127",
+      "pid": "3026587",
+      "message": "    fcntl.flock(handle,fcntl.LOCK_EX|fcntl.LOCK_NB)"
+    },
+    {
+      "utc_usec": "1792407603652127",
+      "pid": "3026587",
+      "message": "BlockingIOError: [Errno 11] Resource temporarily unavailable"
+    },
+    {
+      "utc_usec": "1792407604068189",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Main process exited, code=exited, status=1/FAILURE"
+    },
+    {
+      "utc_usec": "1792407604068516",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Failed with result 'exit-code'."
+    },
+    {
+      "utc_usec": "1792407604071488",
+      "pid": "1",
+      "message": "Failed to start smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792407604071567",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Consumed 1.279s CPU time."
+    },
+    {
+      "utc_usec": "1792407660363302",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792407660560517",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792407660560621",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792407720362167",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792407720629783",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792407720629880",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792407780358795",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792407780561659",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792407780563929",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792407840358864",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792407840562210",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792407840562316",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792407900364001",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792407900588869",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792407900588999",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792407960358997",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792407964835001",
+      "pid": "3029763",
+      "message": "SEND SMN EMAILS  —  Started 2026-10-19 11:06:04  —  Monday October 19, 2026"
+    },
+    {
+      "utc_usec": "1792407964836990",
+      "pid": "3029763",
+      "message": "Traceback (most recent call last):"
+    },
+    {
+      "utc_usec": "1792407964836990",
+      "pid": "3029763",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/send_smn_emails.py\", line 1025, in <module>"
+    },
+    {
+      "utc_usec": "1792407964836990",
+      "pid": "3029763",
+      "message": "    daily_send(verified_urls=urls, edition_date=local_today)"
+    },
+    {
+      "utc_usec": "1792407964836990",
+      "pid": "3029763",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/send_smn_emails.py\", line 147, in wrapped"
+    },
+    {
+      "utc_usec": "1792407964836990",
+      "pid": "3029763",
+      "message": "    return function(*args, **kwargs)"
+    },
+    {
+      "utc_usec": "1792407964836990",
+      "pid": "3029763",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "utc_usec": "1792407964836990",
+      "pid": "3029763",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/send_smn_emails.py\", line 812, in daily_send"
+    },
+    {
+      "utc_usec": "1792407964836990",
+      "pid": "3029763",
+      "message": "    reader_snapshot=capture(CONTROLLER_ROOT,today.isoformat(),NEWS_ROOT,current=datetime.now(timezone.utc))"
+    },
+    {
+      "utc_usec": "1792407964836990",
+      "pid": "3029763",
+      "message": "                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "utc_usec": "1792407964836990",
+      "pid": "3029763",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/newsletter_reader_snapshot.py\", line 125, in capture"
+    },
+    {
+      "utc_usec": "1792407964836990",
+      "pid": "3029763",
+      "message": "    with coordinated(root,day):return _capture_locked(root,day,web,current)"
+    },
+    {
+      "utc_usec": "1792407964836990",
+      "pid": "3029763",
+      "message": "  File \"/usr/lib/python3.12/contextlib.py\", line 137, in __enter__"
+    },
+    {
+      "utc_usec": "1792407964840227",
+      "pid": "3029763",
+      "message": "    return next(self.gen)"
+    },
+    {
+      "utc_usec": "1792407964840227",
+      "pid": "3029763",
+      "message": "           ^^^^^^^^^^^^^^"
+    },
+    {
+      "utc_usec": "1792407964840227",
+      "pid": "3029763",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/newsletter_reader_snapshot.py\", line 28, in coordinated"
+    },
+    {
+      "utc_usec": "1792407964840227",
+      "pid": "3029763",
+      "message": "    with _lock(edition):"
+    },
+    {
+      "utc_usec": "1792407964840227",
+      "pid": "3029763",
+      "message": "  File \"/usr/lib/python3.12/contextlib.py\", line 137, in __enter__"
+    },
+    {
+      "utc_usec": "1792407964840227",
+      "pid": "3029763",
+      "message": "    return next(self.gen)"
+    },
+    {
+      "utc_usec": "1792407964840227",
+      "pid": "3029763",
+      "message": "           ^^^^^^^^^^^^^^"
+    },
+    {
+      "utc_usec": "1792407964840227",
+      "pid": "3029763",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/production_continuity.py\", line 42, in _lock"
+    },
+    {
+      "utc_usec": "1792407964841986",
+      "pid": "3029763",
+      "message": "    fcntl.flock(handle,fcntl.LOCK_EX|fcntl.LOCK_NB)"
+    },
+    {
+      "utc_usec": "1792407964841986",
+      "pid": "3029763",
+      "message": "BlockingIOError: [Errno 11] Resource temporarily unavailable"
+    },
+    {
+      "utc_usec": "1792407965608845",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Main process exited, code=exited, status=1/FAILURE"
+    },
+    {
+      "utc_usec": "1792407965609762",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Failed with result 'exit-code'."
+    },
+    {
+      "utc_usec": "1792407965611324",
+      "pid": "1",
+      "message": "Failed to start smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792407965611371",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Consumed 2.250s CPU time."
+    },
+    {
+      "utc_usec": "1792408020359033",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792408020561998",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792408020562107",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792408080358962",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792408080577586",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792408080577689",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792408140357038",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792408140570791",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792408140570888",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792408200361565",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792408200603700",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792408200603809",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792408260364617",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792408260572372",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Deactivated successfully."
+    },
+    {
+      "utc_usec": "1792408260572485",
+      "pid": "1",
+      "message": "Finished smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792408320358785",
+      "pid": "1",
+      "message": "Starting smn-weekday-newsletter.service - SMN verified weekday subscriber email..."
+    },
+    {
+      "utc_usec": "1792408324896697",
+      "pid": "3032975",
+      "message": "SEND SMN EMAILS  —  Started 2026-10-19 11:12:04  —  Monday October 19, 2026"
+    },
+    {
+      "utc_usec": "1792408324898714",
+      "pid": "3032975",
+      "message": "Traceback (most recent call last):"
+    },
+    {
+      "utc_usec": "1792408324898714",
+      "pid": "3032975",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/send_smn_emails.py\", line 1025, in <module>"
+    },
+    {
+      "utc_usec": "1792408324898714",
+      "pid": "3032975",
+      "message": "    daily_send(verified_urls=urls, edition_date=local_today)"
+    },
+    {
+      "utc_usec": "1792408324898714",
+      "pid": "3032975",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/send_smn_emails.py\", line 147, in wrapped"
+    },
+    {
+      "utc_usec": "1792408324898714",
+      "pid": "3032975",
+      "message": "    return function(*args, **kwargs)"
+    },
+    {
+      "utc_usec": "1792408324898714",
+      "pid": "3032975",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "utc_usec": "1792408324898714",
+      "pid": "3032975",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/send_smn_emails.py\", line 812, in daily_send"
+    },
+    {
+      "utc_usec": "1792408324898714",
+      "pid": "3032975",
+      "message": "    reader_snapshot=capture(CONTROLLER_ROOT,today.isoformat(),NEWS_ROOT,current=datetime.now(timezone.utc))"
+    },
+    {
+      "utc_usec": "1792408324898714",
+      "pid": "3032975",
+      "message": "                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "utc_usec": "1792408324898714",
+      "pid": "3032975",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/newsletter_reader_snapshot.py\", line 125, in capture"
+    },
+    {
+      "utc_usec": "1792408324898714",
+      "pid": "3032975",
+      "message": "    with coordinated(root,day):return _capture_locked(root,day,web,current)"
+    },
+    {
+      "utc_usec": "1792408324898714",
+      "pid": "3032975",
+      "message": "  File \"/usr/lib/python3.12/contextlib.py\", line 137, in __enter__"
+    },
+    {
+      "utc_usec": "1792408324900267",
+      "pid": "3032975",
+      "message": "    return next(self.gen)"
+    },
+    {
+      "utc_usec": "1792408324900267",
+      "pid": "3032975",
+      "message": "           ^^^^^^^^^^^^^^"
+    },
+    {
+      "utc_usec": "1792408324900267",
+      "pid": "3032975",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/newsletter_reader_snapshot.py\", line 28, in coordinated"
+    },
+    {
+      "utc_usec": "1792408324900267",
+      "pid": "3032975",
+      "message": "    with _lock(edition):"
+    },
+    {
+      "utc_usec": "1792408324900267",
+      "pid": "3032975",
+      "message": "  File \"/usr/lib/python3.12/contextlib.py\", line 137, in __enter__"
+    },
+    {
+      "utc_usec": "1792408324900267",
+      "pid": "3032975",
+      "message": "    return next(self.gen)"
+    },
+    {
+      "utc_usec": "1792408324900267",
+      "pid": "3032975",
+      "message": "           ^^^^^^^^^^^^^^"
+    },
+    {
+      "utc_usec": "1792408324900267",
+      "pid": "3032975",
+      "message": "  File \"/opt/smn-subscription/releases/2b0075c85e45d8cd547c95b8868f8560532cf86b/blog/production_continuity.py\", line 42, in _lock"
+    },
+    {
+      "utc_usec": "1792408324901147",
+      "pid": "3032975",
+      "message": "    fcntl.flock(handle,fcntl.LOCK_EX|fcntl.LOCK_NB)"
+    },
+    {
+      "utc_usec": "1792408324901147",
+      "pid": "3032975",
+      "message": "BlockingIOError: [Errno 11] Resource temporarily unavailable"
+    },
+    {
+      "utc_usec": "1792408325947087",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Main process exited, code=exited, status=1/FAILURE"
+    },
+    {
+      "utc_usec": "1792408325947240",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Failed with result 'exit-code'."
+    },
+    {
+      "utc_usec": "1792408325947362",
+      "pid": "1",
+      "message": "Failed to start smn-weekday-newsletter.service - SMN verified weekday subscriber email."
+    },
+    {
+      "utc_usec": "1792408325947427",
+      "pid": "1",
+      "message": "smn-weekday-newsletter.service: Consumed 2.256s CPU time."
+    }
+  ]
+}

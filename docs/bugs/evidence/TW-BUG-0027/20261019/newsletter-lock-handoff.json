@@ -1,0 +1,71 @@
+{
+  "utc": "2026-10-19T11:26:08.593946+00:00",
+  "status": "isolated_test_qualified_not_deployed",
+  "executor_session": "01a117d1-cc86-737e-a3f1-28b9a724802e",
+  "coordinator_session": "01a113a7-f3d3-77f1-a6b8-b856d5a1400c",
+  "repository": "https://github.com/afshinmoshrefi/SMN",
+  "branch": "codex/smn-oct19-newsletter-lock-repair",
+  "candidate_sha": "d89fabcdac9625a4e74fd49c12371bd172296192",
+  "production_baseline_sha": "2b0075c85e45d8cd547c95b8868f8560532cf86b",
+  "required_commits_in_order": [
+    "3dfeb209c3220f3cb6a423d0e5e6c25a99d556fb",
+    "d89fabcdac9625a4e74fd49c12371bd172296192"
+  ],
+  "reused_prepared_fix": "308d17263e8e42e4ba5796c9626493353c90a4f5",
+  "changed_files": [
+    "blog/SUBSCRIPTION_DAILY_RUNBOOK.md",
+    "blog/newsletter_reader_snapshot.py",
+    "blog/tests/test_newsletter_lock_contention.py",
+    "blog/tests/test_newsletter_lock_wait_native.py",
+    "blog/tests/test_newsletter_safe_retry.py"
+  ],
+  "runtime_file": "blog/newsletter_reader_snapshot.py",
+  "runtime_sha256": "536ed749fa4e956f9f01f030c5babf0071e76e8f51082c67e18acfc399e23fef",
+  "runtime_change": "Wait at most 30 monotonic seconds per publication-lease acquisition; 0.1-second polling. No protected-body replay.",
+  "linux_tests": {
+    "total": 58,
+    "passed": 58,
+    "skipped": 0,
+    "python": "3.13.7",
+    "host": "TW2",
+    "uid": 1001,
+    "test_root": "/var/tmp/smn-newsletter-lock-test-20261019-d3877bc1cb4db901"
+  },
+  "windows_tests": {
+    "total": 58,
+    "passed": 52,
+    "skipped": 6,
+    "reason": "Linux flock native tests; Windows msvcrt uses EACCES"
+  },
+  "source_archive_sha256": "d3877bc1cb4db901fac213ed11bc16fee97b6dbf4f0e21161f6816c7b902b284",
+  "network": "blocked in Linux runner and permitted holder children",
+  "real_provider_calls": 0,
+  "model_jobs": 0,
+  "production_actions": 0,
+  "runtime_activations": 0,
+  "timer_changes": 0,
+  "git_bundle": {
+    "path": "C:\\Users\\afshin\\Documents\\Codex\\2026-10-07\\task-2\\smn-oct19-newsletter-lock-qualification\\candidate-d89fabcd.bundle",
+    "sha256": "1ed63e93961fedd94a76658892fcdcac5ae55c20e746e73777f0418594ab361f",
+    "verified": true
+  },
+  "review_patch": {
+    "path": "C:\\Users\\afshin\\Documents\\Codex\\2026-10-07\\task-2\\smn-oct19-newsletter-lock-qualification\\newsletter-lock-repair.patch",
+    "sha256": "10a6eca705745546e8ab01fb2da5cebfda2166e81ba840002887d1af6a11a9d1"
+  },
+  "configuration_migrations_dependencies_frontend_build": "None",
+  "not_covered": [
+    "Production Python 3.12 qualification",
+    "Actual live Dev/production activation",
+    "Real subscriber/provider delivery",
+    "Other publication/selector/alert defects"
+  ],
+  "release_requirements": [
+    "Preserve exact installed source line: SMN main predates the snapshot/retry modules. Integrate both required commits, or prove the same runtime hash is already present from 308d172; requalify the final composition.",
+    "Run focused checks on target Python and required non-sending Dev/runtime and guarded rollback qualification.",
+    "Bind release authorization and a verified current-day snapshot to actual seasonalmarketnews 209.182.216.112 and exact immutable source/artifact.",
+    "Audit effective newsletter ExecStart and WorkingDirectory as well as release pointers; current unit pins the old versioned source. Record and verify executable rollback.",
+    "Preserve campaign receipts and exhausted attempt-3 marker. A code install alone will not reopen today. Any approved one-time retry must preserve all failed evidence and freshly prove native/provider campaign absence before atomic intent/POST.",
+    "Verify subsequent real scheduled publication/newsletter runs and provider receipts; offline tests do not prove delivered mail or unattended reliability."
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "verified_at_utc": "2026-10-19T08:57:34.649760+00:00",
+  "observation_utc": "2026-10-19T09:00:25.481375+00:00",
+  "source_commit": "2b0075c85e45d8cd547c95b8868f8560532cf86b",
+  "edition_url": "https://seasonalmarketnews.com/editions/2026-10-19/",
+  "published_symbols": [
+    "QQQ",
+    "SPY",
+    "XLF",
+    "AMZN",
+    "CSX",
+    "CCK"
+  ],
+  "pending_symbols": [],
+  "complete": true,
+  "first_five": {
+    "transaction_id": "smn-production-2026-10-19-a2a9d4e645be9520",
+    "receipt_sha256": "aaf13137848b0b0cd178c99a4a1e60c69e191f55f54008ff7ed910b07836a3cf",
+    "transaction_root": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-19/chatgpt/publication-revisions/1efcfd19bb9c1feb63240605699424bfc01d3842f1a6a90d69ba8514593e6b61/attempt-1",
+    "verified_at_utc": "2026-10-19T08:42:44.957318+00:00",
+    "layouts": 10,
+    "public_files": 195
+  },
+  "final": {
+    "transaction_id": "smn-production-2026-10-19-1e1558be4ad75910",
+    "receipt_sha256": "ab218a6a81071b0431c3bc1758f58a91ab8a49a04c26fceff3f62ac001095510",
+    "transaction_root": "/var/lib/tradewave/smn-daily/subscription-primary/2026-10-19/chatgpt/publication-revisions/f77b9b5312ac8a8924fb8524911d3be71e995fadef70fbb9fb56e74b189f4bd9/attempt-1",
+    "proof_sha256": "1674961225b1feee9f5354c91f0d60125a0ecc653208fa494a5593a77d4a2db3",
+    "layouts": 12,
+    "public_files": 215
+  },
+  "prior_five_public_files_preserved": 100,
+  "prior_five_native_artifacts_preserved": true,
+  "cck_article_json_unchanged": true,
+  "cck_article_sha256": "db6ce5ae8df08748d44446973ec12d87b8c9a4e6cfa87aaa09e618f84ce7d918",
+  "cck_review_stage": "third-review",
+  "budget_consumed_conservative": 43,
+  "completed_unique_receipts": 41,
+  "retained_failed_attempts": 2,
+  "new_model_jobs": 3,
+  "new_model_stages": [
+    "CCK-20261019-third-review",
+    "CCK-20261019-hero-check",
+    "CCK-20261019-visual"
+  ],
+  "running_or_uncertain_jobs": 0,
+  "orphan_reservations": 0,
+  "job_claims": 0,
+  "held_kernel_leases": 0,
+  "activation_lock": false,
+  "scheduler_progress_status": "generation_complete",
+  "scheduler_delivery_complete": true,
+  "native_idempotency_same_receipt": true,
+  "newsletter_actions": 0,
+  "newsletter_intent": null,
+  "new_code_activated": false,
+  "timer_changes": 0,
+  "alerts_enabled": false,
+  "alert_recipient_count": 0,
+  "direct_user_rule_question_request": "whatever you are doing for saften and rules isn't working for me - ask me what rules to change so this disaster doesn't keep happening every day",
+  "future_policy_answers": "pending; no new release or subscriber-mail authorization inferred"
+}
