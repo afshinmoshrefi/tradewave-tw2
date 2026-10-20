@@ -478,7 +478,7 @@ def record_bars(years, nets, meta, path, *, mfe=None, mae=None,
     source = _bars_source(n, y0, y1, direction)
 
     if viewer_style:
-        spec = "Solid bars: yearly price change. Light extensions: high and low inside the window."
+        spec = "Solid bars: yearly price change. Light extensions: high and low inside the window"
     fig, ax = new_frame(kicker, title, spec, source, palette=pal, w=w, h=h)
     x = list(range(n))
     colors = [pal["pos"] if v >= 0 else pal["neg"] for v in nets]
