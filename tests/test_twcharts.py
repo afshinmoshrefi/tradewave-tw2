@@ -49,7 +49,7 @@ def test_mcp_card_charts_use_the_shared_system():
     assert len(charts) == 2
     (bars_alt, bars_png), (trend_alt, trend_png) = charts
     assert bars_png.startswith(PNG) and trend_png.startswith(PNG)
-    assert "closed higher in 3 of 3 midterm election years" in bars_alt
+    assert "SPY: yearly price moves" in bars_alt
     assert "Where Sep 27 – Jul 18 sits in SPY's average year" in trend_alt
     assert "from Sep 27" in trend_alt          # the MCP curve starts at entry, and says so
     assert "average of the 3 midterm election years (2014–2022)" in trend_alt
@@ -60,4 +60,4 @@ def test_short_card_is_drawn_in_price_convention():
 
     card = _card("short")          # trade-relative bars: +9.22 means the price FELL 9.22%
     bars_alt, _ = render_card_charts(card)[0]
-    assert "closed lower in 3 of 3" in bars_alt
+    assert "short convention: positive = price rose" in bars_alt

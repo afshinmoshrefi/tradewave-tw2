@@ -1555,13 +1555,21 @@ flagship + 11 primitives).
   basis or P&L; tests guard it. Features that read real holdings need attorney sign-off.
 - `_chart_data(..., completed_years=N)` sends ChartData4 `report_completed_years` (exactly N
   completed years, as the app's reports do) and verifies the echo.
-- Charts: `twcharts/chartkit.py` is the one server-side chart system (ported from SMN
-  `blog/chartkit.py`, Roboto fonts bundled, `price_projection` deliberately removed).
-  `mcpserver/chart_renderer.py` uses it; `analyze_symbol` sends the PNGs only in result
-  `_meta["tradewave/charts"]` (for the widget, not the model); `pattern_widget.html` shows
-  them and falls back to its own SVG charts. Widget template URI is
-  `pattern-evidence-v4` (v3/v2 still served). `venv-api` needs matplotlib
-  (`requirements-api.txt`). SMN still uses its own copy until switched to `twcharts`.
+- Charts: `twcharts/chartkit.py` is the server-side chart system (ported from SMN
+  `blog/chartkit.py`, bundled Roboto, no price projection). MCP defaults to `chart_style=publication`;
+  `wave_viewer` is an explicit alternative using the app's DarkTheme colors and filled excursion
+  geometry. These are static PNGs, not interactive viewer screenshots. `analyze_symbol` returns
+  identical bytes in native MCP image blocks and `_meta["tradewave/charts"]` for the widget.
+  Top-level `chart_style` and `charts[]` report kind/style/status (`ready` or `unavailable`)/alt
+  independently per chart. The weekly digest's optional lead-chart path accepts the same style;
+  ranked scans remain list-first. v5 widgets (v4/v3/v2 aliases retained) never redraw a failed or
+  missing image as SVG: show an unavailable state and the exact viewer link. Host support and
+  cached templates still require real-client verification; transport success alone is not that proof.
+  Rendering is serialized off the async event loop because matplotlib is process-global.
+  MCP consumes completed engine rows including genuine zero years, does not recompute wins/median,
+  preserves normalized index values without rebasing, and retains the existing short-to-price
+  sign convention for viewer-compatible bars. `venv-api` needs matplotlib (`requirements-api.txt`).
+  SMN retains its separate copy; this task does not change SMN runtime or mathematics.
 - Gotchas: the MCP release gate's load step hits `/v1/scan`; with the 120 s scan-cache TTL
   and 12 s waiter timeout, a cold cache while the appserver is busy returns designed
   `scan_busy` 503s (seen 2026-09-29), so re-run once before treating it as a regression.

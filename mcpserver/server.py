@@ -45,16 +45,15 @@ from typing import Annotated, Any, Literal, Optional
 import httpx
 from pydantic import Field
 from mcp.server.fastmcp import Context, FastMCP
-from mcp.server.fastmcp.utilities.types import Image
-from mcp.types import CallToolResult, ResourceLink, TextContent, ToolAnnotations
+from mcp.types import CallToolResult, ResourceLink, TextContent, ImageContent, ToolAnnotations
 
 try:
-    from mcpserver.chart_renderer import render_card_charts
+    from mcpserver.chart_renderer import render_chart_images
 except ImportError:  # direct ``python mcpserver/server.py`` / unit-test import path
     try:
-        from chart_renderer import render_card_charts
-    except ImportError:  # rolling deploy before Pillow lands: keep MCP data/link alive
-        def render_card_charts(_card):
+        from chart_renderer import render_chart_images
+    except ImportError:  # optional renderer unavailable: keep MCP data/link alive
+        def render_chart_images(_card, chart_style="publication"):
             return []
 
 # ---------------------------------------------------------------------------
@@ -89,8 +88,9 @@ MAIN_PUBLIC_URL: str = (
 
 OLDER_PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v2.html"
 LEGACY_PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v3.html"
-# v4 (TW-TASK-0014 item 5): the widget draws the server's shared-system chart images.
-PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v4.html"
+# v5 removes the silent legacy SVG fallback and carries explicit style/status.
+PREVIOUS_PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v4.html"
+PATTERN_WIDGET_URI = "ui://tradewave/pattern-evidence-v5.html"
 SCAN_WIDGET_URI = "ui://tradewave/ranked-opportunities-v1.html"
 PATTERN_WIDGET_HTML = (Path(__file__).with_name("pattern_widget.html")).read_text(
     encoding="utf-8"
@@ -597,6 +597,39 @@ def pattern_evidence_widget() -> str:
     return PATTERN_WIDGET_HTML
 
 
+@mcp.resource(
+    PREVIOUS_PATTERN_WIDGET_URI,
+    name="tradewave-pattern-evidence-v4",
+    title="TradeWave Pattern Evidence",
+    description=(
+        "Complete ranked seasonal shortlist plus interactive evidence for the top pattern."
+    ),
+    mime_type="text/html;profile=mcp-app",
+    meta={
+        "ui": {
+            "prefersBorder": True,
+            # Deliberately omit ui.domain. MCP hosts assign their own isolated widget
+            # origin (Claude uses <hash>.claudemcpcontent.com); advertising the MCP
+            # server host here makes Claude reject the app before it can list tools.
+            "csp": {
+                "connectDomains": [],
+                "resourceDomains": [],
+            },
+        },
+        "openai/widgetDescription": (
+            "Shows the complete ranked TradeWave shortlist, normalized seasonal trend, yearly "
+            "MFE/MAE ranges, final returns, key statistics, and exact Wave Viewer links."
+        ),
+        "openai/widgetCSP": {
+            "redirect_domains": [MAIN_PUBLIC_URL],
+        },
+    },
+)
+def previous_pattern_evidence_widget() -> str:
+    """MCP App template. All evidence arrives in the tool's structuredContent."""
+    return PATTERN_WIDGET_HTML
+
+
 # MCP hosts can cache a tool's outputTemplate URI for an existing connector. Keep
 # the previous URI resolvable so a deploy cannot break an already-connected client.
 @mcp.resource(
@@ -740,7 +773,7 @@ def _primary_card(data: Any) -> Optional[dict[str, Any]]:
     return None
 
 
-def _rich_lead(text: str, data: Any, handoff: bool = False):
+def _rich_lead(text: str, data: Any, handoff: bool = False, chart_style="publication"):
     """Return text plus native MCP image blocks for the winner's evidence charts.
 
     Rendering is fail-soft: response data and the Wave Viewer link still ship if the
@@ -773,14 +806,13 @@ def _rich_lead(text: str, data: Any, handoff: bool = False):
                 },
                 **data,
             }
-    rendered = []
-    if card and card.get("chart"):
-        try:
-            rendered = render_card_charts(card)
-        except Exception as exc:  # noqa: BLE001 - visualization must never fail the tool
-            log.warning("MCP chart rendering failed for %s: %s", card.get("symbol"), exc)
+    charts = _chart_meta(card, chart_style)
+    if isinstance(data, dict):
+        data = {**data, **_chart_presentation(charts, chart_style)}
+    text += (f"\n\nChart style: {chart_style}. Display supplied images without redrawing. "
+             "If unavailable, use the exact Wave Viewer link; never substitute styles.")
     out = _lead(text, data, handoff=handoff)
-    if not rendered and not viewer_url:
+    if not charts and not viewer_url:
         return out
     content: list[Any] = [out]
     if viewer_url:
@@ -793,8 +825,8 @@ def _rich_lead(text: str, data: Any, handoff: bool = False):
                          "lookback returned by this TradeWave analysis."),
             mimeType="text/html",
         ))
-    for label, png in rendered:
-        content.extend([label, Image(data=png, format="png")])
+    for chart in charts:
+        content.extend([chart["alt"], ImageContent(type="image", data=chart["png"], mimeType="image/png")])
     return content
 
 
@@ -946,32 +978,43 @@ def _widget_lead(text: str, data: dict[str, Any], handoff: bool = False) -> Call
 CHART_META_KEY = "tradewave/charts"
 
 
-def _chart_meta(card: Any) -> list[dict[str, str]]:
-    """The shared-system chart PNGs for one card, for the widget only (TW-TASK-0014 item 5).
-
-    They travel in the result's ``_meta`` - which hosts hand to the embedded app, not to the
-    model - so the widget shows the same charts as SMN without spending model tokens.
-    """
+def _chart_meta(card: Any, chart_style="publication") -> list[dict[str, str]]:
     if not isinstance(card, dict) or not card.get("chart"):
         return []
     try:
-        rendered = render_card_charts(card)
-    except Exception as exc:  # noqa: BLE001 - visualization must never fail the tool
-        log.warning("MCP chart rendering failed for %s: %s", card.get("symbol"), exc)
+        rendered = render_chart_images(card, chart_style)
+    except Exception:
+        log.warning("MCP chart rendering unavailable")
         return []
-    kinds = ("year_bars", "seasonal_path")
-    return [{"kind": kinds[i] if i < len(kinds) else "chart", "alt": alt,
-             "png": base64.b64encode(png).decode("ascii")}
-            for i, (alt, png) in enumerate(rendered)]
+    return [{**item, "png": base64.b64encode(item["png"]).decode("ascii")}
+            for item in rendered]
 
 
-async def _attach_chart_images(result: Any, card: Any) -> Any:
-    """Add the widget-only chart images to a widget result, rendered off the event loop."""
+def _chart_presentation(charts, chart_style):
+    by_kind = {chart["kind"]: chart for chart in charts}
+    return {"chart_style": chart_style, "charts": [
+        {"kind": kind, "style": chart_style, "status": "ready" if kind in by_kind else "unavailable",
+         "alt": by_kind.get(kind, {}).get("alt", "TradeWave chart unavailable")}
+        for kind in ("year_bars", "seasonal_path")]}
+
+
+async def _attach_chart_images(result: Any, card: Any, chart_style="publication") -> Any:
+    """One server rendering delivered as native images and the same widget bytes."""
     if not isinstance(result, CallToolResult):
         return result
-    charts = await asyncio.to_thread(_chart_meta, card)
-    if charts:
-        result.meta = {**(result.meta or {}), CHART_META_KEY: charts}
+    charts = await asyncio.to_thread(_chart_meta, card, chart_style)
+    presentation = _chart_presentation(charts, chart_style)
+    result.structuredContent = {**(result.structuredContent or {}), **presentation}
+    result.meta = {**(result.meta or {}), CHART_META_KEY: charts,
+                   "ui": {"resourceUri": PATTERN_WIDGET_URI}, "openai/outputTemplate": PATTERN_WIDGET_URI}
+    result.content.append(TextContent(type="text", text=(
+        f"Chart style: {chart_style}. "
+        + "; ".join(f"{c['kind']}: {c['status']}" for c in presentation["charts"]) + ". "
+        + "Display the supplied TradeWave images without redrawing or changing style. "
+        "If an image cannot be displayed, use the exact Wave Viewer link already supplied.")))
+    for chart in charts:
+        result.content.extend([TextContent(type="text", text=chart["alt"]),
+                               ImageContent(type="image", data=chart["png"], mimeType="image/png")])
     return result
 
 
@@ -1010,7 +1053,7 @@ def _lead(text: str, data: Any, handoff: bool = False) -> str:
     return out
 
 
-def _present_cards(data: Any, empty_msg: str, found_msg, *, widget: bool = False):
+def _present_cards(data: Any, empty_msg: str, found_msg, *, widget: bool = False, chart_style="publication"):
     """Pass through a Pattern Card list/payload, gracefully handling Pro stubs + empties.
 
     - UpgradeRequired stub -> clear Pro-required message + upgrade_url (never an error).
@@ -1026,7 +1069,7 @@ def _present_cards(data: Any, empty_msg: str, found_msg, *, widget: bool = False
             return _widget_lead(empty_msg, data) if widget else _lead(empty_msg, data)
     lead = found_msg(data) if callable(found_msg) else found_msg
     return (_widget_lead(lead, data, handoff=True) if widget
-            else _rich_lead(lead, data, handoff=True))
+            else _rich_lead(lead, data, handoff=True, chart_style=chart_style))
 
 
 # ===========================================================================
@@ -1281,8 +1324,14 @@ async def analyze_symbol(
         "yet (entry today or later, or opened within the 3-day entry window) - the answer to "
         "'what can I act on from here'; if all have passed it adds next_occurrence (the same "
         "window next year). 'best' returns the year's highest-edge setup even if it passed."))] = None,
+    chart_style: Annotated[Literal["publication", "wave_viewer"], Field(description=(
+        "Chart appearance only. Default publication is the Seasonal Market News publication look. "
+        "Use wave_viewer only when the user explicitly requests Wave Viewer style. "
+        "Both preserve the exact same study and engine data."))] = "publication",
     ctx: Optional[Context] = None,
 ) -> dict[str, Any]:
+    if chart_style not in ("publication", "wave_viewer"):
+        raise ValueError("chart_style must be publication or wave_viewer")
     _bind_request_key(ctx)
     params: dict[str, Any] = {"view": view or "evidence"}
     # A focused pattern analysis is the premium evidence experience, not a text-only endpoint.
@@ -1320,7 +1369,7 @@ async def analyze_symbol(
         )
     else:
         result = _widget_lead(f"Here is the full seasonal deep-dive on {sym}:", data, handoff=True)
-    return await _attach_chart_images(result, card)
+    return await _attach_chart_images(result, card, chart_style)
 
 
 # ---------------------------------------------------------------------------
@@ -1483,12 +1532,17 @@ async def whats_seasonal_now(
     view: Annotated[Optional[str], Field(description=(
         "Verbosity. 'decision' (default) = lean read; 'table' = compact ranked rows; "
         "'full' = full cards."))] = None,
+    chart_style: Annotated[Literal["publication", "wave_viewer"], Field(description=(
+        "Appearance of any returned charts. Default publication; wave_viewer only on explicit user request. "
+        "Does not change the study, statistics, or ranked list."))] = "publication",
     ctx: Optional[Context] = None,
 ) -> Any:
     # This tool can return FastMCP's unstructured mixed-content sequence (text,
     # ResourceLink, and optional Image blocks).  Do not annotate it as ``str``:
     # FastMCP would publish a string-only output schema and reject the valid
     # sequence during protocol serialization before the client receives it.
+    if chart_style not in ("publication", "wave_viewer"):
+        raise ValueError("chart_style must be publication or wave_viewer")
     _bind_request_key(ctx)
     params: dict[str, Any] = {"window": "now", "view": view or "decision"}
     if markets is not None:
@@ -1501,12 +1555,13 @@ async def whats_seasonal_now(
         n = d.get("count") if isinstance(d, dict) else None
         return f"{n} seasonal setup(s) are entering their window in the next ~2 weeks, ranked by edge:"
 
-    return _present_cards(
-        data,
+    return await asyncio.to_thread(
+        _present_cards, data,
         empty_msg="Nothing high-conviction is entering its seasonal window this week. "
                   "Try whats_seasonal_now with a wider market set, or find_best_opportunities "
                   "with a longer window.",
         found_msg=_found,
+        chart_style=chart_style,
     )
 
 

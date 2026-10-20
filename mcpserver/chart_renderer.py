@@ -11,9 +11,25 @@ from __future__ import annotations
 import datetime
 import io
 import math
+import logging
+import threading
 from typing import Any
 
 from twcharts import chartkit
+
+# Values from web-react/src/components/Common.js DarkTheme.
+_VIEWER_PALETTE = {**chartkit.PAL_DARK, "bg": "#191623", "ink": "#dcdce1",
+    "muted": "#b4b4be", "grid": "#322f3e", "axis": "#322f3e",
+    "pos": "#008c00", "neg": "#c80000", "mfe": "#64dc64", "mae": "#ff8c8c",
+    "line": "#b4c8dc", "window": "#5078c8"}
+_RENDER_LOCK = threading.Lock()  # pyplot is process-global; tool calls are concurrent.
+_CHART_STYLES = ("publication", "wave_viewer")
+
+def _style_options(chart_style):
+    if chart_style not in _CHART_STYLES:
+        raise ValueError("chart_style must be publication or wave_viewer")
+    return {"palette": _VIEWER_PALETTE if chart_style == "wave_viewer" else "light",
+            "viewer_style": chart_style == "wave_viewer"}
 
 _CYCLE_NAMES = {"0": "presidential election years", "1": "post-election years",
                 "2": "midterm election years", "3": "pre-election years"}
@@ -50,7 +66,7 @@ def _year_rows(card: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda r: str(r.get("year")))
 
 
-def render_year_evidence_chart(card: dict[str, Any]) -> tuple[bytes, dict[str, Any]] | None:
+def render_year_evidence_chart(card: dict[str, Any], chart_style="publication") -> tuple[bytes, dict[str, Any]] | None:
     """Per-year bars with the full intra-window range needles (SMN 'bars_mae_mfe')."""
     rows = _year_rows(card)
     if not rows:
@@ -65,18 +81,19 @@ def render_year_evidence_chart(card: dict[str, Any]) -> tuple[bytes, dict[str, A
             net, fav, adv = -net, (-adv if adv is not None else None), (-fav if fav is not None else None)
         years.append(int(row["year"]))
         nets.append(net)
-        mfe.append(fav if fav is not None else 0.0)
-        mae.append(adv if adv is not None else 0.0)
+        mfe.append(fav)
+        mae.append(adv)
     entry, exit_, hold = _setup(card)
     meta = {"symbol": str(card.get("symbol") or ""), "direction": direction,
             "window_start": entry, "window_end": exit_, "days": hold or "",
             "lookback_label": _lookback_label(card, len(years)), "variant": "bars_mae_mfe"}
     buf = io.BytesIO()
-    semantics = chartkit.record_bars(years, nets, meta, buf, mfe=mfe, mae=mae)
+    semantics = chartkit.record_bars(years, nets, meta, buf, mfe=mfe, mae=mae,
+        completed_data=True, show_median=False, **_style_options(chart_style))
     return buf.getvalue(), semantics
 
 
-def render_trend_chart(card: dict[str, Any]) -> tuple[bytes, dict[str, Any]] | None:
+def render_trend_chart(card: dict[str, Any], chart_style="publication") -> tuple[bytes, dict[str, Any]] | None:
     """The normalized seasonal path with the trade window shaded (SMN 'trend')."""
     points = [(str(p.get("date") or ""), _number(p.get("index")))
               for p in ((card.get("chart") or {}).get("trend_chart") or []) if isinstance(p, dict)]
@@ -102,16 +119,30 @@ def render_trend_chart(card: dict[str, Any]) -> tuple[bytes, dict[str, Any]] | N
                           f"({rows[0]['year']}–{rows[-1]['year']}) · not a forecast")
     buf = io.BytesIO()
     semantics = chartkit.trend_window([d for d, _ in points], [v for _, v in points], entry, exit_,
-                                      str(card.get("direction") or "long"), meta, buf)
+                                      str(card.get("direction") or "long"), meta, buf,
+                                      preserve_index=True, **_style_options(chart_style))
     return buf.getvalue(), semantics
 
 
-def render_card_charts(card: dict[str, Any]) -> list[tuple[str, bytes]]:
-    """Return (alt text, PNG) pairs in the recommended evidence order."""
-    rendered: list[tuple[str, bytes]] = []
-    for renderer in (render_year_evidence_chart, render_trend_chart):
-        result = renderer(card)
-        if result:
-            png, semantics = result
-            rendered.append((semantics.get("alt") or semantics.get("title") or "TradeWave chart", png))
+def render_chart_images(card: dict[str, Any], chart_style="publication") -> list[dict[str, Any]]:
+    """Explicit kinds survive partial failure; never substitute a different style."""
+    _style_options(chart_style)
+    rendered = []
+    with _RENDER_LOCK:
+        for kind, renderer in (("year_bars", render_year_evidence_chart), ("seasonal_path", render_trend_chart)):
+            try:
+                result = renderer(card, chart_style)
+            except Exception:
+                logging.getLogger(__name__).warning("MCP chart unavailable: %s", kind)
+                result = None
+            if result:
+                png, semantics = result
+                rendered.append({"kind": kind, "style": chart_style,
+                                 "alt": semantics.get("alt") or semantics.get("title") or "TradeWave chart",
+                                 "png": png})
     return rendered
+
+
+def render_card_charts(card: dict[str, Any]) -> list[tuple[str, bytes]]:
+    """Compatibility for existing native-image callers; publication remains default."""
+    return [(image["alt"], image["png"]) for image in render_chart_images(card)]

@@ -17,7 +17,7 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0011](TW-TASK-0011.md) | fixed | Portfolio import and historical scenarios live on dev; core browser/engine checks pass; native PDF layout verification pending |
 | [TW-TASK-0012](TW-TASK-0012.md) | frontend verified on dev | Toolbar tooltip targets and Opportunity headings; pre-existing backend parity drift recorded |
 | [TW-TASK-0013](TW-TASK-0013.md) | verified on dev | Tara knowledge for recent Wave Viewer controls |
-| [TW-TASK-0014](TW-TASK-0014.md) | in-progress | Strategy Lab MCP Phase 1 live on dev: ETF analysis, buy-and-hold benchmark, same-window compare, basket scenarios, shared SMN-style charts, from-today mode; personal-holdings items blocked on attorney |
+| [TW-TASK-0014](TW-TASK-0014.md) | in-progress | Strategy Lab MCP Phase 1 live on dev: ETF analysis, buy-and-hold benchmark, same-window compare, basket scenarios, chart-style/delivery repair claimed October 20 (publication default, explicit Wave Viewer), from-today mode; personal-holdings items blocked on attorney |
 | [TW-TASK-0015](TW-TASK-0015.md) | verified | Caption-backed webinar research, four production study receipts, demo cases and current offer check |
 
 

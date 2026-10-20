@@ -414,7 +414,7 @@ def _bars_source(n, y0, y1, direction):
 # Renderer: record_bars
 # --------------------------------------------------------------------------- #
 def record_bars(years, nets, meta, path, *, mfe=None, mae=None,
-                w=W, h=H, show_median=True, palette="light"):
+                w=W, h=H, show_median=True, palette="light", completed_data=False, viewer_style=False):
     """One bar per completed year, net % over the window.
 
     Optional excursion "needles" (thin whisker lines drawn over the bars):
@@ -427,11 +427,12 @@ def record_bars(years, nets, meta, path, *, mfe=None, mae=None,
       lookback_label (optional), kicker (optional; else derived).
     """
     pal = _pal(palette)
-    years, nets, mfe, mae = _drop_zeroed(years, nets, mfe, mae)
+    if not completed_data:
+        years, nets, mfe, mae = _drop_zeroed(years, nets, mfe, mae)
     n = len(nets)
-    wins = sum(1 for v in nets if v > 0)
+    wins = None if completed_data else sum(1 for v in nets if v > 0)
     direction = meta.get("direction", "long")
-    med = _median(nets)
+    med = meta.get("median") if completed_data else _median(nets)
     y0 = years[0] if years else ""
     y1 = years[-1] if years else ""
     d1 = meta.get("window_start", "")
@@ -447,9 +448,10 @@ def record_bars(years, nets, meta, path, *, mfe=None, mae=None,
         f"{symbol}"
         + (f" · {company}" if company else "")
         + (f" · {days}-day seasonal window" if days else " · seasonal window"))
-    losses = sum(1 for v in nets if v < 0)
-    title = _bars_title(symbol, direction, wins, n, win_lbl, losses,
-                        span=_lookback_phrase(meta, n))
+    losses = None if completed_data else sum(1 for v in nets if v < 0)
+    title = (f"{symbol}: yearly price moves ({win_lbl})" if completed_data else
+             _bars_title(symbol, direction, wins, n, win_lbl, losses,
+                         span=_lookback_phrase(meta, n)))
 
     mmm1, mmm2 = (_fmt_mmm_d(d1) if d1 else ""), (_fmt_mmm_d(d2) if d2 else "")
     # `overlay` names what the needles add; it is what separates this chart
@@ -475,23 +477,42 @@ def record_bars(years, nets, meta, path, *, mfe=None, mae=None,
                if overlay else title)
     source = _bars_source(n, y0, y1, direction)
 
+    if viewer_style:
+        spec = "Solid bars: yearly price change. Light extensions: high and low inside the window."
     fig, ax = new_frame(kicker, title, spec, source, palette=pal, w=w, h=h)
     x = list(range(n))
     colors = [pal["pos"] if v >= 0 else pal["neg"] for v in nets]
     ax.bar(x, nets, width=0.62, color=colors, zorder=3)
     ax.axhline(0, color=pal["ink"], linewidth=1.1, zorder=4)
 
+    if viewer_style:
+        # Same filled excursion layers as Wave Viewer's BarChart; geometry only.
+        for i, net in enumerate(nets):
+            if mfe is not None and mfe[i] is not None:
+                ax.bar(i, mfe[i] - max(0, net), bottom=max(0, net), width=.62,
+                       color=pal["mfe"], zorder=2)
+            if mae is not None and mae[i] is not None:
+                ax.bar(i, mae[i] - min(0, net), bottom=min(0, net), width=.62,
+                       color=pal["mae"], zorder=2)
     # needles
     lo_extra, hi_extra = [], []
     if mfe is not None or mae is not None:
         for i in range(n):
             top = mfe[i] if mfe is not None else 0.0
             bot = mae[i] if mae is not None else 0.0
+            if completed_data and (top is None or bot is None):
+                if top is not None:
+                    hi_extra.append(top)
+                if bot is not None:
+                    lo_extra.append(bot)
+                continue
             if top is None:
                 top = 0.0
             if bot is None:
                 bot = 0.0
             lo_extra.append(bot); hi_extra.append(top)
+            if viewer_style:
+                continue
             ax.vlines(x[i], min(bot, top), max(bot, top), color=pal["whisk"],
                       linewidth=1.4, alpha=0.65, zorder=5)
             # End caps on every excursion needle. Geometry only: the capped
@@ -505,7 +526,7 @@ def record_bars(years, nets, meta, path, *, mfe=None, mae=None,
     ax.set_ylim(lo - pad, hi + pad)
 
     median_label = None
-    if show_median and n:
+    if show_median and n and med is not None:
         ax.axhline(med, color=pal["ink"], linewidth=1.1, alpha=0.55,
                    linestyle=(0, (4, 3)), zorder=4)
         median_label = f"median {med:+.1f}%"
@@ -557,7 +578,7 @@ def record_bars(years, nets, meta, path, *, mfe=None, mae=None,
 # --------------------------------------------------------------------------- #
 # Renderer: trend_window
 # --------------------------------------------------------------------------- #
-def trend_window(labels, vals, d1, d2, direction, meta, path, *, palette="light"):
+def trend_window(labels, vals, d1, d2, direction, meta, path, *, palette="light", preserve_index=False, viewer_style=False):
     """Seasonal path: average cumulative % through the year with the trade
     window as a shaded band. Replaces the Pillow-patched legacy chart.
 
@@ -571,7 +592,7 @@ def trend_window(labels, vals, d1, d2, direction, meta, path, *, palette="light"
     pal = _pal(palette)
     labels = list(labels)
     vals = [float(v) for v in vals]
-    if vals:
+    if vals and not preserve_index:
         base = vals[0]
         vals = [v - base for v in vals]
 
@@ -608,7 +629,7 @@ def trend_window(labels, vals, d1, d2, direction, meta, path, *, palette="light"
 
     fig, ax = new_frame(kicker, title, spec, source, palette=pal)
     x = list(range(len(vals)))
-    band = pal["pos"] if str(direction).lower().startswith("l") else pal["neg"]
+    band = pal["window"] if viewer_style else (pal["pos"] if str(direction).lower().startswith("l") else pal["neg"])
 
     def idx_of(datestr):
         for i, l in enumerate(labels):
@@ -619,7 +640,7 @@ def trend_window(labels, vals, d1, d2, direction, meta, path, *, palette="light"
     ax.axvspan(i1, i2, facecolor=band, alpha=0.08, zorder=1)
     for i in (i1, i2):
         ax.axvline(i, color=band, alpha=0.45, linewidth=1.0, zorder=2)
-    ax.plot(x, vals, color=pal["ink"], linewidth=2.4, zorder=3,
+    ax.plot(x, vals, color=pal.get("line", pal["ink"]), linewidth=2.4, zorder=3,
             solid_capstyle="round")
     for i in (i1, i2):
         ax.plot([i], [vals[i]], "o", ms=5.5, color=band, zorder=5)
@@ -645,7 +666,10 @@ def trend_window(labels, vals, d1, d2, direction, meta, path, *, palette="light"
     ax.set_xticklabels(tlabels, fontsize=10.5)
     ax.set_xlim(0, max(1, len(x) - 1))
     # No Y axis on the seasonal path: the shape and the window are the point.
-    ax.set_yticks([])
+    if preserve_index:
+        ax.set_ylabel("Normalized seasonal index", color=pal["muted"], fontsize=10)
+    else:
+        ax.set_yticks([])
     _save(fig, path)
     return _semantics("trend_window", title, spec, source, n, direction, d1, d2)
 

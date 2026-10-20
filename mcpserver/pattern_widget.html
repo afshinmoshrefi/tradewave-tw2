@@ -77,7 +77,7 @@
     .panel-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 5px; }
     .panel-title { font-size: 15px; font-weight: 800; }
     .panel-note { color: var(--muted); font-size: 11px; text-align: right; }
-    .chart-wrap { position: relative; width: 100%; min-height: 245px; }
+    .chart-wrap { position: relative; width: 100%; min-height: 0; }
     .tw-chart { display: block; width: 100%; height: auto; border-radius: 8px; background: #fff; }
     svg { display: block; width: 100%; height: auto; overflow: visible; }
     .grid { stroke: var(--line); stroke-width: 1; opacity: .7; }
@@ -194,97 +194,6 @@
         return card;
       }
 
-      function lineChart(container, points, holdDays) {
-        const data = points.slice(0, Math.min(points.length, Math.max(2, Number(holdDays || 30))));
-        if (data.length < 2) {
-          container.append(htmlEl("div", "status", "Seasonal trend data is unavailable."));
-          return;
-        }
-        const W = 820, H = 260, M = { l: 48, r: 18, t: 16, b: 34 };
-        const values = data.map(d => Number(d.index)).filter(Number.isFinite);
-        let min = Math.min(...values), max = Math.max(...values);
-        const pad = Math.max((max - min) * .12, .5);
-        min -= pad; max += pad;
-        const x = i => M.l + (i / (data.length - 1)) * (W - M.l - M.r);
-        const y = v => M.t + ((max - v) / (max - min)) * (H - M.t - M.b);
-        const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Normalized seasonal trend" });
-        for (let i = 0; i <= 4; i++) {
-          const value = min + ((max - min) * i / 4);
-          const yy = y(value);
-          svg.appendChild(el("line", { x1: M.l, x2: W - M.r, y1: yy, y2: yy, class: "grid" }));
-          text(svg, num(value, 1), M.l - 7, yy + 3, "end");
-        }
-        const coords = data.map((d, i) => [x(i), y(Number(d.index))]);
-        const line = coords.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
-        const area = `${line} L${x(data.length - 1)},${H - M.b} L${x(0)},${H - M.b} Z`;
-        svg.appendChild(el("path", { d: area, class: "trend-area" }));
-        svg.appendChild(el("path", { d: line, class: "trend-line" }));
-        const ticks = [0, Math.floor((data.length - 1) / 2), data.length - 1];
-        ticks.forEach((i, n) => text(svg, shortDate(data[i].date), x(i), H - 11, n === 0 ? "start" : n === 2 ? "end" : "middle"));
-
-        const focusLine = el("line", { y1: M.t, y2: H - M.b, stroke: "#7bb8ff", "stroke-width": 1, opacity: 0 });
-        const focusDot = el("circle", { r: 4, fill: "#fff", stroke: "#2f80ed", "stroke-width": 2, opacity: 0 });
-        svg.append(focusLine, focusDot);
-        const overlay = el("rect", { x: M.l, y: M.t, width: W - M.l - M.r, height: H - M.t - M.b, fill: "transparent" });
-        const tip = htmlEl("div", "tip");
-        overlay.addEventListener("mousemove", event => {
-          const rect = svg.getBoundingClientRect();
-          const localX = ((event.clientX - rect.left) / rect.width) * W;
-          const i = Math.max(0, Math.min(data.length - 1, Math.round((localX - M.l) / (W - M.l - M.r) * (data.length - 1))));
-          const px = x(i), py = y(Number(data[i].index));
-          focusLine.setAttribute("x1", px); focusLine.setAttribute("x2", px); focusLine.setAttribute("opacity", 1);
-          focusDot.setAttribute("cx", px); focusDot.setAttribute("cy", py); focusDot.setAttribute("opacity", 1);
-          tip.textContent = `${shortDate(data[i].date)} · Index ${num(data[i].index, 2)}`;
-          tip.style.display = "block";
-          tip.style.left = `${Math.min(container.clientWidth - 145, Math.max(5, event.clientX - rect.left + 10))}px`;
-          tip.style.top = `${Math.max(2, event.clientY - rect.top - 30)}px`;
-        });
-        overlay.addEventListener("mouseleave", () => {
-          focusLine.setAttribute("opacity", 0); focusDot.setAttribute("opacity", 0); tip.style.display = "none";
-        });
-        svg.appendChild(overlay);
-        container.append(svg, tip);
-      }
-
-      function evidenceBars(container, bars) {
-        if (!Array.isArray(bars) || !bars.length) {
-          container.append(htmlEl("div", "status", "Year-by-year evidence is unavailable."));
-          return;
-        }
-        const W = 820, H = 285, M = { l: 46, r: 18, t: 18, b: 42 };
-        const lo = Math.min(0, ...bars.map(d => Number(d.mae_pct) || 0));
-        const hi = Math.max(0, ...bars.map(d => Number(d.mfe_pct) || 0));
-        const pad = Math.max((hi - lo) * .08, .5);
-        const min = lo - pad, max = hi + pad;
-        const y = v => M.t + ((max - v) / (max - min)) * (H - M.t - M.b);
-        const slot = (W - M.l - M.r) / bars.length;
-        const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Year by year maximum favorable and adverse excursion" });
-        const tickCount = 5;
-        for (let i = 0; i <= tickCount; i++) {
-          const value = min + ((max - min) * i / tickCount);
-          const yy = y(value);
-          svg.appendChild(el("line", { x1: M.l, x2: W - M.r, y1: yy, y2: yy, class: value === 0 ? "zero" : "grid" }));
-          text(svg, pct(value, 0), M.l - 7, yy + 3, "end");
-        }
-        bars.forEach((d, i) => {
-          const center = M.l + slot * i + slot / 2;
-          const top = y(Number(d.mfe_pct));
-          const bottom = y(Number(d.mae_pct));
-          const width = Math.min(32, slot * .48);
-          const rect = el("rect", { x: center - width / 2, y: top, width, height: Math.max(2, bottom - top), rx: 4, class: "bar" });
-          const title = el("title");
-          title.textContent = `${d.year}: worst ${pct(d.mae_pct)}, best ${pct(d.mfe_pct)}, final ${pct(d.net_pct)}`;
-          rect.appendChild(title);
-          svg.appendChild(rect);
-          const py = y(Number(d.net_pct));
-          const diamond = el("rect", { x: center - 5, y: py - 5, width: 10, height: 10, class: "net", transform: `rotate(45 ${center} ${py})` });
-          const netTitle = el("title"); netTitle.textContent = `${d.year} final return ${pct(d.net_pct)}`; diamond.appendChild(netTitle);
-          svg.appendChild(diamond);
-          text(svg, String(d.year), center, H - 14, "middle");
-        });
-        container.appendChild(svg);
-      }
-
       function panel(titleValue, noteValue) {
         const node = htmlEl("section", "panel");
         const head = htmlEl("div", "panel-head");
@@ -389,20 +298,38 @@
         app.appendChild(htmlEl("div", "foot", "TradeWave seasonal statistics are historical and do not guarantee future results."));
       }
 
-      // TW-TASK-0014 item 5: the server sends the shared TradeWave chart images (the SMN
-      // chart system) in the result's _meta, which is for this app, not the model. Draw them
-      // when present; the built-in charts remain the fallback for older servers or a failed image.
       function chartImages(raw) {
         const pick = meta => (meta && Array.isArray(meta["tradewave/charts"])) ? meta["tradewave/charts"] : null;
         return pick(raw?._meta) || pick(raw?.result?._meta) || pick(window.openai?.toolResponseMetadata) || [];
       }
 
-      function imagePanel(chart, fallback) {
-        const [node, wrap] = panel(chart.kind === "year_bars" ? "Year-by-year results" : "Seasonal path", "");
+      function unavailableChart(wrap, viewer) {
+        wrap.appendChild(htmlEl("div", "panel-note", "Chart unavailable. The selected style has not been replaced."));
+        if (viewer.url) {
+          const link = htmlEl("a", "open", "Open exact pattern in Wave Viewer");
+          link.href = viewer.url; link.target = "_blank"; link.rel = "noopener noreferrer";
+          link.addEventListener("click", event => {
+            if (!hostCapabilities.openLinks) return;
+            event.preventDefault();
+            request("ui/open-link", { url: viewer.url }).catch(() => {
+              window.open(viewer.url, "_blank", "noopener,noreferrer");
+            });
+          });
+          wrap.appendChild(link);
+        }
+      }
+
+      function imagePanel(chart, kind, style, viewer) {
+        const [node, wrap] = panel(kind === "year_bars" ? "Year-by-year results" : "Seasonal path",
+          style === "wave_viewer" ? "Wave Viewer style" : "Publication style");
+        if (!chart || !chart.png || chart.style !== style) {
+          unavailableChart(wrap, viewer);
+          return node;
+        }
         const img = document.createElement("img");
         img.className = "tw-chart";
         img.alt = chart.alt || "TradeWave chart";
-        img.addEventListener("error", () => { wrap.replaceChildren(); fallback(wrap); }, { once: true });
+        img.addEventListener("error", () => { wrap.replaceChildren(); unavailableChart(wrap, viewer); }, { once: true });
         img.src = "data:image/png;base64," + chart.png;
         wrap.appendChild(img);
         return node;
@@ -439,7 +366,7 @@
         heroText.append(
           htmlEl("div", "eyebrow", "TradeWave seasonal evidence"),
           htmlEl("h1", "", `${card.symbol || "Pattern"} · ${(card.direction || card.bias || "").toUpperCase()}`),
-          htmlEl("div", "window", `${shortDate(setup.entry_date)} → ${shortDate(setup.exit_date)} · ${setup.hold_days || "—"} calendar days · ${stats.years || "—"}-year evidence`)
+          htmlEl("div", "window", `${shortDate(setup.entry_date)} → ${shortDate(setup.exit_date)} · ${setup.hold_days || "—"} calendar days · ${stats.years_tested ?? "—"} completed years`)
         );
         hero.appendChild(heroText);
         if (viewer.url) {
@@ -471,29 +398,10 @@
         const shortlist = rankedShortlist(data?.opportunities, data?.rank_by);
         if (shortlist) app.appendChild(shortlist);
 
-        const drawTrend = wrap => lineChart(wrap, Array.isArray(chart.trend_chart) ? chart.trend_chart : [], setup.hold_days);
-        const drawBars = wrap => evidenceBars(wrap, chart.per_year_bars || []);
-        const bars = images.find(c => c.kind === "year_bars" && c.png);
-        const trend = images.find(c => c.kind === "seasonal_path" && c.png);
-        if (bars && trend) {
-          app.appendChild(imagePanel(bars, drawBars));
-          app.appendChild(imagePanel(trend, drawTrend));
-          app.appendChild(htmlEl("div", "foot", "TradeWave seasonal statistics are historical and do not guarantee future results. Use the exact-pattern link to inspect individual years and stress-test the window."));
-          return;
+        const style = data.chart_style || "publication";
+        for (const kind of ["year_bars", "seasonal_path"]) {
+          app.appendChild(imagePanel(images.find(c => c.kind === kind), kind, style, viewer));
         }
-
-        const [trendPanel, trendWrap] = panel("Normalized seasonal trend", "The historical path during this exact holding window");
-        drawTrend(trendWrap);
-        app.appendChild(trendPanel);
-
-        const [barsPanel, barsWrap] = panel("Year-by-year path risk and outcome", "Blue = worst-to-best excursion · orange diamond = final return");
-        evidenceBars(barsWrap, chart.per_year_bars || []);
-        const legend = htmlEl("div", "legend");
-        const range = htmlEl("span"); const rangeSwatch = htmlEl("i", "swatch"); rangeSwatch.style.background = "#2f80d8"; range.append(rangeSwatch, document.createTextNode("MFE / MAE range"));
-        const final = htmlEl("span"); final.append(htmlEl("i", "swatch dot"), document.createTextNode("Final return"));
-        legend.append(range, final); barsPanel.appendChild(legend);
-        app.appendChild(barsPanel);
-
         app.appendChild(htmlEl("div", "foot", "TradeWave seasonal statistics are historical and do not guarantee future results. Use the exact-pattern link to inspect individual years and stress-test the window."));
       }
 

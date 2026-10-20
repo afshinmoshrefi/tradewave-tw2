@@ -332,7 +332,8 @@ def test_analyze_returns_mcp_app_result_with_structured_evidence(monkeypatch):
     assert out.structuredContent["card"]["chart"]["per_year_bars"][0]["year"] == "2025"
     assert out.structuredContent["primary_action"]["url"] == url
     assert url in out.content[0].text
-    assert len(out.content) == 1
+    assert any(c.type == "image" for c in out.content)
+    assert [c["status"] for c in out.structuredContent["charts"]] == ["ready", "unavailable"]
 
 
 def test_analyze_tool_and_resource_advertise_mcp_app_contract():
@@ -362,7 +363,8 @@ def test_analyze_tool_and_resource_advertise_mcp_app_contract():
     assert "domain" not in widget.meta["ui"]
     assert widget.meta["openai/widgetCSP"]["redirect_domains"] == [server.MAIN_PUBLIC_URL]
     assert "mcp-dev.trxstat.com" not in repr(widget.meta)
-    assert server.PATTERN_WIDGET_URI.endswith("pattern-evidence-v4.html")
+    assert server.PATTERN_WIDGET_URI.endswith("pattern-evidence-v5.html")
+    assert any(str(r.uri) == server.PREVIOUS_PATTERN_WIDGET_URI for r in resources)
     assert server.LEGACY_PATTERN_WIDGET_URI.endswith("pattern-evidence-v3.html")
     assert server.OLDER_PATTERN_WIDGET_URI.endswith("pattern-evidence-v2.html")
     assert any(str(r.uri) == server.OLDER_PATTERN_WIDGET_URI for r in resources)
@@ -456,8 +458,8 @@ def test_lead_without_handoff_omits_it():
 def test_rich_lead_returns_native_image_blocks(monkeypatch):
     monkeypatch.setattr(
         server,
-        "render_card_charts",
-        lambda card: [("TradeWave evidence", b"\x89PNG\r\n\x1a\nsynthetic")],
+        "render_chart_images",
+        lambda card, style: [{"kind": "year_bars", "style": style, "alt": "TradeWave evidence", "png": b"\x89PNG\r\n\x1a\nsynthetic"}],
     )
     data = {"card": {
         "symbol": "AAPL",
@@ -474,7 +476,7 @@ def test_rich_lead_returns_native_image_blocks(monkeypatch):
     assert out[1].type == "resource_link"
     assert str(out[1].uri) == "https://tradewave.example/app/?o=abc&view=evidence"
     assert out[2] == "TradeWave evidence"
-    assert out[3].to_image_content().mimeType == "image/png"
+    assert out[3].mimeType == "image/png"
 
 
 def test_rich_lead_returns_clickable_resource_even_without_chart():
@@ -766,8 +768,8 @@ def test_basket_scenarios_posts_only_the_basket_contract(monkeypatch):
     assert "do not direct the user to trade" in result
 
 
-def test_analyze_sends_shared_chart_images_to_the_widget_only(monkeypatch):
-    """TW-TASK-0014 item 5: chart PNGs ride in _meta (for the app), not in model content."""
+def test_analyze_sends_identical_native_and_widget_chart_images(monkeypatch):
+    """Non-widget hosts receive the same server chart bytes as the embedded app."""
     import base64
 
     async def fake_get(path, params=None):
@@ -775,20 +777,29 @@ def test_analyze_sends_shared_chart_images_to_the_widget_only(monkeypatch):
                          "wave_viewer": {"url": "https://tradewave.example/app/?o=x"}}}
 
     monkeypatch.setattr(server, "_get", fake_get)
-    monkeypatch.setattr(server, "render_card_charts",
-                        lambda card: [("SPY bars claim", b"\x89PNG-bars"), ("SPY path claim", b"\x89PNG-path")])
+    monkeypatch.setattr(server, "render_chart_images",
+        lambda card, style: [{"kind": kind, "style": style, "alt": "SPY chart", "png": blob}
+                            for kind, blob in [("year_bars", b"\x89PNG-bars"), ("seasonal_path", b"\x89PNG-path")]])
     result = _run(server.analyze_symbol(symbol="SPY", ctx=None))
     charts = result.meta[server.CHART_META_KEY]
     assert [c["kind"] for c in charts] == ["year_bars", "seasonal_path"]
     assert base64.b64decode(charts[0]["png"]) == b"\x89PNG-bars"
-    assert all(c.type == "text" for c in result.content)          # no image tokens for the model
+    native = [c for c in result.content if c.type == "image"]
+    assert [c.data for c in native] == [c["png"] for c in charts]
+    assert all(c.mimeType == "image/png" for c in native)
+    assert result.structuredContent["chart_style"] == "publication"
+    assert all(c["status"] == "ready" for c in result.structuredContent["charts"])
     assert "PNG" not in repr(result.structuredContent)
 
 
-def test_widget_draws_server_images_with_builtin_fallback():
+def test_widget_uses_independent_images_and_explicit_unavailable_state():
     html = server.PATTERN_WIDGET_HTML
     assert '"tradewave/charts"' in html and "toolResponseMetadata" in html
-    assert 'addEventListener("error"' in html                     # failed image -> built-in chart
+    assert 'addEventListener("error"' in html
+    assert "unavailableChart(wrap, viewer)" in html
+    assert "function evidenceBars" not in html and "function lineChart" not in html
+    assert "chart.style !== style" in html
+    assert "bars && trend" not in html
 
 
 def test_analyze_passes_timing_through(monkeypatch):
@@ -802,3 +813,44 @@ def test_analyze_passes_timing_through(monkeypatch):
     monkeypatch.setattr(server, "_get", fake_get)
     _run(server.analyze_symbol(symbol="AAPL", timing="best", ctx=None))
     assert seen["timing"] == "best"
+
+
+@pytest.mark.parametrize("style", ["publication", "wave_viewer"])
+def test_selected_style_partial_failure_and_exact_link(monkeypatch, style):
+    async def fake_get(path, params=None):
+        assert "chart_style" not in params
+        return {"card": {"symbol": "SPY", "chart": {"trend_chart": [{}]},
+                         "wave_viewer": {"url": "https://example.com/app/?o=exact"}}}
+    def render(card, requested):
+        assert requested == style
+        return [{"kind": "seasonal_path", "style": requested, "alt": "path", "png": b"png"}]
+    monkeypatch.setattr(server, "_get", fake_get)
+    monkeypatch.setattr(server, "render_chart_images", render)
+    result = _run(server.analyze_symbol(symbol="SPY", chart_style=style, ctx=None))
+    assert result.structuredContent["chart_style"] == style
+    assert [c["status"] for c in result.structuredContent["charts"]] == ["unavailable", "ready"]
+    assert all(c["style"] == style for c in result.structuredContent["charts"])
+    assert result.meta[server.CHART_META_KEY][0]["kind"] == "seasonal_path"
+    assert result.structuredContent["primary_action"]["url"] == "https://example.com/app/?o=exact"
+
+
+def test_renderer_failure_retains_requested_style_and_exact_link(monkeypatch):
+    async def fake_get(path, params=None):
+        return {"card": {"symbol": "SPY", "chart": {"trend_chart": [{}]},
+                         "wave_viewer": {"url": "https://example.com/app/?o=exact"}}}
+    def fail(*args):
+        raise RuntimeError("unavailable")
+    monkeypatch.setattr(server, "_get", fake_get)
+    monkeypatch.setattr(server, "render_chart_images", fail)
+    result = _run(server.analyze_symbol(symbol="SPY", chart_style="wave_viewer", ctx=None))
+    assert all(c["status"] == "unavailable" for c in result.structuredContent["charts"])
+    assert result.structuredContent["chart_style"] == "wave_viewer"
+    assert not any(c.type == "image" for c in result.content)
+    assert "https://example.com/app/?o=exact" in result.content[0].text
+
+
+def test_style_schema_is_closed_and_defaults_to_publication():
+    tool = next(t for t in _run(server.mcp.list_tools()) if t.name == "analyze_symbol")
+    style = tool.inputSchema["properties"]["chart_style"]
+    assert style["default"] == "publication"
+    assert style["enum"] == ["publication", "wave_viewer"]
