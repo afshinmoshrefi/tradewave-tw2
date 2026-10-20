@@ -139,3 +139,11 @@ Dev: verified for Phase 1 items 1-6 (widget display in real hosts pending) - 202
 - 2026-09-28 22:35 UTC, Claude session `c7bd49c6`: item 5 part 1 live under lock, gate PASS; found MCP charts are drawn by the Apps widget, not PNG images. Awaiting owner decision on part 2.
 - 2026-09-29 00:10 UTC, Claude session `c7bd49c6`: item 5 part 2 live under lock; gate PASS on re-run after a cold-cache scan_busy burst. Next: owner host check, item 6.
 - 2026-09-29 00:55 UTC, Claude session `c7bd49c6`: item 6 live under lock, gate PASS, main advanced. Phase 1 complete on dev. (A homepage overlap with session "100 year pattern home page update" at 00:34 was resolved in its favor; TW-BUG-0023 is a duplicate on its own branch.)
+
+## October 20 chart style and delivery repair claim
+
+- Executor: Codex subagent mcp_chart_implementation, session mcp-chart-styles-20261020; claimed 2026-10-20T19:58:22.824444+00:00. Branch codex/mcp-chart-styles-20261020; worktree /home/tradewave-worktrees/mcp-chart-styles-20261020.
+- Scope is item 5 only; prior Phase 1 implementation ended September 29 with real-host display still pending. Afshin explicitly authorized implementation October 20: publication style default, explicit wave_viewer alternative, identical engine study/data, native MCP images plus widget, no silent SVG fallback. Staging/production excluded.
+- Current release tw2-20261019-01 is complete and its manager released; no active freeze or overlapping chart claim found.
+- Acceptance: validate style enum/default; native PNG and widget metadata parity; per-chart failure/unavailable state retaining exact viewer link; partial chart kind identity; completed flat years and numeric source preserved; long/short and cross-year/PE render QA; focused tests plus live dev MCP contract and rendered widget check. Actual ChatGPT/Claude/Grok host acceptance remains separately unverified unless exercised.
+- Next: isolated implementation, focused tests and real render QA; commit/push, short locked dev activation and parity proof. Previous runtime pointer retained for rollback.
