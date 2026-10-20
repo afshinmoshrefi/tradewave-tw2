@@ -1,0 +1,123 @@
+{
+  "activation": {
+    "passed": true,
+    "sha": "a8647879d42ef4a0b13f35b7298e4e325f37bd05",
+    "active_backend": "/home/tradewave-worktrees/mcp-chart-styles-final-20261020",
+    "mcp_process_cwd": "/home/tradewave-worktrees/mcp-chart-styles-final-20261020",
+    "frontend_unchanged": "/home/flask/web-react/releases/build-0c67bb840fa152c8de9e427d8a3e801239caf6f0",
+    "main_matches_candidate": true,
+    "tests": "77 focused passed; final renderer polish 10 passed",
+    "live_mcp_smoke": "live-mcp-smoke.json",
+    "live_widget_browser": "widget-browser-checks.json",
+    "at": "2026-10-20T20:12:54.420330+00:00",
+    "rollback_backend": "/home/tradewave-worktrees/mcp-chart-styles-rollback-e85fd225",
+    "staging_production": "untouched"
+  },
+  "mcp": {
+    "passed": true,
+    "same_card_both_styles": true,
+    "invalid_style_rejected": true,
+    "results": [
+      {
+        "style": "publication",
+        "charts": [
+          {
+            "kind": "year_bars",
+            "style": "publication",
+            "status": "ready",
+            "alt": "SPY: yearly price moves (Sep 27 \u2013 Jul 18). Bars: net % change over the window. Needles: the full intra-window range each year (worst drawdown to best gain). Source: TradeWave seasonal database \u00b7 n=8 completed years (1994\u20132022) \u00b7 long convention: positive = price rose",
+            "sha256": "c124ce904f6f5d9e33c16c81f5afeb8a34d5936b2ebeeab643a8e04457e28e6d",
+            "bytes": 62090
+          },
+          {
+            "kind": "seasonal_path",
+            "style": "publication",
+            "status": "ready",
+            "alt": "Where Sep 27 \u2013 Jul 18 sits in SPY's average year. SPY's average seasonal path over 8 midterm election years, from Sep 27 \u00b7 shaded: the 295-day window. Source: TradeWave seasonal database \u00b7 average of the 8 midterm election years (1994\u20132022) \u00b7 not a forecast",
+            "sha256": "275894bc992e823a3fec23a80faa177a2e4df0706541fb1a9cf8e20012c65496",
+            "bytes": 97573
+          }
+        ],
+        "native_widget_bytes_identical": true,
+        "viewer_url": "https://tw2-dev.trxstat.com/app/?o=MTF8U1BZfDIwMjYtMDktMjd8Mjk1fHBlMi04&view=evidence&direction=long"
+      },
+      {
+        "style": "wave_viewer",
+        "charts": [
+          {
+            "kind": "year_bars",
+            "style": "wave_viewer",
+            "status": "ready",
+            "alt": "SPY: yearly price moves (Sep 27 \u2013 Jul 18). Solid bars: yearly price change. Light extensions: high and low inside the window. Source: TradeWave seasonal database \u00b7 n=8 completed years (1994\u20132022) \u00b7 long convention: positive = price rose",
+            "sha256": "8c22207d7d449ce0f678fc5f59b1460744e6fe1a95fa4dc4bf7ba851c8118ad2",
+            "bytes": 58808
+          },
+          {
+            "kind": "seasonal_path",
+            "style": "wave_viewer",
+            "status": "ready",
+            "alt": "Where Sep 27 \u2013 Jul 18 sits in SPY's average year. SPY's average seasonal path over 8 midterm election years, from Sep 27 \u00b7 shaded: the 295-day window. Source: TradeWave seasonal database \u00b7 average of the 8 midterm election years (1994\u20132022) \u00b7 not a forecast",
+            "sha256": "ede62ae6cc0c0c8c3e20bb280d0c35ba5b3a4a81d635a7f5788411f13c51cb02",
+            "bytes": 96241
+          }
+        ],
+        "native_widget_bytes_identical": true,
+        "viewer_url": "https://tw2-dev.trxstat.com/app/?o=MTF8U1BZfDIwMjYtMDktMjd8Mjk1fHBlMi04&view=evidence&direction=long"
+      }
+    ]
+  },
+  "widget": [
+    {
+      "style": "publication",
+      "width": 1100,
+      "images": 2,
+      "svg": 0,
+      "overflow": false,
+      "alts": [
+        "SPY: yearly price moves (Sep 27 \u2013 Jul 18). Bars: net % change over the window. Needles: the full intra-window range each year (worst drawdown to best gain). Source: TradeWave seasonal database \u00b7 n=8 completed years (1994\u20132022) \u00b7 long convention: positive = price rose",
+        "Where Sep 27 \u2013 Jul 18 sits in SPY's average year. SPY's average seasonal path over 8 midterm election years, from Sep 27 \u00b7 shaded: the 295-day window. Source: TradeWave seasonal database \u00b7 average of the 8 midterm election years (1994\u20132022) \u00b7 not a forecast"
+      ]
+    },
+    {
+      "style": "publication",
+      "width": 390,
+      "images": 2,
+      "svg": 0,
+      "overflow": false,
+      "alts": [
+        "SPY: yearly price moves (Sep 27 \u2013 Jul 18). Bars: net % change over the window. Needles: the full intra-window range each year (worst drawdown to best gain). Source: TradeWave seasonal database \u00b7 n=8 completed years (1994\u20132022) \u00b7 long convention: positive = price rose",
+        "Where Sep 27 \u2013 Jul 18 sits in SPY's average year. SPY's average seasonal path over 8 midterm election years, from Sep 27 \u00b7 shaded: the 295-day window. Source: TradeWave seasonal database \u00b7 average of the 8 midterm election years (1994\u20132022) \u00b7 not a forecast"
+      ]
+    },
+    {
+      "style": "wave_viewer",
+      "width": 1100,
+      "images": 2,
+      "svg": 0,
+      "overflow": false,
+      "alts": [
+        "SPY: yearly price moves (Sep 27 \u2013 Jul 18). Solid bars: yearly price change. Light extensions: high and low inside the window. Source: TradeWave seasonal database \u00b7 n=8 completed years (1994\u20132022) \u00b7 long convention: positive = price rose",
+        "Where Sep 27 \u2013 Jul 18 sits in SPY's average year. SPY's average seasonal path over 8 midterm election years, from Sep 27 \u00b7 shaded: the 295-day window. Source: TradeWave seasonal database \u00b7 average of the 8 midterm election years (1994\u20132022) \u00b7 not a forecast"
+      ]
+    },
+    {
+      "style": "wave_viewer",
+      "width": 390,
+      "images": 2,
+      "svg": 0,
+      "overflow": false,
+      "alts": [
+        "SPY: yearly price moves (Sep 27 \u2013 Jul 18). Solid bars: yearly price change. Light extensions: high and low inside the window. Source: TradeWave seasonal database \u00b7 n=8 completed years (1994\u20132022) \u00b7 long convention: positive = price rose",
+        "Where Sep 27 \u2013 Jul 18 sits in SPY's average year. SPY's average seasonal path over 8 midterm election years, from Sep 27 \u00b7 shaded: the 295-day window. Source: TradeWave seasonal database \u00b7 average of the 8 midterm election years (1994\u20132022) \u00b7 not a forecast"
+      ]
+    },
+    {
+      "failedImage": "explicit unavailable, surviving chart retained, exact viewer link, no svg"
+    }
+  ],
+  "limits": [
+    "Actual ChatGPT, Claude and Grok application display not exercised.",
+    "Staging and production unchanged."
+  ],
+  "evidence_root": "/home/tradewave-handoffs/mcp-chart-styles-20261020"
+}
