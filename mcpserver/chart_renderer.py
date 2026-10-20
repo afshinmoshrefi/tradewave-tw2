@@ -87,6 +87,8 @@ def render_year_evidence_chart(card: dict[str, Any], chart_style="publication") 
     meta = {"symbol": str(card.get("symbol") or ""), "direction": direction,
             "window_start": entry, "window_end": exit_, "days": hold or "",
             "lookback_label": _lookback_label(card, len(years)), "variant": "bars_mae_mfe"}
+    cohort = meta["lookback_label"] or f"{len(years)} completed years"
+    meta["kicker"] = f"{meta['symbol']} · {hold}-day seasonal window · {cohort}"
     buf = io.BytesIO()
     semantics = chartkit.record_bars(years, nets, meta, buf, mfe=mfe, mae=mae,
         completed_data=True, show_median=False, **_style_options(chart_style))
