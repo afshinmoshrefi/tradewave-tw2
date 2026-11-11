@@ -51,15 +51,22 @@ def test_internal_learn_links_resolve(rendered):
 
 def test_videos_embed_privacy_enhanced_youtube_with_video_schema(rendered):
     _, out = rendered
-    for slug, vid in (("learn-tradewave-in-4-minutes", "7ZQoj2e93oo"), ("win-rate-vs-risk-reward-ratio", "3STPilmV3aU")):
-        html = (out / f"{slug}.html").read_text(encoding="utf-8")
-        assert f"https://www.youtube-nocookie.com/embed/{vid}" in html
-        assert "youtube.com/embed/" not in html.replace("youtube-nocookie.com/embed/", "").replace(f'"https://www.youtube.com/embed/{vid}"', "")
-        video = [b for b in _json_ld_blocks(html) if b["@type"] == "VideoObject"]
-        assert video and video[0]["embedUrl"].endswith(vid)
+    html = (out / "learn-tradewave-in-4-minutes.html").read_text(encoding="utf-8")
+    assert "https://www.youtube-nocookie.com/embed/7ZQoj2e93oo" in html
+    video = [b for b in _json_ld_blocks(html) if b["@type"] == "VideoObject"]
+    assert video and video[0]["embedUrl"].endswith("7ZQoj2e93oo")
+
+    # Embedding is switched off for this video on YouTube, so it must link out.
+    html = (out / "win-rate-vs-risk-reward-ratio.html").read_text(encoding="utf-8")
+    assert "embed/3STPilmV3aU" not in html
+    assert 'href="https://www.youtube.com/watch?v=3STPilmV3aU"' in html
+    video = [b for b in _json_ld_blocks(html) if b["@type"] == "VideoObject"]
+    assert video and "embedUrl" not in video[0] and video[0]["contentUrl"].endswith("3STPilmV3aU")
+
     index = (out / "index.html").read_text(encoding="utf-8")
     assert "youtube-nocookie.com/embed/7ZQoj2e93oo" in index
-    assert "youtube-nocookie.com/embed/3STPilmV3aU" in index
+    assert "embed/3STPilmV3aU" not in index
+    assert "i.ytimg.com/vi/3STPilmV3aU/hqdefault.jpg" in index
 
 
 def test_faq_markup_matches_visible_questions(rendered):

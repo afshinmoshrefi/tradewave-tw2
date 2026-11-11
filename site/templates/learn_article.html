@@ -71,7 +71,7 @@
     "thumbnailUrl": [{{ article.video.thumbnail_url | tojson }}],
     {% if article.video.upload_date %}"uploadDate": {{ article.video.upload_date | string | tojson }},{% endif %}
     {% if article.video.duration %}"duration": {{ article.video.duration | tojson }},{% endif %}
-    "embedUrl": {{ article.video.schema_embed_url | tojson }},
+    {% if article.video.embeddable %}"embedUrl": {{ article.video.schema_embed_url | tojson }},{% endif %}
     "contentUrl": {{ article.video.watch_url | tojson }},
     "publisher": {"@type": "Organization", "name": "TradeWave", "logo": {"@type": "ImageObject", "url": "https://tradewave.ai/favicon.png"}}
   }
@@ -174,6 +174,10 @@
     .article-page-footer nav a:hover { color: #fff; }
     .article-video { position: relative; width: 100%; aspect-ratio: 16 / 9; margin: 0 0 12px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(139,92,246,0.25); background: #000; }
     .article-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    .article-video-link { display: block; }
+    .article-prose .article-video-link img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; margin: 0; border-radius: 0; }
+    .article-video-link .play, .learn-video-card .play { position: absolute; left: 50%; top: 50%; width: 68px; height: 48px; margin: -24px 0 0 -34px; border-radius: 12px; background: #ff0033; }
+    .article-video-link .play::after, .learn-video-card .play::after { content: ""; position: absolute; left: 27px; top: 14px; border-style: solid; border-width: 10px 0 10px 18px; border-color: transparent transparent transparent #fff; }
     .article-video-caption { font-size: 13px; color: var(--text-muted); margin: 0 0 32px; }
     .article-video-caption a { color: var(--text-dim); }
     .article-faq { margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--border); }
@@ -225,9 +229,16 @@
 
 <main class="article-prose">
   {% if article.video %}
+  {% if article.video.embeddable %}
   <div class="article-video">
     <iframe src="{{ article.video.embed_url }}" title="{{ article.video.title }}" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
   </div>
+  {% else %}
+  <a class="article-video article-video-link" href="{{ article.video.watch_url }}" target="_blank" rel="noopener" aria-label="Watch {{ article.video.title }} on YouTube">
+    <img src="{{ article.video.thumbnail_url }}" alt="{{ article.video.title }}" loading="lazy">
+    <span class="play" aria-hidden="true"></span>
+  </a>
+  {% endif %}
   <p class="article-video-caption">Video: {{ article.video.title }} - <a href="{{ article.video.watch_url }}" target="_blank" rel="noopener">watch on YouTube</a></p>
   {% endif %}
   {{ article.body_html | safe }}

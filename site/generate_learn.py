@@ -23,7 +23,7 @@ Article frontmatter (YAML between --- fences):
     category:        Optional CATEGORIES slug (default platform-guides).
     updated:         Optional ISO date of the last substantive revision.
     video:           Optional {id, title, description, duration (ISO 8601),
-                     upload_date}. Rendered as a privacy-enhanced YouTube embed
+                     upload_date, embeddable (default true)}. Rendered as a privacy-enhanced YouTube embed
                      plus VideoObject structured data.
     faq:             Optional list of {q, a}. Rendered as a visible FAQ section
                      plus FAQPage structured data. Answers are plain text.
@@ -146,6 +146,10 @@ def build_video(raw: Any) -> Dict[str, Any] | None:
     video['thumbnail_url'] = f'https://i.ytimg.com/vi/{vid}/hqdefault.jpg'
     video.setdefault('title', '')
     video.setdefault('description', '')
+    # Some videos have 'Allow embedding' switched off in YouTube Studio; an
+    # iframe then shows 'Video unavailable'. `embeddable: false` renders a
+    # thumbnail that links to YouTube instead.
+    video['embeddable'] = bool(raw.get('embeddable', True))
     return video
 
 # ---------------------------------------------------------------------------

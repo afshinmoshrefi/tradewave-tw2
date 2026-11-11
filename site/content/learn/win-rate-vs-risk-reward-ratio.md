@@ -15,6 +15,7 @@ video:
   description: "Your trading win rate doesn't decide whether you make money. Your risk reward ratio does. A trader who's right 35% of the time can beat one who's right 80%, and here's the math."
   duration: "PT6M"
   upload_date: "2026-10-20"
+  embeddable: false
 faq:
   - q: "Which matters more, win rate or risk reward ratio?"
     a: "Neither alone. What decides profitability is expectancy: win rate times average win, minus loss rate times average loss. A high win rate with small wins and large losses can lose money, and a low win rate with large wins and small losses can make money."
