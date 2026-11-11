@@ -56,17 +56,14 @@ def test_videos_embed_privacy_enhanced_youtube_with_video_schema(rendered):
     video = [b for b in _json_ld_blocks(html) if b["@type"] == "VideoObject"]
     assert video and video[0]["embedUrl"].endswith("7ZQoj2e93oo")
 
-    # Embedding is switched off for this video on YouTube, so it must link out.
     html = (out / "win-rate-vs-risk-reward-ratio.html").read_text(encoding="utf-8")
-    assert "embed/3STPilmV3aU" not in html
-    assert 'href="https://www.youtube.com/watch?v=3STPilmV3aU"' in html
+    assert "https://www.youtube-nocookie.com/embed/3STPilmV3aU" in html
     video = [b for b in _json_ld_blocks(html) if b["@type"] == "VideoObject"]
-    assert video and "embedUrl" not in video[0] and video[0]["contentUrl"].endswith("3STPilmV3aU")
+    assert video and video[0]["embedUrl"].endswith("3STPilmV3aU")
 
     index = (out / "index.html").read_text(encoding="utf-8")
     assert "youtube-nocookie.com/embed/7ZQoj2e93oo" in index
-    assert "embed/3STPilmV3aU" not in index
-    assert "i.ytimg.com/vi/3STPilmV3aU/hqdefault.jpg" in index
+    assert "youtube-nocookie.com/embed/3STPilmV3aU" in index
 
 
 def test_faq_markup_matches_visible_questions(rendered):
