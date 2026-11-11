@@ -2555,6 +2555,16 @@ therefore point `.tw2-app-current` at the complete candidate root and restart
 serving an index that references missing or stale bundles. Keep the convenience build
 symlink aligned with the candidate, but never treat it as the runtime switch by itself.
 
+**Learn section generator (TW-TASK-0027, 2026-11-11):** `site/generate_learn.py`
+resolves content, templates and `config` from its own checkout (dev follows
+`.tw2-app-current`; staging/prod follow `/home/flask`), writes `/var/www/tradewave/learn/`
+(override `TW_LEARN_OUTPUT_DIR` for tests), and groups articles by frontmatter
+`category` into the CATEGORIES list. Optional frontmatter `video` renders a
+youtube-nocookie embed plus VideoObject JSON-LD; `faq` renders a visible FAQ plus
+FAQPage JSON-LD. Only articles whose `author` names Sacchitello carry Michael's
+creator byline; all others are credited to TradeWave Research. A static Learn change
+activates by running `generate_learn.py` then `generate_seo_files.py`; no restart.
+
 **Coordination/release-state invariant:** `/var/lib/tradewave/release-state/` is
 initialized by `ops/init_release_state.sh` as `flask:flask` mode `0750`.
 Routine dev uses only the atomic `dev-activation.lock`, acquired after testing/building

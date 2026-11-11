@@ -18,9 +18,9 @@
   <meta property="og:image" content="{{ article.og_image_url }}">
   <meta property="og:image:alt" content="{{ article.title }}">
   <meta property="article:published_time" content="{{ article.date_iso }}">
-  <meta property="article:modified_time" content="{{ article.date_iso }}">
-  <meta property="article:author" content="{{ creator.name }}">
-  <meta property="article:section" content="Finance and Investing">
+  <meta property="article:modified_time" content="{{ article.updated_iso }}">
+  <meta property="article:author" content="{{ creator.name if article.by_creator else research_author.name }}">
+  <meta property="article:section" content="{{ article.category_name }}">
   {% for t in article.tags %}<meta property="article:tag" content="{{ t }}">
   {% endfor %}
   <meta name="twitter:card" content="summary_large_image">
@@ -36,7 +36,8 @@
     "headline": {{ article.title | tojson }},
     "description": {{ article.summary | tojson }},
     "datePublished": "{{ article.date_iso }}",
-    "dateModified": "{{ article.date_iso }}",
+    "dateModified": "{{ article.updated_iso }}",
+    {% if article.by_creator %}
     "author": {
       "@type": "Person",
       "name": {{ creator.name | tojson }},
@@ -48,15 +49,47 @@
         "url": {{ creator.studio_url | tojson }}
       }
     },
+    {% else %}
+    "author": {"@type": "Organization", "name": {{ research_author.name | tojson }}, "url": {{ research_author.url | tojson }}},
+    {% endif %}
     "publisher": {"@type": "Organization", "name": "TradeWave", "logo": {"@type": "ImageObject", "url": "https://tradewave.ai/favicon.png"}},
     "image": {{ article.og_image_url | tojson }},
     "keywords": {{ (article.tags or []) | tojson }},
     "wordCount": {{ article.word_count or 0 }},
-    "articleSection": "Finance and Investing",
+    "articleSection": {{ article.category_name | tojson }},
     "mainEntityOfPage": {"@type": "WebPage", "@id": "https://tradewave.ai/learn/{{ article.slug }}.html"},
     "isPartOf": {"@type": "Blog", "name": "TradeWave Learn", "url": "https://tradewave.ai/learn/"}
   }
   </script>
+  {% if article.video %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    "name": {{ article.video.title | tojson }},
+    "description": {{ article.video.description | tojson }},
+    "thumbnailUrl": [{{ article.video.thumbnail_url | tojson }}],
+    {% if article.video.upload_date %}"uploadDate": {{ article.video.upload_date | string | tojson }},{% endif %}
+    {% if article.video.duration %}"duration": {{ article.video.duration | tojson }},{% endif %}
+    "embedUrl": {{ article.video.schema_embed_url | tojson }},
+    "contentUrl": {{ article.video.watch_url | tojson }},
+    "publisher": {"@type": "Organization", "name": "TradeWave", "logo": {"@type": "ImageObject", "url": "https://tradewave.ai/favicon.png"}}
+  }
+  </script>
+  {% endif %}
+  {% if article.faq %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {% for f in article.faq %}
+      {"@type": "Question", "name": {{ f.q | tojson }}, "acceptedAnswer": {"@type": "Answer", "text": {{ f.a | tojson }}}}{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ]
+  }
+  </script>
+  {% endif %}
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -139,6 +172,20 @@
     .article-page-footer nav { margin-bottom: 14px; }
     .article-page-footer nav a { color: var(--text-dim); text-decoration: none; margin: 0 12px; font-size: 14px; }
     .article-page-footer nav a:hover { color: #fff; }
+    .article-video { position: relative; width: 100%; aspect-ratio: 16 / 9; margin: 0 0 12px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(139,92,246,0.25); background: #000; }
+    .article-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    .article-video-caption { font-size: 13px; color: var(--text-muted); margin: 0 0 32px; }
+    .article-video-caption a { color: var(--text-dim); }
+    .article-faq { margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--border); }
+    .article-faq h2 { margin-top: 0; }
+    .article-faq details { border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px 18px; margin: 0 0 12px; background: rgba(255,255,255,0.02); }
+    .article-faq summary { cursor: pointer; font-weight: 600; color: #fff; }
+    .article-faq details p { margin: 12px 0 0; color: var(--text-dim); }
+    .article-cta { margin: 44px 0 0; padding: 22px 24px; border-radius: 12px; background: linear-gradient(135deg, rgba(99,102,241,0.14) 0%, rgba(168,85,247,0.10) 100%); border: 1px solid rgba(139,92,246,0.3); }
+    .article-cta p { margin: 0 0 12px; }
+    .article-cta a.cta-button { display: inline-block; padding: 10px 18px; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 700; text-decoration: none; }
+    .article-cta a.cta-button:hover { background: #7c3aed; color: #fff; }
+    .article-disclaimer { font-size: 13px; color: var(--text-muted); margin-top: 28px; }
     @media (max-width: 720px) {
       .article-hero h1 { font-size: 28px; }
       .article-hero .summary { font-size: 16px; }
@@ -153,16 +200,23 @@
 
 <section class="article-hero">
   <div class="article-hero-inner">
-    <div class="breadcrumb"><a href="/">Home</a> -&gt; <a href="/learn/">Learn</a> -&gt; {{ article.title }}</div>
+    <div class="breadcrumb"><a href="/">Home</a> -&gt; <a href="/learn/">Learn</a> -&gt; <a href="/learn/#{{ article.category }}">{{ article.category_name }}</a></div>
     <h1>{{ article.title }}</h1>
-    <div class="meta">{{ article.date_pretty }} - {{ article.reading_minutes }} min read</div>
+    <div class="meta">{{ article.date_pretty }}{% if article.updated_iso != article.date_iso %} - Updated {{ article.updated_pretty }}{% endif %} - {{ article.reading_minutes }} min read</div>
     <p class="summary">{{ article.summary }}</p>
+    {% if article.by_creator %}
     <div class="article-byline" aria-label="Article creator">
       <span>Created by</span>
       <a href="{{ creator.linkedin_url }}" target="_blank" rel="noopener author">{{ creator.name }}</a>
       <span class="separator" aria-hidden="true">&middot;</span>
       <a href="{{ creator.studio_url }}" target="_blank" rel="noopener">{{ creator.studio_name }}</a>
     </div>
+    {% else %}
+    <div class="article-byline" aria-label="Article author">
+      <span>By</span>
+      <a href="{{ research_author.url }}">{{ research_author.name }}</a>
+    </div>
+    {% endif %}
     {% if article.tags %}
     <div class="tags">{% for t in article.tags %}<span class="tag">{{ t }}</span>{% endfor %}</div>
     {% endif %}
@@ -170,7 +224,31 @@
 </section>
 
 <main class="article-prose">
+  {% if article.video %}
+  <div class="article-video">
+    <iframe src="{{ article.video.embed_url }}" title="{{ article.video.title }}" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  </div>
+  <p class="article-video-caption">Video: {{ article.video.title }} - <a href="{{ article.video.watch_url }}" target="_blank" rel="noopener">watch on YouTube</a></p>
+  {% endif %}
   {{ article.body_html | safe }}
+
+  {% if article.faq %}
+  <section class="article-faq" aria-labelledby="faq-heading">
+    <h2 id="faq-heading">Frequently Asked Questions</h2>
+    {% for f in article.faq %}
+    <details>
+      <summary>{{ f.q }}</summary>
+      <p>{{ f.a }}</p>
+    </details>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <aside class="article-cta">
+    <p><strong>See it on real data.</strong> TradeWave measures every seasonal window across decades of history and shows its work: win rate, Sharpe Ratio, MFE, MAE and the year-by-year record. Start with 7 days of full access, no card required.</p>
+    <a class="cta-button" href="/signup" data-cta-id="learn_article_try_free">Try TradeWave free</a>
+  </aside>
+  <p class="article-disclaimer">Educational content only. Historical patterns are not guarantees, past performance does not guarantee future results, and trading involves risk of loss. Nothing here is investment advice.</p>
 
   {% if related %}
   <section class="article-related">
@@ -192,7 +270,7 @@
     <a href="/">Home</a>
     <a href="/learn/">Learn</a>
     <a href="/app/">Wave Viewer</a>
-    <a href="/learn/">Learn</a>
+    <a href="/insights/">Insights</a>
     <a href="/contact.html">Contact</a>
     <a href="/privacy.html">Privacy</a>
     <a href="/terms.html">Terms</a>

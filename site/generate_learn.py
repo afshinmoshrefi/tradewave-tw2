@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """TradeWave Learn generator (platform guides / how-tos).
 
-Reads markdown articles from /home/flask/site/content/learn/<slug>.md,
+Reads markdown articles from <this checkout>/site/content/learn/<slug>.md,
 renders them with the shared TW2 header into static HTML at
-/var/www/tradewave/learn/.
+/var/www/tradewave/learn/. The index groups articles into CATEGORIES.
 
 Parallel to generate_insights.py - same machinery, separate content area.
 Learn = product walkthroughs (Wave Viewer, Stats Table, ...). Insights =
@@ -20,12 +20,24 @@ Article frontmatter (YAML between --- fences):
     tags:            List of lowercase strings.
     featured:        Optional bool. True highlights on the index.
     related:         Optional list of other slugs to surface in Continue Reading.
+    category:        Optional CATEGORIES slug (default platform-guides).
+    updated:         Optional ISO date of the last substantive revision.
+    video:           Optional {id, title, description, duration (ISO 8601),
+                     upload_date}. Rendered as a privacy-enhanced YouTube embed
+                     plus VideoObject structured data.
+    faq:             Optional list of {q, a}. Rendered as a visible FAQ section
+                     plus FAQPage structured data. Answers are plain text.
+
+Authors: an `author` containing "Sacchitello" gets Michael's creator byline;
+every other article is credited to TradeWave Research.
 
 Body: standard markdown plus inline HTML (figures, callouts, etc.).
 The no_em_dash filter runs on the final HTML.
 """
 from __future__ import annotations
 
+import os
+import re
 import sys
 from datetime import datetime, date
 from pathlib import Path
@@ -35,26 +47,31 @@ import markdown as md
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-sys.path.insert(0, '/home/flask')
-sys.path.insert(0, '/home/flask/site/lib')
+# Resolve everything from this file's own checkout (like generate_home_page.py),
+# so dev renders the release selected by .tw2-app-current and staging/prod
+# render /home/flask. Hardcoding /home/flask made dev publish stale content.
+SITE_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = SITE_ROOT.parent
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(SITE_ROOT / 'lib'))
 import config  # noqa: E402
 from text_utils import no_em_dash  # noqa: E402
 from ga_snippet import ga_head_snippet  # noqa: E402
 
-# --------------------------------------------------------------------------- 
+# ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 
-SITE_ROOT     = Path('/home/flask/site')
 CONTENT_DIR   = SITE_ROOT / 'content' / 'learn'
 TEMPLATES_DIR = SITE_ROOT / 'templates'
 HEADER_PATH   = TEMPLATES_DIR / '_tw_header.html'
-OUTPUT_DIR    = Path('/var/www/tradewave/learn')
+# TW_LEARN_OUTPUT_DIR lets tests render into a scratch directory.
+OUTPUT_DIR    = Path(os.environ.get('TW_LEARN_OUTPUT_DIR', '/var/www/tradewave/learn'))
 SITEMAP_PATH  = Path('/var/www/tradewave/sitemap.xml')
 
 YEAR = datetime.now().year
 
-# Editorial credit shown across the Learn section. Keeping this in one place
+# Editorial credit for the original platform guides. Keeping this in one place
 # ensures the visible byline and structured metadata stay in sync.
 LEARN_CREATOR = {
     'name': 'Michael Sacchitello, CMT',
@@ -62,6 +79,74 @@ LEARN_CREATOR = {
     'studio_name': 'FatTail Studio',
     'studio_url': 'https://www.fattailstudio.com/',
 }
+
+# Articles not written by Michael are credited to the house research desk, so
+# his byline only appears on the guides he actually created.
+RESEARCH_AUTHOR = {
+    'name': 'TradeWave Research',
+    'url': 'https://tradewave.ai/about.html',
+}
+
+# Learn sections, in display order. Article frontmatter `category:` picks one;
+# articles without a category are platform guides (the original six).
+CATEGORIES = [
+    {
+        'slug': 'start-here',
+        'name': 'Start Here',
+        'blurb': 'New to TradeWave or to seasonal trading? Begin with the four-minute tour, then learn what a pattern is and the workflow that turns one into a decision.',
+    },
+    {
+        'slug': 'seasonal-trading',
+        'name': 'Seasonal Trading Basics',
+        'blurb': 'What seasonality is, why it repeats, how it fits next to technical and fundamental analysis, and how traders and long-term investors put it to work.',
+    },
+    {
+        'slug': 'metrics',
+        'name': 'Reading the Numbers',
+        'blurb': 'Win rate, expectancy, Sharpe Ratio, MFE and MAE, median versus average, and sample size. The metrics that separate a real edge from a lucky one.',
+    },
+    {
+        'slug': 'risk',
+        'name': 'Risk and Trade Management',
+        'blurb': 'Position sizing, stops, exits and the line between honest window alignment and curve-fitting. Seasonality sets the odds; discipline protects the account.',
+    },
+    {
+        'slug': 'platform-guides',
+        'name': 'Platform Guides',
+        'blurb': 'Step-by-step walkthroughs of the Opportunities Table, Wave Viewer, Stats Table, Trend Chart, historical price charts and Portfolio Manager.',
+    },
+    {
+        'slug': 'reference',
+        'name': 'Reference',
+        'blurb': 'Plain-English definitions of every seasonal trading and TradeWave term in one place.',
+    },
+]
+CATEGORY_BY_SLUG = {c['slug']: c for c in CATEGORIES}
+DEFAULT_CATEGORY = 'platform-guides'
+
+_YT_ID_RE = re.compile(r'^[A-Za-z0-9_-]{11}$')
+
+
+def build_video(raw: Any) -> Dict[str, Any] | None:
+    """Normalize the optional `video:` frontmatter block for the template.
+
+    Embeds use youtube-nocookie.com, the only video origin the site CSP
+    allows in frame-src.
+    """
+    if not raw:
+        return None
+    vid = str(raw.get('id', '')).strip()
+    if not _YT_ID_RE.match(vid):
+        raise ValueError(f'video id {vid!r} is not an 11-character YouTube id')
+    video = dict(raw)
+    video['id'] = vid
+    video['embed_url'] = f'https://www.youtube-nocookie.com/embed/{vid}?rel=0'
+    video['schema_embed_url'] = f'https://www.youtube.com/embed/{vid}'
+    video['watch_url'] = f'https://www.youtube.com/watch?v={vid}'
+    video['thumbnail_url'] = f'https://i.ytimg.com/vi/{vid}/hqdefault.jpg'
+    video.setdefault('title', '')
+    video.setdefault('description', '')
+    return video
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -139,17 +224,32 @@ def load_articles() -> List[Dict[str, Any]]:
             meta['date'] = datetime.now().strftime('%Y-%m-%d')
         meta['date_pretty'] = date_pretty(meta['date'])
         meta['date_iso']    = date_iso(meta['date'])
-        # og:image: first chart URL embedded in the body, else fallback to favicon.
-        # Open Graph / Twitter Cards prefer raster (PNG), so swap the SVG
-        # extension to PNG when the matching .png exists alongside.
-        import re as _re
-        m = _re.search(r'<img[^>]+src="(/learn/charts/[^"]+)"', meta['body_html'])
+        updated = meta.get('updated') or meta['date']
+        meta['updated_iso'] = date_iso(updated)
+        meta['updated_pretty'] = date_pretty(updated)
+        category = meta.get('category') or DEFAULT_CATEGORY
+        if category not in CATEGORY_BY_SLUG:
+            raise ValueError(f'{p.name}: unknown category {category!r}')
+        meta['category'] = category
+        meta['category_name'] = CATEGORY_BY_SLUG[category]['name']
+        meta['by_creator'] = 'sacchitello' in str(meta.get('author', '')).lower()
+        meta['video'] = build_video(meta.get('video'))
+        meta['faq'] = [
+            {'q': str(item['q']).strip(), 'a': str(item['a']).strip()}
+            for item in (meta.get('faq') or [])
+        ]
+        # og:image: first chart/screenshot in the body, then the video
+        # thumbnail, then a hero, then the favicon. Open Graph / Twitter Cards
+        # prefer raster (PNG), so swap SVG to PNG when the PNG exists.
+        m = re.search(r'<img[^>]+src="(/learn/(?:charts|images)/[^"]+)"', meta['body_html'])
         if m:
             chart_path = m.group(1)
-            png_candidate = _re.sub(r'\.svg$', '.png', chart_path)
+            png_candidate = re.sub(r'\.svg$', '.png', chart_path)
             png_disk = Path('/var/www/tradewave') / png_candidate.lstrip('/')
             chosen = png_candidate if png_disk.exists() else chart_path
             meta['og_image_url'] = config.domain_root.rstrip('/') + chosen
+        elif meta['video']:
+            meta['og_image_url'] = meta['video']['thumbnail_url']
         elif meta.get('hero'):
             meta['og_image_url'] = (config.domain_root.rstrip('/') + meta['hero']
                                     if meta['hero'].startswith('/') else meta['hero'])
@@ -245,6 +345,21 @@ def main() -> int:
     print(f'  output:  {OUTPUT_DIR}')
     print()
 
+    # A typo in `related:` would silently drop a cross-link; fail loudly instead.
+    known = {a['slug'] for a in articles}
+    for art in articles:
+        missing = [s for s in art.get('related', []) if s not in known]
+        if missing:
+            print(f'ERROR: {art["slug"]} relates to unknown slugs {missing}', file=sys.stderr)
+            return 3
+
+    sections = []
+    for cat in CATEGORIES:
+        members = [a for a in articles if a['category'] == cat['slug']]
+        if members:
+            sections.append({**cat, 'articles': members})
+    videos = [a for a in articles if a['video']]
+
     # Per-article pages
     for art in articles:
         related = pick_related(art, articles)
@@ -252,6 +367,7 @@ def main() -> int:
             article=art,
             related=related,
             creator=LEARN_CREATOR,
+            research_author=RESEARCH_AUTHOR,
             tw_header=tw_header,
             year=YEAR,
             ga_head_snippet=ga_head_snippet(),
@@ -264,7 +380,10 @@ def main() -> int:
     # Index
     html = index_tmpl.render(
         articles=articles,
+        sections=sections,
+        videos=videos,
         creator=LEARN_CREATOR,
+        research_author=RESEARCH_AUTHOR,
         tw_header=tw_header,
         year=YEAR,
         ga_head_snippet=ga_head_snippet(),

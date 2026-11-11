@@ -3,23 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Learn - Platform Guides and Tutorials - TradeWave</title>
-  <meta name="description" content="Step-by-step guides to TradeWave: the Wave Viewer, Stats Table, Trend Chart, Portfolio Manager, and how to read a seasonal trading opportunity.">
+  <title>Learn Seasonal Trading - Guides, Videos and Tutorials - TradeWave</title>
+  <meta name="description" content="Learn seasonal trading and how to use TradeWave: what seasonal patterns are, win rate vs risk-reward, Sharpe Ratio, MFE and MAE, position sizing, the election-cycle lens, and step-by-step platform guides with videos.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://tradewave.ai/learn/">
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="shortcut icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
   <meta property="og:site_name" content="TradeWave Learn">
-  <meta property="og:title" content="Learn - TradeWave">
-  <meta property="og:description" content="Step-by-step guides to TradeWave: how to read seasonal patterns, use the Wave Viewer, and build a portfolio.">
+  <meta property="og:title" content="Learn Seasonal Trading - TradeWave">
+  <meta property="og:description" content="Learn seasonal trading and how to use TradeWave: what seasonal patterns are, win rate vs risk-reward, Sharpe Ratio, MFE and MAE, position sizing, the election-cycle lens, and step-by-step platform guides with videos.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://tradewave.ai/learn/">
   <meta property="og:image" content="https://tradewave.ai/favicon.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@TradeWaveHQ">
-  <meta name="twitter:title" content="Learn - TradeWave">
-  <meta name="twitter:description" content="Step-by-step guides to TradeWave: how to read seasonal patterns, use the Wave Viewer, and build a portfolio.">
+  <meta name="twitter:title" content="Learn Seasonal Trading - TradeWave">
+  <meta name="twitter:description" content="Learn seasonal trading and how to use TradeWave: what seasonal patterns are, win rate vs risk-reward, Sharpe Ratio, MFE and MAE, position sizing, the election-cycle lens, and step-by-step platform guides with videos.">
   <meta name="twitter:image" content="https://tradewave.ai/favicon.png">
   <script type="application/ld+json">
   {
@@ -27,7 +27,7 @@
     "@type": "Blog",
     "name": "TradeWave Learn",
     "url": "https://tradewave.ai/learn/",
-    "description": "Step-by-step guides to TradeWave: how to read seasonal patterns, use the Wave Viewer, and build a portfolio.",
+    "description": "Learn seasonal trading and how to use TradeWave: what seasonal patterns are, win rate vs risk-reward, Sharpe Ratio, MFE and MAE, position sizing, the election-cycle lens, and step-by-step platform guides with videos.",
     "publisher": {"@type": "Organization", "name": "TradeWave", "logo": {"@type": "ImageObject", "url": "https://tradewave.ai/favicon.png"}},
     "blogPost": [
       {% for a in articles %}
@@ -37,6 +37,7 @@
         "description": {{ a.summary | tojson }},
         "datePublished": "{{ a.date_iso }}",
         "url": "https://tradewave.ai/learn/{{ a.slug }}.html",
+        {% if a.by_creator %}
         "author": {
           "@type": "Person",
           "name": {{ creator.name | tojson }},
@@ -48,6 +49,9 @@
             "url": {{ creator.studio_url | tojson }}
           }
         },
+        {% else %}
+        "author": {"@type": "Organization", "name": {{ research_author.name | tojson }}, "url": {{ research_author.url | tojson }}},
+        {% endif %}
         "keywords": {{ (a.tags or []) | tojson }}
       }{% if not loop.last %},{% endif %}
       {% endfor %}
@@ -105,6 +109,23 @@
     .learn-page-footer nav { margin-bottom: 16px; }
     .learn-page-footer nav a { color: var(--text-dim); text-decoration: none; margin: 0 12px; font-size: 14px; }
     .learn-page-footer nav a:hover { color: #fff; }
+    .learn-toc { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 22px auto 0; max-width: 900px; }
+    .learn-toc a { font-size: 13px; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(139,92,246,0.3); color: var(--text-dim); text-decoration: none; background: rgba(139,92,246,0.06); }
+    .learn-toc a:hover { color: #fff; border-color: rgba(139,92,246,0.6); }
+    .learn-videos { max-width: 1100px; margin: 0 auto; padding: 40px 24px 0; }
+    .learn-videos h2, .learn-section h2 { font-size: 26px; margin: 0 0 8px; color: #fff; }
+    .learn-section-blurb { color: var(--text-dim); margin: 0 0 22px; max-width: 820px; }
+    .learn-video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
+    .learn-video-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; overflow: hidden; }
+    .learn-video-card .frame { position: relative; aspect-ratio: 16 / 9; background: #000; }
+    .learn-video-card iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    .learn-video-card .body { padding: 16px 20px 18px; }
+    .learn-video-card h3 { margin: 0 0 6px; font-size: 17px; }
+    .learn-video-card h3 a { color: var(--text); text-decoration: none; }
+    .learn-video-card h3 a:hover { color: var(--link); }
+    .learn-video-card p { margin: 0; color: var(--text-dim); font-size: 14px; }
+    .learn-section { margin: 0 0 56px; scroll-margin-top: 90px; }
+    .learn-section .learn-creator { justify-content: flex-start; margin: -10px 0 18px; }
     @media (max-width: 720px) {
       .learn-hero h1 { font-size: 32px; }
       .learn-grid-inner { grid-template-columns: 1fr; }
@@ -116,30 +137,57 @@
 {{ tw_header | safe }}
 
 <section class="learn-hero">
-  <h1>Learn</h1>
-  <p>Step-by-step guides to TradeWave: the Wave Viewer, the Stats Table, the Trend Chart, the Portfolio Manager, and how to read a seasonal trading opportunity.</p>
-  <div class="learn-creator" aria-label="Learn section creator">
-    <span>Guides created by</span>
-    <a href="{{ creator.linkedin_url }}" target="_blank" rel="noopener">{{ creator.name }}</a>
-    <span class="separator" aria-hidden="true">&middot;</span>
-    <a href="{{ creator.studio_url }}" target="_blank" rel="noopener">{{ creator.studio_name }}</a>
-  </div>
+  <h1>Learn Seasonal Trading</h1>
+  <p>Everything you need to read the market's calendar with confidence: what seasonal patterns are and why they repeat, the numbers that separate a real edge from luck, how to size and exit a trade, and step-by-step guides to every TradeWave tool.</p>
+  <nav class="learn-toc" aria-label="Learn sections">
+    {% if videos %}<a href="#videos">Videos</a>{% endif %}
+    {% for sec in sections %}<a href="#{{ sec.slug }}">{{ sec.name }}</a>{% endfor %}
+  </nav>
 </section>
 
-<main class="learn-grid">
-  <div class="learn-grid-inner">
-    {% for a in articles %}
-    <article class="learn-card{{ ' featured' if a.featured else '' }}">
-      <h2><a href="/learn/{{ a.slug }}.html">{{ a.title }}</a></h2>
-      <div class="meta">{{ a.date_pretty }} - {{ a.reading_minutes }} min read</div>
-      {% if a.tags %}
-      <div class="tags">{% for t in a.tags %}<span class="tag">{{ t }}</span>{% endfor %}</div>
-      {% endif %}
-      <p class="summary">{{ a.summary }}</p>
-      <a class="read-link" href="/learn/{{ a.slug }}.html">Read article -&gt;</a>
-    </article>
+{% if videos %}
+<section class="learn-videos" id="videos" aria-labelledby="videos-heading">
+  <h2 id="videos-heading">Watch and Learn</h2>
+  <p class="learn-section-blurb">Short videos from the TradeWaveAI YouTube channel. Each one has a full written guide alongside it.</p>
+  <div class="learn-video-grid">
+    {% for a in videos %}
+    <div class="learn-video-card">
+      <div class="frame"><iframe src="{{ a.video.embed_url }}" title="{{ a.video.title }}" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
+      <div class="body">
+        <h3><a href="/learn/{{ a.slug }}.html">{{ a.title }}</a></h3>
+        <p>{{ a.video.title }} - read the written guide for the full walkthrough.</p>
+      </div>
+    </div>
     {% endfor %}
   </div>
+</section>
+{% endif %}
+
+<main class="learn-grid">
+  {% for sec in sections %}
+  <section class="learn-section" id="{{ sec.slug }}" aria-labelledby="sec-{{ sec.slug }}">
+    <h2 id="sec-{{ sec.slug }}">{{ sec.name }}</h2>
+    <p class="learn-section-blurb">{{ sec.blurb }}</p>
+    {% if sec.slug == 'platform-guides' %}
+    <div class="learn-creator" aria-label="Learn section creator">
+      <span>Guides created by</span>
+      <a href="{{ creator.linkedin_url }}" target="_blank" rel="noopener">{{ creator.name }}</a>
+      <span class="separator" aria-hidden="true">&middot;</span>
+      <a href="{{ creator.studio_url }}" target="_blank" rel="noopener">{{ creator.studio_name }}</a>
+    </div>
+    {% endif %}
+    <div class="learn-grid-inner">
+      {% for a in sec.articles %}
+      <article class="learn-card{{ ' featured' if a.featured else '' }}">
+        <h3 style="margin:0 0 10px;font-size:19px;font-weight:700;line-height:1.35"><a style="color:var(--text);text-decoration:none" href="/learn/{{ a.slug }}.html">{{ a.title }}</a></h3>
+        <div class="meta">{% if a.video %}Video + guide - {% endif %}{{ a.reading_minutes }} min read</div>
+        <p class="summary">{{ a.summary }}</p>
+        <a class="read-link" href="/learn/{{ a.slug }}.html">Read guide -&gt;</a>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
 </main>
 
 <footer class="learn-page-footer">
@@ -147,6 +195,7 @@
     <a href="/">Home</a>
     <a href="/app/">Wave Viewer</a>
     <a href="/learn/">Learn</a>
+    <a href="/insights/">Insights</a>
     <a href="/contact.html">Contact</a>
     <a href="/privacy.html">Privacy</a>
     <a href="/terms.html">Terms</a>
