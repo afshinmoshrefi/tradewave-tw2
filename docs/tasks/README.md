@@ -43,4 +43,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 
 | [TW-TASK-0026](TW-TASK-0026.md) | in-progress | October 18 staging release: Dev load gate failed twice; Dev rolled back; staging unchanged |
 
-| [TW-TASK-0027](TW-TASK-0027.md) | in-progress | Learn section expanded for search: 19 new guides, two YouTube videos, categories and structured data |
+| [TW-TASK-0027](TW-TASK-0027.md) | verified on dev | Learn section expanded for search: 19 new guides, two YouTube videos, categories and structured data |
