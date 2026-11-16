@@ -4593,7 +4593,7 @@ class _AffiliateJoinPageRowAction(BaseListRowAction):
 class AffiliateAdmin(_AdminAuth, ModelView):
     column_list = ("name", "code", "discount_pct", "commission_pct",
                    "commission_model", "status", "agreement_signed_at",
-                   "user", "stripe_coupon_id", "created_at")
+                   "tax_form_type", "user", "stripe_coupon_id", "created_at")
     column_searchable_list = ("code", "name", "email", "payout_email")
     column_filters = ("status", "commission_model")
     column_labels = {
@@ -4610,6 +4610,8 @@ class AffiliateAdmin(_AdminAuth, ModelView):
         "page_signoff": "Page sign-off",
         "agreement_addendum": "Addendum (Exhibit B)",
         "user": "Portal login",
+        "tax_form_type": "Tax form",
+        "tax_form_received_at": "Tax form received",
     }
     # Manual-link fallback for the affiliate dashboard (spec 4.1): the portal
     # auto-links by e-mail on first visit; this field covers mismatches. Ajax
@@ -4652,6 +4654,7 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                            "agreement_addendum",
                            "agreement_version", "agreement_signed_name",
                            "agreement_signed_at", "agreement_signed_ip",
+                           "tax_form_type", "tax_form_received_at",
                            "notes", "created_at")
     # Two pairs: Annual (discount_pct/commission_pct = the default + promo backing)
     # and the optional Monthly override. Leave Monthly blank for one flat rate.
@@ -4659,6 +4662,7 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                     "discount_pct", "commission_pct",
                     "discount_pct_monthly", "commission_pct_monthly",
                     "commission_model", "payout_method", "payout_email",
+                    "tax_form_type", "tax_form_received_at",
                     "agreement_addendum",
                     "page_display_name", "page_logo", "page_photo",
                     "page_note", "page_signoff",
@@ -4691,6 +4695,9 @@ class AffiliateAdmin(_AdminAuth, ModelView):
             ("first_payment", "First payment only"),
         ],
         "payout_method": [("paypal", "PayPal"), ("wise", "Wise")],
+        "tax_form_type": [("w9", "W-9 (U.S. person)"),
+                          ("w8ben", "W-8BEN (non-U.S. individual)"),
+                          ("w8bene", "W-8BEN-E (non-U.S. entity)")],
         "status": [("active", "Active"), ("paused", "Paused"),
                    ("terminated", "Terminated")],
     }
@@ -4993,6 +5000,21 @@ class AffiliatePayoutAdmin(_AdminAuth, ModelView):
 
     def on_model_change(self, form, model, is_created):
         from sqlalchemy import inspect as sa_inspect
+        from wtforms.validators import ValidationError
+        # Agreement s.6.2: a valid tax form is a CONDITION OF PAYMENT. Refuse
+        # to record a payout as paid until the affiliate has one on file.
+        if model.status == "paid" and sa_inspect(model).attrs.status.history.has_changes():
+            aff = model.affiliate
+            if aff is not None and not aff.tax_form_received_at:
+                raise ValidationError(
+                    "Can't mark paid: %s has no tax form on file (W-9 / W-8BEN / "
+                    "W-8BEN-E). Record it on the affiliate first (Affiliates -> edit -> "
+                    "Tax form + Tax form received)." % aff.code)
+            if model.commission_amount is not None and model.commission_amount < 0:
+                raise ValidationError(
+                    "This row is negative (refunds/disputes exceeded sales). It is "
+                    "carried into the affiliate's next payable month automatically - "
+                    "leave it pending.")
         # auto-stamp paid_at when flipped to paid without an explicit date
         if model.status == "paid" and not model.paid_at:
             from datetime import datetime, timezone
@@ -5027,19 +5049,20 @@ _AFFILIATE_COMPUTE_TMPL = """
   <label>Month <input type="number" name="month" value="{{ m }}" min="1" max="12"></label>
   <button class="btn" type="submit">Preview</button>
 </form>
-<p class="muted">Reads Stripe live for the month and attributes each discounted sale to its affiliate by the coupon used. Commission = (amount paid &minus; tax) &times; the affiliate's rate. Refunds are not auto-deducted - adjust the amount in the ledger before marking it paid.</p>
+<p class="muted">Reads Stripe live for the month and attributes each discounted sale to its affiliate by the coupon used. Commission = (amount paid &minus; tax) &times; the affiliate's rate. Refunds and lost/open disputes are deducted automatically in the month they happen (a month can go negative; it carries into the next payable month). A tax form must be on file before a row can be marked paid.</p>
 {% if preview %}
 <table>
- <tr><th>Code</th><th>Affiliate</th><th>Cur</th><th class="num">Revenue</th><th class="num">Commission owed</th><th>Via</th><th>Pay to</th></tr>
+ <tr><th>Code</th><th>Affiliate</th><th>Cur</th><th class="num">Revenue</th><th class="num">Commission owed</th><th>Via</th><th>Pay to</th><th>Tax form</th></tr>
  {% for r in preview %}
  <tr><td><b>{{ r.code }}</b></td><td>{{ r.name }}</td><td>{{ r.currency|upper }}</td>
      <td class="num">{{ '%.2f'|format(r.gross_revenue) }}</td>
      <td class="num"><b>{{ '%.2f'|format(r.commission_amount) }}</b></td>
      <td>{{ (r.payout_method or '?')|upper }}</td>
-     <td>{{ r.payout_email or '(no payout email set)' }}{% if r.notes %} <span style="color:#888;font-size:12px">- {{ r.notes }}</span>{% endif %}</td></tr>
+     <td>{{ r.payout_email or '(no payout email set)' }}{% if r.notes %} <span style="color:#888;font-size:12px">- {{ r.notes }}</span>{% endif %}</td>
+     <td>{% if tax.get(r.affiliate_id) %}{{ tax[r.affiliate_id]|upper }}{% else %}<b style="color:#b00020">MISSING - can't pay</b>{% endif %}</td></tr>
  {% endfor %}
  {% for ccy, amt in totals %}
- <tr><th colspan="4" class="num">Total ({{ ccy|upper }})</th><th class="num">{{ '%.2f'|format(amt) }}</th><th></th><th></th></tr>
+ <tr><th colspan="4" class="num">Total ({{ ccy|upper }})</th><th class="num">{{ '%.2f'|format(amt) }}</th><th></th><th></th><th></th></tr>
  {% endfor %}
 </table>
 <form method="post" style="margin-top:16px">
@@ -5079,12 +5102,16 @@ class AffiliatePayoutComputeView(_AdminAuth, BaseView):
         committed = False
         error = None
         preview = []
+        tax = {}
         s = _S()
         try:
             if _rq.method == "POST" and _rq.form.get("action") == "commit":
                 afs.upsert_month(s, y, m)
                 committed = True
             preview = afs.compute_month(s, y, m)
+            from models import Affiliate as _Aff
+            tax = {str(a.id): a.tax_form_type for a in s.query(_Aff).filter(
+                _Aff.tax_form_received_at.isnot(None)).all()}
         except Exception as e:
             error = str(e)
             log.exception("affiliate compute failed for %04d-%02d", y, m)
@@ -5097,7 +5124,7 @@ class AffiliatePayoutComputeView(_AdminAuth, BaseView):
             totals[r["currency"]] = totals.get(r["currency"], _D("0")) + r["commission_amount"]
         return render_template_string(
             _AFFILIATE_COMPUTE_TMPL, y=y, m=m, preview=preview,
-            committed=committed, error=error, totals=sorted(totals.items()))
+            committed=committed, error=error, totals=sorted(totals.items()), tax=tax)
 
 
 _AFFILIATE_GUIDE_TMPL = """

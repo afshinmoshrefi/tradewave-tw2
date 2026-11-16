@@ -7,6 +7,13 @@
   {% else %}
     <p class="muted">No payout method on file yet.</p>
   {% endif %}
+  {% if aff.tax_form_received_at %}
+    <p>Tax form on file: <span class="pill ok">{{ {'w9':'W-9','w8ben':'W-8BEN','w8bene':'W-8BEN-E'}.get(aff.tax_form_type, aff.tax_form_type or 'received') }}</span></p>
+  {% else %}
+    <p><span class="pill bad">Tax form needed</span> We can't send payouts until we have your tax form:
+      a W-9 (U.S. persons), W-8BEN (non-U.S. individuals) or W-8BEN-E (non-U.S. entities).
+      Email it to help@tradewave.ai.</p>
+  {% endif %}
   <p class="muted" style="font-size:13px;">To change payout details, reply to any of our emails or write to help@tradewave.ai - changes are verified manually (they gate real money).</p>
 </div>
 

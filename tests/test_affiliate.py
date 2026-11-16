@@ -64,6 +64,23 @@ def _patch_month_invoices(monkeypatch, items):
             return _FakeList([])
         return _FakeList(items)
     monkeypatch.setattr(stripe.Invoice, "list", _list)
+    _patch_reversals(monkeypatch)
+
+
+def _patch_reversals(monkeypatch, refunds=(), disputes=(), invoices=None):
+    """Patch the clawback pass: refunds/disputes created in the month, and the
+    payment -> invoice lookup (InvoicePayment.list + Invoice.retrieve)."""
+    invoices = invoices or {}
+    monkeypatch.setattr(stripe.Refund, "list", lambda **kw: _FakeList(list(refunds)))
+    monkeypatch.setattr(stripe.Dispute, "list", lambda **kw: _FakeList(list(disputes)))
+
+    def _ip_list(**kw):
+        pi = kw["payment"]["payment_intent"]
+        inv = invoices.get(pi)
+        return _FakeList([{"invoice": inv["id"]}] if inv else [])
+    monkeypatch.setattr(stripe.InvoicePayment, "list", _ip_list)
+    by_id = {v["id"]: v for v in invoices.values()}
+    monkeypatch.setattr(stripe.Invoice, "retrieve", lambda iid, **kw: by_id[iid])
 
 
 # --- code validation --------------------------------------------------------
@@ -231,6 +248,7 @@ def test_first_payment_model(monkeypatch):
         return _FakeList(month_items)
 
     monkeypatch.setattr(stripe.Invoice, "list", _list)
+    _patch_reversals(monkeypatch)
     rows = afs._compute([_aff(commission_model="first_payment")], 2026, 5)
     # only the first invoice counts -> 30% of $80 = $24, single detail line
     assert rows[0]["commission_amount"] == Decimal("24.00")
@@ -250,22 +268,67 @@ def test_commission_rounds_on_aggregate_not_per_line(monkeypatch):
     assert rows[0]["commission_amount"] == Decimal("0.01")
 
 
-def test_full_refund_via_credit_note_nets_to_zero(monkeypatch):
-    """A fully-refunded invoice (post-payment credit note) yields no commission."""
-    inv = _inv(amount_paid=8000)
-    inv["post_payment_credit_notes_amount"] = 8000        # whole charge refunded
-    _patch_month_invoices(monkeypatch, [inv])
-    assert afs._compute([_aff()], 2026, 5) == []
+def _refund(amount, pi="pi_1", rid="re_1", status="succeeded"):
+    return {"id": rid, "amount": amount, "payment_intent": pi, "charge": "ch_1",
+            "status": status, "created": 0}
 
 
-def test_partial_refund_netted_from_basis(monkeypatch):
-    """Half-refunded invoice -> commission on the retained half only."""
+def test_full_refund_same_month_nets_to_zero(monkeypatch):
+    """Paid and fully refunded in the same month -> zero commission."""
     inv = _inv(amount_paid=8000)
-    inv["post_payment_credit_notes_amount"] = 4000        # half refunded
     _patch_month_invoices(monkeypatch, [inv])
+    _patch_reversals(monkeypatch, refunds=[_refund(8000)], invoices={"pi_1": inv})
     rows = afs._compute([_aff()], 2026, 5)
-    assert len(rows) == 1
+    assert rows[0]["commission_amount"] == Decimal("0.00")
+    kinds = [ln["kind"] for ln in rows[0]["detail"]]
+    assert kinds == ["payment", "refund"]
+
+
+def test_partial_refund_netted(monkeypatch):
+    """Half refunded -> commission on the retained half only."""
+    inv = _inv(amount_paid=8000)
+    _patch_month_invoices(monkeypatch, [inv])
+    _patch_reversals(monkeypatch, refunds=[_refund(4000)], invoices={"pi_1": inv})
+    rows = afs._compute([_aff()], 2026, 5)
     assert rows[0]["commission_amount"] == Decimal("12.00")   # 30% of $40 kept
+
+
+def test_refund_of_earlier_month_is_clawed_back(monkeypatch):
+    """Invoice paid in April, refunded in May -> May gets a NEGATIVE row."""
+    april = _inv(amount_paid=8800, tax=800,
+                 created=int(dt.datetime(2026, 4, 10, tzinfo=dt.timezone.utc).timestamp()))
+    _patch_month_invoices(monkeypatch, [])                     # nothing paid in May
+    _patch_reversals(monkeypatch, refunds=[_refund(8800)], invoices={"pi_1": april})
+    rows = afs._compute([_aff()], 2026, 5)
+    assert rows[0]["gross_revenue"] == Decimal("-80.00")       # tax share stripped
+    assert rows[0]["commission_amount"] == Decimal("-24.00")
+
+
+def test_lost_dispute_clawed_back_won_ignored(monkeypatch):
+    inv = _inv(amount_paid=8000)
+    _patch_month_invoices(monkeypatch, [inv])
+    disputes = [{"id": "dp_1", "amount": 8000, "payment_intent": "pi_1", "status": "lost"},
+                {"id": "dp_2", "amount": 8000, "payment_intent": "pi_1", "status": "won"}]
+    _patch_reversals(monkeypatch, disputes=disputes, invoices={"pi_1": inv})
+    rows = afs._compute([_aff()], 2026, 5)
+    assert rows[0]["commission_amount"] == Decimal("0.00")
+    assert [ln["kind"] for ln in rows[0]["detail"]] == ["payment", "dispute"]
+
+
+def test_failed_refund_ignored(monkeypatch):
+    inv = _inv(amount_paid=8000)
+    _patch_month_invoices(monkeypatch, [inv])
+    _patch_reversals(monkeypatch, refunds=[_refund(8000, status="failed")],
+                     invoices={"pi_1": inv})
+    rows = afs._compute([_aff()], 2026, 5)
+    assert rows[0]["commission_amount"] == Decimal("24.00")
+
+
+def test_refund_of_unattributed_invoice_ignored(monkeypatch):
+    inv = _inv(coupon=None, amount_paid=8000)
+    _patch_month_invoices(monkeypatch, [])
+    _patch_reversals(monkeypatch, refunds=[_refund(8000)], invoices={"pi_1": inv})
+    assert afs._compute([_aff()], 2026, 5) == []
 
 
 def test_recurring_attributed_via_referral_after_coupon_expires(monkeypatch):
@@ -309,6 +372,7 @@ def test_first_payment_dedupes_near_simultaneous_invoices(monkeypatch):
         return _FakeList([early, later])
 
     monkeypatch.setattr(stripe.Invoice, "list", _list)
+    _patch_reversals(monkeypatch)
     rows = afs._compute([_aff(commission_model="first_payment")], 2026, 5)
     assert len(rows) == 1
     assert rows[0]["commission_amount"] == Decimal("24.00")   # ONE invoice, not $48
@@ -334,6 +398,7 @@ def test_first_payment_ignores_unrelated_earlier_invoice(monkeypatch):
         return _FakeList(month_items)
 
     monkeypatch.setattr(stripe.Invoice, "list", _list)
+    _patch_reversals(monkeypatch)
     rows = afs._compute([_aff(commission_model="first_payment")], 2026, 5)
     # the affiliate invoice IS the earliest carrying the affiliate coupon -> it counts
     assert len(rows) == 1

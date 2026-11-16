@@ -1,5 +1,12 @@
 {% extends "aff_base.html" %}
 {% block content %}
+{% if not aff.tax_form_received_at %}
+<div class="card" style="border-color: rgba(248, 113, 113, 0.5);">
+  <h3>Action needed: tax form</h3>
+  <p class="muted">Payouts are held until we receive your W-9 (U.S.) or W-8BEN / W-8BEN-E (non-U.S.).
+    Email it to help@tradewave.ai. <a href="{{ url_for('affiliate_portal.payouts') }}">Details</a></p>
+</div>
+{% endif %}
 <div class="card">
   <h3>Program Status</h3>
   <div class="row">

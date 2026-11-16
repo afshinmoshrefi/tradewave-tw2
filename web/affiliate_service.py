@@ -401,19 +401,6 @@ def _invoice_tax_cents(inv: dict) -> int:
     return int(tax or 0)
 
 
-def _invoice_refunded_cents(invd) -> int:
-    """Post-payment refunds on the invoice, issued as credit notes after it was
-    paid (Stripe's recommended way to refund an invoiced subscription charge).
-    Subtracted from the commission basis. NOTE: direct charge refunds / disputes
-    NOT issued as a credit note are not reflected here and still need manual
-    netting at payout review."""
-    v = invd.get("post_payment_credit_notes_amount")
-    try:
-        return max(0, int(v or 0))
-    except (TypeError, ValueError):
-        return 0
-
-
 def _earliest_paid_invoice(customer_id: str, coupon_id: str | None = None,
                            subscription_id: str | None = None):
     """(datetime, invoice_id) of the customer's earliest paid (amount_paid>0)
@@ -496,6 +483,71 @@ def compute_month(session, year: int, month: int) -> list[dict]:
     return _compute(affiliates, year, month, referrals_by_sub)
 
 
+# Dispute statuses that do NOT take money back (won, or inquiries that never
+# withdrew funds). Every other dispute status nets the commission at creation.
+_DISPUTE_NO_CLAWBACK = {"won", "warning_needs_response", "warning_under_review",
+                        "warning_closed"}
+
+
+def _month_reversals(start, end):
+    """Refunds + money-withdrawing disputes CREATED in [start, end), as plain
+    dicts {kind, id, amount, charge, payment_intent, created}. Dated by when
+    the money left, so a refund of an invoice paid in an earlier (possibly
+    already-paid-out) month lands in THIS month as a negative line - the
+    clawback. Credit notes that refund money create Refund objects, so they
+    are covered here too (and are no longer netted on the invoice itself)."""
+    window = {"gte": int(start.timestamp()), "lt": int(end.timestamp())}
+    out = []
+    for r in stripe.Refund.list(created=window, limit=100).auto_paging_iter():
+        rd = r.to_dict() if hasattr(r, "to_dict") else dict(r)
+        if rd.get("status") not in ("succeeded", "pending"):
+            continue
+        out.append({"kind": "refund", "id": rd.get("id"), "amount": int(rd.get("amount") or 0),
+                    "charge": rd.get("charge"), "payment_intent": rd.get("payment_intent"),
+                    "created": rd.get("created")})
+    for d in stripe.Dispute.list(created=window, limit=100).auto_paging_iter():
+        dd = d.to_dict() if hasattr(d, "to_dict") else dict(d)
+        if dd.get("status") in _DISPUTE_NO_CLAWBACK:
+            continue
+        out.append({"kind": "dispute", "id": dd.get("id"), "amount": int(dd.get("amount") or 0),
+                    "charge": dd.get("charge"), "payment_intent": dd.get("payment_intent"),
+                    "created": dd.get("created")})
+    return out
+
+
+def _id_of(v):
+    if isinstance(v, dict):
+        return v.get("id")
+    return v if isinstance(v, str) else None
+
+
+def _invoice_for_reversal(ev):
+    """The paid invoice (dict, discounts expanded) a refund/dispute reverses,
+    or None. API 2025+ links payments to invoices via InvoicePayment; older
+    APIs carried charge.invoice. Never raises."""
+    inv_id = None
+    pi = _id_of(ev.get("payment_intent"))
+    try:
+        if pi:
+            ips = stripe.InvoicePayment.list(
+                payment={"type": "payment_intent", "payment_intent": pi}, limit=1)
+            for ip in ips.auto_paging_iter():
+                ipd = ip.to_dict() if hasattr(ip, "to_dict") else dict(ip)
+                inv_id = _id_of(ipd.get("invoice"))
+                break
+        if not inv_id and _id_of(ev.get("charge")):
+            ch = stripe.Charge.retrieve(_id_of(ev.get("charge")))
+            chd = ch.to_dict() if hasattr(ch, "to_dict") else dict(ch)
+            inv_id = _id_of(chd.get("invoice"))
+        if not inv_id:
+            return None
+        inv = stripe.Invoice.retrieve(inv_id, expand=["discounts"])
+        return inv.to_dict() if hasattr(inv, "to_dict") else dict(inv)
+    except Exception as e:   # noqa: BLE001
+        log.warning("reversal %s: invoice lookup failed: %s", ev.get("id"), e)
+        return None
+
+
 def _compute(affiliates, year: int, month: int, referrals_by_sub=None) -> list[dict]:
     """Pure core (testable): given a list of affiliate objects, read Stripe paid
     invoices for the month and return per-(affiliate, currency) totals.
@@ -504,6 +556,14 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None) -> list[d
     PERSISTED attribution). When a referral matches it takes precedence over the
     coupon, so commission keeps flowing after the 12-month discount coupon leaves
     the invoice. The coupon is the fallback / corroborating signal.
+
+    Two passes:
+      1. every invoice PAID in the month -> a positive line
+         (basis = amount_paid - tax);
+      2. every refund / money-withdrawing dispute CREATED in the month whose
+         invoice earned commission -> a NEGATIVE line at the same rate (the
+         clawback; can make a month's total negative, which upsert_month
+         carries forward into the next payable month).
 
     Each result dict: affiliate_id, code, name, payout_email, currency,
     gross_revenue (Decimal), commission_amount (Decimal), period_start/end
@@ -521,94 +581,66 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None) -> list[d
     first_paid_cache: dict = {}
     unattributed: list = []
 
-    listing = stripe.Invoice.list(
-        status="paid",
-        created={"gte": int(start.timestamp()), "lt": int(end.timestamp())},
-        limit=100,
-        expand=["data.discounts"],
-    )
-    for inv in listing.auto_paging_iter():
-        invd = inv.to_dict() if hasattr(inv, "to_dict") else dict(inv)
-
-        # Attribution: 1) persisted referral (subscription -> affiliate) wins;
-        # 2) else the affiliate coupon on the invoice (fallback / corroboration).
-        aff = None
+    def attribute(invd):
+        """1) persisted referral (subscription -> affiliate) wins; 2) else the
+        affiliate coupon on the invoice (fallback / corroboration)."""
         sub_id = _invoice_subscription_id(invd)
         if sub_id and sub_id in referrals_by_sub:
-            aff = by_id.get(referrals_by_sub[sub_id])
-        if aff is None:
-            matches = [by_coupon[cid] for cid in _invoice_coupon_ids(invd) if cid in by_coupon]
-            if matches:
-                aff = matches[0]
-                if len({m.stripe_coupon_id for m in matches}) > 1:
-                    log.warning("invoice %s carries %d affiliate coupons; attributing "
-                                "to the first (%s) - needs review", invd.get("id"),
-                                len(matches), aff.code)
-        if aff is None:
-            # A discounted invoice we can't attribute to a known ACTIVE affiliate
-            # -> surface it rather than silently dropping money.
-            if _invoice_coupon_ids(invd):
-                unattributed.append(invd.get("id"))
-            continue
+            hit = by_id.get(referrals_by_sub[sub_id])
+            if hit is not None:
+                return hit
+        matches = [by_coupon[cid] for cid in _invoice_coupon_ids(invd) if cid in by_coupon]
+        if matches:
+            if len({m.stripe_coupon_id for m in matches}) > 1:
+                log.warning("invoice %s carries %d affiliate coupons; attributing "
+                            "to the first (%s) - needs review", invd.get("id"),
+                            len(matches), matches[0].code)
+            return matches[0]
+        return None
 
-        # self-referral guard: an affiliate can't earn commission on themselves.
+    def is_self_referral(aff, invd):
         cust_email = (invd.get("customer_email") or "").strip().lower()
         aff_email = (getattr(aff, "email", None) or "").strip().lower()
-        if aff_email and cust_email and cust_email == aff_email:
-            log.info("affiliate %s: skipping self-referral invoice %s",
-                     aff.code, invd.get("id"))
-            continue
+        return bool(aff_email and cust_email and cust_email == aff_email)
 
-        amount_paid = int(invd.get("amount_paid") or 0)
-        tax_cents = _invoice_tax_cents(invd)
-        refunded_cents = _invoice_refunded_cents(invd)
-        # Commission basis = what Company actually kept: paid, less tax, less
-        # post-payment refunds (credit notes). Matches the agreement's Net Revenue.
-        basis_cents = max(0, amount_paid - tax_cents - refunded_cents)
-        if basis_cents <= 0:
-            continue
-
+    def earns(aff, invd):
+        """Does this invoice earn commission under the affiliate's model?"""
         model = getattr(aff, "commission_model", None) or "recurring"
-        if model in ("first_payment", "duration_12mo"):
-            cust = invd.get("customer")
-            # Anchor the window on the SUBSCRIPTION's first paid invoice whenever
-            # the sub id is known (coupon-independent, so it survives a later
-            # discount/coupon swap via Change-terms - whether the hit is a
-            # persisted referral or a coupon-only match). Fall back to the coupon
-            # anchor only when the subscription id is unknown.
-            if sub_id:
-                akey = ("sub", sub_id)
-                if cust and akey not in first_paid_cache:
-                    first_paid_cache[akey] = _earliest_paid_invoice(cust, subscription_id=sub_id)
-                first_dt, first_id = first_paid_cache.get(akey, (None, None))
-            else:
-                ckey = ("coupon", cust, aff.stripe_coupon_id)
-                if cust and ckey not in first_paid_cache:
-                    first_paid_cache[ckey] = _earliest_paid_invoice(cust, coupon_id=aff.stripe_coupon_id)
-                first_dt, first_id = first_paid_cache.get(ckey, (None, None))
-            if model == "first_payment":
-                # Qualify by invoice IDENTITY, not a time window: only the single
-                # earliest coupon-attributed invoice earns, so proration/true-up
-                # invoices minted minutes apart don't double-pay the commission.
-                if not first_id or invd.get("id") != first_id:
-                    continue
-            elif model == "duration_12mo":
-                inv_dt = dt.datetime.fromtimestamp(invd.get("created") or 0,
-                                                   tz=dt.timezone.utc)
-                if first_dt is not None and inv_dt > first_dt + dt.timedelta(days=365):
-                    continue
+        if model not in ("first_payment", "duration_12mo"):
+            return True
+        sub_id = _invoice_subscription_id(invd)
+        cust = invd.get("customer")
+        # Anchor the window on the SUBSCRIPTION's first paid invoice whenever
+        # the sub id is known (coupon-independent, so it survives a later
+        # discount/coupon swap via Change-terms). Fall back to the coupon anchor
+        # only when the subscription id is unknown.
+        if sub_id:
+            akey = ("sub", sub_id)
+            if cust and akey not in first_paid_cache:
+                first_paid_cache[akey] = _earliest_paid_invoice(cust, subscription_id=sub_id)
+        else:
+            akey = ("coupon", cust, aff.stripe_coupon_id)
+            if cust and akey not in first_paid_cache:
+                first_paid_cache[akey] = _earliest_paid_invoice(cust, coupon_id=aff.stripe_coupon_id)
+        first_dt, first_id = first_paid_cache.get(akey, (None, None))
+        if model == "first_payment":
+            # Qualify by invoice IDENTITY, not a time window: only the single
+            # earliest attributed invoice earns, so proration/true-up invoices
+            # minted minutes apart don't double-pay the commission.
+            return bool(first_id) and invd.get("id") == first_id
+        inv_dt = dt.datetime.fromtimestamp(invd.get("created") or 0, tz=dt.timezone.utc)
+        return first_dt is None or inv_dt <= first_dt + dt.timedelta(days=365)
 
+    def add_line(aff, invd, basis, kind, extra):
         currency = (invd.get("currency") or "usd").lower()
         # Interval-split affiliates earn a different rate on monthly vs annual
         # invoices; flat affiliates fall back to commission_pct for both.
         interval = _invoice_interval(invd)
         comm_pct = effective_commission_pct(aff, interval)
         rate = Decimal(str(comm_pct)) / Decimal(100)
-        basis = (Decimal(basis_cents) / Decimal(100))
-        commission_raw = basis * rate                        # unrounded; the per-(affiliate,
-        commission = commission_raw.quantize(_CENTS, rounding=ROUND_HALF_UP)  # currency) TOTAL is
-        #                                                      rounded once at the end (no per-line drift).
-
+        commission_raw = basis * rate          # unrounded; the per-(affiliate,
+        commission = commission_raw.quantize(_CENTS, rounding=ROUND_HALF_UP)  # currency)
+        #                                        TOTAL is rounded once at the end.
         key = (str(aff.id), currency)
         entry = acc.get(key)
         if entry is None:
@@ -629,18 +661,79 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None) -> list[d
             }
             acc[key] = entry
         entry["gross_revenue"] += basis
-        entry["commission_amount"] += commission_raw   # accumulate UNROUNDED; quantized once below
-        entry["detail"].append({
+        entry["commission_amount"] += commission_raw
+        line = {
+            "kind": kind,
             "invoice": invd.get("id"),
             "customer": invd.get("customer"),
-            "amount_paid_cents": amount_paid,
-            "tax_cents": tax_cents,
-            "refunded_cents": refunded_cents,
             "basis": str(basis),
             "interval": interval,
             "rate_pct": str(comm_pct),
             "commission": str(commission),
+        }
+        line.update(extra)
+        entry["detail"].append(line)
+
+    # --- pass 1: payments ---------------------------------------------------
+    listing = stripe.Invoice.list(
+        status="paid",
+        created={"gte": int(start.timestamp()), "lt": int(end.timestamp())},
+        limit=100,
+        expand=["data.discounts"],
+    )
+    for inv in listing.auto_paging_iter():
+        invd = inv.to_dict() if hasattr(inv, "to_dict") else dict(inv)
+        aff = attribute(invd)
+        if aff is None:
+            # A discounted invoice we can't attribute to a known ACTIVE affiliate
+            # -> surface it rather than silently dropping money.
+            if _invoice_coupon_ids(invd):
+                unattributed.append(invd.get("id"))
+            continue
+        if is_self_referral(aff, invd):
+            log.info("affiliate %s: skipping self-referral invoice %s",
+                     aff.code, invd.get("id"))
+            continue
+        amount_paid = int(invd.get("amount_paid") or 0)
+        tax_cents = _invoice_tax_cents(invd)
+        # Commission basis = what Company kept: paid less tax. Refunds and
+        # disputes are netted in pass 2, dated when the money actually left.
+        basis_cents = max(0, amount_paid - tax_cents)
+        if basis_cents <= 0 or not earns(aff, invd):
+            continue
+        add_line(aff, invd, Decimal(basis_cents) / Decimal(100), "payment", {
+            "amount_paid_cents": amount_paid,
+            "tax_cents": tax_cents,
             "created": invd.get("created"),
+        })
+
+    # --- pass 2: refunds + disputes (clawback) ------------------------------
+    # Deliberately NOT caught: if Stripe can't list refunds/disputes, the
+    # compute fails rather than over-paying with the clawback silently skipped.
+    reversals = _month_reversals(start, end)
+    for ev in reversals:
+        invd = _invoice_for_reversal(ev)
+        if not invd:
+            continue
+        aff = attribute(invd)
+        if aff is None or is_self_referral(aff, invd) or not earns(aff, invd):
+            continue
+        amount_paid = int(invd.get("amount_paid") or 0)
+        if amount_paid <= 0:
+            continue
+        tax_cents = _invoice_tax_cents(invd)
+        # Strip the tax share out of the reversed amount (pro rata) and never
+        # claw back more than the invoice's own basis.
+        inv_basis = max(0, amount_paid - tax_cents)
+        rev_cents = min(ev["amount"], amount_paid)
+        rev_basis = (Decimal(rev_cents) * Decimal(inv_basis) / Decimal(amount_paid))
+        rev_basis = min(rev_basis, Decimal(inv_basis)).quantize(_CENTS) / Decimal(100)
+        if rev_basis <= 0:
+            continue
+        add_line(aff, invd, -rev_basis, ev["kind"], {
+            ev["kind"]: ev["id"],
+            "reversed_cents": rev_cents,
+            "created": ev.get("created"),
         })
 
     if unattributed:
@@ -658,19 +751,76 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None) -> list[d
     return out
 
 
+def carry_ref(period_start) -> str:
+    """external_ref stamped on a negative row that was folded into a later
+    month's payout (clawback carry-forward)."""
+    return "carried:%s" % period_start.strftime("%Y-%m")
+
+
+def _apply_carry(session, rows, period_start):
+    """Clawback carry-forward. A month whose refunds/disputes outweigh its
+    sales ends NEGATIVE; that debt is folded into the affiliate's next month
+    with activity in the same currency (so we never pay out while they owe us).
+
+    For each computed (affiliate, currency) row, collect EARLIER negative rows
+    that are still pending (or already carried into THIS period by a previous
+    run - keeps re-runs idempotent), add them to this row's commission, record
+    them in detail["carry_in"], and mark them void with external_ref
+    carried:<this period>. Mutates `rows`; returns the carried row objects."""
+    from models import AffiliatePayout
+    ref = carry_ref(period_start)
+    carried = []
+    for r in rows:
+        prior = (session.query(AffiliatePayout)
+                 .filter(AffiliatePayout.affiliate_id == r["affiliate_id"],
+                         AffiliatePayout.currency == r["currency"],
+                         AffiliatePayout.period_start < period_start,
+                         AffiliatePayout.commission_amount < 0,
+                         ((AffiliatePayout.status == "pending")
+                          | ((AffiliatePayout.status == "void")
+                             & (AffiliatePayout.external_ref == ref))))
+                 .order_by(AffiliatePayout.period_start).all())
+        if not prior:
+            continue
+        carry = sum((p.commission_amount for p in prior), Decimal("0.00"))
+        r["commission_amount"] = (r["commission_amount"] + carry).quantize(_CENTS)
+        r["carry_in"] = [{"period": p.period_start.isoformat(),
+                          "amount": str(p.commission_amount)} for p in prior]
+        for p in prior:
+            p.status = "void"
+            p.external_ref = ref
+            carried.append(p)
+    return carried
+
+
 def upsert_month(session, year: int, month: int) -> list:
     """Compute the month and INSERT pending ledger rows, idempotent on the
     (affiliate_id, period_start, currency) unique key. A still-PENDING, UNLOCKED
     row is refreshed with the latest numbers (so a re-run picks up late-settling
-    invoices); rows that are paid, void, or LOCKED (hand-adjusted, e.g. a netted
-    refund) are frozen. Returns the AffiliatePayout rows for the period."""
+    invoices); rows that are paid, void, or LOCKED (hand-adjusted) are frozen.
+    Earlier negative (clawback) months are carried into this month - see
+    _apply_carry. Returns the AffiliatePayout rows for the period."""
     from models import AffiliatePayout
     from sqlalchemy.dialects.postgresql import insert as pg_insert
 
     rows = compute_month(session, year, month)
+    period_start = dt.date(year, month, 1)
+    # Only carry into rows we are actually allowed to (re)write: a frozen
+    # (paid/void/locked) row for this period keeps its numbers, so its debt
+    # stays pending for the next month instead.
+    frozen = {(str(p.affiliate_id), p.currency) for p in
+              session.query(AffiliatePayout)
+              .filter(AffiliatePayout.period_start == period_start,
+                      (AffiliatePayout.status != "pending") | AffiliatePayout.locked.is_(True))}
+    _apply_carry(session, [r for r in rows
+                           if (r["affiliate_id"], r["currency"]) not in frozen],
+                 period_start)
     tbl = AffiliatePayout.__table__
     now = dt.datetime.now(dt.timezone.utc)
     for r in rows:
+        detail = {"lines": r["detail"]}
+        if r.get("carry_in"):
+            detail["carry_in"] = r["carry_in"]
         stmt = pg_insert(tbl).values(
             affiliate_id=r["affiliate_id"],
             period_start=r["period_start"],
@@ -679,18 +829,18 @@ def upsert_month(session, year: int, month: int) -> list:
             gross_revenue=r["gross_revenue"],
             commission_amount=r["commission_amount"],
             status="pending",
-            detail={"lines": r["detail"]},
+            detail=detail,
         ).on_conflict_do_update(
             # Refresh a still-PENDING, UNLOCKED row with the latest numbers so a
             # re-run picks up late-settling invoices instead of keeping the first
             # (under-counted) result. Rows marked paid/void, OR locked (the
-            # operator hand-adjusted them, e.g. netted a refund), are FROZEN -
-            # the WHERE guard leaves them untouched.
+            # operator hand-adjusted them), are FROZEN - the WHERE guard leaves
+            # them untouched.
             constraint="uq_affiliate_payout_period",
             set_={
                 "gross_revenue": r["gross_revenue"],
                 "commission_amount": r["commission_amount"],
-                "detail": {"lines": r["detail"]},
+                "detail": detail,
                 "computed_at": now,
             },
             where=((tbl.c.status == "pending") & (tbl.c.locked.is_(False))),
@@ -698,11 +848,12 @@ def upsert_month(session, year: int, month: int) -> list:
         session.execute(stmt)
     session.commit()
 
-    period_start = dt.date(year, month, 1)
     return (session.query(AffiliatePayout)
             .filter(AffiliatePayout.period_start == period_start)
             .order_by(AffiliatePayout.commission_amount.desc())
             .all())
+
+
 def find_or_link_affiliate(session, user):
     """The linked, non-terminated Affiliate row for `user`, or None.
 

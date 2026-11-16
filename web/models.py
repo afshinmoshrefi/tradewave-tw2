@@ -76,6 +76,11 @@ class User(Base):
     # implicit and needs no cron. Set on the lazy_create_user CREATE path
     # and by ops/grant_reverse_trial.py for existing explorers.
     reverse_trial_ends_at       = Column(TIMESTAMP(timezone=True))
+    # Affiliate first-touch captured at SIGNUP from the tw_ref cookie
+    # (migration a7f3c2e9b1d4). Powers the partner dashboard's signups/trials
+    # funnel; commission attribution still comes from affiliate_referrals.
+    referred_by_affiliate_id    = Column(PG_UUID(as_uuid=True), ForeignKey("affiliates.id", ondelete="SET NULL"))
+    referred_at                 = Column(TIMESTAMP(timezone=True))
     # navigator_mcp_first_connect_at: stamped ONCE (idempotently) by the gateway on a
     # Navigator's first MCP/OAuth connect (apiserver/db.py arm_navigator_teaser_if_null),
     # anchoring the one-time 7-day first-connect teaser (Analyst scope in chat). The web
@@ -468,6 +473,10 @@ class Affiliate(Base):
     # in AffiliateAdmin. Access is derived from this FK - deliberately NOT a
     # models.ROLES role (one source of truth). UNIQUE both ways (1:1).
     user_id       = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), unique=True)
+    # Tax form on file (agreement s.6.2 - a condition of payment). The payout
+    # ledger refuses status='paid' while tax_form_received_at is NULL.
+    tax_form_type        = Column(Text)   # 'w9' | 'w8ben' | 'w8bene'
+    tax_form_received_at = Column(TIMESTAMP(timezone=True))
     created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     updated_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -486,6 +495,7 @@ class Affiliate(Base):
         CheckConstraint("page_note IS NULL OR char_length(page_note) <= 280", name="affiliates_page_note_len_check"),
         CheckConstraint("page_signoff IS NULL OR char_length(page_signoff) <= 60", name="affiliates_page_signoff_len_check"),
         CheckConstraint("agreement_addendum IS NULL OR char_length(agreement_addendum) <= 20000", name="affiliates_agreement_addendum_len_check"),
+        CheckConstraint("tax_form_type IS NULL OR tax_form_type IN ('w9','w8ben','w8bene')", name="affiliates_tax_form_type_check"),
     )
 
     def __str__(self):
@@ -520,6 +530,16 @@ class AffiliatePayout(Base):
 
     def __str__(self):
         return f"{self.affiliate_id} {self.period_start} {self.commission_amount} {self.currency}"
+
+
+class AffiliateClick(Base):
+    """Per-(affiliate, UTC day) visit counter for referral-link / join-page
+    landings (migration a7f3c2e9b1d4). Incremented by an atomic upsert in
+    affiliate_service.record_click; shown on the partner dashboard."""
+    __tablename__ = "affiliate_clicks"
+    affiliate_id = Column(PG_UUID(as_uuid=True), ForeignKey("affiliates.id", ondelete="CASCADE"), primary_key=True)
+    day          = Column(Date, primary_key=True)
+    clicks       = Column(Integer, nullable=False, server_default=sa_text("0"))
 
 
 class AffiliateReferral(Base):
