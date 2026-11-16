@@ -48,6 +48,30 @@ def parse_knowledge_sections(knowledge_text: str) -> Dict[str, str]:
 # but the hard section/character caps prevent the old full-KB prompt from returning by accident.
 _TOPIC_ROUTES: Sequence[Tuple[re.Pattern[str], Tuple[str, ...]]] = (
     (re.compile(r"\b100[- ]year pattern\b", re.I), ("The 100-Year Pattern",)),
+
+    # Research workflows precede broad product definitions so bounded topic selection
+    # keeps the requested universe/date/ranking and unsupported-action boundaries.
+    (re.compile(r"\b(?:fomc|black friday)\b", re.I),
+     ("Research Requests: Event-Relative Studies",)),
+    (re.compile(r"\b(?:reminders?|calendar events?)\b|\badd\b.{0,150}\bcalendar\b|"
+                r"\bscan\b.{0,80}\bwatchlist\b|\bearnings\s+(?:release|exclusion)\b|"
+                r"\b(?:exclude|filter out|avoid)\b.{0,100}\bearnings\b", re.I),
+     ("Research Requests: Watchlists, Earnings and Calendar Actions",)),
+    (re.compile(r"\bdetrended\b|\bworst historical drawdown\b|"
+                r"\b(?:exact|which) years\b.{0,100}\b(?:failed|lost|loss|lose)\b|"
+                r"\bai win probability\b.{0,100}\b(?:historical|win rate)\b", re.I),
+     ("Research Requests: Historical and AI Evidence",)),
+    (re.compile(r"\bmidterm(?: election)? years?\b|"
+                r"\b(?:compare|versus)\b.{0,120}\bpre[- ]election\b|"
+                r"\bseasonal trend\b.{0,100}\b(?:crude|starting)\b|"
+                r"\b(?:first (?:two|2) weeks|historical return from)\b|"
+                r"\bcompare\b.{0,130}\b(?:etfs?|sector|factor)\b.{0,100}\b(?:quarter|q[1-4])\b", re.I),
+     ("Research Requests: Dates and Election Cycles",)),
+    (re.compile(r"\bhighest seasonal win rate\b|\bstrongest bullish\b|"
+                r"\bentering\b.{0,80}\bbearish seasonal\b|"
+                r"\brank\b.{0,80}\bseasonal opportunities\b|"
+                r"\bstrongest\b.{0,80}\bbullish seasonal window\b", re.I),
+     ("Research Requests: Screening and Ranking",)),
     (
         re.compile(r"\b(?:toolbar (?:titles?|headings?)|show toolbar titles|headings? above (?:the )?(?:bar chart )?controls|labels? above (?:the )?(?:bar chart )?controls)\b", re.I),
         ("Bar Chart Toolbar Titles",),
@@ -371,6 +395,9 @@ def needs_yearly_results(message: Any) -> bool:
         text,
         re.I,
     )
+    # Failed-year questions need actual annual receipts, even without a numeric year.
+    if re.search(r"\b(?:exact|which) years\b.{0,100}\b(?:failed|lost|loss|lose)\b", text, re.I):
+        return True
     if per_year_scope and path_extremes:
         return True
     if re.search(

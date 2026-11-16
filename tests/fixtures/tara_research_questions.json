@@ -1,0 +1,122 @@
+[
+  {
+    "id": 1,
+    "template": "Which [Index] stocks have the highest seasonal win rate over the next n days?",
+    "concrete": "Which S&P 500 stocks have the highest seasonal win rate over the next 30 days?",
+    "section": "Research Requests: Screening and Ranking"
+  },
+  {
+    "id": 2,
+    "template": "Show me the strongest bullish seasonal patterns in the technology sector right now.",
+    "concrete": "Show me the strongest bullish seasonal patterns in the technology sector right now.",
+    "section": "Research Requests: Screening and Ranking"
+  },
+  {
+    "id": 3,
+    "template": "Find [Index] stocks entering a historically bearish seasonal window this week.",
+    "concrete": "Find S&P 500 stocks entering a historically bearish seasonal window this week.",
+    "section": "Research Requests: Screening and Ranking"
+  },
+  {
+    "id": 4,
+    "template": "Rank the top 10 seasonal opportunities across all U.S. equities by Sharpe Ratio for a 45-day hold.",
+    "concrete": "Rank the top 10 seasonal opportunities across all U.S. equities by Sharpe Ratio for a 45-day hold.",
+    "section": "Research Requests: Screening and Ranking"
+  },
+  {
+    "id": 5,
+    "template": "Which retail stocks have the best historical track record between Black Friday and New Year's Eve?",
+    "concrete": "Which retail stocks have the best historical track record between Black Friday and New Year's Eve?",
+    "section": "Research Requests: Event-Relative Studies"
+  },
+  {
+    "id": 6,
+    "template": "How has the [Index] historically performed from November through April during midterm election years?",
+    "concrete": "How has the S&P 500 historically performed from November through April during midterm election years?",
+    "section": "Research Requests: Dates and Election Cycles"
+  },
+  {
+    "id": 7,
+    "template": "Compare Apple's fourth-quarter seasonal performance in midterm years versus pre-election years.",
+    "concrete": "Compare Apple's fourth-quarter seasonal performance in midterm years versus pre-election years.",
+    "section": "Research Requests: Dates and Election Cycles"
+  },
+  {
+    "id": 8,
+    "template": "What is gold's historical seasonal tendency in the 15 trading days leading up to a December FOMC meeting?",
+    "concrete": "What is gold's historical seasonal tendency in the 15 trading days leading up to a December FOMC meeting?",
+    "section": "Research Requests: Event-Relative Studies"
+  },
+  {
+    "id": 9,
+    "template": "When is [Security] strongest 60-day bullish seasonal window of the entire calendar year?",
+    "concrete": "When is AAPL strongest 60-day bullish seasonal window of the entire calendar year?",
+    "section": "Research Requests: Screening and Ranking"
+  },
+  {
+    "id": 10,
+    "template": "Show me the 20-year seasonal trend for crude oil futures starting next Monday.",
+    "concrete": "Show me the 20-year seasonal trend for crude oil futures starting next Monday.",
+    "section": "Research Requests: Dates and Election Cycles"
+  },
+  {
+    "id": 11,
+    "template": "Does [Security] have a recurring bearish pattern in the first two weeks of [month]?",
+    "concrete": "Does AAPL have a recurring bearish pattern in the first two weeks of January?",
+    "section": "Research Requests: Dates and Election Cycles"
+  },
+  {
+    "id": 12,
+    "template": "Analyze [Security's] historical return from [Date] to [Date] over the last 15 years.",
+    "concrete": "Analyze AAPL's historical return from January 1 to March 31 over the last 15 years.",
+    "section": "Research Requests: Dates and Election Cycles"
+  },
+  {
+    "id": 13,
+    "template": "For the top seasonal stock right now, what was its worst historical drawdown during this window?",
+    "concrete": "For the top seasonal stock right now, what was its worst historical drawdown during this window?",
+    "section": "Research Requests: Historical and AI Evidence"
+  },
+  {
+    "id": 14,
+    "template": "Show me the exact years that [Security's] [Month] bullish pattern failed and how much it lost.",
+    "concrete": "Show me the exact years that AAPL's January bullish pattern failed and how much it lost.",
+    "section": "Research Requests: Historical and AI Evidence"
+  },
+  {
+    "id": 15,
+    "template": "Which current setups have an AI win probability higher than their n-year historical win rate?",
+    "concrete": "Which current setups have an AI win probability higher than their 10-year historical win rate?",
+    "section": "Research Requests: Historical and AI Evidence"
+  },
+  {
+    "id": 16,
+    "template": "Filter out any seasonal setups that have an upcoming earnings release during the next [Time period].",
+    "concrete": "Filter out any seasonal setups that have an upcoming earnings release during the next next month.",
+    "section": "Research Requests: Watchlists, Earnings and Calendar Actions"
+  },
+  {
+    "id": 17,
+    "template": "Scan my [Name] watchlist and tell me which tickers are entering a seasonal buy zone [Time period].",
+    "concrete": "Scan my Growth watchlist and tell me which tickers are entering a seasonal buy zone next month.",
+    "section": "Research Requests: Watchlists, Earnings and Calendar Actions"
+  },
+  {
+    "id": 18,
+    "template": "Show me the detrended year-by-year seasonal chart for [Index or security] over the last [#] years.",
+    "concrete": "Show me the detrended year-by-year seasonal chart for SPX over the last 20 years.",
+    "section": "Research Requests: Historical and AI Evidence"
+  },
+  {
+    "id": 19,
+    "template": "Compare the seasonal performance of [Factor or Sector] ETFs against [Factor or Sector] ETFs for the first quarter.",
+    "concrete": "Compare the seasonal performance of technology ETFs against energy ETFs for the first quarter.",
+    "section": "Research Requests: Dates and Election Cycles"
+  },
+  {
+    "id": 20,
+    "template": "Add the top [Index or security] seasonal setup for next week to my calendar with entry and exit reminders.",
+    "concrete": "Add the top SPX seasonal setup for next week to my calendar with entry and exit reminders.",
+    "section": "Research Requests: Watchlists, Earnings and Calendar Actions"
+  }
+]

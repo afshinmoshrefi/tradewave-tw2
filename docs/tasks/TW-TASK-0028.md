@@ -17,7 +17,7 @@ Baseline origin/main 2958c0e065a8e30afae4be453c7866f034768107. Dev hostname tw2-
 
 ## Acceptance and Regression Checks
 
-Pending: all 20 template/concrete prompt routes, neighboring definition routes, context caps, evidence selection, focused Tara regressions and authenticated live answer checks. No engine math changes.
+Passed: 73 research-question/prompt-context tests (all 20 templates and 20 concrete examples, neighboring definitions, context caps, failed-year evidence) and 289 existing planner/action-contract/short-answer/OpenAI routing tests. git diff --check passed. Authenticated live checks pending. No engine math changes.
 
 ## Implementation and Handoff
 
@@ -30,3 +30,7 @@ Dev: not deployed by this task yet. Staging and production: not changed or teste
 ## History
 
 - 2026-11-16T15:03:11.669251+00:00: Codex claimed scoped implementation; self-verification will be identified as such.
+
+## Capability disposition
+
+All 20 source prompts and filled-in cases are in tests/fixtures/tara_research_questions.json. Five KB workflow sections cover screening/ranking (1,2,3,4,9), dates/cycles (6,7,10,11,12,19), evidence (13,14,15,18), moving events (5,8), and actions (16,17,20). Current limits are taught explicitly, not implemented as new capabilities. Calendar writes, personal watchlist retrieval, earnings exclusion, true detrending and event-aligned historical calculations remain separate feature work. The unchanged gateway schema also limits phase reads and ranking completeness; answers must disclose this instead of substituting.

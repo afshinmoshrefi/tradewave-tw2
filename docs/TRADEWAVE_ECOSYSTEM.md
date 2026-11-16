@@ -2546,6 +2546,16 @@ HMAC, database-row, or endpoint mismatch now fails service activation instead of
 healthy state. The existing deployment path already restarts APP then API/MCP; this closes the manual
 restart gap.
 
+**Research-question knowledge (2026-11-16, TW-TASK-0028):** Five small `Research Requests:`
+sections in `chatbot_knowledge.txt` cover Michael's 20 screening, date/cycle, evidence,
+event and action prompts. Specific routes precede general definitions within the existing
+three-section/16,000-character budget. Failed-year queries explicitly request annual receipts.
+These are grounded workflows, not new tools: they preserve universe/ranking/hold/sample,
+distinguish MAE from peak-to-trough drawdown, and require matched AI/history horizons.
+Moving-event studies, personal-watchlist retrieval, earnings exclusion, detrending and
+calendar writes are not enabled by KB text. Tara must name the current boundary and offer
+only a supported alternative. Existing published-list commands remain separate.
+
 Regression coverage: `tests/test_tara_prompt_context.py`, `tests/test_ai_tools_prompt_cache.py`, and
 `tests/test_tara_answer_planner.py`, plus `tests/test_tara_openai_canary.py` for routing, request,
 cache-breakpoint, and shared-tool-loop behavior.
