@@ -52,7 +52,7 @@ def test_corpus_preserves_all_twenty_source_questions():
 
 
 @pytest.mark.parametrize("question", ["Show AAPL's yearly return chart", "What are earnings markers?",
-    "Analyze AAPL for 30 calendar days", "Set the start date to next Monday", "What is a watchlist?"])
+    "Analyze AAPL for 30 calendar days", "Set the start date to next Monday", "Set the hold to 45 calendar days", "What is a watchlist?"])
 def test_capability_boundaries_preserve_supported_neighbor_requests(question):
     from tara_prompt_context import research_capability_reply
     assert research_capability_reply(question) == ""

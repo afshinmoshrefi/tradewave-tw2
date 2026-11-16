@@ -396,7 +396,7 @@ def research_capability_reply(message: Any) -> str:
             "an estimated or missing date does not establish that a setup is earnings-free."
         )
     if (re.search(r"\b(?:add|create|save|schedule|set|put)\b", text, re.I)
-            and re.search(r"\b(?:calendar|reminders?)\b", text, re.I)):
+            and re.search(r"\b(?:calendar(?!\s+days?\b)|reminders?)\b", text, re.I)):
         return (
             "I can't create calendar events or entry/exit reminders directly. "
             "For a saved pattern, use Portfolio Manager's notification icon to open "
