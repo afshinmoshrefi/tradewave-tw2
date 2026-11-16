@@ -717,6 +717,16 @@ def auth_callback():
         db_user_obj = s.query(User).filter_by(id=db_user.id).first()
         db_user_obj.last_login_at = datetime.now(timezone.utc)
         s.commit()
+        # Affiliate funnel: a brand-new signup carrying a first-touch tw_ref
+        # cookie is credited to that partner as a signup (dashboard counts;
+        # commission attribution still happens at checkout).
+        if getattr(db_user, "_tw_new_signup", False) and request.cookies.get("tw_ref"):
+            try:
+                import affiliate_service as _afs
+                _afs.record_signup_referral(s, db_user_obj, request.cookies.get("tw_ref"))
+            except Exception:
+                s.rollback()
+                log.warning("auth_callback: affiliate signup stamp failed (non-fatal)")
     finally:
         s.close()
 
@@ -2179,6 +2189,45 @@ def _account_mcp_teaser(user):
 # (Phase 5 will turn into a real Stripe Checkout flow)
 # ============================================================
 
+def _count_affiliate_click(s, aff):
+    """+1 a referral visit unless this browser already carries the same
+    tw_ref code (a refresh / second page view is not a new click). Never
+    raises - a counter must not break a landing page."""
+    try:
+        if (request.cookies.get("tw_ref") or "").upper() == aff.code:
+            return
+        import affiliate_service as _afs
+        _afs.record_click(s, aff.id)
+    except Exception:
+        try:
+            s.rollback()
+        except Exception:
+            pass
+        log.warning("affiliate click count failed for %s (non-fatal)", getattr(aff, "code", "?"))
+
+
+@app.route("/api/aff/click", methods=["POST"])
+@csrf.exempt  # anonymous beacon from the static home page; counts only, no money or identity
+def api_affiliate_click():
+    """Referral-link visit beacon for the STATIC home page (/?code=X), which
+    nginx serves without touching Flask. The page JS posts here only when the
+    URL carries a code the visitor's tw_ref cookie doesn't already hold.
+    Always 204 (no signal about which codes exist)."""
+    raw = (request.get_json(silent=True) or {}).get("code") or request.form.get("code") \
+        or request.args.get("code") or ""
+    s = DBSession()
+    try:
+        import affiliate_service as _afs
+        aff = _afs.active_affiliate_by_code(s, raw)
+        if aff is not None:
+            _count_affiliate_click(s, aff)
+    except Exception:
+        log.warning("api_affiliate_click failed (non-fatal)")
+    finally:
+        s.close()
+    return ("", 204)
+
+
 @app.route("/pricing")
 def pricing():
     # Send users to the rich pricing section on the home page (single source
@@ -2198,6 +2247,7 @@ def pricing():
                        .filter(Affiliate.code == norm, Affiliate.status == "active")
                        .first())
                 if aff:
+                    _count_affiliate_click(s, aff)
                     resp = make_response(redirect("/?code=%s#pricing" % aff.code, code=302))
                     # First-touch attribution cookie (60 days), same key the
                     # /join/<code> landing page + checkout use.
@@ -3400,6 +3450,7 @@ def affiliate_join(code):
                .first())
         if not aff:
             return redirect("/", code=302)
+        _count_affiliate_click(s, aff)
         m_disc = afs.effective_discount_pct(aff, "month")
         a_disc = aff.discount_pct
         try:

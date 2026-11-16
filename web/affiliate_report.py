@@ -53,8 +53,9 @@ def _fmt_money(amount, currency: str) -> str:
 
 def _customer_count(detail) -> int:
     """Distinct paying customers this month (anonymized count, never identities)."""
-    cs = {ln.get("customer") for ln in (detail or []) if ln.get("customer")}
-    return len(cs) if cs else len(detail or [])
+    cs = {ln.get("customer") for ln in (detail or [])
+          if (ln.get("kind") or "payment") == "payment" and ln.get("customer")}
+    return len(cs)
 
 
 def _dashboard_url() -> str:
@@ -85,9 +86,15 @@ def send_monthly_statements(rows, year: int, month: int, dry_run: bool = False) 
         e0 = entries[0]
         lines = []
         for e in entries:
-            if float(e["commission_amount"]) <= 0:
+            amt = float(e["commission_amount"])
+            if amt == 0:
                 continue
             n = _customer_count(e.get("detail"))
+            if amt < 0:
+                lines.append("  Net adjustment: %s  (refunds/disputes exceeded new sales; "
+                             "this is netted against your next payable month)"
+                             % _fmt_money(e["commission_amount"], e["currency"]))
+                continue
             lines.append("  Commission earned: %s  (from %d customer%s)"
                          % (_fmt_money(e["commission_amount"], e["currency"]),
                             n, "" if n == 1 else "s"))
@@ -105,12 +112,15 @@ def send_monthly_statements(rows, year: int, month: int, dry_run: bool = False) 
             "Hi %s,\n\n"
             "Here is your TradeWave affiliate summary for %s:\n\n"
             "%s\n\n"
-            "We'll send your payout to %s on the usual monthly schedule. "
+            "%s"
             "Questions? Just reply to this email.\n\n"
             "See the full breakdown, payout history and your links in your "
             "partner dashboard:\n%s\n\n"
             "Thanks for partnering with TradeWave.\n"
-            % (name, month_label, "\n".join(lines), payout, _dashboard_url()))
+            % (name, month_label, "\n".join(lines),
+               ("We'll send your payout to %s on the usual monthly schedule. " % payout)
+               if any(float(e["commission_amount"]) > 0 for e in entries) else "",
+               _dashboard_url()))
 
         if dry_run:
             log.info("statement (dry-run) -> %s [%s]: %s",

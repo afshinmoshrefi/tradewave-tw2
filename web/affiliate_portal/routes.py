@@ -84,19 +84,76 @@ def _month_now():
     return now.year, now.month
 
 
+def _est_redis():
+    """Shared cache across gunicorn workers (same local Redis db the session
+    memo uses). None if Redis is unavailable -> in-process fallback."""
+    try:
+        import redis as _redis
+        r = _redis.Redis(host="127.0.0.1", port=6379, db=5, socket_timeout=0.25,
+                         socket_connect_timeout=0.25, decode_responses=True)
+        r.ping()
+        return r
+    except Exception:
+        return None
+
+
+def _rows_to_json(rows):
+    out = []
+    for r in rows:
+        out.append({"currency": r["currency"],
+                    "gross_revenue": str(r["gross_revenue"]),
+                    "commission_amount": str(r["commission_amount"]),
+                    "payments": _count_kind(r.get("detail"), "payment"),
+                    "reversals": len(r.get("detail") or []) - _count_kind(r.get("detail"), "payment"),
+                    "customers": _customer_count(r.get("detail"))})
+    return out
+
+
+def _rows_from_json(items):
+    from decimal import Decimal
+    return [dict(it, gross_revenue=Decimal(it["gross_revenue"]),
+                 commission_amount=Decimal(it["commission_amount"])) for it in items]
+
+
+def _count_kind(detail, kind):
+    return sum(1 for ln in (detail or []) if (ln.get("kind") or "payment") == kind)
+
+
+def _customer_count(detail):
+    """DISTINCT paying customers among payment lines (never identities)."""
+    custs = {ln.get("customer") for ln in (detail or [])
+             if (ln.get("kind") or "payment") == "payment" and ln.get("customer")}
+    return len(custs)
+
+
 def _estimate(aff):
     """Cached (~1h) current-month LIVE ESTIMATE via compute_for_affiliate.
-    Returns (rows|None, cached_at_iso|None); None rows = unavailable/error."""
+    Shared across gunicorn workers via Redis (falls back to in-process), so
+    each affiliate costs at most one Stripe walk per hour.
+    Returns (rows|None, stamp|None); rows are summary dicts (currency,
+    gross_revenue, commission_amount, payments, reversals, customers);
+    None rows = unavailable/error."""
     year, month = _month_now()
-    hit = _estimate_cache.get(str(aff.id))
-    if hit and hit[1] == year and hit[2] == month and (time.monotonic() - hit[0]) < _ESTIMATE_TTL:
-        return hit[3], hit[4]
+    key = "tw2:aff_est:%s:%04d-%02d" % (aff.id, year, month)
+    rc = _est_redis()
+    if rc is not None:
+        try:
+            hit = rc.get(key)
+            if hit:
+                payload = json.loads(hit)
+                return _rows_from_json(payload["rows"]), payload["stamp"]
+        except Exception:
+            pass
+    else:
+        hit = _estimate_cache.get(str(aff.id))
+        if hit and hit[1] == year and hit[2] == month and (time.monotonic() - hit[0]) < _ESTIMATE_TTL:
+            return hit[3], hit[4]
     rows = None
     if aff.status == "active":
         s = _db()
         try:
             import affiliate_service as asvc
-            rows = asvc.compute_for_affiliate(s, _fresh_affiliate(s), year, month)
+            rows = _rows_to_json(asvc.compute_for_affiliate(s, _fresh_affiliate(s), year, month))
         except Exception as e:   # noqa: BLE001 - estimate is best-effort by design
             log.warning("estimate failed for %s: %s", aff.code, e)
             rows = None
@@ -105,8 +162,27 @@ def _estimate(aff):
     else:
         rows = []   # paused/unsigned affiliates don't accrue (activation gate)
     stamp = datetime.now(timezone.utc).strftime("%H:%M UTC")
+    if rows is None:
+        return None, stamp      # don't cache failures
+    if rc is not None:
+        try:
+            rc.setex(key, _ESTIMATE_TTL, json.dumps({"rows": rows, "stamp": stamp}))
+        except Exception:
+            pass
+    rows = _rows_from_json(rows)
     _estimate_cache[str(aff.id)] = (time.monotonic(), year, month, rows, stamp)
     return rows, stamp
+
+
+def _ledger_totals(s, aff_id, status):
+    """{currency: Decimal} sum of ledger rows with `status` - never summed
+    across currencies."""
+    from models import AffiliatePayout
+    q = (s.query(AffiliatePayout.currency,
+                 safunc.coalesce(safunc.sum(AffiliatePayout.commission_amount), 0))
+         .filter(AffiliatePayout.affiliate_id == aff_id, AffiliatePayout.status == status)
+         .group_by(AffiliatePayout.currency))
+    return {c: amt for c, amt in q.all()}
 
 
 def _articles():
@@ -204,22 +280,19 @@ def _ctx(aff, tab, **extra):
 def overview():
     aff = get_current_affiliate()
     est_rows, est_stamp = _estimate(aff)
-    est_total = sum((r["commission_amount"] for r in est_rows), start=0) if est_rows else 0
     s = _db()
     try:
-        from models import AffiliatePayout
-        paid = (s.query(safunc.coalesce(safunc.sum(AffiliatePayout.commission_amount), 0))
-                .filter(AffiliatePayout.affiliate_id == aff.id,
-                        AffiliatePayout.status == "paid").scalar())
-        pending = (s.query(safunc.coalesce(safunc.sum(AffiliatePayout.commission_amount), 0))
-                   .filter(AffiliatePayout.affiliate_id == aff.id,
-                           AffiliatePayout.status == "pending").scalar())
+        import affiliate_service as asvc
+        paid = _ledger_totals(s, aff.id, "paid")
+        pending = _ledger_totals(s, aff.id, "pending")
+        funnel = asvc.funnel_for_affiliate(s, aff.id)
     finally:
         s.close()
     return render_template("aff_overview.html", **_ctx(
         aff, "overview", terms=_effective_terms(aff), links=_links_for(aff),
-        est_rows=est_rows, est_total=est_total, est_stamp=est_stamp,
-        lifetime_paid=paid, pending=pending))
+        est_rows=est_rows, est_stamp=est_stamp,
+        lifetime_paid=sorted(paid.items()), pending=sorted(pending.items()),
+        funnel=funnel))
 
 
 @bp.route("/performance")
@@ -240,12 +313,16 @@ def performance():
             "commission": p.commission_amount,
             "status": p.status,
             "paid_at": p.paid_at.strftime("%Y-%m-%d") if p.paid_at else None,
-            "customers": len((p.detail or {}).get("lines", [])) or None,
+            "customers": _customer_count((p.detail or {}).get("lines")) or None,
+            "carried": bool((p.detail or {}).get("carry_in")) or (p.external_ref or "").startswith("carried:"),
         } for p in history]
+        import affiliate_service as asvc
+        funnel = asvc.funnel_for_affiliate(s, aff.id)
     finally:
         s.close()
     return render_template("aff_performance.html", **_ctx(
-        aff, "performance", history=rows, est_rows=est_rows, est_stamp=est_stamp))
+        aff, "performance", history=rows, est_rows=est_rows, est_stamp=est_stamp,
+        funnel=funnel))
 
 
 @bp.route("/payouts")
@@ -265,6 +342,8 @@ def payouts():
             "status": p.status,
             "paid_at": p.paid_at.strftime("%Y-%m-%d") if p.paid_at else None,
             "external_ref": p.external_ref,
+            "carried_to": (p.external_ref[len("carried:"):]
+                           if (p.external_ref or "").startswith("carried:") else None),
         } for p in rows]
     finally:
         s.close()

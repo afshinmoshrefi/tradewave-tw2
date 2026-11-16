@@ -1,25 +1,38 @@
 {% extends "aff_base.html" %}
 {% block content %}
 <div class="card">
+  <h3>Funnel</h3>
+  <table>
+    <tr><th></th><th>Last {{ funnel.days }} days</th><th>All time</th></tr>
+    <tr><td>Link visits</td><td>{{ funnel.clicks_recent }}</td><td>{{ funnel.clicks_total }}</td></tr>
+    <tr><td>Free signups</td><td>{{ funnel.signups_recent }}</td><td>{{ funnel.signups_total }}</td></tr>
+    <tr><td>In free trial now</td><td colspan="2">{{ funnel.in_trial }}</td></tr>
+    <tr><td>Paying subscriptions</td><td>-</td><td>{{ funnel.paying_total }}</td></tr>
+  </table>
+  <p class="muted" style="font-size:12px;">Visits count each new browser that opens your link (refreshes don't count). Signups count new accounts created within 60 days of a visit.</p>
+</div>
+<div class="card">
   <h3>This Month (estimate as of {{ est_stamp }})</h3>
   {% if est_rows is none %}
     <p class="muted">Live estimate temporarily unavailable.</p>
   {% elif est_rows %}
     <table>
-      <tr><th>Currency</th><th>Attributed revenue</th><th>Commission</th><th>Payments</th></tr>
+      <tr><th>Currency</th><th>Net revenue</th><th>Commission</th><th>Payments</th><th>Customers</th><th>Refunds / disputes</th></tr>
       {% for r in est_rows %}
       <tr>
         <td>{{ r.currency|upper }}</td>
         <td>{{ '%.2f'|format(r.gross_revenue) }}</td>
         <td>{{ '%.2f'|format(r.commission_amount) }}</td>
-        <td>{{ r.detail|length }}</td>
+        <td>{{ r.payments }}</td>
+        <td>{{ r.customers }}</td>
+        <td>{{ r.reversals or '-' }}</td>
       </tr>
       {% endfor %}
     </table>
   {% else %}
     <p class="muted">No attributed payments yet this month.</p>
   {% endif %}
-  <p class="muted" style="font-size:12px;">Estimates can move down as well as up (refunds, corrections). Final numbers settle on the 2nd.</p>
+  <p class="muted" style="font-size:12px;">Estimates can move down as well as up (refunds, disputes, corrections). Final numbers settle on the 2nd.</p>
 </div>
 
 <div class="card">
@@ -34,11 +47,12 @@
       <td>{{ '%.2f'|format(p.gross) }}</td>
       <td>{{ '%.2f'|format(p.commission) }}</td>
       <td>{{ p.customers or '-' }}</td>
-      <td><span class="pill {{ 'ok' if p.status == 'paid' else ('warn' if p.status == 'pending' else 'bad') }}">{{ p.status }}</span>
+      <td>{% if p.carried %}<span class="pill warn">carried forward</span>{% else %}<span class="pill {{ 'ok' if p.status == 'paid' else ('warn' if p.status == 'pending' else 'bad') }}">{{ p.status }}</span>{% endif %}
           {% if p.paid_at %}<span class="muted" style="font-size:12px;"> {{ p.paid_at }}</span>{% endif %}</td>
     </tr>
     {% endfor %}
   </table>
+  <p class="muted" style="font-size:12px;">A month can be negative when refunds or disputes outweigh sales; it is netted against your next payable month.</p>
   {% else %}
   <p class="muted">No settled months yet - your first statement lands on the 2nd of next month.</p>
   {% endif %}

@@ -39,13 +39,24 @@
 </div>
 
 <div class="card">
+  <h3>Your Funnel</h3>
+  <table>
+    <tr><th></th><th>Last {{ funnel.days }} days</th><th>All time</th></tr>
+    <tr><td>Link visits</td><td>{{ funnel.clicks_recent }}</td><td>{{ funnel.clicks_total }}</td></tr>
+    <tr><td>Free signups</td><td>{{ funnel.signups_recent }}</td><td>{{ funnel.signups_total }}</td></tr>
+    <tr><td>Paying subscriptions</td><td>-</td><td>{{ funnel.paying_total }}</td></tr>
+  </table>
+  <p class="muted" style="font-size:13px;">{{ funnel.in_trial }} of your signups {{ 'is' if funnel.in_trial == 1 else 'are' }} in their free trial right now.
+    Counts only - we never share who your referrals are.</p>
+</div>
+<div class="card">
   <h3>This Month (estimate)</h3>
   {% if est_rows is none %}
     <p class="muted">Live estimate temporarily unavailable - your monthly statement email remains the number of record.</p>
   {% elif est_rows %}
     {% for r in est_rows %}
       <div class="big">{{ '%.2f'|format(r.commission_amount) }} {{ r.currency|upper }}</div>
-      <p class="muted" style="font-size:13px;">from {{ r.detail|length }} attributed payment(s)</p>
+      <p class="muted" style="font-size:13px;">from {{ r.payments }} payment{{ '' if r.payments == 1 else 's' }} by {{ r.customers }} customer{{ '' if r.customers == 1 else 's' }}{% if r.reversals %}, less {{ r.reversals }} refund{{ '' if r.reversals == 1 else 's' }}/dispute{{ '' if r.reversals == 1 else 's' }}{% endif %}</p>
     {% endfor %}
   {% else %}
     <div class="big">0.00</div>
@@ -53,18 +64,16 @@
   {% endif %}
   <p class="muted" style="font-size:12px;">Estimate as of {{ est_stamp }} - refreshes hourly, final on the 2nd of next month.</p>
 </div>
-
 <div class="grid2">
   <div class="card">
     <h3>Lifetime Paid</h3>
-    <div class="big">{{ '%.2f'|format(lifetime_paid or 0) }}</div>
+    {% for ccy, amt in lifetime_paid %}<div class="big">{{ '%.2f'|format(amt) }} {{ ccy|upper }}</div>{% else %}<div class="big">0.00</div>{% endfor %}
   </div>
   <div class="card">
     <h3>Pending Payout</h3>
-    <div class="big">{{ '%.2f'|format(pending or 0) }}</div>
+    {% for ccy, amt in pending %}<div class="big">{{ '%.2f'|format(amt) }} {{ ccy|upper }}</div>{% else %}<div class="big">0.00</div>{% endfor %}
   </div>
 </div>
-
 <div class="card">
   <h3>Share</h3>
   <div class="row" style="margin-bottom:8px;">

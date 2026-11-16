@@ -854,6 +854,75 @@ def upsert_month(session, year: int, month: int) -> list:
             .all())
 
 
+def active_affiliate_by_code(session, raw):
+    """The ACTIVE Affiliate for a referral code (any case), or None."""
+    from models import Affiliate
+    code = normalize_code(raw or "")
+    if not CODE_RE.match(code):
+        return None
+    return (session.query(Affiliate)
+            .filter(Affiliate.code == code, Affiliate.status == "active").first())
+
+
+def record_click(session, affiliate_id, day=None) -> None:
+    """Atomically +1 the affiliate's visit counter for `day` (UTC today).
+    Commits. Callers treat failures as non-fatal (a count must never break a
+    landing page)."""
+    from models import AffiliateClick
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+    day = day or dt.datetime.now(dt.timezone.utc).date()
+    tbl = AffiliateClick.__table__
+    stmt = pg_insert(tbl).values(affiliate_id=affiliate_id, day=day, clicks=1)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["affiliate_id", "day"],
+        set_={"clicks": tbl.c.clicks + 1})
+    session.execute(stmt)
+    session.commit()
+
+
+def record_signup_referral(session, user, raw_code) -> bool:
+    """First-touch: stamp a brand-new user with the affiliate whose tw_ref
+    code they arrived with. Never overwrites an existing stamp, skips
+    self-referral and inactive codes. Commits; returns True if stamped."""
+    if user is None or getattr(user, "referred_by_affiliate_id", None):
+        return False
+    aff = active_affiliate_by_code(session, raw_code)
+    if aff is None:
+        return False
+    if (aff.email or "").strip().lower() == (user.email or "").strip().lower():
+        return False
+    user.referred_by_affiliate_id = aff.id
+    user.referred_at = dt.datetime.now(dt.timezone.utc)
+    session.commit()
+    return True
+
+
+def funnel_for_affiliate(session, affiliate_id, days: int = 30) -> dict:
+    """Anonymized top-of-funnel counts for the partner dashboard (no customer
+    identities): link visits and signups in the last `days` days and all-time,
+    users currently in their free trial, and paying subscriptions credited
+    (affiliate_referrals)."""
+    from sqlalchemy import func as safunc
+    from models import AffiliateClick, AffiliateReferral, User
+    now = dt.datetime.now(dt.timezone.utc)
+    since = now - dt.timedelta(days=days)
+    clicks_recent = (session.query(safunc.coalesce(safunc.sum(AffiliateClick.clicks), 0))
+                     .filter(AffiliateClick.affiliate_id == affiliate_id,
+                             AffiliateClick.day >= since.date()).scalar())
+    clicks_total = (session.query(safunc.coalesce(safunc.sum(AffiliateClick.clicks), 0))
+                    .filter(AffiliateClick.affiliate_id == affiliate_id).scalar())
+    signups_q = session.query(User).filter(User.referred_by_affiliate_id == affiliate_id)
+    signups_total = signups_q.count()
+    signups_recent = signups_q.filter(User.referred_at >= since).count()
+    in_trial = signups_q.filter(User.reverse_trial_ends_at > now).count()
+    paying = (session.query(AffiliateReferral)
+              .filter(AffiliateReferral.affiliate_id == affiliate_id).count())
+    return {"days": days,
+            "clicks_recent": int(clicks_recent or 0), "clicks_total": int(clicks_total or 0),
+            "signups_recent": signups_recent, "signups_total": signups_total,
+            "in_trial": in_trial, "paying_total": paying}
+
+
 def find_or_link_affiliate(session, user):
     """The linked, non-terminated Affiliate row for `user`, or None.
 

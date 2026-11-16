@@ -26,9 +26,9 @@
     <tr>
       <td>{{ p.period }}</td>
       <td>{{ '%.2f'|format(p.commission) }} {{ p.currency|upper }}</td>
-      <td><span class="pill {{ 'ok' if p.status == 'paid' else ('warn' if p.status == 'pending' else 'bad') }}">{{ p.status }}</span></td>
+      <td>{% if p.carried_to %}<span class="pill warn">netted into {{ p.carried_to }}</span>{% else %}<span class="pill {{ 'ok' if p.status == 'paid' else ('warn' if p.status == 'pending' else 'bad') }}">{{ p.status }}</span>{% endif %}</td>
       <td>{{ p.paid_at or '-' }}</td>
-      <td class="mono">{{ p.external_ref or '-' }}</td>
+      <td class="mono">{{ '-' if p.carried_to else (p.external_ref or '-') }}</td>
     </tr>
     {% endfor %}
   </table>
