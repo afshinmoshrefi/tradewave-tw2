@@ -1,0 +1,27 @@
+{% extends "aff_base.html" %}
+{% block content %}
+<div class="card">
+  <h3>Use it with your AI assistant</h3>
+  <p class="muted" style="font-size:14px;">Copy this guide with your own code, links and terms filled in, then paste it into
+    ChatGPT, Claude or any assistant before asking it to help with posts or emails. It includes the promotion rules,
+    so the drafts stay compliant.</p>
+  <div class="row">
+    <button class="copybtn" onclick="twCopy(this, document.getElementById('ai-md').value)">Copy for my AI</button>
+    <a class="btn-secondary" href="{{ url_for('affiliate_portal.guide_md') }}" download>Download .md</a>
+  </div>
+  <textarea id="ai-md" readonly style="position:absolute;left:-9999px;" aria-hidden="true">{{ ai_md }}</textarea>
+</div>
+<div class="card guide">
+  {{ guide_html|safe }}
+</div>
+<style>
+  .guide h1 { font-size:22px; margin-top:0; }
+  .guide h2 { font-size:17px; margin-top:28px; color:#c7d2fe; }
+  .guide table { margin:10px 0; font-size:14px; }
+  .guide th, .guide td { border-bottom:1px solid #1f2937; padding:6px 8px; text-align:left; vertical-align:top; }
+  .guide code { background:#111827; padding:1px 5px; border-radius:4px; }
+  .guide blockquote { border-left:3px solid #6366f1; margin:10px 0; padding:4px 12px; color:#d1d5db; }
+  .guide hr { border:0; border-top:1px solid #1f2937; margin:20px 0; }
+  .guide a { color:#a5b4fc; }
+</style>
+{% endblock %}
