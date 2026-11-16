@@ -375,6 +375,37 @@ _OPPORTUNITY_ROWS_RE = re.compile(
 )
 
 
+def research_capability_reply(message: Any) -> str:
+    """Keep unsupported operations from being rewritten into an unrelated scan/load.
+
+    These are capability facts, not market answers. Run before investment guidance
+    and view shortcuts, including when a report or a pattern is already loaded.
+    """
+    text = str(message or "")
+    if re.search(r"\bdetrend(?:ed|ing)?\b", text, re.I):
+        return (
+            "I can't create a detrended year-by-year chart with Tara's current tools. "
+            "I can show the supported Trend Chart or yearly return bars instead, "
+            "but those are not a detrended chart."
+        )
+    if (re.search(r"\b(?:filter out|exclude|avoid|remove)\b", text, re.I)
+            and re.search(r"\bearnings\b", text, re.I)):
+        return (
+            "I can't apply an earnings-exclusion filter with Tara's current tools. "
+            "I can help inspect supplied earnings dates for named candidates, but "
+            "an estimated or missing date does not establish that a setup is earnings-free."
+        )
+    if (re.search(r"\b(?:add|create|save|schedule|set|put)\b", text, re.I)
+            and re.search(r"\b(?:calendar|reminders?)\b", text, re.I)):
+        return (
+            "I can't create calendar events or entry/exit reminders directly. "
+            "For a saved pattern, use Portfolio Manager's notification icon to open "
+            "Google Calendar setup and complete the prompts there; I can help research "
+            "the setup and verify its dates first."
+        )
+    return ""
+
+
 def needs_yearly_results(message: Any) -> bool:
     """Whether row-level yearly results can materially answer this turn."""
 

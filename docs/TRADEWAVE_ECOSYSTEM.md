@@ -2550,6 +2550,8 @@ restart gap.
 sections in `chatbot_knowledge.txt` cover Michael's 20 screening, date/cycle, evidence,
 event and action prompts. Specific routes precede general definitions within the existing
 three-section/16,000-character budget. Failed-year queries explicitly request annual receipts.
+Three early deterministic capability replies for earnings exclusion, detrending and calendar
+writes run before report/model/investor/view shortcuts to prevent answering a different request.
 These are grounded workflows, not new tools: they preserve universe/ranking/hold/sample,
 distinguish MAE from peak-to-trough drawdown, and require matched AI/history horizons.
 Moving-event studies, personal-watchlist retrieval, earnings exclusion, detrending and

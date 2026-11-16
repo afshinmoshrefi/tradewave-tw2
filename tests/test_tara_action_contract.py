@@ -1978,3 +1978,26 @@ def test_chat_action_receipt_round_trip_writes_joined_audits(
         == action_row["action_manifest"]
         == action["action_manifest"]
     )
+
+
+@pytest.mark.parametrize("question, marker", [
+    ("Filter out any seasonal setups that have an upcoming earnings release during the next month.", "earnings-exclusion"),
+    ("Show me the detrended year-by-year seasonal chart for SPX over the last 20 years.", "not a detrended chart"),
+    ("Add the top AAPL seasonal setup for next week to my calendar with entry and exit reminders.", "Google Calendar setup"),
+])
+def test_research_capability_boundary_precedes_scan_and_chart_shortcuts(audit_app, monkeypatch, question, marker):
+    def unexpected(*args, **kwargs):
+        pytest.fail("unsupported operation reached an unrelated scan/chart shortcut")
+    monkeypatch.setattr(chatbot, "build_security_list_command", unexpected)
+    monkeypatch.setattr(chatbot, "build_best_waves_command", unexpected)
+    monkeypatch.setattr(chatbot, "classify_investor_intent", unexpected)
+    with audit_app.test_client() as client:
+        response = client.post("/chatbot/chat", json={
+            "message": question, "token": _token(audit_app),
+            "history": [{"role": "user", "content": question}],
+            "wave_viewer": {}, "screen_context": {}, "opportunities": [],
+        })
+    assert response.status_code == 200
+    body = response.get_json()
+    assert marker in body["reply"]
+    assert body["actions"] == []

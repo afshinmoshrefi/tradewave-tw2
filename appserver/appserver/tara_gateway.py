@@ -74,7 +74,7 @@ TOOLS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "markets": {"type": "string", "description": "for a 'which <group> stocks' screen pass the SINGLE market id of that group (tech=1, dow=0, ...); comma list of names/ids '0'..'16' for a multi-market scan; omit for all in scope"},
+                "markets": {"type": "string", "description": "for a 'which <group> stocks' screen pass the SINGLE market id of that group (NASDAQ 100=1, Dow 30=0; NASDAQ 100 is not a technology-sector universe); comma list of names/ids '0'..'16' for a multi-market scan; omit for all in scope"},
                 "window": {"type": "string", "description": "'now' | 'next_2_weeks' | 'next_month' | 'YYYY-MM-DD..YYYY-MM-DD'"},
                 "direction": {"type": "string", "enum": ["long", "short"]},
                 "min_win_rate": {"type": "number", "description": "0..1"},

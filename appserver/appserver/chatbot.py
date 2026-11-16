@@ -79,6 +79,7 @@ from tara_prompt_context import (
     needs_opportunity_rows,
     needs_yearly_results,
     parse_knowledge_sections,
+    research_capability_reply,
     prompt_segment_sizes,
     segmented_system_blocks,
     select_topic_knowledge,
@@ -2301,6 +2302,15 @@ def chat():
             messages_or_text=user_message,
             protocol_trace=[{'event': 'blank_message'}],
             provider='deterministic',
+        )
+
+    capability_reply = research_capability_reply(user_message)
+    if capability_reply:
+        return _finalize_chat_response(
+            user_id, turn_id, user_message, capability_reply, wave_viewer,
+            actions=[], messages_or_text=user_message,
+            protocol_trace=[{'event': 'research_capability_boundary'}],
+            provider='deterministic', analysis_report=analysis_report,
         )
 
     if analysis_report is not None:

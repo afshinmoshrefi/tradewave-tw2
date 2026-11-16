@@ -34,3 +34,9 @@ Dev: not deployed by this task yet. Staging and production: not changed or teste
 ## Capability disposition
 
 All 20 source prompts and filled-in cases are in tests/fixtures/tara_research_questions.json. Five KB workflow sections cover screening/ranking (1,2,3,4,9), dates/cycles (6,7,10,11,12,19), evidence (13,14,15,18), moving events (5,8), and actions (16,17,20). Current limits are taught explicitly, not implemented as new capabilities. Calendar writes, personal watchlist retrieval, earnings exclusion, true detrending and event-aligned historical calculations remain separate feature work. The unchanged gateway schema also limits phase reads and ranking completeness; answers must disclose this instead of substituting.
+
+## Live-check correction
+
+First candidate ec7f05e92488d7cd30abcaa441e5bf8f53b06b31 passed generic activation gates. Five authenticated live checks found correct FOMC and personal-watchlist boundaries, but investment guidance intercepted earnings/calendar requests and detrending became an ordinary SPX chart load. Candidate was rolled back to the prior dev pointer before correction. Added early deterministic capability answers for those three operations, before report/investor/view routing, with authenticated endpoint regressions asserting no actions or unrelated shortcut calls. No new market-data capability was added.
+
+Corrected the gateway tool description that called market 1 tech: it is NASDAQ 100, not a verified technology-sector universe. Final focused suite: 370 passed. Second live checks pending.
