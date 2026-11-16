@@ -8,6 +8,23 @@
   {% if smn.slug %}<span class="muted">Your expert page: <code>/experts/{{ smn.slug }}.html</code> (goes live with your first published take)</span>{% endif %}
 </div>
 
+<div class="card">
+  <h3>Verified Scorecard</h3>
+  {% if scorecard.calls %}
+    <div class="row">
+      <span class="big">{{ scorecard.win_rate }}%</span>
+      <span class="muted">win rate on {{ scorecard.calls }} scored call{{ '' if scorecard.calls == 1 else 's' }}
+        ({{ scorecard.wins }} W / {{ scorecard.losses }} L){% if scorecard.avg_return_pct is not none %},
+        average move in your direction {{ '%+.2f'|format(scorecard.avg_return_pct) }}%{% endif %}</span>
+    </div>
+  {% else %}
+    <p class="muted">No scored calls yet.</p>
+  {% endif %}
+  <p class="muted" style="font-size:12px;">Calls you attach to a take (symbol, long/short, entry and exit dates) are scored automatically
+    after the exit date from the underlying's closing prices. Self-reported trade results are shown separately and never count here.
+    {% if not smn.scorecard_enabled %}Your scorecard is hidden from your public expert page.{% endif %}</p>
+</div>
+
 {% if takes %}
 <div class="card">
   <h3>Your Takes</h3>
@@ -21,6 +38,10 @@
           {% if t.declared_call %}
             · scored call: {{ t.declared_call.direction }} {{ t.declared_call.symbol }}
             {{ t.declared_call.entry_date }} → {{ t.declared_call.exit_date }}
+            {% if t.score_result == 'win' %}<span class="pill ok">win {{ '%+.2f'|format(t.score_return_pct) }}%</span>
+            {% elif t.score_result == 'loss' %}<span class="pill bad">loss {{ '%+.2f'|format(t.score_return_pct) }}%</span>
+            {% elif t.score_result == 'void' %}<span class="pill warn">void (no price data)</span>
+            {% else %}<span class="muted">· scores after exit</span>{% endif %}
           {% endif %}
         </div>
         {% if t.review_note and t.status == 'rejected' %}

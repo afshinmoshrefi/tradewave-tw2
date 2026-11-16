@@ -465,6 +465,13 @@ bash "$repo/ops/install_mailerlite_lifecycle_cron.sh"
 bash "$repo/ops/install_daily_ai_pick_social_cron.sh"
 bash "$repo/ops/install_webinar_cron.sh"
 bash "$repo/ops/install_site_refresh_cron.sh"
+# Affiliate/SMN expert crons: scorecard always on the web box; expert_sync
+# only where the SMN pipeline lives on this box.
+if [ -f /home/flask/smn/expert_sync.py ]; then
+  bash "$repo/ops/install_affiliate_crons.sh" both
+else
+  bash "$repo/ops/install_affiliate_crons.sh" web
+fi
 sed "s|__TW2_WEB_VLAN__|$WEB_VLAN|g" "$repo/ops/systemd/tradewave-web.service" >/etc/systemd/system/tradewave-web.service
 grep -q -- "--bind 127.0.0.1:5500" /etc/systemd/system/tradewave-web.service
 grep -q -- "--bind $WEB_VLAN:5500" /etc/systemd/system/tradewave-web.service

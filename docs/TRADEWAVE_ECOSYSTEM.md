@@ -228,8 +228,36 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   (injects/removes TW-EXPERT-DESK sections in article HTML, heals wiped
   sections after article regeneration, builds `/experts/<slug>.html` hubs;
   web-tier base from `TW2_WEB_INTERNAL_URL`, default loopback :5500).
-  OPEN: expert_sync cron not yet in make_bulletproof.sh; staging/prod rollout
-  via ops/deploy.sh + migration step; scorecard evaluation job (Phase C2) not built.
+  GAP FIXES (2026-11-16, migration a7f3c2e9b1d4): (1) DISCOVERABILITY -
+  `affiliate_service.find_or_link_affiliate` runs on `/account` too (the card
+  showed only after linking, and linking only happened inside the portal), and
+  the dashboard URL is in the signing, signed-copy and statement emails.
+  (2) TAX FORMS - `affiliates.tax_form_type` (w9|w8ben|w8bene) +
+  `tax_form_received_at`; AffiliatePayoutAdmin refuses `paid` without one
+  (agreement s.6.2). (3) CLAWBACK - `_compute` pass 2 nets every Refund and
+  money-withdrawing Dispute CREATED in the month (mapped to its invoice via
+  InvoicePayment, charge.invoice fallback) as a negative line at the original
+  rate; credit-note netting on the invoice was REMOVED (refunding credit notes
+  create Refund objects, so they are counted once, dated when money left). A
+  month can go negative; `upsert_month._apply_carry` folds earlier negative
+  pending rows into the next computed month and voids them with
+  `external_ref='carried:YYYY-MM'`. Listing refunds/disputes failing aborts
+  the compute (fail closed). (4) FUNNEL - `affiliate_clicks` (per day; /join
+  and /pricing count server-side, the static home page beacons
+  `POST /api/aff/click` only when the URL code differs from the tw_ref cookie)
+  and `users.referred_by_affiliate_id/referred_at` stamped in auth_callback for
+  brand-new signups carrying tw_ref; dashboard shows visits, signups, in-trial,
+  paying (counts only). (5) "Customers" = distinct paying customers on payment
+  lines. (6) ledger totals grouped by currency. (7) crons via
+  `ops/install_affiliate_crons.sh [web|smn|both]` (called by deploy.sh).
+  (8) SCORECARD Layer 1 - `web/expert_scorecard.py` daily 02:15 UTC scores
+  closed declared calls from appserver `getStockPriceByDate` closes (snapped
+  forward), storing `expert_takes.score_result` (win|loss|void) etc.; takes
+  retracted after entry still count; voided after 10 days without prices.
+  Feeds carry `score` per take and `scorecard` per profile. (9) live estimate
+  cached in local Redis db5 (`tw2:aff_est:<id>:<YYYY-MM>`) across workers.
+  OPEN: SMN-side rendering of `score`/`scorecard` lives in the untracked
+  `smn/` tree (expert_sync templates) and must be updated on the box.
 - **Standalone promo coupons (Coupons tab)** - plain marketing discount codes
   with NO affiliate / commission / payout. `web/promo_service.py` + `web/models.py`
   (`PromoCoupon`) + migration `b2c0fee1d3a5` + the top-level Flask-Admin **Coupons**

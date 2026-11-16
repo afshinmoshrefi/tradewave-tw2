@@ -1,5 +1,7 @@
 # Affiliate Dashboard + SMN Expert Module - Design Spec
 
+_Update 2026-11-16: gap fixes (discoverability, tax-form gate, refund/dispute clawback with carry-forward, click/signup funnel, scorecard Layer 1 job, cron installer) - see docs/TRADEWAVE_ECOSYSTEM.md affiliate section._
+
 _Status: BUILT + TESTED on dev 2026-07-07 (all phases incl. the SMN module; 32/32 integration checks in tests/test_affiliate_portal_dev.py). Remaining: expert_sync cron install (make_bulletproof.sh), staging/prod deploy, scorecard evaluation job (Phase C2). Written 2026-07-07 from a code-verified
 map of the affiliate system. Companion strategy doc: `docs/marketing/SMN_STRATEGY.md` (Option E =
 the SMN expert layer this dashboard hosts). Build order per owner: dashboard first, SMN module

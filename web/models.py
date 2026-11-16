@@ -647,6 +647,14 @@ class ExpertTake(Base):
     execution_note      = Column(Text)
     execution_result    = Column(Text)
     execution_result_at = Column(TIMESTAMP(timezone=True))
+    # Layer-1 house score (web/expert_scorecard.py, migration a7f3c2e9b1d4):
+    # set once the declared call's window has closed. score_result is a storage
+    # ID: 'win' | 'loss' | 'void'. Dates are the actual (snapped) trading days.
+    score_result     = Column(Text)
+    score_return_pct = Column(Numeric(10, 4))
+    score_entry_date = Column(Date)
+    score_exit_date  = Column(Date)
+    scored_at        = Column(TIMESTAMP(timezone=True))
     published_at  = Column(TIMESTAMP(timezone=True))
     retracted_at  = Column(TIMESTAMP(timezone=True))
     created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
@@ -657,6 +665,8 @@ class ExpertTake(Base):
         CheckConstraint(
             "status IN ('draft','submitted','approved','published','rejected','retracted')",
             name="expert_takes_status_check"),
+        CheckConstraint("score_result IS NULL OR score_result IN ('win','loss','void')",
+                        name="expert_takes_score_result_check"),
         CheckConstraint(r"article_slug ~ '^[a-zA-Z0-9_-]{1,200}$'",
                         name="expert_takes_article_slug_charset_check"),
         CheckConstraint("title IS NULL OR char_length(title) <= 120",

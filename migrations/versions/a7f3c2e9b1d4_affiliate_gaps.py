@@ -7,6 +7,8 @@
    at SIGNUP (not only at checkout), so the dashboard can show signups/trials.
 3. affiliate_clicks: per-(affiliate, UTC day) visit counter for referral-link
    and /join landings.
+4. expert_takes.score_*: Layer-1 house score for declared calls
+   (web/expert_scorecard.py). score_result is a storage ID: win|loss|void.
 
 Additive only; no billing/webhook path changed.
 
@@ -50,7 +52,20 @@ def upgrade() -> None:
     )
 
 
+    op.add_column("expert_takes", sa.Column("score_result", sa.Text(), nullable=True))
+    op.add_column("expert_takes", sa.Column("score_return_pct", sa.Numeric(10, 4), nullable=True))
+    op.add_column("expert_takes", sa.Column("score_entry_date", sa.Date(), nullable=True))
+    op.add_column("expert_takes", sa.Column("score_exit_date", sa.Date(), nullable=True))
+    op.add_column("expert_takes", sa.Column("scored_at", sa.TIMESTAMP(timezone=True), nullable=True))
+    op.create_check_constraint(
+        "expert_takes_score_result_check", "expert_takes",
+        "score_result IS NULL OR score_result IN ('win','loss','void')")
+
+
 def downgrade() -> None:
+    op.drop_constraint("expert_takes_score_result_check", "expert_takes", type_="check")
+    for c in ("scored_at", "score_exit_date", "score_entry_date", "score_return_pct", "score_result"):
+        op.drop_column("expert_takes", c)
     op.drop_table("affiliate_clicks")
     op.drop_index("ix_users_referred_by_affiliate", table_name="users")
     op.drop_constraint("fk_users_referred_by_affiliate", "users", type_="foreignkey")

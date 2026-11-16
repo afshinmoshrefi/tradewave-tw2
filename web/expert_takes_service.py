@@ -232,6 +232,13 @@ def _take_payload(take: ExpertTake, prof: AffiliateSmnProfile | None, aff: Affil
         "declared_call": take.declared_call,
         "execution_note": take.execution_note,
         "execution_result": take.execution_result,
+        # Layer-1 house score (None until the call's window closes and is scored).
+        "score": ({
+            "result": take.score_result,
+            "return_pct": float(take.score_return_pct) if take.score_return_pct is not None else None,
+            "entry_date": take.score_entry_date.isoformat() if take.score_entry_date else None,
+            "exit_date": take.score_exit_date.isoformat() if take.score_exit_date else None,
+        } if take.score_result and (prof is None or prof.scorecard_enabled) else None),
         "published_at": take.published_at.isoformat() if take.published_at else None,
         "retracted_at": take.retracted_at.isoformat() if take.retracted_at else None,
         "updated_at": take.updated_at.isoformat() if take.updated_at else None,
@@ -282,12 +289,19 @@ def profiles_since(session, since: datetime | None, limit: int = 100) -> list[di
             "links": [l for l in (p.links or [])
                       if isinstance(l, dict) and str(l.get("url", "")).startswith("https://")],
             "scorecard_enabled": bool(p.scorecard_enabled),
+            # Verified Layer-1 record for the hub page (None when disabled).
+            "scorecard": (_scorecard(session, p.affiliate_id) if p.scorecard_enabled else None),
             "updated_at": p.updated_at.isoformat() if p.updated_at else None,
         })
     return out
 
 
 # ---- plumbing ----
+
+def _scorecard(session, affiliate_id):
+    import expert_scorecard
+    return expert_scorecard.scorecard_for(session, affiliate_id)
+
 
 def _audit(session, actor_user, action: str, take: ExpertTake):
     session.add(AuditLog(

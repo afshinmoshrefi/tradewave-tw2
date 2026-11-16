@@ -94,3 +94,27 @@ def test_signup_referral_skips_self_and_unknown(monkeypatch):
     assert afs.record_signup_referral(sess, me, "ANNE") is False
     monkeypatch.setattr(afs, "active_affiliate_by_code", lambda s, raw: None)
     assert afs.record_signup_referral(sess, me, "NOPE") is False
+
+
+# --- expert scorecard (Layer 1) --------------------------------------------
+import datetime as _dt  # noqa: E402
+import expert_scorecard as esc  # noqa: E402
+
+
+def test_score_call_long_short():
+    assert esc.score_call({"direction": "long"}, 100, 110) == ("win", Decimal("10.0000"))
+    assert esc.score_call({"direction": "long"}, 100, 95)[0] == "loss"
+    assert esc.score_call({"direction": "short"}, 100, 95) == ("win", Decimal("-5.0000"))
+    assert esc.score_call({"direction": "short"}, 100, 100)[0] == "loss"   # flat is not a win
+    assert esc.score_call({"direction": "long"}, 0, 110) == ("void", None)
+
+
+def test_retracted_after_entry_still_counts():
+    call = {"entry_date": "2026-10-01", "exit_date": "2026-10-20"}
+    late = SimpleNamespace(status="retracted", declared_call=call,
+                           retracted_at=_dt.datetime(2026, 10, 5, tzinfo=_dt.timezone.utc))
+    early = SimpleNamespace(status="retracted", declared_call=call,
+                            retracted_at=_dt.datetime(2026, 9, 28, tzinfo=_dt.timezone.utc))
+    today = _dt.date(2026, 11, 1)
+    assert esc._counts_in_record(late, today) is True
+    assert esc._counts_in_record(early, today) is False

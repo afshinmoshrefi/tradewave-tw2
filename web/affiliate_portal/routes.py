@@ -547,10 +547,15 @@ def smn():
                    if t.status == "published" else None,
             "declared_call": t.declared_call,
             "execution_result": t.execution_result,
+            "score_result": t.score_result,
+            "score_return_pct": (float(t.score_return_pct)
+                                 if t.score_return_pct is not None else None),
         } for t in takes]
+        import expert_scorecard
+        scorecard = expert_scorecard.scorecard_for(s, aff.id)
     finally:
         s.close()
-    return render_template("aff_smn.html", takes=take_rows, **ctx)
+    return render_template("aff_smn.html", takes=take_rows, scorecard=scorecard, **ctx)
 
 
 @bp.route("/smn/accept", methods=["POST"])
