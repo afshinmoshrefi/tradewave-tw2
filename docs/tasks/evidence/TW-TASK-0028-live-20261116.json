@@ -1,0 +1,45 @@
+{
+  "verified_at_utc": "2026-11-16T15:13:23.280918+00:00",
+  "source_sha": "61eb1b3db7a553132129216d9a3b8974c8e1d1ec",
+  "environment": "tw2-dev.trxstat.com",
+  "method": "Authenticated loopback /chatbot/chat; synthetic level-6 test identities; self-verification by Codex",
+  "focused_tests": 371,
+  "live_answers": [
+    {
+      "case": "event",
+      "question": "What is gold's historical seasonal tendency in the 15 trading days leading up to a December FOMC meeting?",
+      "status": 200,
+      "reply": "TradeWave cannot calculate this exact event-relative study because it lacks historical December FOMC dates and trading-session calendars. Its ordinary windows use calendar days, so using 15 calendar days would not answer the question.\n\nA fixed-date gold study can be run instead, clearly labeled as a calendar-date approximation.",
+      "action_count": 0
+    },
+    {
+      "case": "earnings",
+      "question": "Filter out any seasonal setups that have an upcoming earnings release during the next month.",
+      "status": 200,
+      "reply": "I can't apply an earnings-exclusion filter with Tara's current tools. I can help inspect supplied earnings dates for named candidates, but an estimated or missing date does not establish that a setup is earnings-free.",
+      "action_count": 0
+    },
+    {
+      "case": "watchlist",
+      "question": "Scan my Growth watchlist and tell me which tickers are entering a seasonal buy zone next week.",
+      "status": 200,
+      "reply": "I can\u2019t retrieve a personal \u201cGrowth\u201d watchlist through Tara, so I can\u2019t scan its members directly. Send the ticker symbols and I\u2019ll identify which have historical seasonal entry windows next week; dates are research evidence, not guaranteed buy signals.",
+      "action_count": 0
+    },
+    {
+      "case": "detrended",
+      "question": "Show me the detrended year-by-year seasonal chart for SPX over the last 20 years.",
+      "status": 200,
+      "reply": "I can't create a detrended year-by-year chart with Tara's current tools. I can show the supported Trend Chart or yearly return bars instead, but those are not a detrended chart.",
+      "action_count": 0
+    },
+    {
+      "case": "calendar",
+      "question": "Add the top AAPL seasonal setup for next week to my calendar with entry and exit reminders.",
+      "status": 200,
+      "reply": "I can't create calendar events or entry/exit reminders directly. For a saved pattern, use Portfolio Manager's notification icon to open Google Calendar setup and complete the prompts there; I can help research the setup and verify its dates first.",
+      "action_count": 0
+    }
+  ],
+  "limitations": "All 20 prompts tested for knowledge retrieval; five capability-boundary answers tested live. Not an exhaustive end-to-end financial-answer evaluation; no new underlying tools; no browser changes."
+}
