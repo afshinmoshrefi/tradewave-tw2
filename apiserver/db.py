@@ -117,3 +117,67 @@ def get_user_by_key_hash(key_hash):
                 (row["key_id"],),
             )
         return row
+
+
+# --- affiliate self-service (read-only; GET /v1/affiliate/me, see affiliate_view.py) --------
+
+_AFFILIATE_COLS = """a.id, a.code, a.name, a.status, a.commission_model, a.discount_pct,
+       a.commission_pct, a.discount_pct_monthly, a.commission_pct_monthly, a.payout_method,
+       a.payout_email, a.tax_form_type, a.tax_form_received_at"""
+
+
+def get_affiliate_for_user(user_id, email=None):
+    """The caller's non-terminated affiliate row: linked by affiliates.user_id, else (not yet
+    linked) the same exact case-insensitive email match the web portal auto-links on. The
+    email fallback never matches a row already linked to a different user."""
+    with cursor() as cur:
+        cur.execute("SELECT " + _AFFILIATE_COLS + " FROM affiliates a "
+                    "WHERE a.user_id = %s AND a.status <> 'terminated'", (user_id,))
+        row = cur.fetchone()
+        if row or not email:
+            return row
+        cur.execute("SELECT " + _AFFILIATE_COLS + " FROM affiliates a "
+                    "WHERE a.user_id IS NULL AND a.status <> 'terminated' "
+                    "AND lower(a.email) = lower(%s)", (email,))
+        rows = cur.fetchall()
+        return rows[0] if len(rows) == 1 else None
+
+
+def affiliate_funnel(affiliate_id, days=30):
+    """Anonymized counts only (mirrors web affiliate_service.funnel_for_affiliate)."""
+    with cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+              (SELECT coalesce(sum(clicks), 0) FROM affiliate_clicks
+                 WHERE affiliate_id = %(a)s AND day >= (now() at time zone 'utc')::date - %(d)s) AS clicks_recent,
+              (SELECT coalesce(sum(clicks), 0) FROM affiliate_clicks WHERE affiliate_id = %(a)s) AS clicks_total,
+              (SELECT count(*) FROM users WHERE referred_by_affiliate_id = %(a)s
+                 AND referred_at >= now() - make_interval(days => %(d)s)) AS signups_recent,
+              (SELECT count(*) FROM users WHERE referred_by_affiliate_id = %(a)s) AS signups_total,
+              (SELECT count(*) FROM users WHERE referred_by_affiliate_id = %(a)s
+                 AND reverse_trial_ends_at > now()) AS in_trial,
+              (SELECT count(*) FROM affiliate_referrals WHERE affiliate_id = %(a)s) AS paying_total
+            """,
+            {"a": affiliate_id, "d": int(days)},
+        )
+        r = cur.fetchone() or {}
+        out = {"days": int(days)}
+        for k in ("clicks_recent", "clicks_total", "signups_recent", "signups_total",
+                  "in_trial", "paying_total"):
+            out[k] = int(r.get(k) or 0)
+        return out
+
+
+def affiliate_payout_rows(affiliate_id, limit=36):
+    """Statement rows, newest first (totals only - the per-invoice detail is not selected)."""
+    with cursor() as cur:
+        cur.execute(
+            """
+            SELECT period_start, currency, commission_amount, status, external_ref, paid_at
+            FROM affiliate_payouts WHERE affiliate_id = %s
+            ORDER BY period_start DESC, currency LIMIT %s
+            """,
+            (affiliate_id, int(limit)),
+        )
+        return cur.fetchall()

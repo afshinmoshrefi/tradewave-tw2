@@ -18,7 +18,7 @@ import re
 import requests
 from flask import Blueprint, g, jsonify, request
 
-from . import appserver_client, cards, market_bands, ml_quota, scan_cache, tiers
+from . import affiliate_view, appserver_client, cards, market_bands, ml_quota, scan_cache, tiers
 from .auth import require_api_key
 from .upstream_budget import parallel_map
 
@@ -448,6 +448,18 @@ def me():
         "teaser_state": g.customer.get("teaser_state") or {
             "active": False, "kind": None, "ends_at": None, "post_teaser_scope": None},
     })
+
+
+@v1.get("/affiliate/me")
+@require_api_key
+def affiliate_me():
+    """The caller's OWN affiliate program view (links, anonymized funnel counts, payout
+    ledger totals, tax-form status, promo copy). Read-only; never another affiliate's data
+    and never customer identities. Powers the MCP `my_affiliate_program` tool. 404
+    not_affiliate for ordinary users; 403 for service/demo principals."""
+    payload, status = affiliate_view.build(
+        g.customer, os.environ.get("TW2_PUBLIC_HOST", "tw2-dev.trxstat.com"))
+    return jsonify(payload), status
 
 
 @v1.get("/markets/<market_id>/symbols")
