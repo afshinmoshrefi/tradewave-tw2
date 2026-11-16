@@ -58,26 +58,11 @@ def get_current_affiliate():
     user = get_current_user()
     aff = None
     if user is not None:
-        from sqlalchemy import func as safunc
-        from models import Session as DBSession, Affiliate, AuditLog
+        import affiliate_service as asvc
+        from models import Session as DBSession
         s = DBSession()
         try:
-            aff = (s.query(Affiliate)
-                   .filter(Affiliate.user_id == user.id,
-                           Affiliate.status != "terminated").first())
-            if aff is None and user.email:
-                candidate = (s.query(Affiliate)
-                             .filter(safunc.lower(Affiliate.email) == user.email.lower(),
-                                     Affiliate.user_id.is_(None),
-                                     Affiliate.status != "terminated").first())
-                if candidate is not None:
-                    candidate.user_id = user.id
-                    s.add(AuditLog(actor_user_id=user.id, action="affiliate_linked",
-                                   details={"affiliate_id": str(candidate.id),
-                                            "code": candidate.code, "via": "email_match"}))
-                    s.commit()
-                    log.info("affiliate auto-linked: %s -> user %s", candidate.code, user.id)
-                    aff = candidate
+            aff = asvc.find_or_link_affiliate(s, user)
             if aff is not None:
                 # Detach a fully-loaded copy so routes can read attrs after close.
                 s.refresh(aff)

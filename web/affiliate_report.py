@@ -57,6 +57,11 @@ def _customer_count(detail) -> int:
     return len(cs) if cs else len(detail or [])
 
 
+def _dashboard_url() -> str:
+    base = (getattr(config, "tw2_public_url", None) or "https://tradewave.ai/").rstrip("/")
+    return base + "/account/affiliate"
+
+
 def send_monthly_statements(rows, year: int, month: int, dry_run: bool = False) -> int:
     """Email each earning affiliate an ANONYMIZED monthly statement (totals + a
     customer count only - never any customer identity). Groups a multi-currency
@@ -102,8 +107,10 @@ def send_monthly_statements(rows, year: int, month: int, dry_run: bool = False) 
             "%s\n\n"
             "We'll send your payout to %s on the usual monthly schedule. "
             "Questions? Just reply to this email.\n\n"
+            "See the full breakdown, payout history and your links in your "
+            "partner dashboard:\n%s\n\n"
             "Thanks for partnering with TradeWave.\n"
-            % (name, month_label, "\n".join(lines), payout))
+            % (name, month_label, "\n".join(lines), payout, _dashboard_url()))
 
         if dry_run:
             log.info("statement (dry-run) -> %s [%s]: %s",

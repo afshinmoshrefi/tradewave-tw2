@@ -2112,10 +2112,13 @@ def account():
     if u is not None:
         s = DBSession()
         try:
-            from models import Affiliate as _Aff
-            is_affiliate = (s.query(_Aff)
-                            .filter(_Aff.user_id == u.id,
-                                    _Aff.status != "terminated").first() is not None)
+            import affiliate_service as _afs
+            # Links by email on first visit too, so a partner sees the card
+            # without ever having to know the /account/affiliate URL.
+            is_affiliate = _afs.find_or_link_affiliate(s, u) is not None
+        except Exception:
+            log.exception("account: affiliate lookup failed")
+            is_affiliate = False
         finally:
             s.close()
 

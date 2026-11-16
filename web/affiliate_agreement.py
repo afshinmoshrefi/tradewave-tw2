@@ -105,6 +105,11 @@ def join_link(affiliate) -> str:
     return f"{_base()}/join/{affiliate.code}"
 
 
+def dashboard_link() -> str:
+    """The affiliate's logged-in partner dashboard (web/affiliate_portal/)."""
+    return f"{_base()}/account/affiliate"
+
+
 def signing_url(affiliate) -> str:
     token = make_sign_token(affiliate.id, getattr(affiliate, "agreement_token_version", 0))
     return f"{_base()}/affiliate/sign/{token}"
@@ -308,7 +313,10 @@ def email_signed_copy(affiliate) -> bool:
                 f"\nShare either of these with your audience (both apply your discount "
                 f"and credit you):\n"
                 f"  - Your referral link: {referral_link(affiliate)}\n"
-                f"  - Your landing page:  {join_link(affiliate)}\n")
+                f"  - Your landing page:  {join_link(affiliate)}\n"
+                f"\nTrack your referrals, earnings and payouts in your partner dashboard "
+                f"(sign in or create a free TradeWave account with this email "
+                f"address, {affiliate.email}):\n{dashboard_link()}\n")
         html = None
         if affiliate.agreement_snapshot:
             html = (f"<p>Your TradeWave Affiliate Program Agreement, electronically "
@@ -353,6 +361,7 @@ def email_signing_link(affiliate, note=None) -> bool:
     url = signing_url(affiliate)
     ref = referral_link(affiliate)
     join = join_link(affiliate)
+    dash = dashboard_link()
     first = (affiliate.name or "").strip().split(" ")[0] or "there"
     note = (note or "").strip()[:2000]
     note_text = f"{note}\n\n----\n\n" if note else ""
@@ -371,6 +380,9 @@ def email_signing_link(affiliate, note=None) -> bool:
         f"  - Your referral link:  {ref}\n"
         f"  - Your landing page:   {join}  (a ready-made page describing TradeWave "
         f"and your discount)\n\n"
+        f"You can follow your referrals, earnings and payouts any time in your "
+        f"partner dashboard. Sign in (or create a free account) with this email "
+        f"address:\n{dash}\n\n"
         f"Thanks,\nThe TradeWave team\n"
     )
     html_body = note_html + (
@@ -387,6 +399,9 @@ def email_signing_link(affiliate, note=None) -> bool:
         f'<li>Your landing page: <a href="{_esc(join)}">{_esc(join)}</a> '
         f"(a ready-made page describing TradeWave and your discount)</li>"
         f"</ul>"
+        f"<p>You can follow your referrals, earnings and payouts any time in your "
+        f'<a href="{_esc(dash)}">partner dashboard</a>. Sign in (or create a free '
+        f"account) with this email address.</p>"
         f"<p>Thanks,<br>The TradeWave team</p>"
     )
     try:

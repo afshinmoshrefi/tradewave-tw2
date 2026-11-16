@@ -703,6 +703,40 @@ def upsert_month(session, year: int, month: int) -> list:
             .filter(AffiliatePayout.period_start == period_start)
             .order_by(AffiliatePayout.commission_amount.desc())
             .all())
+def find_or_link_affiliate(session, user):
+    """The linked, non-terminated Affiliate row for `user`, or None.
+
+    If the user has no linked row yet, AUTO-LINK by exact case-insensitive email
+    match against an unlinked, non-terminated affiliate (dashboard spec 4.1:
+    WorkOS verifies the email; affiliate emails are operator-entered). Commits
+    the link + an `affiliate_linked` audit row. Shared by the portal and the
+    /account page so the dashboard card shows on the FIRST account visit
+    (before this lived only in the portal, so an affiliate who never typed
+    /account/affiliate never got linked and never saw the card)."""
+    if user is None:
+        return None
+    from sqlalchemy import func as safunc
+    from models import Affiliate, AuditLog
+    aff = (session.query(Affiliate)
+           .filter(Affiliate.user_id == user.id,
+                   Affiliate.status != "terminated").first())
+    if aff is not None or not getattr(user, "email", None):
+        return aff
+    candidate = (session.query(Affiliate)
+                 .filter(safunc.lower(Affiliate.email) == user.email.strip().lower(),
+                         Affiliate.user_id.is_(None),
+                         Affiliate.status != "terminated").first())
+    if candidate is None:
+        return None
+    candidate.user_id = user.id
+    session.add(AuditLog(actor_user_id=user.id, action="affiliate_linked",
+                         details={"affiliate_id": str(candidate.id),
+                                  "code": candidate.code, "via": "email_match"}))
+    session.commit()
+    log.info("affiliate auto-linked: %s -> user %s", candidate.code, user.id)
+    return candidate
+
+
 def compute_for_affiliate(session, affiliate, year: int, month: int) -> list[dict]:
     """Scoped variant of compute_month for ONE affiliate - the portal's live
     current-month ESTIMATE (labeled as such in the UI; the monthly statement
