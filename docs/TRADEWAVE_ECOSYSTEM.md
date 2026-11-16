@@ -258,6 +258,16 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   cached in local Redis db5 (`tw2:aff_est:<id>:<YYYY-MM>`) across workers.
   OPEN: SMN-side rendering of `score`/`scorecard` lives in the untracked
   `smn/` tree (expert_sync templates) and must be updated on the box.
+  PARTNER GUIDE + AI ACCESS (2026-11-16): `docs/AFFILIATE_PARTNER_GUIDE.md` is
+  the single source; the portal serves it personalized (code, links, rates, tax
+  status inserted) at `/account/affiliate/guide` (Guide tab, "Copy for my AI")
+  and `/guide.md` (text/markdown, no-store). MCP tool `my_affiliate_program` ->
+  gateway `GET /v1/affiliate/me` (`apiserver/affiliate_view.py` + read-only SQL
+  in `apiserver/db.py`): caller's OWN row only (affiliates.user_id, else the
+  portal's exact email match on an unlinked row), service/demo/`cb:` principals
+  403, non-affiliates 404 `not_affiliate`; returns links, terms, anonymized
+  funnel, ledger totals per currency, tax-form status, promo copy + rules.
+  No customer identities; payout email exposed only as a boolean.
 - **Standalone promo coupons (Coupons tab)** - plain marketing discount codes
   with NO affiliate / commission / payout. `web/promo_service.py` + `web/models.py`
   (`PromoCoupon`) + migration `b2c0fee1d3a5` + the top-level Flask-Admin **Coupons**
@@ -1544,7 +1554,7 @@ paid standalone API price display remains separately gated as described below.
 - **MCP server** `mcpserver/` (named to not shadow the `mcp` SDK). FastMCP,
   streamable-http mounted at the ROOT (the BARE host is the canonical published
   connector URL; `/mcp` is kept as an alias), dev `127.0.0.1:9090`, systemd
-  `tradewave-mcpserver`. 18 tools (7 flagship + 11 primitives), thin HTTP wrapper
+  `tradewave-mcpserver`. 19 tools (7 flagship + 12 primitives), thin HTTP wrapper
   over the gateway. Auth, two modes: ChatGPT, Claude.ai, and Claude Desktop can
   connect through OAuth - paste the URL and sign in with the TradeWave account
   (WorkOS AuthKit AS, RFC 9728 discovery; see `docs/MCP_OAUTH_INTEGRATION.md`). Cursor
@@ -1566,8 +1576,8 @@ paid standalone API price display remains separately gated as described below.
   #1 drift class); `api/MCP_TOOLS.md` is the MCP tool SSOT - sync `build_mcp_reference()`
   to it + `mcpserver/server.py` whenever tools change.
 
-**Contract:** `api/openapi.yaml` (14 endpoints) + `api/MCP_TOOLS.md` (18 tools - 7
-flagship + 11 primitives).
+**Contract:** `api/openapi.yaml` (14 endpoints) + `api/MCP_TOOLS.md` (19 tools - 7
+flagship + 12 primitives).
 
 **Strategy Lab additions (TW-TASK-0014, live on dev 2026-09-29; staging/prod not yet):**
 - `analyze` answers ETFs/indices/crypto (markets without the per-symbol grid) from the
