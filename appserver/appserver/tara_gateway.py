@@ -1693,6 +1693,20 @@ _NOW_STATUS_CLAIM_RE = re.compile(
 )
 
 
+# "I'm putting the SI setup on the chart" with nothing queued is a claim the turn cannot keep.
+_PROGRESSIVE_VIEW_CLAIM_RE = re.compile(
+    r"\b(?:i(?:'m|\u2019m|\s+am)|we(?:'re|\u2019re|\s+are))\s+(?:now\s+)?"
+    r"(?:putting|placing|loading|opening|sending|pulling\s+up|bringing\s+up|switching|setting)"
+    r"\b[^.!?]{0,60}\b(?:chart|viewer|screen|table|panel)\b",
+    re.IGNORECASE,
+)
+
+
+def _claims_unqueued_view_change(text, actions):
+    return not actions and bool(
+        _PROGRESSIVE_VIEW_CLAIM_RE.search(re.sub(r"<[^>]*>", " ", text or "")))
+
+
 def _claims_unsupported_action(text):
     return bool(_UNSUPPORTED_ACTION_CLAIM_RE.search(re.sub(r"<[^>]*>", " ", text or "")))
 
@@ -1751,6 +1765,8 @@ def _segment_breaks_view_contract(segment, actions, current_view):
     if _claims_unsupported_action(segment) or _NOW_STATUS_CLAIM_RE.search(
             re.sub(r"<[^>]*>", " ", segment or "")):
         return True
+    if _claims_unqueued_view_change(segment, actions):
+        return True
     if not _view_completion_violation(segment, actions, current_view):
         return False
     if actions or not str((current_view or {}).get("symbol") or "").strip():
@@ -1782,6 +1798,7 @@ def repair_view_contract(text, actions=None, current_view=None):
     if (
         not response_violates_view_contract(raw, actions, current_view)
         and not _claims_unsupported_action(raw)
+        and not _claims_unqueued_view_change(raw, actions)
         and not _NOW_STATUS_CLAIM_RE.search(re.sub(r"<[^>]*>", " ", raw))
         and not _SCREEN_DESCRIPTION_RE.search(re.sub(r"<[^>]*>", " ", raw))
     ):
@@ -5367,6 +5384,18 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
             return {"ok": False, "error": date_lock}
         if cleaned and _view_spec_is_grounded(
             cleaned, card_list, current_view=current_view
+        ) and _view_actions_conflict(list(actions) + [_view_action(cleaned)]):
+            # One setup per turn. Saying so here lets the model finish its answer around
+            # the setup already queued, instead of the turn ending with two conflicting
+            # actions and neither applied.
+            return {
+                "ok": False,
+                "error": "a different chart setup is already queued in this turn; only one "
+                         "can be applied. Do not call update_view again; describe the queued "
+                         "setup and mention the other one in words.",
+            }
+        if cleaned and _view_spec_is_grounded(
+            cleaned, card_list, current_view=current_view
         ):
             _queue_view_action(actions, cleaned)
             return {
@@ -5645,10 +5674,15 @@ def _register_rendered_list(out, rendered_lists):
         if isinstance(out.get(key), list) and out[key]:
             rows = [item for item in out[key] if isinstance(item, dict)]
             break
+    market_ids = [_card_market_id(card) for card in rows[:_LIST_ROWS_KEPT]]
+    single = str(out.get("market") or "") or (
+        market_ids[0] if market_ids and len(set(market_ids)) == 1 else "")
     lines = []
-    for card in rows[:_LIST_ROWS_KEPT]:
+    for card, market_id in zip(rows[:_LIST_ROWS_KEPT], market_ids):
         line = _scan_row_line(len(lines) + 1, card)
         if line:
+            if not single and market_id:        # a multi-market scan names each row's market
+                line += " [%s]" % _market_label(market_id)
             lines.append(line)
     if len(lines) < 2:
         return
@@ -5661,6 +5695,8 @@ def _register_rendered_list(out, rendered_lists):
         "rows_available": len(lines),
         "rows_found": len(rows),
         "rows": [re.sub(r"<[^>]*>", "", line) for line in lines],
+        "market_scanned": _market_label(single) if single in _VS_MARKETS else "several markets "
+                          "(each row names its own); say which markets in your lead line",
         "how_to_use": (
             "To show this list, write %s on a line of its own: TradeWave replaces it with "
             "the first %d rows exactly as rendered here (symbol, direction, dates, record, "
@@ -5821,7 +5857,8 @@ _DRAFT_INSTRUCTION = (
     "figure. A number that is not in the draft, in a tool result from this turn, in the "
     "live context or in the knowledge base must not appear in your reply.\n"
     "2) Answer the question that was actually asked first, in one or two sentences, then "
-    "keep only the draft lines that support that answer. If the draft answers a different "
+    "keep only the draft lines that support that answer, and always keep the window (dates "
+    "and days) and the sample (years, n) the draft's figures belong to. If the draft answers a different "
     "question, or only one part of the message, answer every part of the real question "
     "from the knowledge base and the live context, and call a read tool when a part needs "
     "engine numbers the draft does not have.\n"
@@ -5990,6 +6027,11 @@ def _accept_draft_rewrite(reply, actions, draft, seed_actions, evidence, number_
     if not text or re.search(r"\bI couldn't (?:send|complete|resolve)\b", _plain_text(text)):
         # The loop ended on a fail-closed message; the engine's own answer is better.
         trace("draft_rewrite_rejected", reason="no_answer")
+        return None
+    if re.fullmatch(r"\s*<b>[^<]+</b>[^<]*\bbased on the last \d+ years: [^<]*", text):
+        # Only the load announcement is left (the model's own words were removed): the
+        # engine draft says more than that.
+        trace("draft_rewrite_rejected", reason="collapsed")
         return None
     if "TradeWave cannot determine whether this security is suitable for you" in _plain_text(text):
         trace("draft_rewrite_rejected", reason="advice")      # the contract fallback replaced it

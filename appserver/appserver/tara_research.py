@@ -873,8 +873,9 @@ def _screen_line(index, row, direction):
     else:
         record = "profitable in %d of %d years (%s)" % (row["wins"], row["n"], win_pct)
         avg = "avg return %s" % tg._fmt_pct(row["avg"])
-    return "%d. <b>%s</b> - starts %s, %d-day window: %s, %s, Sharpe %.2f" % (
-        index, _esc(row["symbol"]), entry, row["days_out"], record, avg, row["sharpe"])
+    return "%d. <b>%s</b> %s - starts %s, %d-day window: %s, %s, Sharpe %.2f" % (
+        index, _esc(row["symbol"]), "short" if direction == "short" else "long", entry,
+        row["days_out"], record, avg, row["sharpe"])
 
 
 def _market_label(request):
@@ -1953,7 +1954,9 @@ def build_comparison_command(message, current_view, user_token, *, today=None,
         reads.insert(0, "Stronger historical record on these dates: %s (higher average, "
                         "more winning years and higher Sharpe Ratio)." % _esc(loaded["symbol"]))
     elif len(studies) > 1:
-        reads.append("No symbol leads on every measure, so the record is split.")
+        reads.append(
+            "No symbol leads on every measure, so the record is split; by Sharpe Ratio, the "
+            "measure TradeWave ranks by, %s is ahead." % _joined(sharpe_top or [loaded]))
 
     notes = list(sector_notes)
     if entry_note:

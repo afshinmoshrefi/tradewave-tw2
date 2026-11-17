@@ -140,19 +140,29 @@ def test_engine_action_is_kept_and_its_load_is_not_re_announced(monkeypatch):
     assert "chart request" not in text and text.startswith("FICO was profitable")
 
 
-def test_a_conflicting_model_action_sends_the_draft_and_the_engine_action(monkeypatch):
+def test_a_conflicting_model_action_is_refused_and_the_engine_action_stands(monkeypatch):
     seed = [{"type": "set_view", "spec": dict(SPEC)}]
     other = {"symbol": "TSLA", "market": "2", "entry_date": "2026-07-24", "days_out": 21}
     card = {"card": {"symbol": "TSLA", "market": {"id": "2"}, "direction": "long",
                      "headline": "TSLA long - Won 8/10 years, avg +4.2%",
                      "setup": {"entry_date": "2026-07-24", "hold_days": 21}}}
-    text, actions, _calls, trace = _rewrite(monkeypatch, [
+    text, actions, calls, _trace = _rewrite(monkeypatch, [
         _tool("analyze_symbol", {"symbol": "TSLA"}),
         _tool("update_view", other, "t2"),
-        _text("TSLA won 8 of 10 years, average +4.2%."),
+        _text("FICO is the setup on the chart; TSLA won 8 of 10 years, average +4.2%."),
     ], actions=seed, tool_result=card)
-    assert text == DRAFT and actions == seed
-    assert trace[-1]["reason"] == "engine_action_changed"
+    assert actions == seed                                  # never changed, never dropped
+    refused = calls[2][0][0][-1]["content"][0]["content"]
+    assert "already queued" in refused and '"ok": false' in refused
+    assert "TSLA won 8 of 10 years" in text
+
+
+def test_a_dropped_engine_action_sends_the_draft():
+    trace = []
+    result = tg._accept_draft_rewrite(
+        "FICO won 12 of 12 years.", [], DRAFT, [{"type": "set_view", "spec": dict(SPEC)}],
+        [], [], None, "how does FICO do", lambda event, **fields: trace.append((event, fields)))
+    assert result is None and trace == [("draft_rewrite_rejected", {"reason": "engine_action_changed"})]
 
 
 def test_numbers_from_a_tool_result_and_the_live_context_are_allowed(monkeypatch):
@@ -313,6 +323,34 @@ def test_tool_choice_is_sent_only_when_given_and_never_forces_a_tool(monkeypatch
     assert seen[1]["thinking"] == {"type": "adaptive"} and "temperature" not in seen[1]
     source = (ROOT / "appserver/appserver/tara_gateway.py").read_text(encoding="utf-8")
     assert '"type": "any"' not in source and '"type": "tool"' not in source
+
+
+def test_a_progressive_load_claim_without_an_action_is_removed():
+    text, removed = tg.repair_view_contract(
+        "Silver won 6 of 10 years, average +1.6%. I'm putting the SI setup on the chart.", [], {})
+    assert removed == 1 and "putting" not in text and "Silver won 6 of 10" in text
+    queued = [{"type": "set_view", "spec": {"symbol": "SI", "market": "7"}}]
+    assert tg._claims_unqueued_view_change("I'm putting the SI setup on the chart.", queued) is False
+
+
+def test_an_announcement_only_rewrite_sends_the_engine_draft():
+    trace = []
+    assert tg._accept_draft_rewrite(
+        "<b>SPX</b> long, Nov 23 to Nov 30 (8 days), based on the last 10 years: won 7 of the "
+        "last 10 years, avg +0.8%, Sharpe 0.40.", [], DRAFT, [], [], [], None, "add it",
+        lambda event, **fields: trace.append(fields.get("reason"))) is None
+    assert trace == ["collapsed"]
+
+
+def test_one_setup_per_turn_is_enforced_at_the_tool():
+    actions = [{"type": "set_view", "spec": dict(SPEC)}]
+    card = {"symbol": "TSLA", "market": {"id": "2"},
+            "setup": {"entry_date": "2026-07-24", "hold_days": 21}}
+    out = tg._execute_tara_tool(
+        "update_view", {"symbol": "TSLA", "market": "2", "entry_date": "2026-07-24", "days_out": 21},
+        "u", actions, {"TSLA": card}, [card], current_view={})
+    assert out["ok"] is False and "already queued" in out["error"]
+    assert actions == [{"type": "set_view", "spec": SPEC}]
 
 
 def test_a_queued_claim_without_an_action_is_removed():
