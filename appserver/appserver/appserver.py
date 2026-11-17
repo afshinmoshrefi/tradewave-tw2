@@ -3968,6 +3968,12 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         redis_key_chartdata += f'_comparison_{_comparison_direction}'
     if _report_completed_years:
         redis_key_chartdata += f'_report_completed_{_report_completed_years}'
+    # Opt-in report mode (TW-TASK-0030): also return the DATE of each year's high and
+    # low - the same extremes the MFE/MAE percentages below are measured from. Normal
+    # Wave Viewer calls omit the parameter and keep the legacy row shape and cache key.
+    _excursion_dates = request.args.get('excursion_dates') == '1'
+    if _excursion_dates:
+        redis_key_chartdata += '_excursion_dates'
 
     # Activity logging
     token = request.args.get("token")
@@ -4163,6 +4169,8 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
         i1 = df1.index.tolist()[0]
 
         # Calculate MFE/MAE (high/low during trade)
+        high_date = d0
+        low_date = d0
         if i1 <= i0:
             high = c0
             low = c0
@@ -4170,6 +4178,17 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
             trade_slice = df[i0 + 1:i1 + 1]
             high = max(c0, trade_slice['high'].max())
             low = min(c0, trade_slice['low'].min())
+            if _excursion_dates:
+                # Date of the SAME extreme used above; the entry day when no later
+                # session exceeded the entry close. First occurrence on a tie.
+                try:
+                    if high > c0:
+                        high_date = str(trade_slice.loc[trade_slice['high'].idxmax(), 'date'])
+                    if low < c0:
+                        low_date = str(trade_slice.loc[trade_slice['low'].idxmin(), 'date'])
+                except (KeyError, TypeError, ValueError):
+                    high_date = None
+                    low_date = None
 
         # Calculate percentages
         ph = round(100 * (high - c0) / c0, 2)
@@ -4188,6 +4207,11 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
             'price': str(c0) + ',' + str(c1),
             'completed': not incomplete_observation,
         }
+        if _excursion_dates:
+            yearDict['entry_trade_date'] = d0
+            yearDict['exit_trade_date'] = d1
+            yearDict['high_date'] = high_date
+            yearDict['low_date'] = low_date
         chartData.append(yearDict)
         completed_flags.append(not incomplete_observation)
 
