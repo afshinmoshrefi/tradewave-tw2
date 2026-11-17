@@ -568,7 +568,10 @@ def test_printed_function_markup_never_reaches_client(monkeypatch):
 
     text, actions, calls = _run_sequence(monkeypatch, responses)
 
-    assert len(calls) == tara_gateway._MAX_TOOL_ROUNDS
+    # The rounds, then one closing request with the tools switched off (TW-TASK-0035);
+    # it has no answer here, so the fail-closed text is sent.
+    assert len(calls) == tara_gateway._MAX_TOOL_ROUNDS + 1
+    assert calls[-1]["tool_choice"] == {"type": "none"}
     assert actions == []
     assert "<function_calls" not in text
     assert "haven't changed the chart" in text
@@ -1035,10 +1038,22 @@ def test_stock_investor_screen_switches_market_only(monkeypatch):
     )
 
     assert "AAPL" in text and "MSFT" in text
+    # A scan answers in the chat; the Opportunity Table moves only when the user asks
+    # for the table or a group change (TW-TASK-0035).
+    assert actions == []
+
+    text, actions = tara_gateway.run_chat_with_tools(
+        [{"role": "user",
+          "content": "Find bullish seasonal stock opportunities now and show them in the table"}],
+        "system",
+        "user-1",
+        "model",
+        opp_table_market="0",
+        user_token="token",
+    )
     assert len(actions) == 1
     assert actions[0]["type"] == "set_view"
     assert actions[0]["spec"] == {"market": "2"}
-    assert all(not action["spec"].get("symbol") for action in actions)
 
 
 def test_weak_symbol_study_uses_short_direction_without_recommending_short(monkeypatch):
@@ -1266,10 +1281,13 @@ def test_no_action_explanation_requires_a_matching_failed_read(monkeypatch):
         message="load me the spacex latest",
     )
 
-    assert len(calls) == tara_gateway._MAX_TOOL_ROUNDS
+    # Asked once for the chart action; the second answer in words is the answer. The
+    # old behaviour spent every round and then replaced the explanation with a generic
+    # error (TW-TASK-0035, guard dead ends). No chart change is claimed or queued.
+    assert len(calls) == 2
     assert actions == []
-    assert "SpaceX is private" not in text
-    assert "haven't changed the chart" in text
+    assert "SpaceX is private" in text
+    assert "can't load it" in text or "haven't changed the chart" in text
 
 
 def test_failed_symbol_read_does_not_allow_a_future_load_promise(monkeypatch):
@@ -1472,7 +1490,7 @@ def test_malformed_native_tool_input_fails_without_crashing(monkeypatch):
     assert text == "Here is a safe answer."
 
 
-def test_max_rounds_never_make_an_extra_toolless_model_call(monkeypatch):
+def test_max_rounds_end_with_one_closing_answer_in_words(monkeypatch):
     responses = [
         _tool_response("read-%d" % i, "analyze_symbol", {"symbol": "TSLA"})
         for i in range(tara_gateway._MAX_TOOL_ROUNDS)
@@ -1482,9 +1500,22 @@ def test_max_rounds_never_make_an_extra_toolless_model_call(monkeypatch):
         responses,
         message="analyze TSLA",
     )
-    assert len(calls) == tara_gateway._MAX_TOOL_ROUNDS
+    # One closing request, same tools (the cached prefix is unchanged) but tool_choice
+    # none; when it yields nothing the fail-closed text is still what the user gets.
+    assert len(calls) == tara_gateway._MAX_TOOL_ROUNDS + 1
+    assert calls[-1]["tool_choice"] == {"type": "none"}
+    assert calls[-1]["tools"] is tara_gateway.TOOLS
     assert actions == []
     assert "haven't changed the chart" in text
+
+    responses = [
+        _tool_response("read-%d" % i, "analyze_symbol", {"symbol": "TSLA"})
+        for i in range(tara_gateway._MAX_TOOL_ROUNDS)
+    ] + [_text_response("TSLA long won 8 of 10 years with an average +4.2% return.")]
+    text, actions, calls = _run_sequence(monkeypatch, responses, message="analyze TSLA")
+    assert len(calls) == tara_gateway._MAX_TOOL_ROUNDS + 1
+    assert actions == []
+    assert "won 8 of 10 years" in text and "couldn't" not in text
 
 
 @pytest.fixture

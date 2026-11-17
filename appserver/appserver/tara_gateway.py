@@ -38,10 +38,12 @@ from featured_patterns import (
     hundred_year_occurrence_start,
 )
 
-from AI_tools_appserver import send_claude_messages
+from AI_tools_appserver import AnthropicConfigurationError, send_claude_messages
 from tara_runtime_policy import CLAUDE_EFFORT
+from tara_answer_planner import is_advice_shaped_question
 from openai_tools_appserver import (
     OpenAIAPIError,
+    OpenAIConfigurationError,
     build_responses_input,
     decode_function_arguments,
     function_calls,
@@ -704,6 +706,7 @@ _VIEW_COMPLETION_RE = re.compile(
     r"|\b(?:i(?:'ve|\s+have)?|we(?:'ve|\s+have)?)\s+switched\s+to\s+"
     r"(?-i:[A-Z][A-Z0-9.\-]{0,14})\b"
     r"|^\s*done(?:\s*[-:–—].*)?[.!]?\s*$"
+    r"|\b(?:i(?:'ve|\s+have)?|we(?:'ve|\s+have)?)\s+(?:also\s+|just\s+|now\s+)?queued\b"
     r")",
     re.IGNORECASE,
 )
@@ -1597,6 +1600,61 @@ _NO_CHANGE_STATEMENT_RE = re.compile(
     re.IGNORECASE,
 )
 _NO_CHANGE_NOTE = "I haven't changed the chart."
+# An injected line stays in the user's language (TW-TASK-0035). The one fixed sentence is
+# carried in the languages Tara is asked in most; any other non-English reply gets no
+# English sentence bolted on (the unproven claim itself has already been removed).
+_NO_CHANGE_NOTES = {
+    "es": "No he cambiado el gr\u00e1fico.",
+    "fr": "Je n'ai pas modifi\u00e9 le graphique.",
+    "de": "Ich habe das Chart nicht ge\u00e4ndert.",
+    "it": "Non ho modificato il grafico.",
+    "pt": "N\u00e3o alterei o gr\u00e1fico.",
+}
+_LANGUAGE_WORDS = {
+    "en": frozenset("the is are was of and to in this that for not with it on you years".split()),
+    "es": frozenset("el los las de que en para con por una es del su al como son estos este "
+                    "esta pero a\u00f1o a\u00f1os m\u00e1s y un".split()),
+    "fr": frozenset("le les des que pour avec une est pas du sur dans et ce au ann\u00e9es "
+                    "cette mais plus un".split()),
+    "de": frozenset("der die das und ist nicht mit ein eine den auf von zu im jahre jahren "
+                    "aber f\u00fcr sind".split()),
+    "it": frozenset("il che per con una non del della di sul nel gli sono questo questa "
+                    "anni ma pi\u00f9 dei".split()),
+    "pt": frozenset("os de que para com uma em um n\u00e3o s\u00e3o este esta anos mas mais "
+                    "dos das pelo".split()),
+}
+
+
+def reply_language(text):
+    """'en', a supported language code, or None for a language Tara has no sentence in.
+
+    English is the default: only clear evidence changes it - a non-Latin script, or more
+    function words of one supported language than of English.
+    """
+
+    plain = _plain_text(text).lower()
+    letters = [char for char in plain if char.isalpha()]
+    if letters and sum(1 for char in letters if ord(char) > 0x24F) * 2 > len(letters):
+        return None
+    words = re.findall(r"[^\W\d_]+", plain)
+    scores = {code: sum(1 for word in words if word in vocabulary)
+              for code, vocabulary in _LANGUAGE_WORDS.items()}
+    best = max((code for code in scores if code != "en"), key=lambda code: scores[code])
+    return best if scores[best] >= 2 and scores[best] > scores["en"] else "en"
+
+
+def _no_change_note(text):
+    """'I haven't changed the chart.' in the reply's language, or '' when it has none."""
+
+    language = reply_language(text)
+    if language == "en":
+        return _NO_CHANGE_NOTE
+    return _NO_CHANGE_NOTES.get(language, "")
+
+
+def _with_no_change_note(text):
+    note = _no_change_note(text)
+    return text + "<br><br>" + note if note else text
 
 
 # Tara has no action that creates a calendar event, a reminder, an alert, a watchlist or a
@@ -1737,7 +1795,7 @@ def repair_view_contract(text, actions=None, current_view=None):
     if dropped and not actions:
         plain = re.sub(r"<[^>]*>", " ", repaired)
         if not (_NEGATED_VIEW_COMPLETION_RE.search(plain) or _NO_CHANGE_STATEMENT_RE.search(plain)):
-            repaired += "<br><br>" + _NO_CHANGE_NOTE
+            repaired = _with_no_change_note(repaired)
     return repaired, dropped
 
 
@@ -2420,8 +2478,23 @@ def _current_view_evidence_card(current_view, expected_setup):
     }
 
 
-def _announce_line(sym, card):
-    """Compose a status-neutral evidence line for the requested setup."""
+def _announce_line(sym, card, neutral=False):
+    """Compose a status-neutral evidence line for the requested setup.
+
+    ``neutral`` gives the same engine figures without English words, for a reply that is
+    written in another language.
+    """
+    if neutral:
+        record = _card_headline_stats(card)
+        pieces = [(card.get("direction") or "").strip(), _card_window_text(card).strip(" ,")]
+        if record:
+            pieces.append("%d/%d" % (record[0], record[1]))
+            if record[2] is not None:
+                pieces.append("%+.1f%%" % record[2])
+        ratio = _card_sharpe(card)
+        if ratio is not None:
+            pieces.append("Sharpe %.2f" % ratio)
+        return "<b>%s</b> %s." % (sym, " \u00b7 ".join(piece for piece in pieces if piece))
     hs = _card_headline_stats(card)
     st = card.get("stats") if isinstance(card.get("stats"), dict) else card
     direction = (card.get("direction") or "").strip()
@@ -2610,7 +2683,8 @@ def _ensure_load_named(text, actions, cards, card_list, current_view=None):
             return text
         return "<b>%s</b> chart request." % sym
     loaded_stats = _card_stat_tuple(card)
-    line = _announce_line(sym, card)
+    neutral = reply_language(text) != "en"
+    line = _announce_line(sym, card, neutral=neutral)
     if loaded_stats and _stat_conflicts(
         text, loaded_stats[0], loaded_stats[1], avg=loaded_stats[2], sharpe=loaded_stats[3]
     ):
@@ -2642,7 +2716,7 @@ def _ensure_load_named(text, actions, cards, card_list, current_view=None):
             r"^(?:\s*<br\s*/?>\s*)+|(?:\s*<br\s*/?>\s*)+$", "", "".join(kept).strip(), flags=re.I)
         if not re.sub(r"<[^>]*>", " ", remainder).strip():
             return line
-        return "Requested chart setup: " + line + "<br><br>" + remainder
+        return ("" if neutral else "Requested chart setup: ") + line + "<br><br>" + remainder
     if sym in text.upper():
         return text
     if text.strip():
@@ -3028,9 +3102,41 @@ def _us_listing_market(symbol, question, token):
     return str(selected.get("resourceID")) if selected else None
 
 
-def _resolve_question_symbol(symbol, question, token, current_view=None):
+_CRYPTO_WORDS_RE = re.compile(
+    r"\b(?:crypto\w*|bitcoin|ethereum|altcoins?|coins?|tokens?|digital\s+assets?)\b", re.I)
+
+
+def _crypto_pair_alias(symbol, token):
+    """The listed crypto pair for a bare coin code (BTC -> BTC-USD), or None.
+
+    TradeWave lists coins as <CODE>-USD in the Crypto Currencies group, while the bare
+    code is often a different instrument (a future, a foreign share) or nothing at all.
+    """
+
+    code = str(symbol or "").strip().upper()
+    if not re.fullmatch(r"[A-Z]{2,6}", code):
+        return None
+    pair = code + "-USD"
+    status, payload = _loopback_json(
+        "/ResolveSymbol/%s" % quote(pair), token, timeout=(5, 15)
+    )
+    if status != 200 or not isinstance(payload, dict):
+        return None
+    matches = [item for item in payload.get("matches", [])
+               if isinstance(item, dict) and str(item.get("resourceID") or "") == "16"]
+    if len(matches) != 1:
+        return None
+    return {"symbol": pair, "market": "16", "label": str(matches[0].get("label") or ""),
+            "name": str(matches[0].get("name") or "")}
+
+
+def _resolve_question_symbol(symbol, question, token, current_view=None, prefer_crypto=False):
     if str(symbol).upper() in _SPOT_METAL_NAMES:
         alias = _usd_pair_alias(symbol, token)
+        if alias:
+            return {"status": "ok", "alias_of": str(symbol).upper(), **alias}
+    if prefer_crypto or _CRYPTO_WORDS_RE.search(str(question or "")):
+        alias = _crypto_pair_alias(symbol, token)
         if alias:
             return {"status": "ok", "alias_of": str(symbol).upper(), **alias}
     status, payload = _loopback_json(
@@ -3040,6 +3146,9 @@ def _resolve_question_symbol(symbol, question, token, current_view=None):
         return {"status": "unavailable", "symbol": str(symbol).upper()}
     matches = [item for item in payload.get("matches", []) if isinstance(item, dict)]
     if not matches:
+        alias = _crypto_pair_alias(symbol, token)
+        if alias:
+            return {"status": "ok", "alias_of": str(symbol).upper(), **alias}
         return {"status": "not_found", "symbol": str(symbol).upper()}
 
     scored = [(item, _symbol_resolution_score(question, item)) for item in matches]
@@ -3076,6 +3185,10 @@ def _resolve_question_symbol(symbol, question, token, current_view=None):
             selected = us_match
         elif len(matches) == 1:
             selected = matches[0]
+        elif (alias := _crypto_pair_alias(symbol, token)) is not None:
+            # An ambiguous bare code that is also a listed coin (BTC: a CME future and a
+            # London share) is read as the coin; "BTC futures" scores first and wins.
+            return {"status": "ok", "alias_of": str(symbol).upper(), **alias}
         else:
             return {
                 "status": "ambiguous",
@@ -3502,8 +3615,20 @@ def build_best_waves_command(
         direction="long" if is_buy else "short",
     )
     spec = _verified_chart_spec(chart_payload or {}, expected) if chart_status == 200 else None
+    record_text = ""
     if spec is not None:
         years = spec["years"]
+        # The engine's own completed-year record for this exact wave (W of N).
+        chart_stats = chart_payload.get("stats") if isinstance(chart_payload, dict) else None
+        wins = _stat_number(chart_stats, "Num Winners")
+        losses = _stat_number(chart_stats, "Num Losers")
+        if wins is not None and losses is not None and wins + losses > 0:
+            record_text = " It %s in %d of %d completed %s." % (
+                "was profitable" if is_buy else "fell", int(wins), int(wins + losses),
+                "years" if pe_cycle == "cons" else "observations")
+            if pe_cycle == "cons" and int(wins + losses) == int(years) + 1:
+                record_text += (" That is the %d-year setting plus this year's window, which "
+                                "has already finished." % int(years))
     symbol_html = html.escape(resolution["symbol"])
     start_label = selected["entry"].strftime("%b %d, %Y").replace(" 0", " ")
     end_label = selected["end"].strftime("%b %d, %Y").replace(" 0", " ")
@@ -3529,13 +3654,14 @@ def build_best_waves_command(
             if years < 10 else "",
         )
     reply = (
-        "<b>%s</b><br>%s Across the %s Best Waves setting, average "
+        "<b>%s</b><br>%s%s Across the %s Best Waves setting, average "
         "direction-adjusted return was %s, median was %s, and Sharpe Ratio was %.2f.%s<br><br>"
         "%s The <b>Best Waves</b> dropdown above the bar chart (desktop, paid plans) lists "
         "every qualifying wave for %s. Historical timing research, not a recommendation."
     ) % (
         heading,
         lead,
+        record_text,
         setting_label,
         _fmt_pct(selected["avg"]),
         _fmt_pct(selected["median"]),
@@ -3595,6 +3721,16 @@ def build_sector_screen_command(message, user_token, *, investor_intent=None,
         if not phrase:
             continue
         universe = "NASDAQ 100" if proxy_market else "S&P 500"
+        # A plan without that index is screened on the widest stock index it does
+        # include (Explorer: the Dow 30), and the reply says so.
+        plan_markets = _plan_scope().get("markets")
+        wanted_market = "1" if proxy_market else "2"
+        substituted = None
+        if plan_markets is not None and wanted_market not in plan_markets:
+            for market_id, name in (("2", "S&P 500"), ("1", "NASDAQ 100"), ("0", "Dow 30")):
+                if market_id in plan_markets:
+                    substituted, universe, proxy_market = universe, name, None
+                    break
         rewritten = text[:phrase.start()] + universe + " stocks" + text[phrase.end():]
         try:
             import tara_research        # lazy: tara_research imports this module
@@ -3607,7 +3743,13 @@ def build_sector_screen_command(message, user_token, *, investor_intent=None,
             return None
         if not command or not command.get("reply"):
             return None
-        if proxy_market:
+        if substituted:
+            note = (
+                "<b>Screened on the %s, the stock group your plan includes.</b> TradeWave "
+                "has no sector tags, so this is not a %s-only list, and the %s is part of the "
+                "paid plans: tradewave.ai/pricing." % (universe, sector, substituted)
+            )
+        elif proxy_market:
             note = (
                 "<b>Screened on the NASDAQ 100, a tech-heavy index.</b> TradeWave has no "
                 "sector tags, so this is not a pure %s list; some names below are not %s "
@@ -3632,8 +3774,18 @@ def build_sector_screen_command(message, user_token, *, investor_intent=None,
     return None
 
 
-def _append_market_switch(actions, target):
-    """Queue a market-only set_view (switch the opp table to `target`) unless one is already queued."""
+_TABLE_SWITCH_ASK_RE = re.compile(
+    r"\b(?:table|switch(?:ing)?|securities\s+group|change\s+(?:the\s+)?(?:market|group))\b", re.I)
+
+
+def _append_market_switch(actions, target, user_text=None):
+    """Queue a market-only set_view (switch the opp table to `target`) unless one is already queued.
+
+    With ``user_text`` the switch is queued only when the user asked for the table or a
+    group change: a scan answers in the chat and leaves the Opportunity Table alone.
+    """
+    if user_text is not None and not _TABLE_SWITCH_ASK_RE.search(str(user_text)):
+        return
     if not any(a.get("type") == "set_view" and a.get("spec", {}).get("market") == target for a in actions):
         actions.append({"type": "set_view", "spec": {"market": target}})
 
@@ -4233,7 +4385,62 @@ def plan_context_lines():
             "- Opportunity lists show the top %s results, and the start date is locked to today."
             % scope["row_cap"]
         )
+    lines.extend(plan_ladder_lines(str(level)))
     return lines
+
+
+_LADDER_LEVELS = (("1", "Explorer (free)"), ("2", "Navigator"), ("4", "Analyst"),
+                  ("6", "Strategist"))
+
+
+def plan_ladder_lines(user_level=None):
+    """The plan ladder from the engine's own access tables: which plan first includes what.
+
+    Derived from config (level_access_hierarchy, num_years_allowed_by_level,
+    ml_score_access_levels), so "the cheapest plan that includes crypto" is a fact the
+    model reads instead of a guess. Prices stay in the knowledge base.
+    """
+
+    hierarchy = getattr(config, "level_access_hierarchy", {})
+    everything = sorted(
+        (m for m in config.available_resources if str(m) in _VS_MARKETS),
+        key=lambda value: int(value),
+    )
+    lines = [
+        "PLAN LADDER (cheapest first: %s). TradeWave has %d markets (securities groups) in "
+        "total: %s." % (
+            ", ".join(name for _level, name in _LADDER_LEVELS), len(everything),
+            ", ".join(_market_label(m) for m in everything)),
+    ]
+    seen = set()
+    own_level = {"5": "4", "7": "6"}.get(str(user_level), str(user_level))
+    for level, name in _LADDER_LEVELS:
+        markets = [m for m in everything if m in set(hierarchy.get(level, []))]
+        added = [m for m in markets if m not in seen]
+        seen.update(markets)
+        years_cap = getattr(config, "num_years_allowed_by_level", {}).get(level)
+        ai = level in getattr(config, "ml_score_access_levels", [])
+        lines.append(
+            "- %s%s: %d market%s%s; lookback %s; AI scores: %s." % (
+                name,
+                " (this user's plan)" if own_level == level else "",
+                len(markets), "" if len(markets) == 1 else "s",
+                (" - adds " + ", ".join(_market_label(m) for m in added)) if added else "",
+                ("up to %s years" % years_cap) if years_cap else "full history",
+                "yes (US stocks and ETFs)" if ai else "no",
+            )
+        )
+    lines.append(
+        "- The cheapest plan for a market is the first one above that adds it. Custom "
+        "start dates need a paid plan (Explorer's start date is locked to today)."
+    )
+    return lines
+
+
+def ai_scores_entitled():
+    """Whether the verified caller's plan includes AI scores (same gate as the tools)."""
+
+    return bool(_plan_scope().get("ai"))
 
 
 def _requested_market_ids(markets_param):
@@ -5020,7 +5227,7 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
                        opp_table_years=None, full_history_request=None,
                        named_symbol_override=None, named_symbol_lookback=None,
                        current_view=None, view_intent=None, latest_user_text="",
-                       non_actionable_symbols=None, turn_notes=None):
+                       non_actionable_symbols=None, turn_notes=None, rendered_lists=None):
     """Execute one provider-neutral Tara tool call through the established safety path."""
 
     inp = _apply_full_history_request(name, inp, full_history_request)
@@ -5131,6 +5338,12 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
                 "ok": False,
                 "error": "the user negated or is diagnosing a view action; do not change the view",
             }
+        if view_intent == "unsupported_live":
+            return {
+                "ok": False,
+                "error": "live volume or trend is not TradeWave data; answer in words and "
+                         "do not load a trade on that basis",
+            }
         date_lock = _date_lock_rejects_view(cleaned, current_view, table_market, user_token)
         if date_lock:
             _add_turn_note(
@@ -5206,7 +5419,7 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
         target = _single_market_id(inp.get("markets"))
         out = _scan_with_ai_scores(inp, ai_request, user_id, turn_notes)
         if target is not None and table_market != target and _result_rows(out)[1]:
-            _append_market_switch(actions, target)
+            _append_market_switch(actions, target, latest_user_text)
     elif name == "find_best_opportunities":
         # Screen from OppList4 (the opp-table data path) so the answer == the on-screen table;
         # /scan is a different path that names different tickers (see _opplist4_rows note).
@@ -5220,7 +5433,7 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
                 fetched = _opplist4_rows(target, user_token, opp_table_years)
                 screen_rows = _filter_table_rows(fetched, inp) if fetched else None
                 if table_market != target:        # switch the table so the screen follows the names
-                    _append_market_switch(actions, target)
+                    _append_market_switch(actions, target, latest_user_text)
         if screen_rows:
             out = _rows_to_scan_cards(screen_rows, target)
         else:
@@ -5252,7 +5465,7 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
                     % (floor, years, floor, years),
                 )
             if target is not None and table_market != target:
-                _append_market_switch(actions, target)
+                _append_market_switch(actions, target, latest_user_text)
     elif name == "analyze_symbol":
         market_stated = bool(inp.get("market")) and bool(
             _FOREIGN_LISTING_WORDS_RE.search(latest_user_text or ""))
@@ -5297,6 +5510,11 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
     if name in {"analyze_symbol", "get_symbol_patterns"}:
         out = _keep_symbol_read_in_plan(name, inp, out, user_id, user_token, turn_notes)
         out = _keep_symbol_read_on_todays_date(inp, out, user_id, user_token, turn_notes)
+    if name == "find_best_opportunities" and isinstance(out, dict) and not out.get("error"):
+        if out.get("source") == "opportunity_table":
+            # The table feed has no win record; read the engine's own for the shown rows.
+            _attach_win_records(out, out.get("market"), user_token, opp_table_years)
+        _register_rendered_list(out, rendered_lists)
     _index_cards(out, cards, card_list)
     if (
         name in {"analyze_symbol", "get_symbol_patterns"}
@@ -5350,11 +5568,417 @@ class ProviderNoAnswer(Exception):
     """The provider declined (stop_reason refusal) or returned nothing at all."""
 
 
+# --------------------------------------------------------------------------
+# Lists rendered in code (TW-TASK-0035).
+#
+# A scan or comparison list is rendered here from the engine rows and reaches the model
+# as a token. The model writes the token where the rows belong and the gateway puts the
+# rows back, so a reply cannot say "8 setups" above five rows, drop the end date or the
+# record from a row, renumber, or re-sort.
+# --------------------------------------------------------------------------
+_LIST_TOKEN_RE = re.compile(
+    r"\[\[\s*TW_LIST_(\d{1,2})\s*(?::\s*(\d{1,2})|\s+rows\s*=\s*([\d,\s]+?))?\s*\]\]")
+_LIST_ROWS_KEPT = 10
+_LIST_ROWS_DEFAULT = 5
+_ROW_LINE_RE = re.compile(
+    r"\s*(?:\d{1,2}[.)]\s*|[•\-–]\s*)?<b>\s*[A-Z][A-Z0-9.\-=^]{0,14}\s*</b>")
+_ROW_SEPARATOR_RE = re.compile(r"(\s*<br\s*/?>\s*|\s*</?div[^>]*>\s*)", re.IGNORECASE)
+
+
+def _scan_row_line(index, card):
+    """One engine row: symbol, direction, entry to end date, days, record W of N, average."""
+
+    symbol = re.sub(r"[^A-Z0-9.\-=^]", "", str(card.get("symbol") or "").upper())[:15]
+    if not symbol:
+        return None
+    stats = card.get("stats") if isinstance(card.get("stats"), dict) else card
+    direction = str(card.get("direction") or "").strip().lower()
+    pieces = []
+    window = _card_window_text(card).strip(" ,")
+    if window:
+        pieces.append(window)
+    record = _card_headline_stats(card)
+    if record:
+        wins, years, _avg = record
+        pieces.append("%s in %d of %d years" % (
+            "fell" if direction == "short" else "profitable", wins, years))
+    avg = _numeric_stat(stats.get("avg_return_pct"), percent=True) if isinstance(stats, dict) else None
+    if avg is not None:
+        pieces.append("avg %+.1f%%" % avg)
+    sharpe = _card_sharpe(card)
+    if sharpe is not None:
+        pieces.append("Sharpe %.2f" % sharpe)
+    ai = card.get("ai") if isinstance(card.get("ai"), dict) else {}
+    for key, label, pattern in (("ai_win_prob_pct", "AI Win%", "%s%%"), ("ais", "AIS", "%s"),
+                                ("pred_return_pct", "PredR", "%s%%")):
+        if ai.get(key) is not None:
+            pieces.append(label + " " + pattern % ai[key])
+    return "%d. <b>%s</b>%s - %s" % (
+        index, symbol, (" " + direction) if direction in ("long", "short") else "",
+        "; ".join(pieces) if pieces else "historical candidate")
+
+
+def _register_rendered_list(out, rendered_lists):
+    """Attach a rendered list and its token to a scan result (no-op without rows)."""
+
+    if not isinstance(out, dict) or not isinstance(rendered_lists, list) or out.get("error"):
+        return
+    rows = []
+    for key in _LIST_KEYS:
+        if isinstance(out.get(key), list) and out[key]:
+            rows = [item for item in out[key] if isinstance(item, dict)]
+            break
+    lines = []
+    for card in rows[:_LIST_ROWS_KEPT]:
+        line = _scan_row_line(len(lines) + 1, card)
+        if line:
+            lines.append(line)
+    if len(lines) < 2:
+        return
+    rendered_lists.append(lines)
+    token = "[[TW_LIST_%d]]" % len(rendered_lists)
+    shown = min(len(lines), _LIST_ROWS_DEFAULT)
+    out["rendered_list"] = {
+        "token": token,
+        "rows_shown_by_token": shown,
+        "rows_available": len(lines),
+        "rows_found": len(rows),
+        "rows": [re.sub(r"<[^>]*>", "", line) for line in lines],
+        "how_to_use": (
+            "To show this list, write %s on a line of its own: TradeWave replaces it with "
+            "the first %d rows exactly as rendered here (symbol, direction, dates, record, "
+            "average). Write [[TW_LIST_%d:K]] for the first K rows (K up to %d), or "
+            "[[TW_LIST_%d rows=2,5]] to show only those row numbers. Never retype, renumber, "
+            "re-sort or re-count the rows, and state the count as the number of rows the "
+            "token shows." % (token, shown, len(rendered_lists), len(lines), len(rendered_lists))
+        ),
+    }
+
+
+def _expand_rendered_lists(text, rendered_lists, draft_rows=None):
+    """Replace each list token with its engine-rendered rows; drop any unknown token.
+
+    Token 0 is an engine draft's own list (all of its rows, as the route rendered them);
+    tokens 1.. are this turn's scan results.
+    """
+
+    if not text or "[[" not in text:
+        return text
+
+    def expand(match):
+        index = int(match.group(1)) - 1
+        if index == -1 and draft_rows:
+            lines, default = list(draft_rows), len(draft_rows)
+        elif isinstance(rendered_lists, list) and 0 <= index < len(rendered_lists):
+            lines = rendered_lists[index]
+            default = min(len(lines), _LIST_ROWS_DEFAULT)
+        else:
+            return ""
+        if match.group(3):
+            # A selection keeps the engine's own rows and order: [[TW_LIST_1 rows=2,5]].
+            wanted = sorted({int(number) for number in re.findall(r"\d+", match.group(3))})
+            picked = [lines[number - 1] for number in wanted if 1 <= number <= len(lines)]
+        else:
+            count = int(match.group(2)) if match.group(2) else default
+            picked = lines[:max(1, min(count, len(lines)))]
+        return ("<br>" + "<br>".join(picked) + "<br>") if picked else ""
+
+    expanded = _LIST_TOKEN_RE.sub(expand, text)
+    expanded = re.sub(r"\[\[\s*TW_LIST[^\]]*\]\]", "", expanded)
+    expanded = re.sub(r"(?:\s*<br\s*/?>\s*){3,}", "<br><br>", expanded)
+    return re.sub(r"^(?:\s*<br\s*/?>\s*)+|(?:\s*<br\s*/?>\s*)+$", "", expanded.strip(), flags=re.I)
+
+
+def _draft_row_block(draft):
+    """(draft with the rows replaced by a token, row lines) for an engine draft with a list.
+
+    A row is a line that starts with a bold ticker; two or more in a row are the list
+    the route rendered. The draft is returned unchanged when it has no such block.
+    """
+
+    pieces = _ROW_SEPARATOR_RE.split(str(draft or ""))
+    runs, current = [], []
+    for index in range(0, len(pieces), 2):
+        piece = pieces[index]
+        if not piece.strip():
+            continue
+        is_row = bool(_ROW_LINE_RE.match(piece)) and bool(re.search(r"\d", piece))
+        same_section = not re.search(r"div", pieces[index - 1] if index else "", re.I)
+        if is_row and current and same_section:
+            current.append(index)
+            continue
+        if len(current) >= 2:
+            runs.append(current)
+        current = [index] if is_row else []
+    if len(current) >= 2:
+        runs.append(current)
+    if not runs:
+        return draft, []
+    run = max(runs, key=len)
+    best = (run[0], run[-1])
+    rows = [pieces[i].strip() for i in range(best[0], best[1] + 1, 2)]
+    shown = "".join(pieces[:best[0]]) + "[[TW_LIST_0]]" + "".join(pieces[best[1] + 1:])
+    return shown, rows
+
+
+
+# --------------------------------------------------------------------------
+# Verified engine drafts (TW-TASK-0035).
+#
+# A deterministic route still runs first and still owns every number, plan gate and
+# chart action. Its reply then becomes a DRAFT that the model rewrites inside the normal
+# tool loop, so the answer addresses the question that was asked, covers a second
+# intent, and can call a read tool for a part the route did not cover. Three things make
+# that safe: the number guard (a figure the engine did not supply sends the draft
+# instead), the locked sentences (plan, AI-entitlement, date-lock and disclaimer lines
+# are restored word for word), and the fallback (any failure sends the draft unchanged).
+# --------------------------------------------------------------------------
+# Release-owned switch (no environment override). False sends every engine route's reply
+# exactly as the engine wrote it, which is also what every guard failure falls back to.
+DRAFT_REWRITE_ENABLED = True
+_DRAFT_REWRITE_MAX_CHARS = 1100
+_DRAFT_FREE_INTEGERS = frozenset({"0", "1", "2", "3"})
+_DRAFT_NUMBER_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
+_DRAFT_LOCKED_SENTENCE_RE = re.compile(
+    _PLAN_BOUNDARY_MARKER
+    + r"|locked\s+to\s+today"
+    + r"|tradewave\.ai/pricing"
+    + r"|\bAI\b[^.]{0,80}(?:(?:not|n['’]t)\s+(?:included|available)|US\s+stocks\s+and\s+ETFs)"
+    + r"|\b(?:Explorer|Navigator|Analyst|Strategist)\s+plans?\b",
+    re.IGNORECASE,
+)
+_DRAFT_INSTRUCTION = (
+    "\n\n[ENGINE DRAFT - written by TradeWave's engine for the message above; it is not "
+    "from the user]\n%s\n"
+    "[CHART ACTIONS ALREADY QUEUED BY THE ENGINE: %s]\n"
+    "[HOW TO USE THE DRAFT] Write the final reply to the user's message.\n"
+    "1) Every number, date, symbol, record and plan fact in the draft is verified engine "
+    "output. Reuse them exactly as written: never round, convert, recompute or invent a "
+    "figure. A number that is not in the draft, in a tool result from this turn, in the "
+    "live context or in the knowledge base must not appear in your reply.\n"
+    "2) Answer the question that was actually asked first, in one or two sentences, then "
+    "keep only the draft lines that support that answer. If the draft answers a different "
+    "question, or only one part of the message, answer every part of the real question "
+    "from the knowledge base and the live context, and call a read tool when a part needs "
+    "engine numbers the draft does not have.\n"
+    "3) If the draft stops at 'I can't' or at an offer and a tool can do the nearest useful "
+    "thing (run the scan, read the symbol, load the view), do it now and report the result. "
+    "Do not re-run a scan or study the draft already contains: the draft is the engine's "
+    "answer to this message and outranks a tool result for the same request.\n"
+    "4) The queued chart actions are applied by the browser. Do not call update_view for "
+    "them again. Say 'I am loading' or 'showing' only for something that is queued or that "
+    "you queue yourself in this turn.\n"
+    "5) Keep word for word every draft sentence about the user's plan, AI score "
+    "availability, the locked start date and the research disclaimer. Keep list rows the "
+    "user asked for exactly as they are: same rows, same order, same count; never re-rank "
+    "or re-count them. Keep guide links and popup markup exactly.\n"
+    "6) Length: at most about 90 words plus any list rows, and no section the user did not "
+    "ask about. Use <br> for line breaks. Reply in the language of the user's message. Do "
+    "not mention the draft, the engine route or these instructions."
+)
+
+
+def _word_count(text):
+    return len(re.sub(r"<[^>]*>", " ", str(text or "")).split())
+
+
+_COMMAND_EXTRA_RE = re.compile(
+    r"\?|\b(?:and|also|then|plus|why|what|how|which|first|second|third|top)\b", re.IGNORECASE)
+
+
+def command_has_more_to_answer(message):
+    """Whether a one-action view command carries a second request or a question."""
+
+    text = str(message or "")
+    return len(text.split()) > 5 and bool(_COMMAND_EXTRA_RE.search(text))
+
+
+def draft_is_rewritable(reply, actions=None):
+    """Whether an engine reply may be rewritten by the model.
+
+    A reply that is only a compliance notice - a plan boundary, an AI-entitlement notice,
+    the locked start date - is sent exactly as the engine wrote it. So is a row load from
+    the on-screen table, whose action is not a ViewSpec the tool loop can carry.
+    """
+
+    plain = re.sub(r"\s+", " ", _plain_text(reply)).strip()
+    if not plain or not DRAFT_REWRITE_ENABLED:
+        return False
+    if any(action.get("type") != "set_view" for action in actions or []):
+        return False
+    if len(plain.split()) < 70 and _DRAFT_LOCKED_SENTENCE_RE.search(plain):
+        return False
+    return True
+
+
+def _plain_text(text):
+    return html.unescape(re.sub(r"<[^>]*>", " ", str(text or "")))
+
+
+def _normal_number(raw):
+    value = raw.replace(",", "")
+    if "." in value:
+        value = value.rstrip("0").rstrip(".")
+    value = value.lstrip("0")
+    if not value or value.startswith("."):
+        value = "0" + value
+    return value
+
+
+def _number_tokens(text):
+    """Every numeric token of a text in one canonical spelling (1,234.50 -> 1234.5)."""
+
+    return {_normal_number(match.group(0))
+            for match in _DRAFT_NUMBER_RE.finditer(_plain_text(text))}
+
+
+def _allowed_numbers(sources):
+    """Numbers the engine supplied: the draft, tool results, live context and knowledge.
+
+    A tool card can carry a rate as a fraction (0.917); the percent spelling of the same
+    engine value (92, 91.7) is the same fact, so it is allowed too. Nothing else is
+    derived: a difference, sum or average of two engine figures stays a new number.
+    """
+
+    allowed = set()
+    for source in sources or ():
+        tokens = _number_tokens(source)
+        allowed |= tokens
+        for token in tokens:
+            if token.startswith("0.") and len(token) <= 6:
+                try:
+                    percent = float(token) * 100
+                except ValueError:
+                    continue
+                allowed.add(_normal_number("%.0f" % percent))
+                allowed.add(_normal_number("%.1f" % percent))
+    return allowed
+
+
+def unsupported_numbers(reply, sources):
+    """Numbers in ``reply`` that none of the engine ``sources`` contains."""
+
+    allowed = _allowed_numbers(sources)
+    return sorted(
+        token for token in _number_tokens(reply)
+        if token not in allowed and token not in _DRAFT_FREE_INTEGERS
+    )
+
+
+def _draft_locked_sentences(draft):
+    """Draft sentences the rewrite may not drop: plan, AI entitlement, date lock, disclaimer."""
+
+    locked = []
+    for segment, _separator in _text_segments(draft):
+        plain = re.sub(r"\s+", " ", _plain_text(segment)).strip()
+        if plain and _DRAFT_LOCKED_SENTENCE_RE.search(plain) and segment.strip() not in locked:
+            locked.append(segment.strip())
+    return locked
+
+
+def _restore_locked_sentences(reply, draft):
+    """Append, word for word, any locked draft sentence the rewrite left out."""
+
+    def squash(text):
+        return re.sub(r"\s+", " ", _plain_text(text)).strip().lower()
+
+    have = squash(reply)
+    missing = [sentence for sentence in _draft_locked_sentences(draft)
+               if squash(sentence) not in have]
+    disclaimer = squash(DISCLAIMER_TEXT)
+    if disclaimer in squash(draft) and disclaimer not in have and not any(
+            disclaimer in squash(sentence) for sentence in missing):
+        missing.append(DISCLAIMER_TEXT)
+    # Links and guide-popup anchors are engine markup the model cannot reproduce reliably.
+    for anchor in re.findall(r"<a\b[^>]*>.*?</a>", str(draft or ""), flags=re.S | re.I):
+        target = re.search(r"(?:href|data-action)=\"([^\"#][^\"]*)\"", anchor)
+        if target and target.group(1) not in reply and anchor not in missing:
+            missing.append(anchor)
+    if not missing:
+        return reply, 0
+    return reply.rstrip() + "<br><br>" + " ".join(missing), len(missing)
+
+
+def _draft_user_content(user_text, draft, actions):
+    try:
+        queued = json.dumps([a.get("spec") or {} for a in actions or []], sort_keys=True)[:1500]
+    except (TypeError, ValueError):
+        queued = "[]"
+    shown, rows = _draft_row_block(draft)
+    if rows:
+        shown += (
+            "\n[LIST ROWS - [[TW_LIST_0]] stands for these %d engine-rendered rows, in this "
+            "order. Write the token [[TW_LIST_0]] on its own line where the list belongs and "
+            "TradeWave inserts the rows exactly; write [[TW_LIST_0 rows=2,5]] to show only "
+            "those row numbers. Never retype, renumber, re-sort or re-count them. The list "
+            "has %d rows.]\n%s" % (
+                len(rows), len(rows), "\n".join(re.sub(r"<[^>]*>", "", row) for row in rows))
+        )
+    return str(user_text or "") + _DRAFT_INSTRUCTION % (shown, queued if actions else "none")
+
+
+def _accept_draft_rewrite(reply, actions, draft, seed_actions, evidence, number_sources,
+                          investor_intent, latest_user_text, trace, known_rows=None):
+    """Return (reply, actions) for an accepted rewrite, or None to send the draft."""
+
+    text = (reply or "").strip()
+    if not text or re.match(r"\s*I couldn't (?:send|complete|resolve)\b", _plain_text(text)):
+        trace("draft_rewrite_rejected", reason="no_answer")
+        return None
+    _shown, rows = _draft_row_block(draft)
+    engine_rows = set(rows) | set(known_rows or ())
+    written = [piece.strip() for piece in re.split(r"<br\s*/?>", text, flags=re.I)
+               if _ROW_LINE_RE.match(piece) and re.search(r"\d", piece)]
+    if len(written) >= 2 and any(row not in engine_rows for row in written):
+        # A list in the reply is made of engine-rendered rows only (through a token). One
+        # the model typed itself may be re-counted, re-sorted or carry a changed figure.
+        trace("draft_rewrite_rejected", reason="list_retyped")
+        return None
+    if rows and not any(row in engine_rows for row in written):
+        # No list at all: a reply that restates the row figures in prose is a comparison
+        # in words; anything else gets the engine rows back after its opening line.
+        row_numbers = _number_tokens(" ".join(rows)) - _DRAFT_FREE_INTEGERS
+        if len(row_numbers & _number_tokens(text)) < min(4, len(row_numbers)):
+            head, separator, tail = text.partition("<br>")
+            text = head + "<br>" + "<br>".join(rows) + (("<br>" + tail.lstrip()) if tail else "")
+            trace("draft_list_restored")
+    seed_specs = [a.get("spec") for a in seed_actions or []]
+    final_specs = [a.get("spec") for a in actions or []]
+    if any(spec not in final_specs for spec in seed_specs):
+        trace("draft_rewrite_rejected", reason="engine_action_changed")
+        return None
+    if response_violates_investor_contract(text, investor_intent) or (
+            is_advice_shaped_question(latest_user_text) and reply_gives_direct_advice(text)):
+        trace("draft_rewrite_rejected", reason="advice")
+        return None
+    if re.search(r"\b(?:the|this|engine)\s+draft\b|\bdraft(?:'s|\s+(?:says|lists|shows))\b",
+                 _plain_text(text), re.I):
+        trace("draft_rewrite_rejected", reason="mentions_draft")
+        return None
+    sources = [draft, latest_user_text] + list(evidence or ()) + list(number_sources or ())
+    unsupported = unsupported_numbers(text, sources)
+    if unsupported:
+        # Bare numbers only (no customer text), so a rejected rewrite can be diagnosed.
+        trace("draft_rewrite_rejected", reason="number_guard", count=len(unsupported),
+              numbers=",".join(unsupported[:6]))
+        return None
+    draft_len = len(_plain_text(draft))
+    prose = "<br>".join(
+        piece for piece in re.split(r"<br\s*/?>", text, flags=re.I)
+        if not _ROW_LINE_RE.match(piece))          # list rows are exempt from the cap
+    if len(_plain_text(prose)) > max(draft_len + 200, _DRAFT_REWRITE_MAX_CHARS):
+        trace("draft_rewrite_rejected", reason="length")
+        return None
+    text, restored = _restore_locked_sentences(text, draft)
+    trace("draft_rewrite", restored=restored, tools=max(0, len(evidence or ()) - 0))
+    return text, actions
+
+
 def _finish_tool_reply(final_text, actions, cards, card_list, *, view_intent,
                        latest_user_text, non_actionable_symbols, current_view,
                        investor_intent, full_history_request, named_symbol_override,
                        named_symbol_lookback, viewer_entry_year, turn_notes, trace,
-                       protocol_failures=0):
+                       protocol_failures=0, trusted_specs=()):
     """Shared post-processing for both provider loops: view contract, evidence, notes.
 
     Safety is unchanged - the reply never claims or promises a view change the turn
@@ -5398,7 +6022,7 @@ def _finish_tool_reply(final_text, actions, cards, card_list, *, view_intent,
             # The explanation is the answer; only the chart status has to be explicit.
             if not (_NEGATED_VIEW_COMPLETION_RE.search(plain)
                     or _NO_CHANGE_STATEMENT_RE.search(plain)):
-                prose += "<br><br>" + _NO_CHANGE_NOTE
+                prose = _with_no_change_note(prose)
             final_text = prose
         else:
             final_text = (
@@ -5437,7 +6061,7 @@ def _finish_tool_reply(final_text, actions, cards, card_list, *, view_intent,
         if len(plain.split()) >= 6:
             if not (_NEGATED_VIEW_COMPLETION_RE.search(plain)
                     or _NO_CHANGE_STATEMENT_RE.search(plain)):
-                prose += "<br><br>" + _NO_CHANGE_NOTE
+                prose = _with_no_change_note(prose)
             final_text = prose
         else:
             final_text = (
@@ -5453,9 +6077,18 @@ def _finish_tool_reply(final_text, actions, cards, card_list, *, view_intent,
         viewer_entry_year,
         preferred_years=named_symbol_lookback,
     )
-    final_text = _ensure_load_named(
-        final_text, actions, cards, card_list, current_view=current_view
-    )
+    loaded_specs = [
+        action.get("spec") for action in actions or []
+        if action.get("type") == "set_view" and isinstance(action.get("spec"), dict)
+        and action["spec"].get("symbol")
+    ]
+    # A load queued by the engine route itself is announced by the route's own verified
+    # draft; the announcement guard only checks loads the model queued.
+    engine_load = bool(loaded_specs) and loaded_specs[-1] in list(trusted_specs or ())
+    if not engine_load:
+        final_text = _ensure_load_named(
+            final_text, actions, cards, card_list, current_view=current_view
+        )
     if response_violates_investor_contract(final_text, investor_intent):
         trace("protocol_violation", reason="unsafe_investor_response")
         safe_text = repair_investor_contract(final_text, investor_intent)
@@ -5499,13 +6132,122 @@ def _finish_tool_reply(final_text, actions, cards, card_list, *, view_intent,
     return _apply_turn_notes(final_text, turn_notes), actions
 
 
-def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
+_EXCLUSION_REPORT_DRAFT = (
+    "I can explain a validated Date Range Exclusion Report, but this chat turn does not "
+    "contain one. I won't compare unmatched windows or invent an exclusion result; create "
+    "the report from the loaded range, then its Explain with Tara action will give me the "
+    "same completed years for the excluded dates, remaining dates, and Buy & Hold."
+)
+
+
+def _intent_prelude(investor_intent, view_intent, latest_user_text, current_view, user_id,
+                    opp_table, table_market, user_token, opp_table_years, actions, trace):
+    """Engine-owned answers both provider loops share, before any model call.
+
+    Returns None, ("final", text) or ("draft", text). "final" is a compliance reply that
+    is sent exactly as written (the suitability boundary and the investor funnel).
+    "draft" is verified engine output the model then rewrites inside the tool loop, so a
+    second question in the same message is answered too; the caller falls back to the
+    draft when the rewrite fails a guard.
+    """
+
+    suitability = loaded_pattern_suitability_response(latest_user_text, current_view)
+    if suitability:
+        trace(
+            "loaded_pattern_suitability_boundary",
+            symbol=str((current_view or {}).get("symbol") or "").upper(),
+        )
+        return "final", suitability
+
+    guidance = investor_guidance_response(investor_intent)
+    if guidance:
+        trace("investor_guidance", intent=investor_intent)
+        return "final", guidance
+
+    if view_intent == "unsupported_live":
+        trace("unsupported_live_data_intent")
+        return "draft", _UNSUPPORTED_LIVE_DATA_RESPONSE
+
+    if investor_intent in {"seasonal_etf", "seasonal_stock", "weak_etf", "weak_stock"}:
+        out, target = _investor_screen_result(
+            investor_intent,
+            user_id,
+            opp_table,
+            table_market,
+            user_token,
+            opp_table_years,
+        )
+        if _cards_from_result(out) and table_market != target:
+            _append_market_switch(actions, target, latest_user_text)
+        trace(
+            "investor_evidence_screen",
+            intent=investor_intent,
+            market=target,
+            candidates=len(_cards_from_result(out)),
+        )
+        return "draft", _investor_screen_response(
+            investor_intent, out, latest_user_text, market=target)
+
+    if investor_intent == "weak_symbol":
+        symbol = _explicit_ticker(latest_user_text)
+        out = _briefify(run_tool(
+            "analyze_symbol",
+            {"symbol": symbol, "direction": "short"},
+            user_id,
+        ))
+        trace(
+            "weak_period_study",
+            symbol=symbol or "",
+            ok=bool(_cards_from_result(out)),
+        )
+        return "draft", _weak_symbol_response(
+            symbol or "that symbol", out, actions, current_view)
+
+    if investor_intent == "exclusion_study":
+        trace("exclusion_study_requires_validated_report")
+        return "draft", _EXCLUSION_REPORT_DRAFT
+    return None
+
+
+def _with_draft_fallback(turn, protocol_trace):
+    """Run one provider turn; when it was rewriting an engine draft, a failure sends the draft.
+
+    A turn with no draft keeps today's behaviour: the exception propagates and the chat
+    route retries on the fallback provider. A missing credential is never masked.
+    """
+
+    state = {}
+    try:
+        return turn(state)
+    except (OpenAIConfigurationError, AnthropicConfigurationError):
+        raise
+    except Exception:                        # noqa: BLE001 - the draft is the safe answer
+        if state.get("draft") is None:
+            raise
+        log.warning("tara draft rewrite failed; sending the engine draft", exc_info=True)
+        if isinstance(protocol_trace, list) and len(protocol_trace) < 24:
+            protocol_trace.append({"event": "draft_rewrite_rejected", "reason": "provider_error"})
+        return state["draft"], state["actions"]
+
+
+def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m", **options):
+    """Tara's Claude tool loop; see ``_claude_tool_turn`` for the arguments."""
+
+    return _with_draft_fallback(
+        lambda state: _claude_tool_turn(
+            messages, system, user_id, model, cache_ttl, _draft_state=state, **options),
+        options.get("protocol_trace"),
+    )
+
+
+def _claude_tool_turn(messages, system, user_id, model, cache_ttl="5m",
                         opp_table=None, opp_table_market=None, user_token=None,
                         user_years_cap=None,
                         opp_table_years=None, full_history_request=None,
                         named_symbol_override=None, named_symbol_lookback=None,
                         viewer_entry_year=None, current_view=None, turn_id=None,
-                        protocol_trace=None):
+                        protocol_trace=None, engine_draft=None, draft_actions=None,
+                        number_sources=None, _draft_state=None):
     """Run the Tara chat with gateway tool-use. `messages` ends with the user turn. Returns
     (final_text, actions): the assistant TEXT plus any UI actions the model requested (Phase 2,
     e.g. [{'type':'set_view','spec':{...}}]). Read tools (scan/analyze/...) are executed as
@@ -5513,9 +6255,19 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
     for the client to apply. For a 'which <group> stocks' screen, `opp_table` (the on-screen rows) +
     `opp_table_market` answer from the table when it is already on that group, else `user_token` +
     `opp_table_years` fetch that group's table (OppList4) loopback + auto-switch markets. Capped at
-    _MAX_TOOL_ROUNDS."""
+    _MAX_TOOL_ROUNDS.
+
+    ``engine_draft`` (with its ``draft_actions``) is a deterministic route's verified reply:
+    the model rewrites it inside this same loop and the draft itself is returned whenever
+    the rewrite fails a guard or the provider fails. ``number_sources`` are the engine
+    texts (live context, knowledge base) a rewritten figure may come from."""
     convo = list(messages)
-    actions = []
+    actions = [dict(action) for action in draft_actions or []]
+    seed_actions = [dict(action) for action in actions]
+    draft = engine_draft
+    evidence = None
+    if _draft_state is None:
+        _draft_state = {}
     cards = {}            # symbol -> latest briefified card, for the deterministic load-announcement guard
     card_list = []        # every card seen this turn, so the guard can match the loaded setup by entry_date
     table_market = str(opp_table_market) if opp_table_market not in (None, "") else None
@@ -5533,76 +6285,37 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
     )
     non_actionable_symbols = set()
     turn_notes = []
+    rendered_lists = []
 
     def trace(event, **fields):
         if isinstance(protocol_trace, list) and len(protocol_trace) < 24:
             protocol_trace.append({"event": event, **fields})
 
-    if view_intent == "unsupported_live":
-        trace("unsupported_live_data_intent")
-        return _UNSUPPORTED_LIVE_DATA_RESPONSE, []
-
-    suitability = loaded_pattern_suitability_response(latest_user_text, current_view)
-    if suitability:
-        trace(
-            "loaded_pattern_suitability_boundary",
-            symbol=str((current_view or {}).get("symbol") or "").upper(),
-        )
-        return suitability, []
-
-    guidance = investor_guidance_response(investor_intent)
-    if guidance:
-        trace("investor_guidance", intent=investor_intent)
-        return guidance, []
-
-    if investor_intent in {"seasonal_etf", "seasonal_stock", "weak_etf", "weak_stock"}:
-        out, target = _investor_screen_result(
-            investor_intent,
-            user_id,
-            opp_table,
-            table_market,
-            user_token,
-            opp_table_years,
-        )
-        found = bool(_cards_from_result(out))
-        if found and table_market != target:
-            _append_market_switch(actions, target)
-        trace(
-            "investor_evidence_screen",
-            intent=investor_intent,
-            market=target,
-            candidates=len(_cards_from_result(out)),
-        )
-        return _investor_screen_response(
-            investor_intent, out, latest_user_text, market=target), actions
-
-    if investor_intent == "weak_symbol":
-        symbol = _explicit_ticker(latest_user_text)
-        out = _briefify(run_tool(
-            "analyze_symbol",
-            {"symbol": symbol, "direction": "short"},
-            user_id,
-        ))
-        trace(
-            "weak_period_study",
-            symbol=symbol or "",
-            ok=bool(_cards_from_result(out)),
-        )
-        return _weak_symbol_response(symbol or "that symbol", out, actions, current_view), actions
-
-    if investor_intent == "exclusion_study":
-        trace("exclusion_study_requires_validated_report")
-        return (
-            "I can explain a validated Date Range Exclusion Report, but this chat turn does not "
-            "contain one. I won't compare unmatched windows or invent an exclusion result; create "
-            "the report from the loaded range, then its Explain with Tara action will give me the "
-            "same completed years for the excluded dates, remaining dates, and Buy & Hold."
-        ), []
+    if draft is None:
+        prelude = _intent_prelude(
+            investor_intent, view_intent, latest_user_text, current_view, user_id,
+            opp_table, table_market, user_token, opp_table_years, actions, trace)
+        if prelude is not None:
+            if prelude[0] == "final" or not draft_is_rewritable(prelude[1], actions):
+                return prelude[1], actions
+            draft = prelude[1]
+            seed_actions = [dict(action) for action in actions]
+    if draft is not None:
+        # From here on any failure sends the engine draft (see _with_draft_fallback).
+        _draft_state.update(draft=draft, actions=seed_actions)
+        convo[-1] = {
+            "role": "user",
+            "content": _draft_user_content(latest_user_text, draft, seed_actions),
+        }
+        evidence = []
 
     if investor_intent == "named_security":
         system = _with_system_note(system, _NAMED_SECURITY_OVERRIDE)
 
     soft_view_nudged = False
+    view_action_nudged = False
+    collapse_nudged = False
+    words_answer = None       # last reply in clean words that only lacked a chart action
     for round_index in range(_MAX_TOOL_ROUNDS):
         resp = send_claude_messages(convo, model=model, system=system,
                                     cache_system=True, cache_ttl=cache_ttl,
@@ -5636,6 +6349,10 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
             # each checked), so only an empty repair - a reply that was nothing but a
             # claim, a promise or tool markup - is sent back for correction.
             view_contract_ok = bool(repaired_candidate)
+            collapsed = bool(
+                repaired_candidate and removed_claims and not collapse_nudged
+                and _word_count(repaired_candidate) < 8 <= _word_count(candidate) - 12
+            )
             if repaired_candidate:
                 if removed_claims:
                     trace("view_claim_removed", count=removed_claims, round=round_index + 1)
@@ -5643,6 +6360,11 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
             reason = None
             if not blocks_are_valid or native_tool_blocks:
                 reason = "invalid_tool_envelope"
+            elif collapsed:
+                # Removing the status sentences left a one-line remnant: ask once for the
+                # answer itself instead of sending the remnant.
+                collapse_nudged = True
+                reason = "unconfirmed_view_completion"
             elif not view_contract_ok and _contains_internal_tool_markup(candidate):
                 reason = "printed_tool_markup"
             elif not view_contract_ok and _contains_view_promise(candidate):
@@ -5677,6 +6399,17 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
                     else "missing_view_action"
                 )
                 soft_view_nudged = True
+                if view_contract_ok and _word_count(candidate) >= 6:
+                    words_answer = candidate
+                    if view_action_nudged and reason == "missing_view_action":
+                        # Asked once already and the model again answered in words (a
+                        # private company, a market outside the plan): that explanation
+                        # is the answer. The finish step states that nothing was changed.
+                        trace("view_action_not_possible", round=round_index + 1)
+                        final_text = candidate
+                        break
+                if reason == "missing_view_action":
+                    view_action_nudged = True
             if reason:
                 protocol_failures += 1
                 # Do not log the model text: it can contain the user's prompt,
@@ -5764,6 +6497,7 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
                 latest_user_text=latest_user_text,
                 non_actionable_symbols=non_actionable_symbols,
                 turn_notes=turn_notes,
+                rendered_lists=rendered_lists,
             )
             trace(
                 "tool_result",
@@ -5772,14 +6506,61 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
                 ok=not (isinstance(out, dict) and bool(out.get("error"))),
                 queued=bool(name == "update_view" and isinstance(out, dict) and out.get("ok")),
             )
+            bounded = _bounded_json(out)
+            if evidence is not None:
+                evidence.append(bounded)
             results.append({
                 "type": "tool_result",
                 "tool_use_id": b.get("id"),
-                "content": _bounded_json(out),
+                "content": bounded,
             })
         convo.append({"role": "user", "content": results})
-    return _finish_tool_reply(
-        final_text, actions, cards, card_list,
+    if final_text is None and words_answer and not actions:
+        final_text = words_answer
+    if final_text is None and not actions:
+        # The rounds ran out on tool calls or corrections. One last request with tools
+        # switched off turns what was read into an answer in words; tool_choice does not
+        # touch the cached tools + system prefix.
+        closing = {
+            "type": "text",
+            "text": "[TradeWave] No more tool calls are available in this turn. Answer the "
+                    "user's question now, in words, from the results above. Do not say "
+                    "anything was loaded or changed on the chart." + _CORRECTION_SUFFIX,
+        }
+        last = convo[-1] if convo else None
+        if isinstance(last, dict) and last.get("role") == "user":
+            content = last.get("content")
+            convo[-1] = {
+                "role": "user",
+                "content": (list(content) if isinstance(content, list)
+                            else [{"type": "text", "text": str(content)}]) + [closing],
+            }
+            try:
+                resp = send_claude_messages(convo, model=model, system=system,
+                                            cache_system=True, cache_ttl=cache_ttl,
+                                            tools=TOOLS, tool_choice={"type": "none"},
+                                            return_raw=True, effort=CLAUDE_EFFORT)
+            except AnthropicConfigurationError:
+                raise
+            except Exception:                # noqa: BLE001 - the fail-closed text follows
+                log.warning("tara closing answer unavailable turn=%s", turn_id or "-")
+                resp = {}
+            closing_text, _removed = repair_view_contract(
+                _text_of(resp.get("content", []) or []), actions, current_view)
+            if (
+                resp.get("stop_reason") not in ("refusal", "tool_use")
+                and _word_count(closing_text) >= 6
+                and not response_violates_investor_contract(closing_text, investor_intent)
+            ):
+                trace("closing_answer_in_words")
+                final_text = closing_text
+    return _finish_draft_or_reply(
+        draft, seed_actions, evidence, number_sources, investor_intent, latest_user_text,
+        trace, turn_notes, _finish_tool_reply(
+        _expand_rendered_lists(
+            final_text, rendered_lists,
+            _draft_row_block(draft)[1] if draft is not None else None),
+        actions, cards, card_list,
         view_intent=view_intent,
         latest_user_text=latest_user_text,
         non_actionable_symbols=non_actionable_symbols,
@@ -5792,10 +6573,35 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
         turn_notes=turn_notes,
         trace=trace,
         protocol_failures=protocol_failures,
+        trusted_specs=[action.get("spec") for action in seed_actions],
+    ), rendered_lists=rendered_lists)
+
+
+def _finish_draft_or_reply(draft, seed_actions, evidence, number_sources, investor_intent,
+                           latest_user_text, trace, turn_notes, result, rendered_lists=None):
+    """The loop's reply, or - for an engine draft - the accepted rewrite or the draft."""
+
+    if draft is None:
+        return result
+    notes = [note.get("text", "") for note in turn_notes or []]
+    accepted = _accept_draft_rewrite(
+        result[0], result[1], draft, seed_actions, list(evidence or ()) + notes,
+        number_sources, investor_intent, latest_user_text, trace,
+        known_rows=[row for rows in rendered_lists or () for row in rows])
+    return accepted if accepted is not None else (draft, seed_actions)
+
+
+def run_chat_with_openai_tools(messages, system, user_id, model, **options):
+    """Tara's OpenAI tool loop; see ``_openai_tool_turn`` for the arguments."""
+
+    return _with_draft_fallback(
+        lambda state: _openai_tool_turn(
+            messages, system, user_id, model, _draft_state=state, **options),
+        options.get("protocol_trace"),
     )
 
 
-def run_chat_with_openai_tools(messages, system, user_id, model,
+def _openai_tool_turn(messages, system, user_id, model,
                                opp_table=None, opp_table_market=None,
                                user_token=None, user_years_cap=None,
                                opp_table_years=None,
@@ -5803,7 +6609,8 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
                                named_symbol_override=None,
                                named_symbol_lookback=None,
                                viewer_entry_year=None, current_view=None,
-                               turn_id=None, protocol_trace=None):
+                               turn_id=None, protocol_trace=None, engine_draft=None,
+                               draft_actions=None, number_sources=None, _draft_state=None):
     """Run Tara's existing gateway tool loop through the OpenAI Responses API.
 
     Tool execution, result trimming, ViewSpec validation, table-screen interception, and
@@ -5812,7 +6619,12 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
     matching ``function_call_output`` items forward explicitly.
     """
 
-    actions = []
+    actions = [dict(action) for action in draft_actions or []]
+    seed_actions = [dict(action) for action in actions]
+    draft = engine_draft
+    evidence = None
+    if _draft_state is None:
+        _draft_state = {}
     cards = {}
     card_list = []
     table_market = str(opp_table_market) if opp_table_market not in (None, "") else None
@@ -5829,69 +6641,34 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
     )
     non_actionable_symbols = set()
     turn_notes = []
+    rendered_lists = []
 
     def trace(event, **fields):
         if isinstance(protocol_trace, list) and len(protocol_trace) < 24:
             protocol_trace.append({"event": event, **fields})
 
-    if view_intent == "unsupported_live":
-        trace("unsupported_live_data_intent")
-        return _UNSUPPORTED_LIVE_DATA_RESPONSE, []
-
-    suitability = loaded_pattern_suitability_response(latest_user_text, current_view)
-    if suitability:
-        trace(
-            "loaded_pattern_suitability_boundary",
-            symbol=str((current_view or {}).get("symbol") or "").upper(),
-        )
-        return suitability, []
-
-    guidance = investor_guidance_response(investor_intent)
-    if guidance:
-        trace("investor_guidance", intent=investor_intent)
-        return guidance, []
-
-    if investor_intent in {"seasonal_etf", "seasonal_stock", "weak_etf", "weak_stock"}:
-        out, target = _investor_screen_result(
-            investor_intent,
-            user_id,
-            opp_table,
-            table_market,
-            user_token,
-            opp_table_years,
-        )
-        if _cards_from_result(out) and table_market != target:
-            _append_market_switch(actions, target)
-        trace(
-            "investor_evidence_screen",
-            intent=investor_intent,
-            market=target,
-            candidates=len(_cards_from_result(out)),
-        )
-        return _investor_screen_response(
-            investor_intent, out, latest_user_text, market=target), actions
-
-    if investor_intent == "weak_symbol":
-        symbol = _explicit_ticker(latest_user_text)
-        out = _briefify(run_tool(
-            "analyze_symbol", {"symbol": symbol, "direction": "short"}, user_id
-        ))
-        trace("weak_period_study", symbol=symbol or "", ok=bool(_cards_from_result(out)))
-        return _weak_symbol_response(symbol or "that symbol", out, actions, current_view), actions
-
-    if investor_intent == "exclusion_study":
-        trace("exclusion_study_requires_validated_report")
-        return (
-            "I can explain a validated Date Range Exclusion Report, but this chat turn does not "
-            "contain one. I won't compare unmatched windows or invent an exclusion result; create "
-            "the report from the loaded range, then its Explain with Tara action will give me the "
-            "same completed years for the excluded dates, remaining dates, and Buy & Hold."
-        ), []
+    model_messages = list(messages)
+    if draft is None:
+        prelude = _intent_prelude(
+            investor_intent, view_intent, latest_user_text, current_view, user_id,
+            opp_table, table_market, user_token, opp_table_years, actions, trace)
+        if prelude is not None:
+            if prelude[0] == "final" or not draft_is_rewritable(prelude[1], actions):
+                return prelude[1], actions
+            draft = prelude[1]
+            seed_actions = [dict(action) for action in actions]
+    if draft is not None:
+        _draft_state.update(draft=draft, actions=seed_actions)
+        model_messages[-1] = {
+            "role": "user",
+            "content": _draft_user_content(latest_user_text, draft, seed_actions),
+        }
+        evidence = []
 
     if investor_intent == "named_security":
         system = _with_system_note(system, _NAMED_SECURITY_OVERRIDE)
 
-    input_items = build_responses_input(messages, system=system)
+    input_items = build_responses_input(model_messages, system=system)
     cache_key = prompt_cache_key(user_id)
 
     for round_index in range(_MAX_TOOL_ROUNDS):
@@ -5937,6 +6714,7 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
                     latest_user_text=latest_user_text,
                     non_actionable_symbols=non_actionable_symbols,
                     turn_notes=turn_notes,
+                    rendered_lists=rendered_lists,
                 )
             except OpenAIAPIError:
                 # Feed a bounded, narration-safe error back to the model rather than executing
@@ -5953,11 +6731,14 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
                     and out.get("ok")
                 ),
             )
+            bounded = _bounded_json(out)
+            if evidence is not None:
+                evidence.append(bounded)
             results.append(
                 {
                     "type": "function_call_output",
                     "call_id": call_id,
-                    "output": _bounded_json(out),
+                    "output": bounded,
                 }
             )
         input_items.extend(results)
@@ -5972,8 +6753,13 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
     if not final_text:
         raise OpenAIAPIError("OpenAI returned no assistant text")
 
-    return _finish_tool_reply(
-        final_text, actions, cards, card_list,
+    return _finish_draft_or_reply(
+        draft, seed_actions, evidence, number_sources, investor_intent, latest_user_text,
+        trace, turn_notes, _finish_tool_reply(
+        _expand_rendered_lists(
+            final_text, rendered_lists,
+            _draft_row_block(draft)[1] if draft is not None else None),
+        actions, cards, card_list,
         view_intent=view_intent,
         latest_user_text=latest_user_text,
         non_actionable_symbols=non_actionable_symbols,
@@ -5986,7 +6772,8 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
         turn_notes=turn_notes,
         trace=trace,
         protocol_failures=0,
-    )
+        trusted_specs=[action.get("spec") for action in seed_actions],
+    ), rendered_lists=rendered_lists)
 
 
 # --------------------------------------------------------------------------

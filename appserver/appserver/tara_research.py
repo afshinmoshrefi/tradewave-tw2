@@ -1063,7 +1063,8 @@ def build_screen_command(message, user_token, *, today=None, table_market=None, 
         "Scope</span> " + " ".join(scope_bits) + "</div></div>")
     actions = []
     if table_market is not None and str(table_market) != request["market"]:
-        actions.append({"type": "set_view", "spec": {"market": request["market"]}})
+        # The screen is answered in the chat; the Opportunity Table moves only on request.
+        tg._append_market_switch(actions, request["market"], text)
     return {"reply": reply, "actions": actions, "trace": trace, "rows": shown}
 
 
@@ -1280,7 +1281,18 @@ def _find_securities(text, token, current_view=None, allow_names=True, unresolve
                 continue
         entry = {"symbol": resolution["symbol"], "market": resolution["market"],
                  "name": resolution.get("name") or ""}
+        if resolution.get("alias_of"):
+            entry["alias_of"] = resolution["alias_of"]
         resolved.append(entry)
+    # "btc vs eth": once one bare code is read as a coin, a sibling code that is also a
+    # listed coin is the coin too (ETH is Ethereum here, not an unrelated share).
+    if any(item.get("market") == "16" and item.get("alias_of") for item in resolved):
+        for item in resolved:
+            if item.get("market") != "16" and not item.get("error"):
+                alias = tg._crypto_pair_alias(item["symbol"], token)
+                if alias:
+                    item.update(symbol=alias["symbol"], market="16", name=alias["name"],
+                                alias_of=item["symbol"])
     return resolved
 
 
@@ -1559,6 +1571,42 @@ def _study(security, start, days_out, pe_cycle, years, token, available=_UNSET, 
     }
 
 
+def _january_first(start, days_out):
+    """TradeWave has no January 1 entry: the engine enters on January 2.
+
+    Returns (start, days_out, note). The window keeps the END date the user named, so
+    "January 1 to March 31" is studied as January 2 to March 31 and the reply says so,
+    instead of sliding the whole window a day and ending on April 1.
+    """
+
+    if start.month == 1 and start.day == 1 and int(days_out) > 1:
+        return (start + datetime.timedelta(days=1), int(days_out) - 1,
+                "TradeWave has no January 1 entry (the market is closed), so this window "
+                "starts January 2 and ends on the date you asked for.")
+    return start, days_out, ""
+
+
+def _study_for_lookback(security, start, days_out, pe_cycle, years, token, **params):
+    """One study whose completed-year count equals the lookback that was asked for.
+
+    When this year's window has already finished the engine counts it on top of the
+    lookback, so a 20-year request comes back with 21 completed years. The study is then
+    read again one year shorter, which gives exactly the 20 most recent completed years.
+    """
+
+    study = _study(security, start, days_out, pe_cycle, years, token, **params)
+    if (
+        not study.get("error") and pe_cycle == "cons" and int(years) > 1
+        and study["n"] == study["years"] + 1 and study["years"] == int(years)
+    ):
+        shorter = _study(security, start, days_out, pe_cycle, int(years) - 1, token, **params)
+        if not shorter.get("error") and shorter["n"] == int(years):
+            shorter["requested_years"] = int(years)
+            shorter["includes_current_year"] = True
+            return shorter
+    return study
+
+
 def _extremes_text(rows, direction="long"):
     """Best/worst year and the largest moves inside the window, labelled for the engine's
     trade direction: a rise is the favorable move (MFE) of a long pattern and the adverse
@@ -1620,7 +1668,8 @@ def build_window_study_command(message, current_view, user_token, *, today=None,
         user_token, security["market"])["years_cap"]
     if isinstance(cap, int) and cap > 0:
         years = min(years, cap)
-    study = _study(security, start, days_out, pe_cycle, years, user_token)
+    start, days_out, entry_note = _january_first(start, days_out)
+    study = _study_for_lookback(security, start, days_out, pe_cycle, years, user_token)
     if study.get("unavailable"):
         return None
     if study.get("error"):
@@ -1632,7 +1681,12 @@ def build_window_study_command(message, current_view, user_token, *, today=None,
                           format_date_range(study["entry"], study["end"], with_year=True))
     cohort = _PE_LABELS.get(study["pe_cycle"], "years")
     history_note = ""
-    if explicit and study["pe_cycle"] == "cons" and (
+    if study.get("includes_current_year") and (not explicit or asked_years <= years):
+        history_note = (" This year's window has already finished, so it is one of the %d "
+                        "years; the chart's years control reads %d with the %d bar added."
+                        % (study["n"], study["years"], study["end"].year
+                           if study["end"].year == current.year else current.year))
+    elif explicit and study["pe_cycle"] == "cons" and (
             asked_years > years or study["engine_capped"]):
         history_note = (" You asked for %d years; your plan's lookback is capped at %d, so this "
                         "is the %d-year study." % (asked_years, study["years"], study["years"]))
@@ -1669,7 +1723,8 @@ def build_window_study_command(message, current_view, user_token, *, today=None,
         "<div class=\"tara-analysis-section tara-analysis-scope\"><span class=\"tara-analysis-heading\">"
         "Scope</span> %sI am loading this exact study in the Wave Viewer so every year is visible. "
         "Historical results are not a forecast.</div></div>"
-        % (title, study["days"], _esc(label), study["n"], cohort, history_note, record,
+        % (title, study["days"], _esc(label), study["n"], cohort,
+           history_note + ((" " + entry_note) if entry_note else ""), record,
            _extremes_text(study["rows"], study["direction"]),
            (_ADVICE_BOUNDARY + " ") if _ADVICE_RE.search(text) else ""))
     actions = [{"type": "set_view", "spec": study["spec"]}] if study["spec"] else []
@@ -1806,6 +1861,7 @@ def build_comparison_command(message, current_view, user_token, *, today=None,
     days_out = (end - start).days + 1
     if not 1 <= days_out <= 367:
         return None
+    start, days_out, entry_note = _january_first(start, days_out)
     pe_cycle = _pe_cycle(text)
     years, explicit = _requested_years(text, current_view)
     if pe_cycle != "cons" and not explicit:
@@ -1883,7 +1939,28 @@ def build_comparison_command(message, current_view, user_token, *, today=None,
     if top and top[0]["sharpe"] is not None:
         reads.append("Best Sharpe Ratio: %s at %.2f." % (_joined(top), top[0]["sharpe"]))
 
+    # One symbol that leads on average, consistency and Sharpe has the stronger record,
+    # and that is the chart to load; otherwise the Sharpe leader is loaded and the reply
+    # says the record is split.
+    lead_sets = [
+        {study["symbol"] for study in _leaders(studies, key)}
+        for key in ("avg", "win_pct", "sharpe")
+    ]
+    sharpe_top = _leaders(studies, "sharpe")
+    loaded = sharpe_top[0] if sharpe_top and sharpe_top[0]["spec"] else studies[0]
+    sweep = set.intersection(*lead_sets) if all(lead_sets) else set()
+    if len(sweep) == 1 and all(len(group) == 1 for group in lead_sets):
+        reads.insert(0, "Stronger historical record on these dates: %s (higher average, "
+                        "more winning years and higher Sharpe Ratio)." % _esc(loaded["symbol"]))
+    elif len(studies) > 1:
+        reads.append("No symbol leads on every measure, so the record is split.")
+
     notes = list(sector_notes)
+    if entry_note:
+        notes.append(entry_note)
+    if _CHOICE_RE.search(text) and not _ADVICE_RE.search(text):
+        notes.append("\"Better\" here means the stronger historical record on these dates, "
+                     "not a better investment. " + tg.DISCLAIMER_TEXT)
     if missing:
         notes.insert(0, "I could not find %s as a TradeWave symbol, so %s not in this comparison."
                      % (", ".join(_esc(symbol) for symbol in missing[:4]),
@@ -1918,8 +1995,8 @@ def build_comparison_command(message, current_view, user_token, *, today=None,
         % (heading, "" if "\u2013" in label else _esc(label[:1].upper() + label[1:]) + ", ",
            studies[0]["days"], n, cohort, year_list[0], year_list[-1],
            "<br>".join(lines), " ".join(reads),
-           (" ".join(notes) + " ") if notes else "", _esc(studies[0]["symbol"])))
-    actions = [{"type": "set_view", "spec": studies[0]["spec"]}] if studies[0]["spec"] else []
+           (" ".join(notes) + " ") if notes else "", _esc(loaded["symbol"])))
+    actions = [{"type": "set_view", "spec": loaded["spec"]}] if loaded["spec"] else []
     return {"reply": reply, "actions": actions, "trace": trace, "studies": studies}
 
 

@@ -888,7 +888,8 @@ def test_missing_anthropic_credential_fails_closed_like_the_openai_one(monkeypat
         AI_tools_appserver.send_claude_messages([{"role": "user", "content": "hi"}],
                                                 model="claude-haiku-5-5")
     source = (ROOT / "appserver/appserver/chatbot.py").read_text(encoding="utf-8")
-    assert source.count("except (OpenAIConfigurationError, AnthropicConfigurationError):") == 2
+    # report turn, engine-draft rewrite and model turn: none may mask a missing credential
+    assert source.count("except (OpenAIConfigurationError, AnthropicConfigurationError):") == 3
     assert "except OpenAIConfigurationError:" not in source
 
 

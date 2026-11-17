@@ -1040,7 +1040,7 @@ def is_mcp_product_question(message: Any) -> bool:
 def _mcp_setup_link(label: str = "Open the MCP setup guide") -> str:
     return (
         f'<a href="{_MCP_SETUP_URL}" target="_blank" rel="noopener noreferrer">'
-        f"{html.escape(label)}</a>"
+        f"{html.escape(label)}</a> (developers.tradewave.ai/mcp)"
     )
 
 
@@ -2159,7 +2159,111 @@ def canonical_pattern_facts(
             **occurrence_timing,
         }
     )
+    # The engine is the authority for the average. The mean of the two-decimal yearly
+    # rows can differ from the engine's own figure in the last digit (1.93 against the
+    # 1.94 on screen); when the two agree to rounding, quote the engine's.
+    engine_average = _percent_number(stats.get("Avg Profit - All"))
+    row_average = facts.get("avg_trade_return_pct")
+    if (
+        aggregate_stats_match_completed_sample
+        and engine_average is not None
+        and row_average is not None
+        and abs(engine_average - row_average) <= 0.011
+    ):
+        facts["avg_trade_return_pct"] = engine_average
     return facts
+
+
+_AI_QUESTION_PATTERN = re.compile(
+    r"\b(?:ai|ais|a\.i\.|ml|machine\s+learning|predr|pmfe|win\s*%|win\s+chance|"
+    r"win\s+probability|predicted\s+return|estimated\s+(?:end\s+return|best\s+move)|"
+    r"return\s+rank|model(?:'s)?\s+(?:score|estimate|reading))\b",
+    re.I,
+)
+
+
+def wants_ai_live_context(message: Any, wave_viewer: Any, screen_context: Any) -> bool:
+    """Whether the model's live context should carry the loaded pattern's AI reading.
+
+    Only decides whether to ASK the scorer. Entitlement is checked by the caller against
+    the verified plan and again by the scorer itself.
+    """
+
+    if not _has_loaded_pattern(wave_viewer):
+        return False
+    named = explicit_pattern_symbol(message)
+    if named and named != str(wave_viewer.get("symbol") or "").strip().upper():
+        return False
+    # Framework explanations are answered at once from the knowledge base; they do not
+    # wait for a live scorer call.
+    if (
+        is_seasonality_value_question(message)
+        or is_strategy_building_question(message)
+        or is_ai_horizon_explanation_question(message)
+    ):
+        return False
+    screen = normalize_screen_context(screen_context)
+    return bool(
+        _AI_QUESTION_PATTERN.search(str(message or ""))
+        or screen.get("active_bottom_slide") == "ai_scores"
+    )
+
+
+def ai_live_context_lines(wave_viewer: Any) -> List[str]:
+    """Server-derived AI values of the loaded pattern, as live-context lines.
+
+    Empty unless the chat route attached a scorer result for an entitled account. The
+    values are quoted, never recomputed, and stay separate from the historical record.
+    """
+
+    context = _normalized_ai_analysis(wave_viewer)
+    if context is None:
+        return []
+    lines = [
+        "AI READING FOR THE LOADED PATTERN (server-derived for this account; "
+        "current-condition model estimates, separate from the historical record. Quote "
+        "these values exactly; never estimate, average or extend them):"
+    ]
+    full_days = context["full_pattern_calendar_days"]
+    readings = 0
+    if context["status"] == "available":
+        for item in context.get("horizons") or []:
+            if item.get("status") != "available":
+                continue
+            values = []
+            if item.get("win_probability") is not None:
+                values.append("AI Win%% %.0f%%" % (item["win_probability"] * 100))
+            if item.get("ai_score") is not None:
+                values.append("AIS %.0f" % item["ai_score"])
+            if item.get("predicted_return_pct") is not None:
+                values.append("PredR %+.1f%%" % item["predicted_return_pct"])
+            if item.get("predicted_mfe_pct") is not None:
+                values.append("PMFE %+.1f%%" % item["predicted_mfe_pct"])
+            if not values:
+                continue
+            readings += 1
+            scope = (
+                " (the loaded window)" if item["calendar_days"] == full_days
+                else " (a comparison horizon, not the loaded %d-day window)" % full_days
+            )
+            lines.append("- %d-day horizon%s: %s." % (
+                item["calendar_days"], scope, ", ".join(values)))
+    if not readings:
+        note = _analysis_ai_context_line({}, wave_viewer)
+        if not note:
+            return []
+        lines.append("- " + re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", note)).strip())
+    elif context["mode"] == "minimum_horizon":
+        lines.append(
+            "- The loaded window is %d calendar days; the model's shortest horizon is 10 "
+            "days, so this is the 10-day reading, not an exact score for the window. The "
+            "historical statistics stay at the real %d-day length." % (full_days, full_days)
+        )
+    lines.append(
+        "- AI Win% is a calibrated estimate for current conditions; the historical win "
+        "rate counts completed years. They measure different things and can disagree."
+    )
+    return lines
 
 
 def _percent_number(value: Any) -> Optional[float]:

@@ -58,6 +58,14 @@ class AnthropicConfigurationError(RuntimeError):
     """A deployment/configuration failure that must never select a fallback."""
 
 
+class AnthropicRefusal(AnthropicAPIError):
+    """HTTP 200 with stop_reason "refusal" (or no text at all) on a text-only call.
+
+    Claude Haiku 5.5 has no server-side fallback, so the caller must treat this like any
+    other provider failure and retry the turn on the fallback provider.
+    """
+
+
 def _prepare_system(system, cache_system=False, cache_ttl='5m'):
     """Normalize a string or ordered text blocks for Anthropic's system field.
 
@@ -112,7 +120,7 @@ def _prepare_system(system, cache_system=False, cache_ttl='5m'):
 def send_claude_messages(messages, model=CLAUDE_MODEL_DEFAULT, system=None,
                          max_tokens=4096, temperature=0.0, timeout=(15, 100),
                          cache_system=False, cache_ttl='5m', tools=None, return_raw=False,
-                         effort='low'):
+                         effort='low', tool_choice=None):
     """
     Send a multi-turn conversation to Claude.
     `messages` is a list of {'role': 'user'|'assistant', 'content': str|blocks} dicts.
@@ -155,6 +163,10 @@ def send_claude_messages(messages, model=CLAUDE_MODEL_DEFAULT, system=None,
         payload['temperature'] = temperature
     if tools:
         payload['tools'] = tools
+        if tool_choice:
+            # Only {"type": "none"} / {"type": "auto"} are used: forcing a tool skips
+            # thinking on Haiku 5.5 and is rejected by Sonnet 5.5 and Opus 5.5.
+            payload['tool_choice'] = tool_choice
     if current_gen:
         payload.pop('temperature', None)
         payload['thinking'] = {'type': 'adaptive'}
@@ -183,5 +195,11 @@ def send_claude_messages(messages, model=CLAUDE_MODEL_DEFAULT, system=None,
     if return_raw:
         return data
     if current_gen:
-        return response_text(data)
+        text = response_text(data)
+        # Always look at stop_reason before the content: a safety refusal is HTTP 200
+        # with no usable text, and an empty string must never become Tara's reply.
+        if data.get('stop_reason') == 'refusal' or not text.strip():
+            log.warning("Anthropic returned no answer: stop_reason=%s", data.get('stop_reason'))
+            raise AnthropicRefusal(str(data.get('stop_reason') or 'empty'))
+        return text
     return data['content'][0]['text']
