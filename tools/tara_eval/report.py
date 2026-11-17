@@ -7,9 +7,11 @@
 
 Headline = share of questions whose judge verdict is `helpful`.
 Root-cause buckets combine the judge's diagnosis with mechanical evidence recorded by the
-runner (provider, protocol trace, which KB sections the router attached):
+runner (provider, protocol trace):
   shortcut_hijack      a deterministic/canned route produced the unhelpful reply
-  retrieval_miss       KB has the answer, router attached none of the needed sections
+  retrieval_miss       legacy only: verdicts graded by judge v2 for code that still routed
+                       three KB sections (before TW-TASK-0033). Judge v3 never emits it,
+                       because the whole knowledge base is in Tara's prompt (TW-TASK-0036)
   missing_kb           the fact is not in the KB
   missing_tool_or_data needs data/actions Tara has no tool for, or the tool gave the wrong thing
   model_reasoning      model had the facts/context and still answered poorly
@@ -94,13 +96,6 @@ def root_cause(result, judge):
         cause = "other"
     if provider == "deterministic" and cause in ("model_reasoning", "other", "verbosity_or_tone", "over_refusal", "retrieval_miss"):
         return "shortcut_hijack"
-    needed = set(judge.get("kb_sections_needed") or [])
-    routed = set(result.get("routed_kb") or [])
-    if (provider != "deterministic" and judge.get("kb_has_answer") in ("yes", "partial") and needed
-            and not (needed & routed) and cause in ("model_reasoning", "wrong_fact", "other", "missing_kb", "over_refusal")):
-        return "retrieval_miss"
-    if cause == "retrieval_miss" and needed and (needed & routed):
-        return "model_reasoning"
     return cause
 
 

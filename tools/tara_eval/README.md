@@ -145,20 +145,34 @@ reuse S&P 500 fixtures although Explorer is Dow 30 only outside the reverse tria
 
 One Opus 5.5 call per question (adaptive thinking, low effort, JSON-schema output). The
 judge sees the full knowledge base (cached system prefix), the rubric, the exact on-screen
-context, the transcript, Tara's reply and actions, and diagnostic metadata (provider,
-protocol trace, which KB sections Tara's router attached). It does not see the model name.
+context, the transcript, Tara's reply and actions, and diagnostic metadata (whether a
+deterministic route or the model answered, and the protocol trace). It does not see the
+model name or vendor, and it no longer receives the old regex router's section list: since
+TW-TASK-0033 the whole knowledge base is in Tara's prompt, so that list only produced false
+"retrieval miss" diagnoses (TW-TASK-0036). The knowledge base is loaded exactly the way Tara
+loads it (`common.tara_kb_text`).
+
+Rubric rules: `must` is the complete list of required content, graded item by item
+(`must_results`: met / partial / missing / waived); `ideal` is an illustration and is never
+required; `must_not` is what makes a reply wrong or harmful. The written grading rules, and
+every rubric change made under them, are in `docs/tasks/evidence/TW-TASK-0036-rubric-audit.md`.
+New questions must follow those rules.
 
 Dimensions (pass / partial / fail / na): `correct`, `answered`, `helpful`, `ui_action`,
 `concise_tone`, `boundary`. Headline `verdict`: helpful / partial / unhelpful.
-Diagnosis: `false_facts`, `missing`, `kb_has_answer`, `kb_sections_needed`, `failure_type`.
+Diagnosis: `must_results`, `must_not_violated`, `false_facts`, `missing`, `rubric_flags`
+(rubric items the judge found in conflict with the knowledge base or context), `kb_has_answer`,
+`kb_sections_needed`, `failure_type`. A verdict is `helpful` only when the question was
+answered, every `must` item is met, no `must_not` item is violated, nothing misleading is
+stated, a required UI action happened, and the answer is not buried; length alone never
+moves the verdict.
 
 `report.py` turns that into root causes: `shortcut_hijack` (a deterministic route gave the
-bad answer), `retrieval_miss` (KB has it, router attached none of the needed sections),
-`missing_kb`, `missing_tool_or_data`, `model_reasoning`, `wrong_fact`, and others.
+bad answer), `missing_kb`, `missing_tool_or_data`, `model_reasoning`, `wrong_fact`, and others.
 
 Cost: about $0.03 per uncached judgment (measured; the knowledge base is ~55K tokens, read
 from cache at $0.20/M), plus about $0.45 once per hour to write the cache. Verdicts are
-cached by hash of (judge version, rubric, context, transcript, reply, actions), so
+cached by hash of (judge version, knowledge base, rubric, context, transcript, reply, actions), so
 deterministic replies and reruns are free. `--budget` stops the run before the cap; rerun
 to resume.
 

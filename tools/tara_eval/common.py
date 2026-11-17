@@ -19,6 +19,25 @@ BANK_PATH = REPO_ROOT / "tests" / "fixtures" / "tara_eval_questions.json"
 CONTEXTS_PATH = REPO_ROOT / "tests" / "fixtures" / "tara_eval_contexts.json"
 KB_PATH = REPO_ROOT / "appserver" / "appserver" / "chatbot_knowledge.txt"
 
+_KB_TEXT = None
+
+
+def tara_kb_text():
+    """The knowledge base exactly as Tara's prompt carries it (chatbot._load_knowledge):
+    single-`#` comment lines dropped, `## ` headings kept, trailing whitespace stripped."""
+
+    global _KB_TEXT
+    if _KB_TEXT is None:
+        lines = []
+        for line in KB_PATH.read_text(encoding="utf-8").splitlines():
+            stripped = line.rstrip()
+            if stripped.startswith("#") and not stripped.startswith("##"):
+                continue
+            lines.append(stripped)
+        _KB_TEXT = "\n".join(lines).strip()
+    return _KB_TEXT
+
+
 PLAN_NAMES = {1: "Explorer (free)", 2: "Navigator", 4: "Analyst", 6: "Strategist"}
 
 CATEGORIES = (
