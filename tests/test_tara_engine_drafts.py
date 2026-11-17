@@ -1,12 +1,16 @@
-"""TW-TASK-0035: engine drafts rewritten inside the tool loop, lists rendered in code,
+"""TW-TASK-0035: engine replies with a validated model lead, lists rendered in code,
 guard dead ends, refusal handling and the live-context additions.
 
-The model is always a fake here. The tests pin the SAFETY properties of the rewrite: the
-engine stays the only source of numbers, a plan boundary and the exact disclaimer are
-never dropped, an engine action is never changed, and any failure sends the engine reply.
+Phase B contract (after the independent review of 8ff5a607): an engine route's reply is
+sent WORD FOR WORD and its chart actions are never touched. The model may only add a
+short lead above it, and tara_draft_lead.validate_lead refuses any lead that says
+something the engine reply does not. Every probe from the review (f1.py to f8.py) is a
+regression test here; the recorded replies are in
+tests/fixtures/tara_review_probes_20261117.json.
 """
 
 import datetime
+import json
 import re
 import sys
 from pathlib import Path
@@ -20,221 +24,322 @@ import AI_tools_appserver  # noqa: E402
 import chatbot  # noqa: E402
 import config  # noqa: E402
 import tara_answer_planner as planner  # noqa: E402
+import tara_draft_lead as lead_rules  # noqa: E402
 import tara_gateway as tg  # noqa: E402
 import tara_research as research  # noqa: E402
 
+PROBES = json.loads((ROOT / "tests/fixtures/tara_review_probes_20261117.json").read_text())
+LIST_DRAFT = PROBES["drafts"]["LIST"]
+STUDY_DRAFT = PROBES["drafts"]["STUDY"]
+SPEC = {"symbol": "CL", "market": "7", "entry_date": "2026-06-01", "days_out": 92,
+        "years": 20, "pe_cycle": "cons"}
 DRAFT = (
     "<b>FICO</b> long, Nov 17 to Dec 5 (19 calendar days): profitable in 12 of 12 completed "
     "years, average +4.27%, Sharpe 1.46. ETFs is not included in your plan; see "
     "tradewave.ai/pricing. " + tg.DISCLAIMER_TEXT
 )
-SPEC = {"symbol": "FICO", "market": "2", "entry_date": "2026-11-17", "days_out": 19}
-
-
-def _text(text):
-    return {"stop_reason": "end_turn", "content": [{"type": "text", "text": text}]}
-
-
-def _tool(name, tool_input, tool_id="t1"):
-    return {"stop_reason": "tool_use", "content": [
-        {"type": "tool_use", "id": tool_id, "name": name, "input": tool_input}]}
-
-
-def _rewrite(monkeypatch, responses, message="is FICO any good in late November?",
-             draft=DRAFT, actions=None, tool_result=None, sources=()):
-    calls = []
-
-    def fake_send(*args, **kwargs):
-        calls.append((args, kwargs))
-        response = responses.pop(0)
-        if isinstance(response, Exception):
-            raise response
-        return response
-
-    monkeypatch.setattr(tg, "send_claude_messages", fake_send)
-    monkeypatch.setattr(tg, "run_tool", lambda *a, **k: tool_result or {"error": "none"})
-    trace = []
-    text, out_actions = tg.run_chat_with_tools(
-        [{"role": "user", "content": message}], "system", "user-1", "model",
-        current_view={}, protocol_trace=trace, engine_draft=draft,
-        draft_actions=actions or [], number_sources=list(sources))
-    return text, out_actions, calls, trace
-
 
 pytestmark = pytest.mark.tara_draft_rewrite
 
 
-# ---------------------------------------------------------------------------
-# Step 1: the verified draft inside the tool loop
-# ---------------------------------------------------------------------------
+def _with_lead(monkeypatch, lead, draft=STUDY_DRAFT, actions=None,
+               message="what happens to oil in the summer", history=None):
+    """Run the lead path with a model that answers ``lead`` (or raises it)."""
 
-def test_rewrite_is_sent_with_the_same_tools_and_the_draft_in_the_user_turn(monkeypatch):
-    text, actions, calls, trace = _rewrite(monkeypatch, [_text(
-        "Yes, historically: FICO was profitable in 12 of 12 completed years from Nov 17 "
-        "to Dec 5, average +4.27%.")])
-    args, kwargs = calls[0]
-    assert kwargs["tools"] is tg.TOOLS and kwargs["system"] == "system"      # shared cache prefix
-    assert "tool_choice" not in kwargs
-    sent = args[0][-1]["content"]
-    assert sent.startswith("is FICO any good in late November?")
-    assert "[ENGINE DRAFT" in sent and "12 of 12 completed" in sent
-    assert text.startswith("Yes, historically")
-    assert any(item["event"] == "draft_rewrite" for item in trace)
+    calls = []
 
+    def request(provider, convo, system, model, user_id=None, cache_ttl="5m"):
+        calls.append({"provider": provider, "convo": convo, "system": system})
+        if isinstance(lead, Exception):
+            raise lead
+        return lead
 
-def test_plan_boundary_and_exact_disclaimer_are_restored_word_for_word(monkeypatch):
-    text, _actions, _calls, trace = _rewrite(monkeypatch, [_text(
-        "FICO was profitable in 12 of 12 completed years, average +4.27%.")])
-    assert "ETFs is not included in your plan; see tradewave.ai/pricing." in text
-    assert tg.DISCLAIMER_TEXT in text
-    assert [item["restored"] for item in trace if item["event"] == "draft_rewrite"] == [2]
-
-
-@pytest.mark.parametrize("message,reply,reason", [
-    ("how does FICO do in late November?",
-     "FICO won 11 of 12 years, average +4.27%.", "number_guard"),          # a changed figure
-    ("how does FICO do in late November?",
-     "FICO averaged +4.27%, roughly 51% a year annualized.", "number_guard"),   # arithmetic
-    ("how does FICO do in late November?",
-     "The draft says FICO won 12 of 12 years.", "mentions_draft"),
-    ("is FICO a good trade in late November?",
-     "You should buy FICO now; it won 12 of 12 years.", "no_answer"),   # the loop failed closed
-    ("how does FICO do in late November?", "", "provider_error"),
-])
-def test_a_rewrite_that_fails_a_guard_sends_the_engine_draft(monkeypatch, message, reply, reason):
-    # The same reply on every round: an in-loop correction must not rescue it.
-    text, actions, _calls, trace = _rewrite(
-        monkeypatch, [_text(reply) for _ in range(tg._MAX_TOOL_ROUNDS + 1)], message=message)
-    assert text == DRAFT and actions == []
-    assert [item["reason"] for item in trace
-            if item["event"] == "draft_rewrite_rejected"] == [reason]
-
-
-def test_a_fail_closed_loop_result_never_replaces_the_engine_draft(monkeypatch):
-    text, actions, _calls, trace = _rewrite(
-        monkeypatch, [_text("You should buy FICO.") for _ in range(tg._MAX_TOOL_ROUNDS + 1)],
-        message="should I buy FICO?")
-    assert text == DRAFT and actions == []
-    assert trace[-1]["event"] == "draft_rewrite_rejected"
-
-
-def test_provider_failure_or_refusal_sends_the_engine_draft(monkeypatch):
-    for failure in (RuntimeError("boom"), {"stop_reason": "refusal", "content": []}):
-        text, actions, _calls, trace = _rewrite(monkeypatch, [failure], actions=[
-            {"type": "set_view", "spec": dict(SPEC)}])
-        assert text == DRAFT and actions == [{"type": "set_view", "spec": SPEC}]
-        assert trace[-1] == {"event": "draft_rewrite_rejected", "reason": "provider_error"}
-
-
-def test_missing_credential_is_never_masked_by_the_draft(monkeypatch):
-    with pytest.raises(AI_tools_appserver.AnthropicConfigurationError):
-        _rewrite(monkeypatch, [AI_tools_appserver.AnthropicConfigurationError("no key")])
-
-
-def test_engine_action_is_kept_and_its_load_is_not_re_announced(monkeypatch):
-    seed = [{"type": "set_view", "spec": dict(SPEC)}]
-    text, actions, _calls, _trace = _rewrite(monkeypatch, [_text(
-        "FICO was profitable in 12 of 12 completed years, average +4.27%, Sharpe 1.46.")],
-        actions=seed)
-    assert actions == seed
-    assert "chart request" not in text and text.startswith("FICO was profitable")
-
-
-def test_a_conflicting_model_action_is_refused_and_the_engine_action_stands(monkeypatch):
-    seed = [{"type": "set_view", "spec": dict(SPEC)}]
-    other = {"symbol": "TSLA", "market": "2", "entry_date": "2026-07-24", "days_out": 21}
-    card = {"card": {"symbol": "TSLA", "market": {"id": "2"}, "direction": "long",
-                     "headline": "TSLA long - Won 8/10 years, avg +4.2%",
-                     "setup": {"entry_date": "2026-07-24", "hold_days": 21}}}
-    text, actions, calls, _trace = _rewrite(monkeypatch, [
-        _tool("analyze_symbol", {"symbol": "TSLA"}),
-        _tool("update_view", other, "t2"),
-        _text("FICO is the setup on the chart; TSLA won 8 of 10 years, average +4.2%."),
-    ], actions=seed, tool_result=card)
-    assert actions == seed                                  # never changed, never dropped
-    refused = calls[2][0][0][-1]["content"][0]["content"]
-    assert "already queued" in refused and '"ok": false' in refused
-    assert "TSLA won 8 of 10 years" in text
-
-
-def test_a_dropped_engine_action_sends_the_draft():
+    monkeypatch.setattr(tg, "_request_lead", request)
     trace = []
-    result = tg._accept_draft_rewrite(
-        "FICO won 12 of 12 years.", [], DRAFT, [{"type": "set_view", "spec": dict(SPEC)}],
-        [], [], None, "how does FICO do", lambda event, **fields: trace.append((event, fields)))
-    assert result is None and trace == [("draft_rewrite_rejected", {"reason": "engine_action_changed"})]
+    messages = list(history or []) + [{"role": "user", "content": message}]
+    reply = tg.engine_reply_with_lead(
+        "anthropic", messages, "system", "model", draft, actions or [], protocol_trace=trace)
+    return reply, calls, trace
 
 
-def test_numbers_from_a_tool_result_and_the_live_context_are_allowed(monkeypatch):
-    card = {"card": {"symbol": "IRM", "market": {"id": "2"}, "direction": "short",
-                     "headline": "IRM short - Won 9/10 years, avg +3.2%",
-                     "stats": {"historical_win_rate": 0.9, "sharpe_ratio": 0.78},
-                     "setup": {"entry_date": "2026-12-11", "hold_days": 27}}}
-    text, _actions, _calls, trace = _rewrite(monkeypatch, [
-        _tool("analyze_symbol", {"symbol": "IRM"}),
-        _text("I can't verify live volume. IRM's nearest seasonal window fell in 9 of 10 "
-              "years (90%), average +3.2%, Sharpe 0.78; Trend Long is 87."),
-    ], draft="I can't verify intraday volume from TradeWave's seasonal data.",
-        message="today's volume on IRM?", tool_result=card, sources=["Trend Long: 87"])
-    assert "9 of 10 years (90%)" in text
-    assert trace[-1]["event"] == "draft_rewrite"
+# ---------------------------------------------------------------------------
+# The lead contract
+# ---------------------------------------------------------------------------
+
+def test_an_allowed_lead_goes_above_the_engine_reply_which_stays_word_for_word(monkeypatch):
+    lead = "CL fell in 11 of 21 completed years (52%) from Jun 1 to Aug 31."
+    actions = [{"type": "set_view", "spec": dict(SPEC)}]
+    reply, calls, trace = _with_lead(monkeypatch, lead, actions=actions)
+    assert reply == lead + "<br><br>" + STUDY_DRAFT
+    assert trace == [{"event": "draft_lead", "outcome": "added"}]
+    sent = calls[0]["convo"][-1]["content"]
+    assert sent.startswith("what happens to oil in the summer")
+    assert "[ENGINE REPLY" in sent and "CL fell in 11 of 21 completed consecutive years" in sent
+    assert calls[0]["system"] == "system"                    # the cached prefix is untouched
+    assert actions == [{"type": "set_view", "spec": SPEC}]   # engine actions never change
 
 
-def test_compliance_only_and_row_load_replies_are_never_rewritten():
-    assert not tg.draft_is_rewritable(
-        "ETFs is not included in your plan. See tradewave.ai/pricing.")
-    assert not tg.draft_is_rewritable(
-        "<b>AI Scores are not available in this view.</b> They appear for eligible "
-        "accounts on supported US stocks and ETFs.")
-    assert not tg.draft_is_rewritable("Loading row 3.", [{"type": "load_opportunity"}])
+def test_the_lead_request_shares_the_chat_prefix_and_cannot_call_tools(monkeypatch):
+    seen = []
+
+    def send(convo, **kwargs):
+        seen.append(kwargs)
+        return {"stop_reason": "end_turn", "content": [{"type": "text", "text": "NONE"}]}
+
+    monkeypatch.setattr(tg, "send_claude_messages", send)
+    reply = tg.engine_reply_with_lead(
+        "anthropic", [{"role": "user", "content": "oil in summer?"}], "system", "model",
+        STUDY_DRAFT, [])
+    assert reply == STUDY_DRAFT
+    assert seen[0]["tools"] is tg.TOOLS and seen[0]["tool_choice"] == {"type": "none"}
+    assert seen[0]["system"] == "system" and seen[0]["cache_system"] is True
+
+
+@pytest.mark.parametrize("case", PROBES["lead_cases"], ids=lambda case: case["name"])
+def test_review_probe_f1_leads(case, monkeypatch):
+    """f1.py: 22 hand-written rewrites; only the two faithful ones may be added."""
+
+    draft = PROBES["drafts"][case["draft"]]
+    allowed, reason = lead_rules.validate_lead(case["lead"], draft)
+    assert allowed is case["allowed"], reason
+    reply, _calls, _trace = _with_lead(monkeypatch, case["lead"], draft=draft)
+    if case["allowed"]:
+        assert reply == case["lead"] + "<br><br>" + draft
+    else:
+        assert reply == draft
+
+
+@pytest.mark.parametrize("lead,reason", [
+    # a figure moved to another symbol, a flipped sign, a flipped direction, a changed n
+    ("MMM fell in 9 of 10 years.", "unsupported:MMM"),
+    ("CRM's average move was +2.9%.", "unsupported:CRM"),
+    ("IBM rose in 7 of 10 years.", "unsupported:IBM"),
+    ("MMM fell in 8 of 20 years.", "unsupported:MMM"),
+    # a date and a window length that belong to another row
+    ("MMM starts Fri Nov 20.", "unsupported:MMM"),
+    ("CRM has a 24-day window.", "unsupported:CRM"),
+    # a count, a totality claim, a superlative and a sector the engine never stated
+    ("Two Dow 30 names start bearish windows this week.", "count"),
+    ("This is the full Dow 30 screen.", "unsupported:-"),
+    ("IBM is the strongest of the three.", "unsupported:IBM"),
+    ("The tech names among them are CRM and IBM.", "unsupported:CRM"),
+    # a symbol, a year and a percentage that are not in the engine reply at all
+    ("AAPL fell in 8 of 10 years.", "symbol_not_in_draft"),
+    ("MMM fell in 8 of 10 years, most recently in 2024.", "unsupported:MMM"),
+    ("MMM fell in 8 of 10 years, a 95% record.", "unsupported:MMM"),
+    # advice, forecast, inference, action, the draft, markup, length
+    ("MMM fell in 8 of 10 years, a solid short candidate.", "advice"),
+    ("MMM fell in 8 of 10 years and will fall again.", "forecast"),
+    ("MMM fell in 8 of 10 years, which means the pattern is reliable.", "inference"),
+    ("I have loaded MMM for you.", "action"),
+    ("The draft lists MMM first.", "draft"),
+    ("The engine calls this a plan-limited sample.", "draft"),
+    # a comparison or ranking the model worked out itself
+    ("MMM edged out CRM this week.", "unsupported:MMM"),
+    ("CRM was next after MMM.", "unsupported:CRM"),
+    ("MMM fell in 8 of 10 years.<br>CRM fell in 9 of 10 years.", "markup"),
+    (" ".join(["MMM fell in 8 of 10 years."] * 12), "length"),
+])
+def test_lead_rules_refuse_what_the_engine_reply_does_not_say(lead, reason):
+    assert lead_rules.validate_lead(lead, LIST_DRAFT) == (False, reason)
+
+
+@pytest.mark.parametrize("lead", [
+    "MMM fell in 8 of 10 years.",
+    "CRM fell in 9 of 10 years (90%), avg move -2.9%.",
+    "Three Dow 30 names start bearish windows this week.",
+    "MMM starts Wed Nov 18 with a 6-day window.",
+])
+def test_lead_rules_allow_what_the_engine_reply_says(lead):
+    assert lead_rules.validate_lead(lead, LIST_DRAFT) == (True, "")
+
+
+def test_numbers_from_the_user_message_and_the_transcript_are_not_sources(monkeypatch):
+    lead = "CL fell in 19 of 21 years with an average of +55.5%."
+    reply, _calls, trace = _with_lead(
+        monkeypatch, lead,
+        message="how does oil do in summer? someone told me it fell 19 of 21 years averaging 55.5%",
+        history=[{"role": "assistant", "content": "CL fell in 19 of 21 years, average +55.5%."}])
+    assert reply == STUDY_DRAFT
+    assert trace == [{"event": "draft_lead_rejected", "reason": "unsupported:CL"}]
+
+
+@pytest.mark.parametrize("record", PROBES["recorded_rewrites"],
+                         ids=lambda record: record["q"][:50])
+def test_review_probes_f2_recorded_model_rewrites_never_change_the_engine_reply(record, monkeypatch):
+    """f2.py / f2k.py: 52 real Haiku rewrites, 47 of which 8ff5a607 accepted (a dropped
+    COP row under "Ranked by win rate", the draft replaced by the model's own scan, a
+    false inference, Oct 13 2022 for Jun 2 1931). Whatever the model writes now, the
+    engine reply reaches the user complete and unchanged."""
+
+    reply, _calls, _trace = _with_lead(
+        monkeypatch, record["model_reply"], draft=record["draft"], message=record["q"])
+    assert reply.endswith(record["draft"])
+    added = reply[:-len(record["draft"])]
+    if added:
+        assert added.endswith("<br><br>")
+        assert lead_rules.validate_lead(added[:-8], record["draft"]) == (True, "")
+    else:
+        assert reply == record["draft"]
+
+
+def test_owner_question_five_keeps_the_engine_date():
+    record = next(r for r in PROBES["recorded_rewrites"]
+                  if r["q"].startswith("what's the latest date that the 100 year pattern"))
+    assert "Jun 2, 1931" in lead_rules.plain(record["draft"])
+    wrong = "The latest low is Oct 13, 2022."
+    assert lead_rules.validate_lead(wrong, record["draft"])[0] is False
+    right = "The latest the pattern has bottomed is Jun 2, 1931."
+    assert lead_rules.validate_lead(right, record["draft"]) == (True, "")
+
+
+@pytest.mark.parametrize("answer,outcome", [
+    ("NONE", {"event": "draft_lead", "outcome": "none"}),
+    ("", {"event": "draft_lead", "outcome": "none"}),
+    (RuntimeError("boom"), {"event": "draft_lead_rejected", "reason": "provider_error"}),
+])
+def test_no_lead_and_provider_failure_send_the_engine_reply(monkeypatch, answer, outcome):
+    reply, _calls, trace = _with_lead(monkeypatch, answer)
+    assert reply == STUDY_DRAFT and trace == [outcome]
+
+
+def test_a_refusal_sends_the_engine_reply(monkeypatch):
+    monkeypatch.setattr(tg, "send_claude_messages",
+                        lambda *a, **k: {"stop_reason": "refusal", "content": []})
+    assert tg.engine_reply_with_lead(
+        "anthropic", [{"role": "user", "content": "oil in summer?"}], "system", "model",
+        STUDY_DRAFT, []) == STUDY_DRAFT
+
+
+def test_missing_credential_is_never_masked(monkeypatch):
+    with pytest.raises(AI_tools_appserver.AnthropicConfigurationError):
+        _with_lead(monkeypatch, AI_tools_appserver.AnthropicConfigurationError("no key"))
+
+
+def test_plan_notices_and_the_disclaimer_cannot_be_dropped_or_duplicated(monkeypatch):
+    """S4: the locked paragraph used to be appended a second time. The engine reply is now
+    the reply, so every plan and limit notice is there exactly once."""
+
+    reply, _calls, _trace = _with_lead(
+        monkeypatch, "MMM fell in 8 of 10 years.", draft=LIST_DRAFT,
+        message="which dow stocks are bearish this week")
+    text = lead_rules.plain(reply)
+    assert text.count("Your plan shows only the top 5 patterns per day") == 1
+    reply, _calls, _trace = _with_lead(
+        monkeypatch, "FICO was profitable in 12 of 12 completed years.", draft=DRAFT,
+        message="how does FICO do in late November?")
+    assert reply.count("ETFs is not included in your plan") == 1
+    assert reply.count(tg.DISCLAIMER_TEXT) == 1 and reply.endswith(tg.DISCLAIMER_TEXT)
+
+
+def test_compliance_only_and_row_load_replies_never_get_a_lead(monkeypatch):
+    monkeypatch.setattr(tg, "_request_lead", lambda *a, **k: pytest.fail("model was called"))
+    for draft, actions in (
+        ("ETFs is not included in your plan. See tradewave.ai/pricing.", []),
+        ("<b>AI Scores are not available in this view.</b> They appear for eligible "
+         "accounts on supported US stocks and ETFs.", []),
+        ("Loading row 3.", [{"type": "load_opportunity"}]),
+    ):
+        assert not tg.draft_is_rewritable(draft, actions)
+        assert tg.engine_reply_with_lead(
+            "anthropic", [{"role": "user", "content": "q"}], "s", "m", draft, actions) == draft
     assert tg.draft_is_rewritable(DRAFT, [{"type": "set_view", "spec": SPEC}])
 
 
-def test_number_guard_normalizes_spelling_but_not_values():
-    sources = ["won 9/10, avg 4.30% over 1,234 days; rate 0.917"]
-    assert tg.unsupported_numbers("9 of 10, +4.3%, 1234 days, 92% (91.7%)", sources) == []
-    assert tg.unsupported_numbers("8 of 10 and 4.31%", sources) == ["4.31", "8"]
-    assert tg.unsupported_numbers("top 3 rows, 2 lines", []) == []          # small ordinals
+def test_switch_is_off_by_default_and_off_means_no_model_call(monkeypatch):
+    source = (ROOT / "appserver/appserver/tara_gateway.py").read_text(encoding="utf-8")
+    assert "\nDRAFT_REWRITE_ENABLED = False\n" in source
+    monkeypatch.setattr(tg, "DRAFT_REWRITE_ENABLED", False)
+    monkeypatch.setattr(tg, "_request_lead", lambda *a, **k: pytest.fail("model was called"))
+    assert tg.engine_reply_with_lead(
+        "anthropic", [{"role": "user", "content": "q"}], "s", "m", STUDY_DRAFT, []) == STUDY_DRAFT
+
+
+def test_the_first_rewrite_design_is_gone():
+    source = (ROOT / "appserver/appserver/tara_gateway.py").read_text(encoding="utf-8")
+    for name in ("unsupported_numbers", "_accept_draft_rewrite", "_restore_locked_sentences",
+                 "engine_draft", "number_sources"):
+        assert name not in source
 
 
 # ---------------------------------------------------------------------------
-# Step 3: lists rendered in code
+# Review probes f5 (advice floor), f7 (AI gate by plan), f8 (routes)
 # ---------------------------------------------------------------------------
 
-LIST_DRAFT = (
-    '<div class="tara-analysis"><div><b>S&amp;P 500 bullish windows</b> Top 3 by Sharpe.</div>'
-    '<div>1. <b>HLT</b> - starts Nov 18: profitable in 10 of 10 years, avg +13.1%<br>'
-    '2. <b>CIEN</b> - starts Nov 17: profitable in 10 of 10 years, avg +16.7%<br>'
-    '3. <b>YUM</b> - starts Nov 18: profitable in 9 of 10 years, avg +3.7%</div>'
-    '<div>Scope: 418 patterns listed.</div></div>')
+@pytest.mark.parametrize("question", PROBES["advice_questions"])
+def test_review_probe_f5_every_advice_question_ends_with_the_exact_disclaimer(question):
+    assert planner.is_advice_shaped_question(question)
+    reply = tg.disclaimer_last(planner.ensure_required_disclaimer(
+        question, "TradeWave can't identify that. It measures a fixed calendar window."))
+    assert lead_rules.plain(reply).endswith(tg.DISCLAIMER_TEXT)
 
 
-def test_draft_list_reaches_the_model_as_a_token_and_comes_back_verbatim(monkeypatch):
-    text, _actions, calls, _trace = _rewrite(monkeypatch, [_text(
-        "Two of these start on Nov 18.<br>[[TW_LIST_0]]<br>418 patterns were listed.")],
-        draft=LIST_DRAFT, message="best S&P 500 setups now")
-    sent = calls[0][0][0][-1]["content"]
-    assert "[[TW_LIST_0]]" in sent and "The list has 3 rows" in sent
-    rows = tg._draft_row_block(LIST_DRAFT)[1]
-    assert len(rows) == 3 and "<br>".join(rows) in text
+def test_review_probe_f7_ai_reading_is_asked_for_only_on_an_entitled_plan(monkeypatch):
+    view = {"symbol": "AAPL", "market": "2", "start_date": "2026-11-17", "days_out": 45}
+    screen = {"ai_scores_available": True, "active_bottom_slide": "ai_scores"}
+    assert planner.wants_ai_live_context("what is the AI win probability?", view, screen)
+    for level, entitled in (("1", False), ("2", False), ("4", True), ("6", True)):
+        monkeypatch.setattr(
+            tg, "_verified_claims", lambda level=level: {"user": "u", "user_level": level})
+        assert tg.ai_scores_entitled() is entitled
+    source = (ROOT / "appserver/appserver/chatbot.py").read_text(encoding="utf-8")
+    assert "ai_scores_entitled()\n            and normalize_screen_context" in source
+    assert 'wave_viewer.pop("ai_analysis", None)' in source      # never taken from the browser
 
 
-def test_a_row_selection_keeps_engine_rows_and_order(monkeypatch):
-    text, _actions, _calls, _trace = _rewrite(monkeypatch, [_text(
-        "The ones starting Nov 18:<br>[[TW_LIST_0 rows=3,1]]")],
-        draft=LIST_DRAFT, message="which of the best S&P 500 setups start on the 18th")
-    rows = tg._draft_row_block(LIST_DRAFT)[1]
-    assert rows[0] + "<br>" + rows[2] in text and rows[1] not in text
+@pytest.mark.parametrize("text,expected", [
+    ("which russell 1000 stocks have bearish 10 to 20 day holds starting next week?", (10, 20)),
+    ("best nasdaq setups with 5-10 day windows", (5, 10)),
+    ("top dow stocks, 20-day holds", (20, 20)),
+    ("hold for at least 10 days", (10, 367)),
+])
+def test_review_probe_f8_hold_range_is_a_range(text, expected):
+    assert research._hold_filter(text) == expected
 
 
-def test_a_retyped_list_is_replaced_by_the_engine_rows_in_engine_order(monkeypatch):
-    text, _actions, _calls, trace = _rewrite(monkeypatch, [_text(
-        "Top picks:<br>1. <b>CIEN</b> - 10 of 10 years, avg +16.7%<br>"
-        "2. <b>HLT</b> - 10 of 10 years, avg +13.1%<br>Research candidates only.")],
-        draft=LIST_DRAFT, message="best S&P 500 setups now")
-    rows = tg._draft_row_block(LIST_DRAFT)[1]
-    assert text.startswith("Top picks:<br>" + rows[0] + "<br>" + rows[1] + "<br>Research")
-    assert trace[-1]["event"] == "draft_rewrite"
+# ---------------------------------------------------------------------------
+# Polish after phase A went live
+# ---------------------------------------------------------------------------
+
+def test_no_change_note_goes_before_the_disclaimer_and_only_after_a_claim():
+    answer = ("TradeWave can't identify a best exit price. I've loaded today's pick on the "
+              "chart. " + tg.DISCLAIMER_TEXT)
+    repaired, dropped = tg.repair_view_contract(answer, [], {})
+    assert dropped == 1 and repaired.endswith(tg.DISCLAIMER_TEXT)
+    assert repaired.index("I haven't changed the chart.") < repaired.index(tg.DISCLAIMER_TEXT)
+    # a removed description of the screen claimed no action: no note at all
+    described = ("TradeWave can't identify a best exit price. The chart shows each year's "
+                 "MFE and MAE. " + tg.DISCLAIMER_TEXT)
+    repaired, dropped = tg.repair_view_contract(described, [], {})
+    assert dropped == 1 and "haven't changed" not in repaired
+    assert repaired.endswith(tg.DISCLAIMER_TEXT)
+
+
+def test_a_sentence_that_pointed_at_a_removed_sentence_is_removed_with_it():
+    answer = ("TradeWave can't identify a best exit price. It doesn't set targets or exits. "
+              "The chart shows each year's MFE and MAE. That's path context, not an exit "
+              "instruction. Want me to load today's AI pick?")
+    repaired, dropped = tg.repair_view_contract(answer, [], {})
+    assert dropped == 2 and "That's path context" not in repaired
+    assert repaired.startswith("TradeWave can't identify a best exit price. It doesn't set")
+    assert "Want me to load today's AI pick?" in repaired
+
+
+def test_disclaimer_is_always_the_last_sentence():
+    moved = tg.disclaimer_last(
+        "Evidence line. " + tg.DISCLAIMER_TEXT + "<br><br>I haven't changed the chart.")
+    assert moved == "Evidence line.<br><br>I haven't changed the chart.<br><br>" + tg.DISCLAIMER_TEXT
+    ended = "Evidence line.<br><br>" + tg.DISCLAIMER_TEXT
+    assert tg.disclaimer_last(ended) == ended
+    assert tg.disclaimer_last("No disclaimer here.") == "No disclaimer here."
+
+
+# ---------------------------------------------------------------------------
+# Lists rendered in code (model path)
+# ---------------------------------------------------------------------------
+
+def _text(text):
+    return {"stop_reason": "end_turn", "content": [{"type": "text", "text": text}]}
 
 
 def test_model_typed_scan_rows_are_replaced_by_the_rendered_rows():
@@ -242,19 +347,11 @@ def test_model_typed_scan_rows_are_replaced_by_the_rendered_rows():
               "2. <b>CIEN</b> long - Nov 17 to Jan 13 (58 days); profitable in 10 of 10 years",
               "3. <b>YUM</b> long - Nov 18 to Dec 13 (26 days); profitable in 9 of 10 years"]]
     text = tg._enforce_rendered_rows(
-        "Top 2:<br>\u2022 YUM long, hold 26d: won 9/10<br>\u2022 HLT long, hold 90d: won 10/10<br>"
+        "Top 2:<br>• YUM long, hold 26d: won 9/10<br>• HLT long, hold 90d: won 10/10<br>"
         "Want one loaded?", lists)
     assert text == "Top 2:<br>" + lists[0][0] + "<br>" + lists[0][2] + "<br>Want one loaded?"
     prose = "HLT is the strongest of the three by Sharpe."
     assert tg._enforce_rendered_rows(prose, lists) == prose
-
-
-def test_a_reply_that_drops_the_list_gets_the_engine_rows_back(monkeypatch):
-    text, _actions, _calls, trace = _rewrite(monkeypatch, [_text(
-        "Here are the strongest S&amp;P 500 windows.<br>Historical research candidates only.")],
-        draft=LIST_DRAFT, message="best S&P 500 setups now")
-    assert "<br>".join(tg._draft_row_block(LIST_DRAFT)[1]) in text
-    assert any(item["event"] == "draft_list_restored" for item in trace)
 
 
 def test_scan_result_carries_a_rendered_list_and_its_token_expands():
@@ -332,15 +429,6 @@ def test_a_progressive_load_claim_without_an_action_is_removed():
     assert removed == 1 and "putting" not in text and "Silver won 6 of 10" in text
     queued = [{"type": "set_view", "spec": {"symbol": "SI", "market": "7"}}]
     assert tg._claims_unqueued_view_change("I'm putting the SI setup on the chart.", queued) is False
-
-
-def test_an_announcement_only_rewrite_sends_the_engine_draft():
-    trace = []
-    assert tg._accept_draft_rewrite(
-        "<b>SPX</b> long, Nov 23 to Nov 30 (8 days), based on the last 10 years: won 7 of the "
-        "last 10 years, avg +0.8%, Sharpe 0.40.", [], DRAFT, [], [], [], None, "add it",
-        lambda event, **fields: trace.append(fields.get("reason"))) is None
-    assert trace == ["collapsed"]
 
 
 def test_one_setup_per_turn_is_enforced_at_the_tool():
@@ -563,16 +651,6 @@ def test_headline_only_sharpe_is_not_padded_to_two_decimals():
     assert tg._scan_row_line(1, card).endswith("Sharpe 1.4")
 
 
-@pytest.mark.parametrize("text,expected", [
-    ("which russell 1000 stocks have bearish 10 to 20 day holds starting next week?", (10, 20)),
-    ("best nasdaq setups with 5-10 day windows", (5, 10)),
-    ("top dow stocks, 20-day holds", (20, 20)),
-    ("hold for at least 10 days", (10, 367)),
-])
-def test_hold_range_is_a_range(text, expected):
-    assert research._hold_filter(text) == expected
-
-
 @pytest.mark.parametrize("question", [
     "what exit price gives the best result",
     "which stop level works best here",
@@ -620,8 +698,3 @@ def test_empty_symbol_read_is_explained_as_what_happened(monkeypatch):
 def test_coin_names_resolve_to_the_listed_pair():
     named = {symbol: market for _pattern, symbol, market in research._NAMED_SECURITIES}
     assert named["BTC-USD"] == "16" and named["ETH-USD"] == "16"
-
-
-def test_rewrite_is_off_by_default_until_re_reviewed():
-    source = (ROOT / "appserver/appserver/tara_gateway.py").read_text(encoding="utf-8")
-    assert "\nDRAFT_REWRITE_ENABLED = False\n" in source

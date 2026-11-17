@@ -873,6 +873,7 @@ def test_chat_route_changes_tooltips_without_calling_a_provider(
     assert "upper-left toolbar" in payload["reply"]
 
 
+@pytest.mark.tara_rewrite_off
 def test_chat_route_explains_trend_arrow_without_calling_a_provider(monkeypatch):
     from flask import Flask, g
     import chatbot as chatbot_module
@@ -1013,6 +1014,7 @@ def test_chat_route_preserves_named_symbol_action_when_viewer_is_empty(monkeypat
     assert seen["named_symbol_lookback"] is None
 
 
+@pytest.mark.tara_rewrite_off
 @pytest.mark.parametrize("analysis_message", ["Analyze", "Analyze this", "Analyze this pattern"])
 def test_chat_route_replaces_client_ai_values_with_server_analysis_context(
     monkeypatch, analysis_message
@@ -1075,6 +1077,7 @@ def test_chat_route_replaces_client_ai_values_with_server_analysis_context(
     assert captured["wave"]["ai_analysis"]["horizons"][0]["ai_score"] == 72
 
 
+@pytest.mark.tara_rewrite_off
 @pytest.mark.parametrize(
     ("message", "expected"),
     [
@@ -1154,6 +1157,7 @@ def test_signature_product_questions_bypass_models_and_live_ai_scorer(
     assert seen["provider"] == "deterministic"
 
 
+@pytest.mark.tara_rewrite_off
 def test_named_security_hundred_year_research_bypasses_model_and_signs_exact_action(monkeypatch):
     from flask import Flask, g
     import chatbot as chatbot_module

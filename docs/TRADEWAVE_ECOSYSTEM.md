@@ -2496,35 +2496,48 @@ runs on the loaded window or the next 30 calendar days and says so (`tara_resear
 (lookback, "next N days", US listing for a bare ticker, the viewer's lookback on a re-read of the
 loaded symbol); it computes no statistic.
 
-**Engine drafts through the tool loop, lists rendered in code (2026-11-17, TW-TASK-0035).** A
-deterministic route still runs first and still owns every number, plan gate and chart action, but its
-reply is now a VERIFIED DRAFT: `chatbot.chat` calls `finish_draft`, which sends the draft to the
-primary model inside the normal tool loop (`tara_gateway.run_chat_with_tools(..., engine_draft=,
-draft_actions=, number_sources=)`; same tools and the same cached system prefix, the draft rides in
-the last user turn). The model answers the question that was asked, covers a second intent and may
-call a read tool for a part the route did not cover. `_accept_draft_rewrite` then decides: a number
-that is not in the draft, a tool result of the turn, the live context, the knowledge base or the
-transcript (`unsupported_numbers`), a changed or dropped engine action, direct advice, a mention of
-the draft, a fail-closed loop result or an over-long reply sends the ENGINE DRAFT unchanged; so does
-any provider failure or refusal (`_with_draft_fallback`; a missing credential is still raised). Plan,
-AI-entitlement, date-lock and disclaimer sentences and engine links are restored word for word
-(`_restore_locked_sentences`). Never rewritten (`draft_is_rewritable`, call sites that keep `finish`):
-the suitability boundary, the investor funnel, replies that are only a plan / AI-entitlement / date-lock
-notice, table row loads and one-action view commands. The engine replies inside both provider loops
-(investor screens, weak-symbol study, live-data boundary, exclusion-report notice) go through the same
-path (`_intent_prelude`). `tara_gateway.DRAFT_REWRITE_ENABLED` is **False by default** (independent
-review of 8ff5a607: the rewrite stays off until its redesign is re-reviewed), which sends the engine replies
-exactly; `tests/conftest.py` runs the older route tests that way and `@pytest.mark.tara_draft_rewrite`
-turns the rewrite on.
+**Engine replies with a validated model lead, lists rendered in code (2026-11-17, TW-TASK-0035).** A
+deterministic route runs first, owns every number, plan gate and chart action, and its reply is sent
+to the user WORD FOR WORD. When `tara_gateway.DRAFT_REWRITE_ENABLED` is True (it is **False by
+default** and stays off until the phase B design is re-reviewed), `chatbot.chat` calls `finish_draft`
+and the model may add ONE thing: a short lead above the engine reply that answers the question
+directly (`tara_gateway.engine_reply_with_lead`; one call, the same tools and cached prefix,
+`tool_choice` none, the engine reply shown in the last user turn). `tara_draft_lead.validate_lead`
+checks the lead clause by clause against the engine reply: every number with its sign and percent
+mark, every date, direction word, statistic name, superlative, sector word and "full / only" claim
+must stand together in one clause of the engine reply on a line that names the same symbol; a count
+must equal the number of engine rows; a symbol must be in the engine reply; nothing may come from the
+user's message, the transcript, the knowledge base or the model's knowledge; advice, forecasts,
+inferences, action claims and any mention of the draft are refused. A lead that fails, a provider
+failure or a refusal sends the engine reply alone; a missing credential is still raised. The engine's
+chart actions are never touched. Never given a lead (`draft_is_rewritable`, call sites that keep
+`finish`): the suitability boundary, the investor funnel, replies that are only a plan /
+AI-entitlement / date-lock notice, table row loads and one-action view commands. The engine replies
+inside both provider loops (investor screens, weak-symbol study, live-data boundary, exclusion-report
+notice) use the same path (`_intent_prelude`). The first design (commit 8ff5a607) let the model
+rewrite the whole reply behind a guard that only checked that each number existed somewhere; an
+independent review showed it accepting symbol swaps, sign flips and dropped rows, and none of it
+remains. Tests: `tests/conftest.py` runs every Tara test with the lead path ON and a hostile model
+(`HOSTILE_LEAD`), so the route tests prove the engine reply reaches the user unchanged;
+`@pytest.mark.tara_rewrite_off` pins the shipped default (no provider call on an engine route) and
+`@pytest.mark.tara_draft_rewrite` lets a test drive the lead itself. The review probes are regression
+tests in `tests/test_tara_engine_drafts.py` with `tests/fixtures/tara_review_probes_20261117.json`.
 
-Lists are rendered in code. A scan result carries `rendered_list` with a token (`[[TW_LIST_1]]`,
-`[[TW_LIST_1:K]]`, `[[TW_LIST_1 rows=2,5]]`); an engine draft's own list is `[[TW_LIST_0]]`. The
-gateway expands tokens (`_expand_rendered_lists`) and replaces model-typed versions of engine rows
+Lists are rendered in code on the model path. A scan result carries `rendered_list` with a token
+(`[[TW_LIST_1]]`, `[[TW_LIST_1:K]]`, `[[TW_LIST_1 rows=2,5]]`); each row prints the engine's own
+`stats.sharpe_ratio` (never the headline's one-decimal copy) and short rows say "avg short-side
+return". The gateway expands tokens (`_expand_rendered_lists`) and replaces model-typed versions of engine rows
 with the engine rows in engine order (`_enforce_rendered_rows`); opportunity-table screens read each
 shown row's win record from ChartData4 (`_attach_win_records`). A scan no longer queues a market-only
 `set_view` unless the user asked for the table or a group change (`_append_market_switch(...,
 user_text)`), which supersedes the "queues a `set_view {market}`" sentence in the 2026-06-21 note
 above.
+
+Reply endings (TW-TASK-0035 polish): the exact disclaimer is always the last sentence
+(`disclaimer_last` in `_finalize_chat_response`; the no-change note is inserted before a closing
+disclaimer), the note "I haven't changed the chart." is added only when a removed sentence claimed or
+promised a change (a removed description of the screen gets none), and a sentence that only pointed
+back at a removed one ("That's ...") is removed with it.
 
 Loop dead ends: one request for a missing chart action, then an answer in words is accepted and the
 finish step states that nothing was changed; when the rounds run out one closing request is sent with

@@ -40,7 +40,7 @@ from featured_patterns import (
 
 from AI_tools_appserver import AnthropicConfigurationError, send_claude_messages
 from tara_runtime_policy import CLAUDE_EFFORT
-from tara_answer_planner import is_advice_shaped_question
+from tara_draft_lead import compose as compose_lead, validate_lead
 from openai_tools_appserver import (
     OpenAIAPIError,
     OpenAIConfigurationError,
@@ -1663,9 +1663,44 @@ def _no_change_note(text):
     return _NO_CHANGE_NOTES.get(language, "")
 
 
+_TRAILING_DISCLAIMER_RE = re.compile(
+    r"(?:\s*<br\s*/?>\s*)*(?:<i>\s*)?Past performance and model estimates do not guarantee "
+    r"future results\. TradeWave provides research context, not individualized "
+    r"recommendations\.(?:\s*</i>)?\s*$")
+
+
 def _with_no_change_note(text):
+    """Add the no-change note - before a closing disclaimer, which stays the last sentence."""
+
     note = _no_change_note(text)
-    return text + "<br><br>" + note if note else text
+    if not note:
+        return text
+    closing = _TRAILING_DISCLAIMER_RE.search(text)
+    if closing:
+        return text[:closing.start()].rstrip() + "<br><br>" + note + text[closing.start():]
+    return text + "<br><br>" + note
+
+
+def disclaimer_last(reply):
+    """Move the exact disclaimer to the end when another sentence was added after it."""
+
+    if not isinstance(reply, str) or DISCLAIMER_TEXT not in reply:
+        return reply
+    if _TRAILING_DISCLAIMER_RE.search(reply):
+        return reply
+    head, _sep, tail = reply.rpartition(DISCLAIMER_TEXT)
+    if not re.sub(r"<[^>]*>", " ", tail).strip():
+        return reply
+    head = re.sub(r"(?:\s*<br\s*/?>\s*)+$", "", head.rstrip())
+    tail = re.sub(r"^(?:\s*<br\s*/?>\s*)+", "", tail.strip())
+    return head + ("<br><br>" if head else "") + tail + "<br><br>" + DISCLAIMER_TEXT
+
+
+# A sentence that only points back at the one before it ("That's path context, not an exit
+# instruction.") means nothing once that sentence has been removed.
+_ANAPHORIC_OPENING_RE = re.compile(
+    r"\s*(?:<[^>]*>\s*)*(?:That|This|Those|These|It)(?:['\u2019]s|\s+(?:is|are|was|were|means|"
+    r"shows|gives))\b")
 
 
 # Tara has no action that creates a calendar event, a reminder, an alert, a watchlist or a
@@ -1806,6 +1841,8 @@ def repair_view_contract(text, actions=None, current_view=None):
     pieces = _REPLY_SEGMENT_SPLIT_RE.split(raw)
     kept = []
     dropped = 0
+    claimed = False              # a removed sentence said a change HAD happened
+    previous_dropped = False
     for index in range(0, len(pieces), 2):
         segment = pieces[index]
         separator = pieces[index + 1] if index + 1 < len(pieces) else ""
@@ -1814,13 +1851,34 @@ def repair_view_contract(text, actions=None, current_view=None):
             continue
         if _segment_breaks_view_contract(segment, actions, current_view):
             dropped += 1
+            previous_dropped = True
+            plain_segment = re.sub(r"<[^>]*>", " ", segment)
+            without_description = _SCREEN_DESCRIPTION_RE.sub(" ", plain_segment)
+            # A sentence that only DESCRIBED a screen ("the chart shows ...") claimed no
+            # action, and neither did printed tool markup; a load claim, a promise, a
+            # status or an action Tara does not have did.
+            if (
+                _contains_view_promise(segment)
+                or _claims_unsupported_action(segment)
+                or _claims_unqueued_view_change(segment, actions)
+                or _NOW_STATUS_CLAIM_RE.search(plain_segment)
+                or _view_completion_violation(without_description, actions, current_view)
+            ):
+                claimed = True
             continue
+        if previous_dropped and _ANAPHORIC_OPENING_RE.match(segment):
+            # It referred to the sentence that was just removed.
+            dropped += 1
+            continue
+        previous_dropped = False
         kept.append(segment + separator)
     repaired = "".join(kept).strip()
     repaired = re.sub(r"^(?:\s*<br\s*/?>\s*)+|(?:\s*<br\s*/?>\s*)+$", "", repaired, flags=re.I)
     if not re.sub(r"<[^>]*>", " ", repaired).strip():
         return "", dropped
-    if dropped and not actions:
+    # The note answers a removed CLAIM or promise. A removed description of the screen
+    # claimed nothing, so there is nothing to correct.
+    if dropped and claimed and not actions:
         plain = re.sub(r"<[^>]*>", " ", repaired)
         if not (_NEGATED_VIEW_COMPLETION_RE.search(plain) or _NO_CHANGE_STATEMENT_RE.search(plain)):
             repaired = _with_no_change_note(repaired)
@@ -5743,21 +5801,15 @@ def _register_rendered_list(out, rendered_lists):
     }
 
 
-def _expand_rendered_lists(text, rendered_lists, draft_rows=None):
-    """Replace each list token with its engine-rendered rows; drop any unknown token.
-
-    Token 0 is an engine draft's own list (all of its rows, as the route rendered them);
-    tokens 1.. are this turn's scan results.
-    """
+def _expand_rendered_lists(text, rendered_lists):
+    """Replace each list token with its engine-rendered rows; drop any unknown token."""
 
     if not text or "[[" not in text:
         return text
 
     def expand(match):
         index = int(match.group(1)) - 1
-        if index == -1 and draft_rows:
-            lines, default = list(draft_rows), len(draft_rows)
-        elif isinstance(rendered_lists, list) and 0 <= index < len(rendered_lists):
+        if isinstance(rendered_lists, list) and 0 <= index < len(rendered_lists):
             lines = rendered_lists[index]
             default = min(len(lines), _LIST_ROWS_DEFAULT)
         else:
@@ -5781,7 +5833,7 @@ _TYPED_ROW_RE = re.compile(
     r"\s*(?:\d{1,2}[.)]\s*|[\u2022\-\u2013*]\s*)?(?:<b>\s*)?([A-Z][A-Z0-9.\-=^]{0,14})(?![A-Za-z0-9])")
 
 
-def _enforce_rendered_rows(text, rendered_lists, draft_rows=None):
+def _enforce_rendered_rows(text, rendered_lists):
     """Put the engine's rows where the model typed its own version of them.
 
     When a reply has two or more list lines that each start with a symbol of a list the
@@ -5791,7 +5843,7 @@ def _enforce_rendered_rows(text, rendered_lists, draft_rows=None):
     """
 
     by_symbol = {}
-    for rows in ([list(draft_rows)] if draft_rows else []) + list(rendered_lists or ()):
+    for rows in list(rendered_lists or ()):
         for position, row in enumerate(rows):
             match = re.search(r"<b>\s*([A-Z][A-Z0-9.\-=^]{0,14})\s*</b>", row)
             if match:
@@ -5824,56 +5876,25 @@ def _enforce_rendered_rows(text, rendered_lists, draft_rows=None):
     return "".join(kept)
 
 
-def _draft_row_block(draft):
-    """(draft with the rows replaced by a token, row lines) for an engine draft with a list.
-
-    A row is a line that starts with a bold ticker; two or more in a row are the list
-    the route rendered. The draft is returned unchanged when it has no such block.
-    """
-
-    pieces = _ROW_SEPARATOR_RE.split(str(draft or ""))
-    runs, current = [], []
-    for index in range(0, len(pieces), 2):
-        piece = pieces[index]
-        if not piece.strip():
-            continue
-        is_row = bool(_ROW_LINE_RE.match(piece)) and bool(re.search(r"\d", piece))
-        same_section = not re.search(r"div", pieces[index - 1] if index else "", re.I)
-        if is_row and current and same_section:
-            current.append(index)
-            continue
-        if len(current) >= 2:
-            runs.append(current)
-        current = [index] if is_row else []
-    if len(current) >= 2:
-        runs.append(current)
-    if not runs:
-        return draft, []
-    run = max(runs, key=len)
-    best = (run[0], run[-1])
-    rows = [pieces[i].strip() for i in range(best[0], best[1] + 1, 2)]
-    shown = "".join(pieces[:best[0]]) + "[[TW_LIST_0]]" + "".join(pieces[best[1] + 1:])
-    return shown, rows
-
-
-
 # --------------------------------------------------------------------------
-# Verified engine drafts (TW-TASK-0035).
+# Engine replies with a model lead (TW-TASK-0035, phase B).
 #
-# A deterministic route still runs first and still owns every number, plan gate and
-# chart action. Its reply then becomes a DRAFT that the model rewrites inside the normal
-# tool loop, so the answer addresses the question that was asked, covers a second
-# intent, and can call a read tool for a part the route did not cover. Three things make
-# that safe: the number guard (a figure the engine did not supply sends the draft
-# instead), the locked sentences (plan, AI-entitlement, date-lock and disclaimer lines
-# are restored word for word), and the fallback (any failure sends the draft unchanged).
+# A deterministic route runs first and owns every number, plan gate and chart action,
+# and its reply is sent to the user WORD FOR WORD. The model may only put a short lead
+# in front of it that answers the question directly. tara_draft_lead.validate_lead
+# checks that lead clause by clause against the engine reply (same symbol, same sign,
+# same direction and qualifier words, same dates, no count or sector of its own, and
+# nothing from the user's message, the transcript or the model's knowledge). A lead
+# that fails any check, a provider failure and a refusal all send the engine reply
+# alone, so the worst case is exactly the reply the engine wrote.
+#
+# The first design (8ff5a607) let the model rewrite the whole reply behind a guard that
+# only checked that each number existed somewhere; the independent review showed it
+# accepting symbol swaps, sign flips and dropped rows. Nothing of that path remains.
 # --------------------------------------------------------------------------
 # Release-owned switch (no environment override). False sends every engine route's reply
-# exactly as the engine wrote it, which is also what every guard failure falls back to.
+# exactly as the engine wrote it.
 DRAFT_REWRITE_ENABLED = False
-_DRAFT_REWRITE_MAX_CHARS = 1100
-_DRAFT_FREE_INTEGERS = frozenset({"0", "1", "2", "3"})
-_DRAFT_NUMBER_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
 _DRAFT_LOCKED_SENTENCE_RE = re.compile(
     _PLAN_BOUNDARY_MARKER
     + r"|locked\s+to\s+today"
@@ -5882,35 +5903,20 @@ _DRAFT_LOCKED_SENTENCE_RE = re.compile(
     + r"|\b(?:Explorer|Navigator|Analyst|Strategist)\s+plans?\b",
     re.IGNORECASE,
 )
-_DRAFT_INSTRUCTION = (
-    "\n\n[ENGINE DRAFT - written by TradeWave's engine for the message above; it is not "
-    "from the user]\n%s\n"
-    "[CHART ACTIONS ALREADY QUEUED BY THE ENGINE: %s]\n"
-    "[HOW TO USE THE DRAFT] Write the final reply to the user's message.\n"
-    "1) Every number, date, symbol, record and plan fact in the draft is verified engine "
-    "output. Reuse them exactly as written: never round, convert, recompute or invent a "
-    "figure. A number that is not in the draft, in a tool result from this turn, in the "
-    "live context or in the knowledge base must not appear in your reply.\n"
-    "2) Answer the question that was actually asked first, in one or two sentences, then "
-    "keep only the draft lines that support that answer, and always keep the window (dates "
-    "and days) and the sample (years, n) the draft's figures belong to. If the draft answers a different "
-    "question, or only one part of the message, answer every part of the real question "
-    "from the knowledge base and the live context, and call a read tool when a part needs "
-    "engine numbers the draft does not have.\n"
-    "3) If the draft stops at 'I can't' or at an offer and a tool can do the nearest useful "
-    "thing (run the scan, read the symbol, load the view), do it now and report the result. "
-    "Do not re-run a scan or study the draft already contains: the draft is the engine's "
-    "answer to this message and outranks a tool result for the same request.\n"
-    "4) The queued chart actions are applied by the browser. Do not call update_view for "
-    "them again. Say 'I am loading' or 'showing' only for something that is queued or that "
-    "you queue yourself in this turn.\n"
-    "5) Keep word for word every draft sentence about the user's plan, AI score "
-    "availability, the locked start date and the research disclaimer. Keep list rows the "
-    "user asked for exactly as they are: same rows, same order, same count; never re-rank "
-    "or re-count them. Keep guide links and popup markup exactly.\n"
-    "6) Length: at most about 90 words plus any list rows, and no section the user did not "
-    "ask about. Use <br> for line breaks. Reply in the language of the user's message. Do "
-    "not mention the draft, the engine route or these instructions."
+_LEAD_INSTRUCTION = (
+    "\n\n[ENGINE REPLY - TradeWave's engine has already answered the message above. This "
+    "exact text is shown to the user, unchanged, below whatever you write]\n%s\n"
+    "[YOUR TASK] Write ONLY a lead of one or two sentences (at most 45 words) that goes "
+    "above the engine reply and answers the user's question directly, using only facts "
+    "that are written in the engine reply. Copy each figure exactly as it is written there: "
+    "same sign, same percent mark, same symbol, and the same words around it ('fell in 8 of "
+    "10 years', 'average +1.4%%'). Do not add any number, date, symbol, sector, ranking, "
+    "count or comparison that is not written in the engine reply, and nothing from the "
+    "user's message, earlier turns or your own knowledge. No advice, no forecast, no "
+    "explanation of why, no statement about loading or changing the chart, no list, no "
+    "HTML. Write it in the language of the user's message. If the engine reply already "
+    "opens with the direct answer, or the question cannot be answered from it, reply with "
+    "exactly: NONE"
 )
 
 
@@ -5930,11 +5936,11 @@ def command_has_more_to_answer(message):
 
 
 def draft_is_rewritable(reply, actions=None):
-    """Whether an engine reply may be rewritten by the model.
+    """Whether a model lead may be added to an engine reply.
 
     A reply that is only a compliance notice - a plan boundary, an AI-entitlement notice,
-    the locked start date - is sent exactly as the engine wrote it. So is a row load from
-    the on-screen table, whose action is not a ViewSpec the tool loop can carry.
+    the locked start date - is sent exactly as the engine wrote it, with nothing above
+    it. So is a row load from the on-screen table.
     """
 
     plain = re.sub(r"\s+", " ", _plain_text(reply)).strip()
@@ -5952,179 +5958,83 @@ def _plain_text(text):
     return html.unescape(re.sub(r"<[^>]*>", " ", str(text or "")))
 
 
-def _normal_number(raw):
-    value = raw.replace(",", "")
-    if "." in value:
-        value = value.rstrip("0").rstrip(".")
-    value = value.lstrip("0")
-    if not value or value.startswith("."):
-        value = "0" + value
-    return value
+def _draft_as_lines(draft):
+    """The engine reply as plain lines, the way the model is shown it."""
+
+    text = re.sub(r"<br\s*/?>|</div>|</p>|</li>", "\n", str(draft or ""), flags=re.I)
+    lines = [re.sub(r"\s+", " ", _plain_text(line)).strip() for line in text.split("\n")]
+    return "\n".join(line for line in lines if line)
 
 
-def _number_tokens(text):
-    """Every numeric token of a text in one canonical spelling (1,234.50 -> 1234.5)."""
+def _request_lead(provider, convo, system, model, user_id=None, cache_ttl="5m"):
+    """One model call for the lead text ('' when the provider gave no usable answer)."""
 
-    return {_normal_number(match.group(0))
-            for match in _DRAFT_NUMBER_RE.finditer(_plain_text(text))}
+    if provider == "openai":
+        return response_text(send_openai_response(
+            build_responses_input(convo, system=system), model=model,
+            cache_key=prompt_cache_key(user_id)))
+    # Same tools as every chat call so the cached prefix is reused; tool_choice none
+    # because the lead may only use what the engine reply says.
+    resp = send_claude_messages(
+        convo, model=model, system=system, cache_system=True, cache_ttl=cache_ttl,
+        tools=TOOLS, tool_choice={"type": "none"}, return_raw=True, effort=CLAUDE_EFFORT)
+    if resp.get("stop_reason") in ("refusal", "tool_use"):
+        return ""
+    return _text_of(resp.get("content", []) or [])
 
 
-def _allowed_numbers(sources):
-    """Numbers the engine supplied: the draft, tool results, live context and knowledge.
+def engine_reply_with_lead(provider, messages, system, model, draft, actions=None, *,
+                           user_id=None, cache_ttl="5m", protocol_trace=None):
+    """The engine reply, with a validated model lead above it when one is allowed.
 
-    A tool card can carry a rate as a fraction (0.917); the percent spelling of the same
-    engine value (92, 91.7) is the same fact, so it is allowed too. Nothing else is
-    derived: a difference, sum or average of two engine figures stays a new number.
+    Returns the reply text. The chart actions are the engine's and are never touched
+    here. Every failure returns ``draft`` itself; only a missing credential is raised.
     """
 
-    allowed = set()
-    for source in sources or ():
-        tokens = _number_tokens(source)
-        allowed |= tokens
-        for token in tokens:
-            if token.startswith("0.") and len(token) <= 6:
-                try:
-                    percent = float(token) * 100
-                except ValueError:
-                    continue
-                allowed.add(_normal_number("%.0f" % percent))
-                allowed.add(_normal_number("%.1f" % percent))
-    return allowed
+    def trace(event, **fields):
+        if isinstance(protocol_trace, list) and len(protocol_trace) < 24:
+            protocol_trace.append({"event": event, **fields})
 
-
-def unsupported_numbers(reply, sources):
-    """Numbers in ``reply`` that none of the engine ``sources`` contains."""
-
-    allowed = _allowed_numbers(sources)
-    return sorted(
-        token for token in _number_tokens(reply)
-        if token not in allowed and token not in _DRAFT_FREE_INTEGERS
-    )
-
-
-def _draft_locked_sentences(draft):
-    """Draft sentences the rewrite may not drop: plan, AI entitlement, date lock, disclaimer."""
-
-    locked = []
-    for segment, _separator in _text_segments(draft):
-        plain = re.sub(r"\s+", " ", _plain_text(segment)).strip()
-        if plain and _DRAFT_LOCKED_SENTENCE_RE.search(plain) and segment.strip() not in locked:
-            locked.append(segment.strip())
-    return locked
-
-
-def _restore_locked_sentences(reply, draft):
-    """Append, word for word, any locked draft sentence the rewrite left out."""
-
-    def squash(text):
-        return re.sub(r"\s+", " ", _plain_text(text)).strip().lower()
-
-    have = squash(reply)
-    missing = [sentence for sentence in _draft_locked_sentences(draft)
-               if squash(sentence) not in have]
-    disclaimer = squash(DISCLAIMER_TEXT)
-    if disclaimer in squash(draft) and disclaimer not in have and not any(
-            disclaimer in squash(sentence) for sentence in missing):
-        missing.append(DISCLAIMER_TEXT)
-    # Links and guide-popup anchors are engine markup the model cannot reproduce reliably.
-    for anchor in re.findall(r"<a\b[^>]*>.*?</a>", str(draft or ""), flags=re.S | re.I):
-        target = re.search(r"(?:href|data-action)=\"([^\"#][^\"]*)\"", anchor)
-        if target and target.group(1) not in reply and anchor not in missing:
-            missing.append(anchor)
-    if not missing:
-        return reply, 0
-    return reply.rstrip() + "<br><br>" + " ".join(missing), len(missing)
-
-
-def _draft_user_content(user_text, draft, actions):
+    if not draft_is_rewritable(draft, actions):
+        return draft
+    convo = list(messages or [])
+    if not convo or convo[-1].get("role") != "user" or not isinstance(
+            convo[-1].get("content"), str):
+        return draft
+    convo[-1] = {
+        "role": "user",
+        "content": convo[-1]["content"] + _LEAD_INSTRUCTION % _draft_as_lines(draft),
+    }
     try:
-        queued = json.dumps([a.get("spec") or {} for a in actions or []], sort_keys=True)[:1500]
-    except (TypeError, ValueError):
-        queued = "[]"
-    shown, rows = _draft_row_block(draft)
-    if rows:
-        shown += (
-            "\n[LIST ROWS - [[TW_LIST_0]] stands for these %d engine-rendered rows, in this "
-            "order. Write the token [[TW_LIST_0]] on its own line where the list belongs and "
-            "TradeWave inserts the rows exactly; write [[TW_LIST_0 rows=2,5]] to show only "
-            "those row numbers. Never retype, renumber, re-sort or re-count them. The list "
-            "has %d rows.]\n%s" % (
-                len(rows), len(rows), "\n".join(re.sub(r"<[^>]*>", "", row) for row in rows))
-        )
-    return str(user_text or "") + _DRAFT_INSTRUCTION % (shown, queued if actions else "none")
-
-
-def _accept_draft_rewrite(reply, actions, draft, seed_actions, evidence, number_sources,
-                          investor_intent, latest_user_text, trace, known_rows=None):
-    """Return (reply, actions) for an accepted rewrite, or None to send the draft."""
-
-    text = (reply or "").strip()
-    if not text or re.search(r"\bI couldn't (?:send|complete|resolve)\b", _plain_text(text)):
-        # The loop ended on a fail-closed message; the engine's own answer is better.
-        trace("draft_rewrite_rejected", reason="no_answer")
-        return None
-    if re.fullmatch(r"\s*<b>[^<]+</b>[^<]*\bbased on the last \d+ years: [^<]*", text):
-        # Only the load announcement is left (the model's own words were removed): the
-        # engine draft says more than that.
-        trace("draft_rewrite_rejected", reason="collapsed")
-        return None
-    if "TradeWave cannot determine whether this security is suitable for you" in _plain_text(text):
-        trace("draft_rewrite_rejected", reason="advice")      # the contract fallback replaced it
-        return None
-    _shown, rows = _draft_row_block(draft)
-    engine_rows = set(rows) | set(known_rows or ())
-    written = [piece.strip() for piece in re.split(r"<br\s*/?>", text, flags=re.I)
-               if _ROW_LINE_RE.match(piece) and re.search(r"\d", piece)]
-    if len(written) >= 2 and any(row not in engine_rows for row in written):
-        # A list in the reply is made of engine-rendered rows only (through a token). One
-        # the model typed itself may be re-counted, re-sorted or carry a changed figure.
-        trace("draft_rewrite_rejected", reason="list_retyped")
-        return None
-    if rows and not any(row in engine_rows for row in written):
-        # No list at all: a reply that restates the row figures in prose is a comparison
-        # in words; anything else gets the engine rows back after its opening line.
-        row_numbers = _number_tokens(" ".join(rows)) - _DRAFT_FREE_INTEGERS
-        if len(row_numbers & _number_tokens(text)) < min(4, len(row_numbers)):
-            head, separator, tail = text.partition("<br>")
-            text = head + "<br>" + "<br>".join(rows) + (("<br>" + tail.lstrip()) if tail else "")
-            trace("draft_list_restored")
-    seed_specs = [a.get("spec") for a in seed_actions or []]
-    final_specs = [a.get("spec") for a in actions or []]
-    if any(spec not in final_specs for spec in seed_specs):
-        trace("draft_rewrite_rejected", reason="engine_action_changed")
-        return None
-    if response_violates_investor_contract(text, investor_intent) or (
-            is_advice_shaped_question(latest_user_text) and reply_gives_direct_advice(text)):
-        trace("draft_rewrite_rejected", reason="advice")
-        return None
-    if re.search(r"\b(?:the|this|engine)\s+draft\b|\bdraft(?:'s|\s+(?:says|lists|shows))\b",
-                 _plain_text(text), re.I):
-        trace("draft_rewrite_rejected", reason="mentions_draft")
-        return None
-    sources = [draft, latest_user_text] + list(evidence or ()) + list(number_sources or ())
-    unsupported = unsupported_numbers(text, sources)
-    if unsupported:
-        # Bare numbers only (no customer text), so a rejected rewrite can be diagnosed.
-        trace("draft_rewrite_rejected", reason="number_guard", count=len(unsupported),
-              numbers=",".join(unsupported[:6]))
-        return None
-    draft_len = len(_plain_text(draft))
-    prose = "<br>".join(
-        piece for piece in re.split(r"<br\s*/?>", text, flags=re.I)
-        if not _ROW_LINE_RE.match(piece))          # list rows are exempt from the cap
-    if len(_plain_text(prose)) > max(draft_len + 200, _DRAFT_REWRITE_MAX_CHARS):
-        trace("draft_rewrite_rejected", reason="length")
-        return None
-    text, restored = _restore_locked_sentences(text, draft)
-    trace("draft_rewrite", restored=restored, tools=max(0, len(evidence or ()) - 0))
-    return text, actions
+        lead = _request_lead(provider, convo, system, model, user_id, cache_ttl)
+    except (OpenAIConfigurationError, AnthropicConfigurationError):
+        raise
+    except Exception:                        # noqa: BLE001 - the engine reply is the answer
+        log.warning("tara engine-reply lead unavailable; sending the engine reply",
+                    exc_info=True)
+        trace("draft_lead_rejected", reason="provider_error")
+        return draft
+    lead = re.sub(r"\s+", " ", re.sub(r"</?(?:b|i|strong|em)>", "", str(lead or ""))).strip()
+    if not lead or lead.strip(" .!").upper() == "NONE":
+        trace("draft_lead", outcome="none")
+        return draft
+    ok, reason = validate_lead(lead, draft)
+    if ok and (reply_gives_direct_advice(lead)
+               or repair_view_contract(lead, actions or [], None)[1]
+               or response_violates_view_contract(lead, actions or [], None)):
+        ok, reason = False, "contract"
+    if not ok:
+        trace("draft_lead_rejected", reason=reason)
+        return draft
+    trace("draft_lead", outcome="added")
+    return compose_lead(html.escape(lead, quote=False), draft)
 
 
 def _finish_tool_reply(final_text, actions, cards, card_list, *, view_intent,
                        latest_user_text, non_actionable_symbols, current_view,
                        investor_intent, full_history_request, named_symbol_override,
                        named_symbol_lookback, viewer_entry_year, turn_notes, trace,
-                       protocol_failures=0, trusted_specs=()):
+                       protocol_failures=0):
     """Shared post-processing for both provider loops: view contract, evidence, notes.
 
     Safety is unchanged - the reply never claims or promises a view change the turn
@@ -6223,18 +6133,9 @@ def _finish_tool_reply(final_text, actions, cards, card_list, *, view_intent,
         viewer_entry_year,
         preferred_years=named_symbol_lookback,
     )
-    loaded_specs = [
-        action.get("spec") for action in actions or []
-        if action.get("type") == "set_view" and isinstance(action.get("spec"), dict)
-        and action["spec"].get("symbol")
-    ]
-    # A load queued by the engine route itself is announced by the route's own verified
-    # draft; the announcement guard only checks loads the model queued.
-    engine_load = bool(loaded_specs) and loaded_specs[-1] in list(trusted_specs or ())
-    if not engine_load:
-        final_text = _ensure_load_named(
-            final_text, actions, cards, card_list, current_view=current_view
-        )
+    final_text = _ensure_load_named(
+        final_text, actions, cards, card_list, current_view=current_view
+    )
     if response_violates_investor_contract(final_text, investor_intent):
         trace("protocol_violation", reason="unsafe_investor_response")
         safe_text = repair_investor_contract(final_text, investor_intent)
@@ -6355,45 +6256,13 @@ def _intent_prelude(investor_intent, view_intent, latest_user_text, current_view
     return None
 
 
-def _with_draft_fallback(turn, protocol_trace):
-    """Run one provider turn; when it was rewriting an engine draft, a failure sends the draft.
-
-    A turn with no draft keeps today's behaviour: the exception propagates and the chat
-    route retries on the fallback provider. A missing credential is never masked.
-    """
-
-    state = {}
-    try:
-        return turn(state)
-    except (OpenAIConfigurationError, AnthropicConfigurationError):
-        raise
-    except Exception:                        # noqa: BLE001 - the draft is the safe answer
-        if state.get("draft") is None:
-            raise
-        log.warning("tara draft rewrite failed; sending the engine draft", exc_info=True)
-        if isinstance(protocol_trace, list) and len(protocol_trace) < 24:
-            protocol_trace.append({"event": "draft_rewrite_rejected", "reason": "provider_error"})
-        return state["draft"], state["actions"]
-
-
-def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m", **options):
-    """Tara's Claude tool loop; see ``_claude_tool_turn`` for the arguments."""
-
-    return _with_draft_fallback(
-        lambda state: _claude_tool_turn(
-            messages, system, user_id, model, cache_ttl, _draft_state=state, **options),
-        options.get("protocol_trace"),
-    )
-
-
-def _claude_tool_turn(messages, system, user_id, model, cache_ttl="5m",
+def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
                         opp_table=None, opp_table_market=None, user_token=None,
                         user_years_cap=None,
                         opp_table_years=None, full_history_request=None,
                         named_symbol_override=None, named_symbol_lookback=None,
                         viewer_entry_year=None, current_view=None, turn_id=None,
-                        protocol_trace=None, engine_draft=None, draft_actions=None,
-                        number_sources=None, _draft_state=None):
+                        protocol_trace=None):
     """Run the Tara chat with gateway tool-use. `messages` ends with the user turn. Returns
     (final_text, actions): the assistant TEXT plus any UI actions the model requested (Phase 2,
     e.g. [{'type':'set_view','spec':{...}}]). Read tools (scan/analyze/...) are executed as
@@ -6401,19 +6270,9 @@ def _claude_tool_turn(messages, system, user_id, model, cache_ttl="5m",
     for the client to apply. For a 'which <group> stocks' screen, `opp_table` (the on-screen rows) +
     `opp_table_market` answer from the table when it is already on that group, else `user_token` +
     `opp_table_years` fetch that group's table (OppList4) loopback + auto-switch markets. Capped at
-    _MAX_TOOL_ROUNDS.
-
-    ``engine_draft`` (with its ``draft_actions``) is a deterministic route's verified reply:
-    the model rewrites it inside this same loop and the draft itself is returned whenever
-    the rewrite fails a guard or the provider fails. ``number_sources`` are the engine
-    texts (live context, knowledge base) a rewritten figure may come from."""
+    _MAX_TOOL_ROUNDS."""
     convo = list(messages)
-    actions = [dict(action) for action in draft_actions or []]
-    seed_actions = [dict(action) for action in actions]
-    draft = engine_draft
-    evidence = None
-    if _draft_state is None:
-        _draft_state = {}
+    actions = []
     cards = {}            # symbol -> latest briefified card, for the deterministic load-announcement guard
     card_list = []        # every card seen this turn, so the guard can match the loaded setup by entry_date
     table_market = str(opp_table_market) if opp_table_market not in (None, "") else None
@@ -6437,23 +6296,15 @@ def _claude_tool_turn(messages, system, user_id, model, cache_ttl="5m",
         if isinstance(protocol_trace, list) and len(protocol_trace) < 24:
             protocol_trace.append({"event": event, **fields})
 
-    if draft is None:
-        prelude = _intent_prelude(
-            investor_intent, view_intent, latest_user_text, current_view, user_id,
-            opp_table, table_market, user_token, opp_table_years, actions, trace)
-        if prelude is not None:
-            if prelude[0] == "final" or not draft_is_rewritable(prelude[1], actions):
-                return prelude[1], actions
-            draft = prelude[1]
-            seed_actions = [dict(action) for action in actions]
-    if draft is not None:
-        # From here on any failure sends the engine draft (see _with_draft_fallback).
-        _draft_state.update(draft=draft, actions=seed_actions)
-        convo[-1] = {
-            "role": "user",
-            "content": _draft_user_content(latest_user_text, draft, seed_actions),
-        }
-        evidence = []
+    prelude = _intent_prelude(
+        investor_intent, view_intent, latest_user_text, current_view, user_id,
+        opp_table, table_market, user_token, opp_table_years, actions, trace)
+    if prelude is not None:
+        if prelude[0] == "final":
+            return prelude[1], actions
+        return engine_reply_with_lead(
+            "anthropic", messages, system, model, prelude[1], actions, user_id=user_id,
+            cache_ttl=cache_ttl, protocol_trace=protocol_trace), actions
 
     if investor_intent == "named_security":
         system = _with_system_note(system, _NAMED_SECURITY_OVERRIDE)
@@ -6652,13 +6503,10 @@ def _claude_tool_turn(messages, system, user_id, model, cache_ttl="5m",
                 ok=not (isinstance(out, dict) and bool(out.get("error"))),
                 queued=bool(name == "update_view" and isinstance(out, dict) and out.get("ok")),
             )
-            bounded = _bounded_json(out)
-            if evidence is not None:
-                evidence.append(bounded)
             results.append({
                 "type": "tool_result",
                 "tool_use_id": b.get("id"),
-                "content": bounded,
+                "content": _bounded_json(out),
             })
         convo.append({"role": "user", "content": results})
     if final_text is None and words_answer and not actions:
@@ -6700,14 +6548,9 @@ def _claude_tool_turn(messages, system, user_id, model, cache_ttl="5m",
             ):
                 trace("closing_answer_in_words")
                 final_text = closing_text
-    return _finish_draft_or_reply(
-        draft, seed_actions, evidence, number_sources, investor_intent, latest_user_text,
-        trace, turn_notes, _finish_tool_reply(
+    return _finish_tool_reply(
         _enforce_rendered_rows(
-            _expand_rendered_lists(
-                final_text, rendered_lists,
-                _draft_row_block(draft)[1] if draft is not None else None),
-            rendered_lists, _draft_row_block(draft)[1] if draft is not None else None),
+            _expand_rendered_lists(final_text, rendered_lists), rendered_lists),
         actions, cards, card_list,
         view_intent=view_intent,
         latest_user_text=latest_user_text,
@@ -6721,35 +6564,10 @@ def _claude_tool_turn(messages, system, user_id, model, cache_ttl="5m",
         turn_notes=turn_notes,
         trace=trace,
         protocol_failures=protocol_failures,
-        trusted_specs=[action.get("spec") for action in seed_actions],
-    ), rendered_lists=rendered_lists)
-
-
-def _finish_draft_or_reply(draft, seed_actions, evidence, number_sources, investor_intent,
-                           latest_user_text, trace, turn_notes, result, rendered_lists=None):
-    """The loop's reply, or - for an engine draft - the accepted rewrite or the draft."""
-
-    if draft is None:
-        return result
-    notes = [note.get("text", "") for note in turn_notes or []]
-    accepted = _accept_draft_rewrite(
-        result[0], result[1], draft, seed_actions, list(evidence or ()) + notes,
-        number_sources, investor_intent, latest_user_text, trace,
-        known_rows=[row for rows in rendered_lists or () for row in rows])
-    return accepted if accepted is not None else (draft, seed_actions)
-
-
-def run_chat_with_openai_tools(messages, system, user_id, model, **options):
-    """Tara's OpenAI tool loop; see ``_openai_tool_turn`` for the arguments."""
-
-    return _with_draft_fallback(
-        lambda state: _openai_tool_turn(
-            messages, system, user_id, model, _draft_state=state, **options),
-        options.get("protocol_trace"),
     )
 
 
-def _openai_tool_turn(messages, system, user_id, model,
+def run_chat_with_openai_tools(messages, system, user_id, model,
                                opp_table=None, opp_table_market=None,
                                user_token=None, user_years_cap=None,
                                opp_table_years=None,
@@ -6757,8 +6575,7 @@ def _openai_tool_turn(messages, system, user_id, model,
                                named_symbol_override=None,
                                named_symbol_lookback=None,
                                viewer_entry_year=None, current_view=None,
-                               turn_id=None, protocol_trace=None, engine_draft=None,
-                               draft_actions=None, number_sources=None, _draft_state=None):
+                               turn_id=None, protocol_trace=None):
     """Run Tara's existing gateway tool loop through the OpenAI Responses API.
 
     Tool execution, result trimming, ViewSpec validation, table-screen interception, and
@@ -6767,12 +6584,7 @@ def _openai_tool_turn(messages, system, user_id, model,
     matching ``function_call_output`` items forward explicitly.
     """
 
-    actions = [dict(action) for action in draft_actions or []]
-    seed_actions = [dict(action) for action in actions]
-    draft = engine_draft
-    evidence = None
-    if _draft_state is None:
-        _draft_state = {}
+    actions = []
     cards = {}
     card_list = []
     table_market = str(opp_table_market) if opp_table_market not in (None, "") else None
@@ -6795,28 +6607,20 @@ def _openai_tool_turn(messages, system, user_id, model,
         if isinstance(protocol_trace, list) and len(protocol_trace) < 24:
             protocol_trace.append({"event": event, **fields})
 
-    model_messages = list(messages)
-    if draft is None:
-        prelude = _intent_prelude(
-            investor_intent, view_intent, latest_user_text, current_view, user_id,
-            opp_table, table_market, user_token, opp_table_years, actions, trace)
-        if prelude is not None:
-            if prelude[0] == "final" or not draft_is_rewritable(prelude[1], actions):
-                return prelude[1], actions
-            draft = prelude[1]
-            seed_actions = [dict(action) for action in actions]
-    if draft is not None:
-        _draft_state.update(draft=draft, actions=seed_actions)
-        model_messages[-1] = {
-            "role": "user",
-            "content": _draft_user_content(latest_user_text, draft, seed_actions),
-        }
-        evidence = []
+    prelude = _intent_prelude(
+        investor_intent, view_intent, latest_user_text, current_view, user_id,
+        opp_table, table_market, user_token, opp_table_years, actions, trace)
+    if prelude is not None:
+        if prelude[0] == "final":
+            return prelude[1], actions
+        return engine_reply_with_lead(
+            "openai", messages, system, model, prelude[1], actions, user_id=user_id,
+            protocol_trace=protocol_trace), actions
 
     if investor_intent == "named_security":
         system = _with_system_note(system, _NAMED_SECURITY_OVERRIDE)
 
-    input_items = build_responses_input(model_messages, system=system)
+    input_items = build_responses_input(messages, system=system)
     cache_key = prompt_cache_key(user_id)
 
     for round_index in range(_MAX_TOOL_ROUNDS):
@@ -6879,14 +6683,11 @@ def _openai_tool_turn(messages, system, user_id, model,
                     and out.get("ok")
                 ),
             )
-            bounded = _bounded_json(out)
-            if evidence is not None:
-                evidence.append(bounded)
             results.append(
                 {
                     "type": "function_call_output",
                     "call_id": call_id,
-                    "output": bounded,
+                    "output": _bounded_json(out),
                 }
             )
         input_items.extend(results)
@@ -6901,14 +6702,9 @@ def _openai_tool_turn(messages, system, user_id, model,
     if not final_text:
         raise OpenAIAPIError("OpenAI returned no assistant text")
 
-    return _finish_draft_or_reply(
-        draft, seed_actions, evidence, number_sources, investor_intent, latest_user_text,
-        trace, turn_notes, _finish_tool_reply(
+    return _finish_tool_reply(
         _enforce_rendered_rows(
-            _expand_rendered_lists(
-                final_text, rendered_lists,
-                _draft_row_block(draft)[1] if draft is not None else None),
-            rendered_lists, _draft_row_block(draft)[1] if draft is not None else None),
+            _expand_rendered_lists(final_text, rendered_lists), rendered_lists),
         actions, cards, card_list,
         view_intent=view_intent,
         latest_user_text=latest_user_text,
@@ -6922,8 +6718,7 @@ def _openai_tool_turn(messages, system, user_id, model,
         turn_notes=turn_notes,
         trace=trace,
         protocol_failures=0,
-        trusted_specs=[action.get("spec") for action in seed_actions],
-    ), rendered_lists=rendered_lists)
+    )
 
 
 # --------------------------------------------------------------------------

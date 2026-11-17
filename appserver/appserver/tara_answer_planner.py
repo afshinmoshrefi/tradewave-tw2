@@ -5101,7 +5101,8 @@ def is_advice_shaped_question(message: Any) -> bool:
 _PRICE_LEVEL_ASK_PATTERN = re.compile(
     r"\b(?:what|which|where|when)\b[^.?!]{0,30}\b(?:exit|entry|stop(?:[-\s]loss)?|target|sell|buy)"
     r"\s+(?:price|level|point)s?\b"
-    r"|\b(?:best|optimal|ideal)\s+(?:exit|entry|stop(?:[-\s]loss)?|target)\s+(?:price|level|point)\b",
+    r"|\b(?:best|optimal|ideal)\s+(?:exit|entry|stop(?:[-\s]loss)?|target)\s+(?:price|level|point)\b"
+    r"|\bwhen\s+should\s+(?:i|we)\s+(?:exit|get\s+out|close)\b",
     re.I,
 )
 _EQUIVALENT_DISCLAIMER_PATTERN = re.compile(
