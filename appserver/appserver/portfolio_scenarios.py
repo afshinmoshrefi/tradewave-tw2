@@ -448,22 +448,27 @@ def register_portfolio_scenarios(app, *, config, redis_db, check_for_token,
                   'Do not calculate, invent statistics, predict outcomes, or give personalized investment advice. '
                   'State that historical scenarios are not forecasts. Use plain punctuation, never em dashes. No tools.')
         messages = [{'role': 'user', 'content': json.dumps(facts)}]
+        def commentary(provider_name, model):
+            if provider_name == 'openai':
+                from openai_tools_appserver import send_openai_messages
+                return send_openai_messages(
+                    messages, system=prompt,
+                    user_id=user, model=model, max_output_tokens=256)
+            from AI_tools_appserver import send_claude_messages
+            return send_claude_messages(messages, model=model, system=prompt, max_tokens=256)
+
         try:
-            from openai_tools_appserver import send_openai_messages
-            from tara_runtime_policy import PRIMARY_MODEL
-            text = send_openai_messages(
-                messages, system=prompt,
-                user_id=user, model=PRIMARY_MODEL, max_output_tokens=256)
+            import tara_runtime_policy as policy
+            text = commentary(getattr(policy, 'PRIMARY_PROVIDER', 'openai'), policy.PRIMARY_MODEL)
             if isinstance(text, str) and text.strip():
-                return {'status': 'ready', 'text': _display_copy(text.strip()), 'model': PRIMARY_MODEL}
+                return {'status': 'ready', 'text': _display_copy(text.strip()), 'model': policy.PRIMARY_MODEL}
         except Exception:
             logging.warning('Portfolio scenario primary commentary unavailable')
         try:
-            from AI_tools_appserver import send_claude_messages
-            from tara_runtime_policy import FALLBACK_MODEL
-            text = send_claude_messages(messages, model=FALLBACK_MODEL, system=prompt, max_tokens=256)
+            import tara_runtime_policy as policy
+            text = commentary(getattr(policy, 'FALLBACK_PROVIDER', 'anthropic'), policy.FALLBACK_MODEL)
             if isinstance(text, str) and text.strip():
-                return {'status': 'ready', 'text': _display_copy(text.strip()), 'model': FALLBACK_MODEL}
+                return {'status': 'ready', 'text': _display_copy(text.strip()), 'model': policy.FALLBACK_MODEL}
         except Exception:
             logging.warning('Portfolio scenario fallback commentary unavailable')
         return {'status': 'unavailable', 'text': None, 'model': None}

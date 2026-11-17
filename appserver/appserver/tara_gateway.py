@@ -39,6 +39,7 @@ from featured_patterns import (
 )
 
 from AI_tools_appserver import send_claude_messages
+from tara_runtime_policy import CLAUDE_EFFORT
 from openai_tools_appserver import (
     OpenAIAPIError,
     build_responses_input,
@@ -83,7 +84,7 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "markets": {"type": "string", "description": "for a 'which <group> stocks' screen pass the SINGLE market id of that group (NASDAQ 100=1, Dow 30=0; NASDAQ 100 is not a technology-sector universe); comma list of names/ids '0'..'16' for a multi-market scan; omit for all in scope"},
-                "window": {"type": "string", "description": "'now' | 'next_2_weeks' | 'next_month' | 'YYYY-MM-DD..YYYY-MM-DD'"},
+                "window": {"type": "string", "description": "ENTRY-date window: 'now' | 'next_2_weeks' | 'next_month' | 'YYYY-MM-DD..YYYY-MM-DD'. For 'which stocks rise in <month/period>' pass that period's dates here AND max_days = the period's length, so the results are windows inside the period rather than long holds that only start in it"},
                 "direction": {"type": "string", "enum": ["long", "short"]},
                 "min_win_rate": {"type": "number", "description": "0..1"},
                 "min_days": {"type": "integer"}, "max_days": {"type": "integer"},
@@ -111,7 +112,11 @@ TOOLS = [
             "or a period preset; pe_cycle/years are the lookback knobs. Use for 'analyze GLD', "
             "'is AAPL seasonal now', 'explain this pattern over 20 years'. For recurring "
             "weakness, set direction=short and describe the result as a weak-period study, "
-            "never as a sell or short recommendation. Gold: XAUUSD is spot gold (Forex), GC is "
+            "never as a sell or short recommendation. For 'the next N days/weeks' or 'from today' "
+            "pass entry_date=TODAY (see TODAY in the live context) and days_out=N calendar days; "
+            "for a named month/quarter/season pass period=. Always pass years= when the user "
+            "names a lookback. A bare US ticker reads as its US listing; pass market only when "
+            "the user names an exchange or country. Gold: XAUUSD is spot gold (Forex), GC is "
             "COMEX gold futures, GLD is the gold ETF; a bare XAU means spot gold. When the "
             "result carries 'detector_note' or 'symbol_note', say that note first."
         ),
@@ -925,8 +930,9 @@ _BROAD_INVESTMENT_DISCOVERY_RE = re.compile(
     r"(?:"
     r"\bi\s+(?:have|got)\s+(?:about\s+)?\$?\s*[\d,.]+\b.{0,80}\b(?:invest|market|buy)\b"
     r"|\bi\s+(?:want|would\s+like|need)\s+to\s+(?:start\s+)?invest\b"
-    r"|\b(?:how|where)\s+(?:do|can|should)\s+i\b.{0,70}\b"
-    r"(?:invest|investment|stocks?|etfs?|securities|market)\b"
+    r"|\b(?:how|where)\s+(?:do|can|should)\s+i\b.{0,40}\b"
+    r"(?:invest|start|begin|pick|choose|decide|figure\s+out|know|find)\b.{0,50}\b"
+    r"(?:invest|investment|stocks?|etfs?|securities|market|buy)\b"
     r"|\bwhat\s+should\s+i\s+(?:buy|invest\s+in)\b"
     r"|\bwhere\s+should\s+i\s+(?:put|invest)\b.{0,40}\b(?:money|cash|savings)\b"
     r"|\bhelp\s+me\b.{0,35}\b(?:start\s+)?invest(?:ing|ment)?\b"
@@ -987,10 +993,33 @@ _BUY_HOLD_STUDY_RE = re.compile(
     re.IGNORECASE,
 )
 _CAPABILITY_GUIDE_RE = re.compile(
-    r"\b(?:what\s+(?:can|should)\s+i\s+(?:ask|research|do)|"
-    r"what\s+can\s+(?:tara|you)\s+(?:do|help\s+with)|"
-    r"how\s+can\s+(?:tara|you)\s+help|"
-    r"show\s+me\s+what\s+i\s+can\s+ask)\b",
+    # "What can I do in the Analysis menu?" names one feature; the capability guide is for
+    # the open question about Tara or TradeWave as a whole.
+    r"(?:\bwhat\s+(?:can|should)\s+i\s+(?:ask|research|do)(?:\s+(?:tara|you))?"
+    r"(?:\s+(?:with|on|in)\s+(?:tara|you|this|it|tradewave))?"
+    r"(?:\s+(?:here|now|right\s+now|first|next|today))?\s*[?.!]*\s*$"
+    r"|\bwhat\s+can\s+(?:tara|you)\s+(?:do|help\s+with)\b"
+    r"|\bhow\s+can\s+(?:tara|you)\s+help\b"
+    r"|\bshow\s+me\s+what\s+i\s+can\s+ask\b)",
+    re.IGNORECASE,
+)
+_CONNECTED_AI_RE = re.compile(r"\b(?:chatgpt|claude|mcp|connector|api)\b", re.IGNORECASE)
+# A definition, an explanation or a how-to about the product is a knowledge question even
+# when it contains "seasonal pattern" or "stocks"; the investor funnel is for a person
+# asking what to buy, trade or invest in.
+_KNOWLEDGE_QUESTION_RE = re.compile(
+    r"\b(?:mean|means|meaning|stand\s+for|definition|define)\b"
+    r"|^\s*(?:so\s+|ok(?:ay)?\s+|and\s+)?what(?:'s|\s+is|\s+are)\s+(?:a|an|the)\b"
+    r"|^\s*(?:so\s+|ok(?:ay)?\s+|and\s+)?how\s+(?:do|does)\b.{0,60}\bwork\b"
+    r"|^\s*(?:so\s+|ok(?:ay)?\s+|and\s+)?how\s+(?:do|can|would)\s+i\s+"
+    r"(?:see|view|make|get|filter|sort|show|hide|add|remove|delete|save|export|download|"
+    r"change|set|switch|open|close|turn|enable|disable|zoom|select|load|use|find\s+the|"
+    r"read|compare|create|edit|rename|reset|undo|print|share)\b",
+    re.IGNORECASE,
+)
+_PERSONAL_ASK_RE = re.compile(
+    r"\b(?:should\s+i|what\s+should\s+i|for\s+me|my\s+(?:money|savings|cash)|"
+    r"i\s+(?:have|got)\s+\$?\s*[\d,.]+|invest)\b",
     re.IGNORECASE,
 )
 _PERSONAL_TRADE_DECISION_RE = re.compile(
@@ -1081,7 +1110,7 @@ def classify_investor_intent(messages_or_text):
                  r"how (?:does )?tradewave tests?|how (?:are|is) .{0,40}"
                  r"seasonal patterns? tested)\b", latest, re.I):
         return "methodology"
-    if _CAPABILITY_GUIDE_RE.search(latest):
+    if _CAPABILITY_GUIDE_RE.search(latest) and not _CONNECTED_AI_RE.search(latest):
         return "capabilities"
     named_symbol = _named_investment_advice_symbol(latest)
     if named_symbol:
@@ -1140,6 +1169,8 @@ def classify_investor_intent(messages_or_text):
     seasonal = bool(_SEASONAL_DISCOVERY_RE.search(latest))
     if not (broad or generic_trade or seasonal):
         return None
+    if _KNOWLEDGE_QUESTION_RE.search(latest) and not _PERSONAL_ASK_RE.search(latest):
+        return None
     if _LONG_TERM_HORIZON_RE.search(latest) and not seasonal:
         return "long_term"
     if seasonal or generic_trade:
@@ -1147,7 +1178,9 @@ def classify_investor_intent(messages_or_text):
             return "seasonal_etf"
         if _STOCK_UNIVERSE_RE.search(latest):
             return "seasonal_stock"
-        return "seasonal_current"
+        # "Which universe?" is only a useful question to someone asking what to trade.
+        # A plain request to see seasonal setups is a screen: run it, do not ask.
+        return "seasonal_current" if (generic_trade or broad) else None
     return "start"
 
 
@@ -1158,7 +1191,8 @@ def investor_guidance_response(intent):
             "<b>How TradeWave tests a seasonal pattern:</b> Fix the security and market, "
             "entry date, calendar-day duration, direction, and lookback/cycle. The engine "
             "tests that same window against the available historical observations and "
-            "shows each year's outcome. Calendar duration includes the entry day; the "
+            "shows each year's outcome, measured from the closing price on the entry date "
+            "to the closing price on the exit date. Calendar duration includes the entry day; the "
             "historical study keeps the selected window even when an AI checkpoint differs.<br><br>"
             "<b>What the years count:</b> In consecutive mode, the lookback selects prior "
             "entry years; a completed current-year occurrence can also appear. Missing history "
@@ -1542,6 +1576,171 @@ def response_violates_view_contract(text, actions=None, current_view=None):
     )
 
 
+# Present-tense descriptions of what the screen already shows ("the bar chart shows one
+# bar per year", "you're viewing the 12-year record"). They share verbs with a
+# completion claim, but when no action is queued and a pattern is on screen they
+# describe the view, they do not claim a change. "now" turns one into a status claim.
+_SCREEN_DESCRIPTION_RE = re.compile(
+    r"\b(?:chart|viewer|screen|panel|slide|table)\s+(?:shows|displays|contains)\b"
+    r"|\b(?:the\s+)?(?:chart|view|viewer|screen|panel)\s+is\s+showing\b"
+    r"|\b(?:you(?:'re|\s+are)|we(?:'re|\s+are))\s+viewing\b"
+    r"|\b(?:is|are)\s+(?:displayed|shown|showing)\s+(?:on|in)\s+(?:the|your)\s+"
+    r"(?:chart|viewer|screen)\b"
+    r"|\b(?:is|are)\s+on\s+(?:the|your)\s+(?:chart|viewer|screen)\b",
+    re.IGNORECASE,
+)
+_REPLY_SEGMENT_SPLIT_RE = re.compile(r"(\s*(?:<br\s*/?>\s*)+|(?<=[.!?])\s+(?=[A-Z<]))", re.I)
+_NO_CHANGE_STATEMENT_RE = re.compile(
+    r"\b(?:haven't|have\s+not|didn't|did\s+not|hasn't|has\s+not|won't|will\s+not|"
+    r"can't|cannot|couldn't|could\s+not|unable\s+to|no)\s+"
+    r"(?:\w+\s+){0,3}?(?:chang|load|updat|switch|open|show|display|chart)\w*",
+    re.IGNORECASE,
+)
+_NO_CHANGE_NOTE = "I haven't changed the chart."
+
+
+# Tara has no action that creates a calendar event, a reminder, an alert, a watchlist or a
+# portfolio entry, so a sentence saying she did one is always false.
+_UNSUPPORTED_ACTION_CLAIM_RE = re.compile(
+    r"\b(?:i(?:'ve|\s+have)?|we(?:'ve|\s+have)?)\s+(?:just\s+|now\s+|already\s+)?"
+    r"(?:added|created|set(?:\s+up)?|scheduled|saved|put|placed)\b[^.!?]{0,60}"
+    r"\b(?:calendar|reminders?|alerts?|watch[-\s]?lists?|portfolio)\b"
+    r"|\b(?:reminders?|calendar\s+events?|alerts?)\s+(?:is|are|has\s+been|have\s+been)\s+"
+    r"(?:now\s+)?(?:set|created|added|scheduled)\b"
+    r"|\b(?:has|have)\s+been\s+(?:added|saved)\s+to\s+your\s+"
+    r"(?:calendar|watch[-\s]?list|portfolio)\b",
+    re.IGNORECASE,
+)
+
+
+# "is now on screen", "is now being opened", "the 20-year view is now set": status
+# claims the browser has not confirmed, in wordings the completion detector misses.
+_NOW_STATUS_CLAIM_RE = re.compile(
+    r"\b(?:is|are)\s+now\s+(?:being\s+)?(?:shown|opened|pulled\s+up|brought\s+up|loaded|"
+    r"displayed|set|applied|on\s+screen|in\s+view)\b"
+    r"|\bnow\s+on\s+(?:screen|the\s+chart|your\s+chart|display)\b"
+    r"|\b(?:has|have)\s+been\s+(?:loaded|opened|pulled\s+up|set|applied|switched)\b",
+    re.IGNORECASE,
+)
+
+
+def _claims_unsupported_action(text):
+    return bool(_UNSUPPORTED_ACTION_CLAIM_RE.search(re.sub(r"<[^>]*>", " ", text or "")))
+
+
+_MONTH_NUMBERS = {name: index for index, name in enumerate(
+    ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"), 1)}
+_MONTH_WORD_RE = re.compile(
+    r"\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|"
+    r"aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b", re.IGNORECASE)
+
+
+def _description_matches_loaded_view(plain, current_view):
+    """A screen description is only exempt when it describes what IS on screen.
+
+    "The chart shows NVDA's December window" with AAPL loaded is a false claim about the
+    screen, not a description of it. The sentence may not name another ticker, a month
+    outside the loaded window, or a duration or lookback other than the loaded one.
+    """
+    view = current_view if isinstance(current_view, dict) else {}
+    loaded = str(view.get("symbol") or "").upper()
+    named = set(re.findall(r"(?<![A-Za-z0-9.\-])[A-Z]{2,5}(?![A-Za-z0-9])", plain)) - _NOT_TICKER_CAPS
+    if named - {loaded}:
+        return False
+    start = str(view.get("start_date") or view.get("entry_date") or "")
+    try:
+        first = datetime.datetime.strptime(start[:10], "%Y-%m-%d").date()
+        days = int(str(view.get("days_out")))
+    except (TypeError, ValueError):
+        first, days = None, None
+    months = {_MONTH_NUMBERS[m.group(1)[:3].lower()] for m in _MONTH_WORD_RE.finditer(plain)
+              if not (m.group(1) == "may")}                 # "may" the verb is not a month
+    if months:
+        if first is None:
+            return False
+        last = first + datetime.timedelta(days=max(days, 1) - 1)
+        cursor, window_months = first.replace(day=1), set()
+        while cursor <= last:
+            window_months.add(cursor.month)
+            cursor = (cursor + datetime.timedelta(days=32)).replace(day=1)
+        if not months <= window_months:
+            return False
+    for match in re.finditer(r"\b(\d{1,3})[-\s]?(?:calendar[-\s])?days?\b", plain, re.I):
+        if days is None or int(match.group(1)) != days:
+            return False
+    for match in re.finditer(r"\b(\d{1,2})[-\s]?years?\b(?!\s+(?:were|was|won|lost|rose|fell))", plain, re.I):
+        if str(view.get("years") or "") != match.group(1):
+            return False
+    return True
+
+
+def _segment_breaks_view_contract(segment, actions, current_view):
+    """Whether one sentence claims or promises a view change the turn cannot prove."""
+
+    if _contains_internal_tool_markup(segment) or _contains_view_promise(segment):
+        return True
+    if _claims_unsupported_action(segment) or _NOW_STATUS_CLAIM_RE.search(
+            re.sub(r"<[^>]*>", " ", segment or "")):
+        return True
+    if not _view_completion_violation(segment, actions, current_view):
+        return False
+    if actions or not str((current_view or {}).get("symbol") or "").strip():
+        return True
+    plain = re.sub(r"<[^>]*>", " ", segment or "")
+    if re.search(r"\bnow\b", plain, re.IGNORECASE):
+        return True
+    if not _description_matches_loaded_view(plain, current_view):
+        return True
+    without_description = _SCREEN_DESCRIPTION_RE.sub(" ", plain)
+    return _view_completion_violation(without_description, actions, current_view)
+
+
+def repair_view_contract(text, actions=None, current_view=None):
+    """Drop only the sentences that break the view contract; keep the rest of the answer.
+
+    The contract is unchanged: Tara never claims or promises a view change the turn
+    cannot prove (a queued action is not proof - the browser confirms it). What changed
+    is the remedy. Replacing a whole reply with "I couldn't complete that chart request
+    safely" threw away correct answers to questions that were never chart requests
+    (TW-TASK-0032 cluster 4). Returns ``(text, dropped)``; an empty text means nothing
+    safe was left and the caller must use its fail-closed message.
+    """
+
+    actions = actions or []
+    raw = str(text or "")
+    if not raw.strip():
+        return "", 0
+    if (
+        not response_violates_view_contract(raw, actions, current_view)
+        and not _claims_unsupported_action(raw)
+        and not _NOW_STATUS_CLAIM_RE.search(re.sub(r"<[^>]*>", " ", raw))
+        and not _SCREEN_DESCRIPTION_RE.search(re.sub(r"<[^>]*>", " ", raw))
+    ):
+        return raw, 0
+    pieces = _REPLY_SEGMENT_SPLIT_RE.split(raw)
+    kept = []
+    dropped = 0
+    for index in range(0, len(pieces), 2):
+        segment = pieces[index]
+        separator = pieces[index + 1] if index + 1 < len(pieces) else ""
+        if not segment.strip():
+            kept.append(segment + separator)
+            continue
+        if _segment_breaks_view_contract(segment, actions, current_view):
+            dropped += 1
+            continue
+        kept.append(segment + separator)
+    repaired = "".join(kept).strip()
+    repaired = re.sub(r"^(?:\s*<br\s*/?>\s*)+|(?:\s*<br\s*/?>\s*)+$", "", repaired, flags=re.I)
+    if not re.sub(r"<[^>]*>", " ", repaired).strip():
+        return "", dropped
+    if dropped and not actions:
+        plain = re.sub(r"<[^>]*>", " ", repaired)
+        if not (_NEGATED_VIEW_COMPLETION_RE.search(plain) or _NO_CHANGE_STATEMENT_RE.search(plain)):
+            repaired += "<br><br>" + _NO_CHANGE_NOTE
+    return repaired, dropped
+
+
 _DIRECT_INVESTMENT_ADVICE_RE = re.compile(
     r"(?:"
     r"\byou\s+should\s+(?:buy|sell|hold|invest|allocate|put)\b"
@@ -1570,7 +1769,8 @@ _INVESTMENT_BOUNDARY_RE = re.compile(
 )
 _NEGATED_DIRECT_ADVICE_RE = re.compile(
     r"\b(?:cannot|can't|can\s+not|do\s+not|don't|not)\b.{0,55}\b"
-    r"(?:recommend(?:ation)?|tell|advise)\b.{0,35}\b(?:buy|sell|hold|invest|allocate)\b"
+    r"(?:recommend(?:ation)?|tell|advise|determine|decide|say|know|judge)\b.{0,45}\b"
+    r"(?:buy(?:ing)?|sell(?:ing)?|hold(?:ing)?|invest(?:ing)?|allocate|allocating)\b"
     r"(?:\s+(?-i:[A-Z][A-Z0-9.\-]{0,14})\b)?",
     re.IGNORECASE,
 )
@@ -1597,6 +1797,40 @@ def response_violates_investor_contract(text, investor_intent):
         bare_verdict = re.match(r"^\s*(?:go\s+)?(?:long|short)\b", plain, re.IGNORECASE)
         return bool(bare_verdict) or not _INVESTMENT_BOUNDARY_RE.search(plain)
     return False
+
+
+_SUITABILITY_BOUNDARY = (
+    "TradeWave cannot determine whether this security is suitable for you; this is "
+    "historical research, not a forecast or personal recommendation."
+)
+
+
+def repair_investor_contract(text, investor_intent, require_boundary=False):
+    """Remove directive or forecast sentences and keep the evidence around them.
+
+    The floor is unchanged: no sentence that tells the user to buy, sell, hold or size a
+    position, and no forecast, ever leaves; a suitability turn always carries the
+    boundary sentence. What changed is that one such sentence no longer deletes the
+    historical evidence the user asked about. Returns "" when nothing safe is left, so
+    the caller falls back to its fixed boundary reply.
+    """
+
+    kept = []
+    for segment, separator in _text_segments(text or ""):
+        if segment.strip() and reply_gives_direct_advice(segment):
+            continue
+        kept.append(segment + separator)
+    remainder = re.sub(
+        r"^(?:\s*<br\s*/?>\s*)+|(?:\s*<br\s*/?>\s*)+$", "", "".join(kept).strip(), flags=re.I)
+    plain = re.sub(r"<[^>]*>", " ", remainder)
+    if len(plain.split()) < 8 or reply_gives_direct_advice(remainder):
+        return ""
+    needs_boundary = require_boundary or investor_intent in {"named_security", "trade_suitability"}
+    if needs_boundary and not _INVESTMENT_BOUNDARY_RE.search(plain):
+        remainder = _SUITABILITY_BOUNDARY + "<br><br>" + remainder
+    if response_violates_investor_contract(remainder, investor_intent):
+        return ""
+    return remainder
 
 
 def reply_gives_direct_advice(text):
@@ -1794,7 +2028,20 @@ def _soft_view_request_answered(candidate, view_intent, actions, latest_user_tex
     return not _view_completion_violation(candidate, actions, current_view)
 
 
+# A correction is an instruction to the model, never content for the user. Without this
+# line a model answers the correction itself ("Understood, I won't describe any view
+# action as complete ...") and that meta-talk becomes the reply.
+_CORRECTION_SUFFIX = (
+    " Reply with the answer for the user only: do not mention this instruction, your "
+    "previous reply, the browser or the client, and do not apologise."
+)
+
+
 def _protocol_correction(reason, action_queued=False):
+    return _protocol_correction_text(reason, action_queued) + _CORRECTION_SUFFIX
+
+
+def _protocol_correction_text(reason, action_queued=False):
     if reason == "personalized_investment_advice":
         queued = " A valid chart action is already queued; do not call more tools." if action_queued else ""
         return (
@@ -1817,9 +2064,19 @@ def _protocol_correction(reason, action_queued=False):
     if reason == "missing_view_action":
         return (
             "The user directly requested a chart/view change, but your response did not call "
-            "update_view. For a symbol/setup, first use a read tool in this turn, then copy its "
-            "exact symbol + market + entry_date + hold_days/days_out into update_view. Do not claim "
-            "completion; the browser confirms it."
+            "update_view. Do it now: for a symbol/setup, call the read tool for the symbol the "
+            "user named in this turn - even if you expect it to be unavailable or outside the "
+            "user's plan, because the tool result decides - then copy its exact symbol + market + "
+            "entry_date + hold_days/days_out into update_view. If that read fails or is refused, "
+            "do not load something else in its place: say plainly why nothing was changed. Do "
+            "not claim completion."
+        )
+    if reason == "soft_view_check":
+        return (
+            "If the user asked for a chart or view change, call update_view now (for a "
+            "symbol/setup, read it first and copy its exact fields). If the user asked a "
+            "question that needs no view change, send your previous answer again unchanged; do "
+            "not load anything just to have an action."
         )
     if reason == "unconfirmed_view_promise":
         return (
@@ -2194,7 +2451,23 @@ def _announce_line(sym, card):
     stat = ", ".join(parts) if parts else (card.get("headline") or "the pattern")
     based = (" based on the last %d years" % n) if n else ""
     dirtxt = (" " + direction) if direction else ""
-    return "<b>%s</b>%s%s: %s." % (sym, dirtxt, based, stat)
+    return "<b>%s</b>%s%s%s: %s." % (sym, dirtxt, _card_window_text(card), based, stat)
+
+
+def _card_window_text(card):
+    """', Nov 17 to Dec 31 (45 days),' for a card with an exact setup, else ''."""
+    entry = _card_entry_date(card)
+    days = _card_days_out(card)
+    if not isinstance(entry, str) or not days:
+        return ""
+    try:
+        start = datetime.datetime.strptime(entry, "%Y-%m-%d").date()
+    except ValueError:
+        return ""
+    # TradeWave windows are calendar days and the entry date is day 1.
+    end = start + datetime.timedelta(days=days - 1)
+    return ", %s %d to %s %d (%d days)," % (
+        start.strftime("%b"), start.day, end.strftime("%b"), end.day, days)
 
 
 def _numeric_claim_matches(raw_claim, expected):
@@ -2237,11 +2510,79 @@ def _stat_conflicts(text, wins, yrs, avg=None, sharpe=None):
     return win_conflict or avg_conflict or sharpe_conflict
 
 
+def _text_segments(text):
+    pieces = _REPLY_SEGMENT_SPLIT_RE.split(text or "")
+    return [
+        (pieces[i], pieces[i + 1] if i + 1 < len(pieces) else "")
+        for i in range(0, len(pieces), 2)
+    ]
+
+
+def _segment_names_other_setup(segment, other, loaded_card, loaded_symbol):
+    """Whether a sentence explicitly identifies ``other`` rather than the loaded setup.
+
+    A record that differs from the loaded setup's is only acceptable when the sentence
+    says whose it is: another symbol, another lookback, another duration or another
+    entry date. An unlabelled record next to the loaded symbol is still a wrong claim.
+    """
+    other_symbol = str(other.get("symbol") or "").upper()
+    if other_symbol and other_symbol != loaded_symbol:
+        return _user_mentions_symbol(segment, other_symbol)
+    loaded_stats = _card_headline_stats(loaded_card)
+    other_stats = _card_headline_stats(other)
+    if loaded_stats and other_stats and loaded_stats[1] != other_stats[1]:
+        return True          # the "N of M" denominator itself names the other lookback
+    plain = re.sub(r"<[^>]*>", " ", segment or "")
+    other_days, loaded_days = _card_days_out(other), _card_days_out(loaded_card)
+    if other_days and other_days != loaded_days and re.search(
+            r"\b%d[-\s]?(?:calendar[-\s])?days?\b" % other_days, plain, re.I):
+        return True
+    other_entry, loaded_entry = _card_entry_date(other), _card_entry_date(loaded_card)
+    if isinstance(other_entry, str) and other_entry != loaded_entry:
+        try:
+            when = datetime.datetime.strptime(other_entry, "%Y-%m-%d")
+        except ValueError:
+            return False
+        if re.search(r"\b%s[a-z]*\.?\s+%d\b" % (when.strftime("%b"), when.day), plain, re.I):
+            return True
+    return False
+
+
+_NOT_TICKER_CAPS = frozenset(
+    "AI AIS ETF ETFS MFE MAE PE SR YTD TWR TWA TL TS USD US UK EOD SPX NDX DJIA "
+    "AVGP PREDR PMFE API MCP FAQ OK".split())
+
+
+def _segment_is_about_another_symbol(segment, loaded_symbol):
+    """A sentence that names a different ticker and not the loaded one."""
+    plain = re.sub(r"<[^>]*>", " ", segment or "")
+    if _user_mentions_symbol(plain, loaded_symbol):
+        return False
+    named = set(re.findall(r"(?<![A-Za-z0-9.\-])[A-Z]{2,5}(?![A-Za-z0-9])", plain)) - _NOT_TICKER_CAPS
+    return bool(named)
+
+
+def _card_stat_tuple(card):
+    hs = _card_headline_stats(card)
+    if not hs:
+        return None
+    return hs[0], hs[1], hs[2], _card_sharpe(card)
+
+
 def _ensure_load_named(text, actions, cards, card_list, current_view=None):
-    """Guarantee the loaded pick is announced with ITS OWN correct record. Fixes two failures:
-    (1) a bare confirmation with no symbol; (2) the right symbol but a STALE/FABRICATED win rate
-    carried from an earlier setup (loads the September window but says 'won 10 of 10' from the June
-    setup). The card is matched to the loaded setup by entry_date, and the HEADLINE is authoritative."""
+    """Guarantee the loaded pick is announced with ITS OWN correct record.
+
+    Two failures are closed: (1) a bare confirmation with no symbol; (2) the right symbol
+    with a stale or invented record. The card is matched to the loaded setup by its exact
+    identity and its HEADLINE is authoritative.
+
+    The remedy keeps the rest of the answer. A multi-part reply (several symbols, two
+    lookbacks, a window comparison) legitimately quotes records that are not the loaded
+    setup's; replacing the whole reply with one announce line dropped everything the user
+    asked for (TW-TASK-0032 cluster 3). So: a sentence whose figures match NO evidence
+    seen this turn is removed, every other sentence stays, and the loaded setup's own
+    record is stated first whenever the reply quoted a different one.
+    """
     text = text or ""
     loaded = [a.get("spec", {}) for a in actions
               if a.get("type") == "set_view" and isinstance(a.get("spec"), dict) and a["spec"].get("symbol")]
@@ -2264,22 +2605,46 @@ def _ensure_load_named(text, actions, cards, card_list, current_view=None):
     if card is None and expected is not None:
         card = _current_view_evidence_card(current_view, expected)
     if not card:
+        if text.strip() and sym in text.upper() and not _RPL_FRAC_RE.search(text):
+            # Prose that names the symbol and quotes no record needs no evidence card.
+            return text
         return "<b>%s</b> chart request." % sym
-    hs = _card_headline_stats(card)
-    if hs and _stat_conflicts(
-        text,
-        hs[0],
-        hs[1],
-        avg=hs[2],
-        sharpe=_card_sharpe(card),
+    loaded_stats = _card_stat_tuple(card)
+    line = _announce_line(sym, card)
+    if loaded_stats and _stat_conflicts(
+        text, loaded_stats[0], loaded_stats[1], avg=loaded_stats[2], sharpe=loaded_stats[3]
     ):
-        # the reply states a win rate that is NOT this loaded setup's record -> replace with truth
-        fixed = _announce_line(sym, card)
-        dm = re.search(r'<i>.*?</i>', text, re.S)          # preserve a disclaimer if the model added one
-        return fixed + ("<br><br>" + dm.group(0) if dm else "")
+        # The reply quotes a record that is not the loaded setup's. Keep every sentence
+        # that some evidence from this turn supports; drop the ones nothing supports.
+        others = []
+        for other in list(card_list) + [
+            _current_view_evidence_card(current_view, _confirmed_view_setup(current_view))
+        ]:
+            stats = _card_stat_tuple(other) if other else None
+            if stats and other is not card:
+                others.append((other, stats))
+        kept = []
+        for segment, separator in _text_segments(text):
+            if _segment_is_about_another_symbol(segment, sym):
+                kept.append(segment + separator)     # e.g. a table row quoted beside the load
+                continue
+            if segment.strip() and _stat_conflicts(
+                segment, loaded_stats[0], loaded_stats[1],
+                avg=loaded_stats[2], sharpe=loaded_stats[3],
+            ) and not any(
+                _segment_names_other_setup(segment, other, card, sym)
+                and not _stat_conflicts(segment, stats[0], stats[1], avg=stats[2], sharpe=stats[3])
+                for other, stats in others
+            ):
+                continue
+            kept.append(segment + separator)
+        remainder = re.sub(
+            r"^(?:\s*<br\s*/?>\s*)+|(?:\s*<br\s*/?>\s*)+$", "", "".join(kept).strip(), flags=re.I)
+        if not re.sub(r"<[^>]*>", " ", remainder).strip():
+            return line
+        return "Requested chart setup: " + line + "<br><br>" + remainder
     if sym in text.upper():
         return text
-    line = _announce_line(sym, card)
     if text.strip():
         return line + "<br><br>" + text
     return line
@@ -2622,6 +2987,47 @@ _CANONICAL_INDEX_SYMBOLS = frozenset({
 })
 
 
+# US markets in the order an unqualified ticker is read: S&P 500, NASDAQ 100, Dow 30,
+# Russell 1000, Wilshire 5000, then US-listed ETFs.
+_US_LISTING_ORDER = ("2", "1", "0", "3", "4", "11")
+_FOREIGN_LISTING_WORDS_RE = re.compile(
+    r"\b(?:london|lse|uk|u\.k\.|british|toronto|tsx|canad\w+|cdr|ftse)\b", re.IGNORECASE)
+
+
+def _first_us_listing(matches):
+    for market in _US_LISTING_ORDER:
+        hits = [item for item in matches if str(item.get("resourceID") or "") == market]
+        if len(hits) == 1:
+            return hits[0]
+    return None
+
+
+def _us_listing_market(symbol, question, token):
+    """Market id of the symbol's US listing when a bare ticker should read as US, else None."""
+
+    if not symbol or _FOREIGN_LISTING_WORDS_RE.search(question or ""):
+        return None
+    if str(symbol).upper() in _SPOT_METAL_NAMES:
+        return None
+    status, payload = _loopback_json(
+        "/ResolveSymbol/%s" % quote(str(symbol).upper()), token, timeout=(5, 15)
+    )
+    if status != 200 or not isinstance(payload, dict):
+        return None
+    matches = [item for item in payload.get("matches", []) if isinstance(item, dict)]
+    markets = {str(item.get("resourceID") or "") for item in matches}
+    if not (markets & {"12", "13"}) or len(markets) < 2:
+        return None                    # no foreign twin: the gateway's own choice stands
+    scores = [_symbol_resolution_score(question, item) for item in matches]
+    if len(set(scores)) > 1:
+        top = [item for item, score in zip(matches, scores) if score == max(scores)]
+        if len(top) == 1:
+            return None                # the question itself picks one listing
+        matches = top
+    selected = _first_us_listing(matches)
+    return str(selected.get("resourceID")) if selected else None
+
+
 def _resolve_question_symbol(symbol, question, token, current_view=None):
     if str(symbol).upper() in _SPOT_METAL_NAMES:
         alias = _usd_pair_alias(symbol, token)
@@ -2661,17 +3067,13 @@ def _resolve_question_symbol(symbol, question, token, current_view=None):
             # TradeWave's canonical index symbols should not be displaced by
             # an unrelated foreign security that happens to reuse the ticker.
             selected = index_matches[0]
-        elif best_score == 0 and len(
-            us_matches := [
-                item for item in matches
-                if str(item.get("resourceID") or "") == "2"
-            ]
-        ) == 1:
-            # For an unqualified ticker such as MSFT, prefer TradeWave's
-            # representative US-stock market over a foreign receipt with the
-            # same code. Explicit words such as CDR, index, ETF, or crude oil
-            # score first and therefore remain authoritative.
-            selected = us_matches[0]
+        elif (us_match := _first_us_listing(best or matches)) is not None:
+            # For an unqualified ticker, prefer a US listing over a foreign security
+            # with the same code: the S&P 500 for MSFT, and the broader US lists for
+            # a name that is not in the S&P 500 (INFY is the NYSE ADR in the Wilshire
+            # 5000, not the London line). Explicit words such as CDR, London, index,
+            # ETF, or crude oil score first and therefore remain authoritative.
+            selected = us_match
         elif len(matches) == 1:
             selected = matches[0]
         else:
@@ -3187,7 +3589,8 @@ def build_sector_screen_command(message, user_token, *, investor_intent=None,
         return None
     for pattern, sector, etf, proxy_market in _SECTOR_SCREENS:
         phrase = re.search(
-            r"\b(?:%s)(?:\s+sector)?\s+%s\b" % (pattern, _SECTOR_STOCK_NOUN), text, re.IGNORECASE
+            r"\b(?:%s)(?:(?:\s+sector)?\s+%s|\s+sector)\b" % (pattern, _SECTOR_STOCK_NOUN),
+            text, re.IGNORECASE
         )
         if not phrase:
             continue
@@ -3778,6 +4181,61 @@ def _market_label(market_id):
     return name.title().replace("Etfs", "ETFs").replace("Nasdaq", "NASDAQ")
 
 
+_PLAN_NAMES = {"1": "Explorer (free)", "2": "Navigator", "4": "Analyst", "5": "Analyst",
+               "6": "Strategist", "7": "Strategist"}
+
+
+def plan_context_lines():
+    """Verified plan facts for the model's live context, or [] when there are none.
+
+    Built from the same verified claims and config tables as the tool-level plan gate
+    (``_plan_scope``), so the prose and the gate can never disagree. This only informs
+    the answer; enforcement stays in the tool path.
+    """
+
+    scope = _plan_scope()
+    level = scope.get("level")
+    if level is None:
+        return []
+    if level == "admin":
+        return ["USER PLAN (verified): internal/admin account with every market and AI scores."]
+    name = _PLAN_NAMES.get(str(level))
+    if not name:
+        return []
+    included = sorted(scope["markets"] or (), key=lambda value: int(value))
+    everything = sorted(
+        (m for m in config.available_resources if str(m) in _VS_MARKETS),
+        key=lambda value: int(value),
+    )
+    missing = [m for m in everything if m not in included]
+    years_cap = getattr(config, "num_years_allowed_by_level", {}).get(str(level))
+    lines = [
+        "USER PLAN (verified for this request; a Strategist level can also be the 7-day "
+        "new-account trial): %s." % name,
+        "- Markets this plan can scan and load: %s."
+        % (", ".join(_market_label(m) for m in included) or "none"),
+    ]
+    if missing:
+        lines.append(
+            "- Not included in this plan: %s." % ", ".join(_market_label(m) for m in missing)
+        )
+    lines.append(
+        "- Lookback: %s."
+        % ("up to %s years" % years_cap if years_cap else "full available history")
+    )
+    lines.append(
+        "- AI scores (AIS, AI Win%, PredR, PMFE): "
+        + ("included, for US stocks and ETFs." if scope["ai"]
+           else "not included (Analyst and Strategist plans).")
+    )
+    if scope.get("row_cap"):
+        lines.append(
+            "- Opportunity lists show the top %s results, and the start date is locked to today."
+            % scope["row_cap"]
+        )
+    return lines
+
+
 def _requested_market_ids(markets_param):
     """Market ids named in a scan's ``markets`` argument (ids or catalog names)."""
 
@@ -3924,6 +4382,18 @@ def _alias_note(original, alias):
         str(original).upper(), described, alias["symbol"],
         alias.get("name") or alias.get("label") or "TradeWave listing",
     )
+
+
+# The model restates a plan boundary in its own words ("isn't included in your current
+# plan", "your plan covers Dow 30 only"); any of them means the note is already there.
+_PLAN_BOUNDARY_MARKER = (
+    r"(?:not|n['\u2019]t)\s+(?:included|part\s+of|covered|available)\b[^.]{0,60}\bplan\b"
+    r"|\bplan\b[^.]{0,60}(?:does\s+not|doesn['\u2019]t)\s+(?:include|cover)\b"
+    r"|\byour\s+(?:\w+\s+){0,2}plan\s+(?:only\s+)?(?:covers|includes)\b"
+    r"|\b(?:requires|needs|part\s+of)\s+(?:the\s+|an?\s+)?(?:navigator|analyst|strategist)\b"
+    r"|\b(?:outside|beyond|not\s+(?:in|on|within|under))\s+(?:of\s+)?your\s+(?:\w+\s+){0,2}plan\b"
+    r"|\byour\s+(?:\w+\s+){0,2}plan\s+(?:is\s+limited\s+to|only\s+(?:covers|includes))\b"
+)
 
 
 def _add_turn_note(turn_notes, key, text, marker):
@@ -4158,7 +4628,7 @@ def _keep_symbol_read_in_plan(name, inp, out, user_id, user_token, turn_notes):
     if not blocked:
         return out
     if not explicit or explicit not in scope["markets"]:
-        for market in ("2", "1", "0"):
+        for market in _US_LISTING_ORDER:
             if market not in scope["markets"]:
                 continue
             retry = run_tool(name, dict(inp, market=market), user_id)
@@ -4169,10 +4639,11 @@ def _keep_symbol_read_in_plan(name, inp, out, user_id, user_token, turn_notes):
         "so I have not screened", "so I have not analyzed this symbol in")
     _add_turn_note(
         turn_notes, "plan_boundary", html.escape(boundary, quote=False),
-        r"(?:not|n['\u2019]t)\s+included\s+in\s+your\s+plan",
+        _PLAN_BOUNDARY_MARKER,
     )
     return {"error": "market_not_in_plan", "ok": False, "message": boundary,
-            "instruction": "Tell the user exactly this and give no statistics."}
+            "instruction": ("Say this boundary once and give no statistics for this symbol. "
+                            "Then offer the nearest thing the plan includes.")}
 
 
 _AI_RANK_KEYS = {"ai_win_prob": "ml_win_prob", "ais": "ml_score", "pred_return": "pred_return_pct"}
@@ -4425,6 +4896,124 @@ def _with_system_note(system, note):
     return (system or "") + note
 
 
+def _scan_window_is_not_today(inp):
+    """A scan for another entry window ("in January", "next month") is not the table.
+
+    The opportunity table holds today's entries, so answering a dated screen from its
+    rows returns November names for a January question.
+    """
+    window = str((inp or {}).get("window") or "").strip().lower()
+    if not window or window == "now":
+        return False
+    today = _market_today().isoformat()
+    return window != "%s..%s" % (today, today)
+
+
+def _prefer_us_listing(raw, inp, latest_user_text, user_id, user_token, turn_notes):
+    """Re-read a bare ticker on its US listing when the gateway picked a foreign one.
+
+    "Best setup for INFY" means the NYSE ADR, not the London line with the same code.
+    Only when the user did not name an exchange or country, and only when a US list
+    really carries the symbol; otherwise the first read stands.
+    """
+    card = raw.get("card") if isinstance(raw, dict) else None
+    listed = _card_market_id(card) if isinstance(card, dict) else None
+    if isinstance(raw, dict) and raw.get("error"):
+        listed = str(inp.get("market") or "") or None
+    symbol = str(inp.get("symbol") or "")
+    if (
+        listed not in {"12", "13"}
+        or _FOREIGN_LISTING_WORDS_RE.search(latest_user_text or "")
+        or re.search(r"\.(?:l|to|lse)\b", symbol, re.IGNORECASE)
+        or re.search(r"(?<![A-Za-z0-9])%s\.(?:l|to)\b" % re.escape(symbol), latest_user_text or "", re.I)
+    ):
+        return raw, inp
+    for market in ("2", "4", "11"):
+        retry, used = _analyze_with_recoveries(
+            dict(inp, market=market), user_id, user_token, turn_notes)
+        retry_card = retry.get("card") if isinstance(retry, dict) else None
+        if isinstance(retry_card, dict) and _card_market_id(retry_card) == market:
+            return retry, used
+    return raw, inp
+
+
+def _note_plan_years_cap(turn_notes, asked, cap):
+    _add_turn_note(
+        turn_notes, "plan_years_cap",
+        "Your plan's lookback is capped at %d years, so this uses %d years, not %d. Longer "
+        "history is part of the higher plans: tradewave.ai/pricing." % (cap, cap, asked),
+        r"(?:capped|limited|limit|maximum|max|up\s+to|only)\b[^.]{0,40}\b%d\s*(?:-|\s)?years?"
+        r"|\b%d\s*(?:-|\s)?years?\b[^.]{0,40}\b(?:cap|limit|maximum|max)\b" % (cap, cap),
+    )
+
+
+def _clamp_read_years_to_plan(inp, user_years_cap, turn_notes):
+    """A read must use the lookback the viewer will show, and say when the plan cut it."""
+
+    years = (inp or {}).get("years")
+    if not (isinstance(user_years_cap, int) and user_years_cap > 0):
+        return inp
+    if isinstance(years, bool) or not isinstance(years, int) or years <= user_years_cap:
+        return inp
+    _note_plan_years_cap(turn_notes, years, user_years_cap)
+    return dict(inp, years=user_years_cap)
+
+
+def _apply_user_stated_request(name, inp, latest_user_text, user_token, current_view=None):
+    """Fill tool arguments the user stated but the model left out.
+
+    Engine arguments only - no statistic is computed here. Three gaps recur: a requested
+    lookback ("15y", "over 20 years") silently run on the default 10; "the next 30 days"
+    studied on an unrelated window; and a bare US ticker resolved to a foreign listing
+    with the same code (INFY -> London). The user's own words decide, and an argument the
+    model did set is kept unless it contradicts an explicit "next N days" window.
+    """
+
+    inp = dict(inp or {})
+    text = str(latest_user_text or "")
+    if not text:
+        return inp
+    try:
+        import tara_research            # lazy: tara_research imports this module
+    except Exception:                   # noqa: BLE001 - argument help is optional
+        return inp
+    if "years" not in inp and len(set(re.findall(r"\b(\d{1,2})[-\s]?(?:years?|yrs?|y)\b", text, re.I))) <= 1:
+        stated = tara_research._lookback_years(text)
+        if stated:
+            inp["years"] = stated
+    view = current_view if isinstance(current_view, dict) else {}
+    if (
+        "years" not in inp and name in {"analyze_symbol", "get_symbol_patterns"}
+        and str(inp.get("symbol") or "").upper() == str(view.get("symbol") or "").upper() != ""
+        and str(view.get("pe_cycle") or "cons").lower() in {"cons", "consecutive"}
+        and str(view.get("years") or "").isdigit() and 1 <= int(str(view["years"])) <= 99
+        and inp.get("pe_cycle") in (None, "consecutive")
+    ):
+        # A re-read of the symbol already on screen keeps the viewer's lookback, so the
+        # numbers Tara quotes are the ones the chart shows after the action.
+        inp["years"] = int(str(view["years"]))
+    if name != "analyze_symbol":
+        if name == "get_symbol_patterns" and not inp.get("market"):
+            market = _us_listing_market(inp.get("symbol"), text, user_token)
+            if market:
+                inp["market"] = market
+        return inp
+    symbol = str(inp.get("symbol") or "")
+    if not inp.get("market") and _user_mentions_symbol(text, symbol):
+        market = _us_listing_market(symbol, text, user_token)
+        if market:
+            inp["market"] = market
+    if not inp.get("period") and not inp.get("reverse"):
+        ahead = re.search(
+            r"\b(?:the\s+)?(?:next|coming)\s+(\d{1,3})\s+(day|week|month)s?\b", text, re.I)
+        if ahead and not re.search(r"\b(?:19|20)\d{2}\b", text):
+            span = int(ahead.group(1)) * {"day": 1, "week": 7, "month": 30}[ahead.group(2).lower()]
+            if 2 <= span <= 367:
+                inp["entry_date"] = _market_today().isoformat()
+                inp["days_out"] = span
+    return inp
+
+
 def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
                        table_market=None, opp_table=None, user_token=None,
                        user_years_cap=None,
@@ -4476,6 +5065,10 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
     ):
         inp = dict(inp)
         inp["years"] = effective_named_lookback
+    if name in {"analyze_symbol", "get_symbol_patterns", "find_best_opportunities"}:
+        inp = _apply_user_stated_request(
+            name, inp, latest_user_text, user_token, current_view)
+        inp = _clamp_read_years_to_plan(inp, user_years_cap, turn_notes)
     card_count_before = len(card_list)
     # An EXPLICIT lookback on the loaded symbol must be clamped too. The block above only
     # fires for named_symbol_override, which chatbot.py deliberately leaves None when the
@@ -4501,7 +5094,10 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
             # The viewer also caps years by PLAN (config.num_years_allowed_by_level:
             # Explorer 10, Navigator 15, Analyst+ uncapped) and steps the control down to
             # it, so an uncapped spec desynchronises exactly like the cohort case did.
-            if isinstance(user_years_cap, int) and user_years_cap > 0:
+            # The 100-Year Pattern is a public featured pattern on every plan: its exact
+            # spec is exempt from the plan lookback cap, like it is from the date lock.
+            if (isinstance(user_years_cap, int) and user_years_cap > 0
+                    and not _is_hundred_year_spec(dict(inp))):
                 cohort_max = (
                     min(cohort_max, user_years_cap)
                     if isinstance(cohort_max, int) else user_years_cap
@@ -4511,6 +5107,8 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
                     "tara lookback clamped for %s %s: %s -> %s",
                     effective_symbol, effective_cycle or "cons", inp["years"], cohort_max,
                 )
+                if isinstance(user_years_cap, int) and cohort_max == user_years_cap:
+                    _note_plan_years_cap(turn_notes, inp["years"], user_years_cap)
                 inp = dict(inp)
                 inp["years"] = cohort_max
 
@@ -4576,7 +5174,7 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
         if dropped:
             _add_turn_note(
                 turn_notes, "plan_partial", html.escape(dropped, quote=False),
-                r"(?:not|n['\u2019]t)\s+included\s+in\s+your\s+plan",
+                _PLAN_BOUNDARY_MARKER,
             )
         if plan_boundary is None and ai_request is not None:
             ai_block = _ai_plan_block(inp, scope)
@@ -4591,11 +5189,16 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
                     r"AI\b[^.]{0,80}(?:(?:not|n['\u2019]t)\s+included|US\s+stocks\s+and\s+ETFs\s+only)",
                 )
     if plan_boundary is not None:
+        allowed = sorted(scope["markets"] or (), key=lambda value: int(value))
         out = {"error": "market_not_in_plan", "ok": False, "message": plan_boundary,
-               "instruction": "Tell the user exactly this and do not name any symbols."}
+               "instruction": (
+                   "Say this boundary once and name no symbols from that market. Then run the "
+                   "same screen on a market the plan includes (%s) and report those results, "
+                   "labelled with the market you used."
+                   % (", ".join("%s=%s" % (m, _market_label(m)) for m in allowed) or "none"))}
         _add_turn_note(
             turn_notes, "plan_boundary", html.escape(plan_boundary, quote=False),
-            r"(?:not|n['\u2019]t)\s+included\s+in\s+your\s+plan",
+            _PLAN_BOUNDARY_MARKER,
         )
     elif name == "find_best_opportunities" and ai_request is not None:
         # AI ranking/filtering needs the gateway's scored cards; the opp-table rows carry
@@ -4608,7 +5211,7 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
         # Screen from OppList4 (the opp-table data path) so the answer == the on-screen table;
         # /scan is a different path that names different tickers (see _opplist4_rows note).
         target = _single_market_id(inp.get("markets"))
-        blocking = bool(set(inp.keys()) & _TABLE_BLOCKING_FILTERS)
+        blocking = bool(set(inp.keys()) & _TABLE_BLOCKING_FILTERS) or _scan_window_is_not_today(inp)
         screen_rows = None
         if target is not None and not blocking:
             if table_market == target and opp_table:
@@ -4651,7 +5254,12 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
             if target is not None and table_market != target:
                 _append_market_switch(actions, target)
     elif name == "analyze_symbol":
+        market_stated = bool(inp.get("market")) and bool(
+            _FOREIGN_LISTING_WORDS_RE.search(latest_user_text or ""))
         raw, inp = _analyze_with_recoveries(inp, user_id, user_token, turn_notes)
+        if not market_stated:
+            raw, inp = _prefer_us_listing(
+                raw, inp, latest_user_text, user_id, user_token, turn_notes)
         out = _briefify(raw)
     elif name == "get_symbol_patterns":
         asked = str(inp.get("symbol") or "").strip().upper()
@@ -4699,6 +5307,196 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
     ):
         non_actionable_symbols.add(str(inp.get("symbol") or "").upper())
     return out
+
+
+_PANEL_LABELS = {"trend_chart": "Trend Chart", "wave_stats": "Wave Stats",
+                 "ai_scores": "AI Scores", "price_chart": "Price Chart"}
+_CYCLE_LABELS = {"cons": "consecutive years", "pe0": "PE (election years)",
+                 "pe1": "PE+1 (post-election years)", "pe2": "PE+2 (midterm years)",
+                 "pe3": "PE+3 (pre-election years)"}
+
+
+def _describe_view_actions(actions):
+    """Status-neutral description of queued view changes that carry no symbol.
+
+    Used only when the model left no usable text. It names what was requested (the same
+    "Showing Wave Stats." style as the deterministic view commands) and claims nothing
+    about completion, which the browser confirms.
+    """
+    merged = {}
+    for action in actions or []:
+        if action.get("type") == "set_view" and isinstance(action.get("spec"), dict):
+            merged.update(action["spec"])
+    symbol = str(merged.get("symbol") or "").upper()
+    if symbol:
+        return "<b>%s</b> chart request." % symbol
+    parts = []
+    if merged.get("market") not in (None, ""):
+        parts.append("Showing %s in the Opportunity Table." % _market_label(merged["market"]))
+    if merged.get("bottom_slide") in _PANEL_LABELS:
+        parts.append("Showing %s." % _PANEL_LABELS[merged["bottom_slide"]])
+    if isinstance(merged.get("years"), int) and not isinstance(merged.get("years"), bool):
+        parts.append("Using a %d-year lookback." % merged["years"])
+    if merged.get("pe_cycle") in _CYCLE_LABELS:
+        parts.append("Using %s." % _CYCLE_LABELS[merged["pe_cycle"]])
+    for key, label in (("show_mfe", "MFE overlay"), ("show_mae", "MAE overlay"),
+                       ("show_tooltips", "Guidance tooltips")):
+        if isinstance(merged.get(key), bool):
+            parts.append("%s %s." % (label, "on" if merged[key] else "off"))
+    return " ".join(parts) or "Requested view change."
+
+
+class ProviderNoAnswer(Exception):
+    """The provider declined (stop_reason refusal) or returned nothing at all."""
+
+
+def _finish_tool_reply(final_text, actions, cards, card_list, *, view_intent,
+                       latest_user_text, non_actionable_symbols, current_view,
+                       investor_intent, full_history_request, named_symbol_override,
+                       named_symbol_lookback, viewer_entry_year, turn_notes, trace,
+                       protocol_failures=0):
+    """Shared post-processing for both provider loops: view contract, evidence, notes.
+
+    Safety is unchanged - the reply never claims or promises a view change the turn
+    cannot prove, and a loaded setup is announced with its own record. The remedies now
+    keep the model's answer: an unproven status sentence is removed instead of the whole
+    reply being replaced, and a turn that asked for a chart but queued no action keeps
+    its explanation plus an explicit "I haven't changed the chart".
+    """
+
+    final_text, removed = repair_view_contract(final_text, actions, current_view)
+    if removed:
+        trace("view_claim_removed", count=removed)
+    view_specs = [
+        action.get("spec", {}) for action in actions or []
+        if action.get("type") == "set_view" and isinstance(action.get("spec"), dict)
+    ]
+    group_switch_only = (
+        view_intent == "chart" and view_specs
+        and not any(spec.get("symbol") for spec in view_specs)
+        and not _explicit_ticker(latest_user_text)
+    )
+    if (
+        not group_switch_only
+        and not _actions_satisfy_view_intent(actions, view_intent)
+        and not _non_actionable_read_allows_no_view_action(
+            final_text,
+            view_intent,
+            actions,
+            latest_user_text,
+            non_actionable_symbols,
+        )
+        and not _soft_view_request_answered(
+            final_text, view_intent, actions, latest_user_text, current_view
+        )
+    ):
+        trace("protocol_violation", reason="incomplete_view_action")
+        actions = []
+        prose, _ = repair_view_contract(final_text, actions, current_view)
+        plain = re.sub(r"<[^>]*>", " ", prose)
+        if len(plain.split()) >= 6:
+            # The explanation is the answer; only the chart status has to be explicit.
+            if not (_NEGATED_VIEW_COMPLETION_RE.search(plain)
+                    or _NO_CHANGE_STATEMENT_RE.search(plain)):
+                prose += "<br><br>" + _NO_CHANGE_NOTE
+            final_text = prose
+        else:
+            final_text = (
+                "I couldn't send the complete chart action, so I haven't changed the chart. "
+                "Please try that load again."
+            )
+
+    # If the model exhausted the loop after a valid action, preserve the action
+    # with status-neutral prose. Otherwise fail closed.
+    if not final_text:
+        if actions:
+            # A symbol load is announced from its own evidence card further down; other
+            # view changes get a status-neutral description of what was requested.
+            loads_symbol = any(
+                action.get("type") == "set_view" and isinstance(action.get("spec"), dict)
+                and action["spec"].get("symbol") for action in actions
+            )
+            final_text = "" if loads_symbol else _describe_view_actions(actions)
+        elif protocol_failures:
+            final_text = (
+                "I couldn't send a valid chart action, so I haven't changed the chart. "
+                "Please try that load again."
+            )
+        else:
+            final_text = (
+                "I couldn't complete that request safely, so I haven't changed the chart. "
+                "Please try again."
+            )
+    if _view_actions_conflict(actions):
+        trace("protocol_violation", reason="conflicting_view_actions")
+        actions = []
+        # Two different setups were queued, so none is applied. The research the reply
+        # reports is still the answer; only the chart status has to be stated.
+        prose, _ = repair_view_contract(final_text, actions, current_view)
+        plain = re.sub(r"<[^>]*>", " ", prose)
+        if len(plain.split()) >= 6:
+            if not (_NEGATED_VIEW_COMPLETION_RE.search(plain)
+                    or _NO_CHANGE_STATEMENT_RE.search(plain)):
+                prose += "<br><br>" + _NO_CHANGE_NOTE
+            final_text = prose
+        else:
+            final_text = (
+                "I couldn't resolve that into one unambiguous chart setup, so I haven't changed "
+                "the chart. Please try again."
+            )
+    # Deterministic guard: guarantee the loaded pick is NAMED (symbol + lookback + stat).
+    _enforce_full_history_action(actions, full_history_request)
+    _enforce_named_symbol_action(
+        actions,
+        cards,
+        named_symbol_override,
+        viewer_entry_year,
+        preferred_years=named_symbol_lookback,
+    )
+    final_text = _ensure_load_named(
+        final_text, actions, cards, card_list, current_view=current_view
+    )
+    if response_violates_investor_contract(final_text, investor_intent):
+        trace("protocol_violation", reason="unsafe_investor_response")
+        safe_text = repair_investor_contract(final_text, investor_intent)
+        if safe_text:
+            final_text = safe_text
+        else:
+            evidence = _ensure_load_named(
+                "", actions, cards, card_list, current_view=current_view
+            ) if actions else ""
+            if not evidence:
+                confirmed = _confirmed_view_setup(current_view)
+                view_card = (
+                    _current_view_evidence_card(current_view, confirmed) if confirmed else None
+                )
+                if view_card:
+                    evidence = _announce_line(confirmed["symbol"], view_card)
+            final_text = (
+                "TradeWave cannot determine whether this security is suitable for you. "
+                + (("Historical evidence: " + evidence + " ") if evidence else "")
+                + "This is historical research, not a forecast or personal recommendation."
+            )
+    final_text = _break_before_cta(final_text)   # closing CTA never runs onto the last list line
+    repaired, removed = repair_view_contract(final_text, actions, current_view)
+    if removed:
+        trace("view_claim_removed", count=removed)
+    if repaired:
+        final_text = repaired
+    else:
+        trace("protocol_violation", reason="unsafe_final_response")
+        if actions:
+            final_text = _ensure_load_named(
+                "", actions, cards, card_list, current_view=current_view
+            )
+            if not final_text:
+                final_text = _describe_view_actions(actions)
+        else:
+            final_text = (
+                "I couldn't complete that chart request safely, so I haven't changed the chart. "
+                "Please try again."
+            )
+    return _apply_turn_notes(final_text, turn_notes), actions
 
 
 def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
@@ -4808,7 +5606,7 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
     for round_index in range(_MAX_TOOL_ROUNDS):
         resp = send_claude_messages(convo, model=model, system=system,
                                     cache_system=True, cache_ttl=cache_ttl,
-                                    tools=TOOLS, return_raw=True)
+                                    tools=TOOLS, return_raw=True, effort=CLAUDE_EFFORT)
         blocks = resp.get("content", []) or []
         blocks_are_valid = (
             isinstance(blocks, list)
@@ -4820,16 +5618,37 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
             block for block in blocks
             if isinstance(block, dict) and block.get("type") == "tool_use"
         ]
+        if resp.get("stop_reason") == "refusal" or (
+            resp.get("stop_reason") != "tool_use" and not native_tool_blocks
+            and not _text_of(blocks) and not actions and not protocol_failures
+        ):
+            # A safety refusal or an empty first answer is a provider failure, not a
+            # reply: raise so the chat route retries the turn on the fallback provider.
+            trace("provider_no_answer", stop_reason=str(resp.get("stop_reason") or ""))
+            raise ProviderNoAnswer(str(resp.get("stop_reason") or "empty"))
         if resp.get("stop_reason") != "tool_use":
             candidate = _text_of(blocks)
+            # Remove an unproven status sentence instead of spending a correction round
+            # on it; a reply that is nothing but such a claim still gets corrected.
+            repaired_candidate, removed_claims = repair_view_contract(
+                candidate, actions, current_view)
+            # What repair returns already satisfies the view contract (its sentences were
+            # each checked), so only an empty repair - a reply that was nothing but a
+            # claim, a promise or tool markup - is sent back for correction.
+            view_contract_ok = bool(repaired_candidate)
+            if repaired_candidate:
+                if removed_claims:
+                    trace("view_claim_removed", count=removed_claims, round=round_index + 1)
+                candidate = repaired_candidate
             reason = None
             if not blocks_are_valid or native_tool_blocks:
                 reason = "invalid_tool_envelope"
-            elif _contains_internal_tool_markup(candidate):
+            elif not view_contract_ok and _contains_internal_tool_markup(candidate):
                 reason = "printed_tool_markup"
-            elif _contains_view_promise(candidate):
+            elif not view_contract_ok and _contains_view_promise(candidate):
                 reason = "unconfirmed_view_promise"
-            elif _view_completion_violation(candidate, actions, current_view):
+            elif not view_contract_ok and _view_completion_violation(
+                    candidate, actions, current_view):
                 reason = "unconfirmed_view_completion"
             elif response_violates_investor_contract(candidate, investor_intent):
                 reason = "personalized_investment_advice"
@@ -4849,7 +5668,14 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
                     )
                 )
             ):
-                reason = "missing_view_action"
+                # A "show me ..." answered in clean words gets ONE check that leaves the
+                # model free to repeat its answer; an explicit "load"/"switch" stays strict.
+                reason = (
+                    "soft_view_check"
+                    if not soft_view_nudged and _soft_view_request_answered(
+                        candidate, view_intent, actions, latest_user_text, current_view)
+                    else "missing_view_action"
+                )
                 soft_view_nudged = True
             if reason:
                 protocol_failures += 1
@@ -4872,7 +5698,8 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
                     "role": "user",
                     "content": _protocol_correction(
                         reason,
-                        action_queued=bool(actions) and reason != "missing_view_action",
+                        action_queued=bool(actions) and reason not in {
+                            "missing_view_action", "soft_view_check"},
                     ),
                 })
                 continue
@@ -4951,98 +5778,21 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
                 "content": _bounded_json(out),
             })
         convo.append({"role": "user", "content": results})
-    if (
-        not _actions_satisfy_view_intent(actions, view_intent)
-        and not _non_actionable_read_allows_no_view_action(
-            final_text,
-            view_intent,
-            actions,
-            latest_user_text,
-            non_actionable_symbols,
-        )
-        and not _soft_view_request_answered(
-            final_text, view_intent, actions, latest_user_text, current_view
-        )
-    ):
-        trace("protocol_violation", reason="incomplete_view_action")
-        actions = []
-        final_text = (
-            "I couldn't send the complete chart action, so I haven't changed the chart. "
-            "Please try that load again."
-        )
-
-    # If the model exhausted the loop after a valid action, preserve the action
-    # with status-neutral prose. Otherwise fail closed.
-    if not final_text:
-        if actions:
-            loaded = [
-                action.get("spec", {}) for action in actions
-                if action.get("type") == "set_view" and isinstance(action.get("spec"), dict)
-            ]
-            latest = loaded[-1] if loaded else {}
-            symbol = str(latest.get("symbol") or "").upper()
-            final_text = "<b>%s</b> chart request." % symbol if symbol else "Requested view change."
-        elif protocol_failures:
-            final_text = (
-                "I couldn't send a valid chart action, so I haven't changed the chart. "
-                "Please try that load again."
-            )
-        else:
-            final_text = (
-                "I couldn't complete that request safely, so I haven't changed the chart. "
-                "Please try again."
-            )
-    if _view_actions_conflict(actions):
-        trace("protocol_violation", reason="conflicting_view_actions")
-        actions = []
-        final_text = (
-            "I couldn't resolve that into one unambiguous chart setup, so I haven't changed "
-            "the chart. Please try again."
-        )
-    # Deterministic guard: guarantee the loaded pick is NAMED (symbol + lookback + stat), since
-    # Haiku-4.5 intermittently returns a bare 'Loaded on the chart' with no symbol.
-    _enforce_full_history_action(actions, full_history_request)
-    _enforce_named_symbol_action(
-        actions,
-        cards,
-        named_symbol_override,
-        viewer_entry_year,
-        preferred_years=named_symbol_lookback,
+    return _finish_tool_reply(
+        final_text, actions, cards, card_list,
+        view_intent=view_intent,
+        latest_user_text=latest_user_text,
+        non_actionable_symbols=non_actionable_symbols,
+        current_view=current_view,
+        investor_intent=investor_intent,
+        full_history_request=full_history_request,
+        named_symbol_override=named_symbol_override,
+        named_symbol_lookback=named_symbol_lookback,
+        viewer_entry_year=viewer_entry_year,
+        turn_notes=turn_notes,
+        trace=trace,
+        protocol_failures=protocol_failures,
     )
-    final_text = _ensure_load_named(
-        final_text, actions, cards, card_list, current_view=current_view
-    )
-    if response_violates_investor_contract(final_text, investor_intent):
-        log.warning(
-            "tara response protocol violation turn=%s reason=unsafe_investor_response",
-            turn_id or "-",
-        )
-        trace("protocol_violation", reason="unsafe_investor_response")
-        evidence = _ensure_load_named(
-            "", actions, cards, card_list, current_view=current_view
-        ) if actions else ""
-        final_text = (
-            "TradeWave cannot determine whether this security is suitable for you. "
-            + (("Historical evidence: " + evidence + " ") if evidence else "")
-            + "This is historical research, not a forecast or personal recommendation."
-        )
-    final_text = _break_before_cta(final_text)   # closing CTA never runs onto the last list line
-    if response_violates_view_contract(final_text, actions, current_view):
-        trace("protocol_violation", reason="unsafe_final_response")
-        if actions:
-            final_text = _ensure_load_named(
-                "", actions, cards, card_list, current_view=current_view
-            )
-            if not final_text:
-                latest = actions[-1].get("spec", {})
-                symbol = str(latest.get("symbol") or "").upper()
-                final_text = "<b>%s</b> chart request." % symbol if symbol else "Requested view change."
-        else:
-            final_text = (
-                "I couldn't complete that chart request safely, so I haven't changed the chart. "
-                "Please try again."
-            )
-    return _apply_turn_notes(final_text, turn_notes), actions
 
 
 def run_chat_with_openai_tools(messages, system, user_id, model,
@@ -5222,71 +5972,21 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
     if not final_text:
         raise OpenAIAPIError("OpenAI returned no assistant text")
 
-    if (
-        not _actions_satisfy_view_intent(actions, view_intent)
-        and not _non_actionable_read_allows_no_view_action(
-            final_text,
-            view_intent,
-            actions,
-            latest_user_text,
-            non_actionable_symbols,
-        )
-        and not _soft_view_request_answered(
-            final_text, view_intent, actions, latest_user_text, current_view
-        )
-    ):
-        trace("protocol_violation", reason="incomplete_view_action")
-        actions = []
-        final_text = (
-            "I couldn't send the complete chart action, so I haven't changed the chart. "
-            "Please try that load again."
-        )
-    if _view_actions_conflict(actions):
-        trace("protocol_violation", reason="conflicting_view_actions")
-        actions = []
-        final_text = (
-            "I couldn't resolve that into one unambiguous chart setup, so I haven't changed "
-            "the chart. Please try again."
-        )
-
-    _enforce_full_history_action(actions, full_history_request)
-    _enforce_named_symbol_action(
-        actions,
-        cards,
-        named_symbol_override,
-        viewer_entry_year,
-        preferred_years=named_symbol_lookback,
+    return _finish_tool_reply(
+        final_text, actions, cards, card_list,
+        view_intent=view_intent,
+        latest_user_text=latest_user_text,
+        non_actionable_symbols=non_actionable_symbols,
+        current_view=current_view,
+        investor_intent=investor_intent,
+        full_history_request=full_history_request,
+        named_symbol_override=named_symbol_override,
+        named_symbol_lookback=named_symbol_lookback,
+        viewer_entry_year=viewer_entry_year,
+        turn_notes=turn_notes,
+        trace=trace,
+        protocol_failures=0,
     )
-    final_text = _ensure_load_named(
-        final_text, actions, cards, card_list, current_view=current_view
-    )
-    if response_violates_investor_contract(final_text, investor_intent):
-        trace("protocol_violation", reason="unsafe_investor_response")
-        evidence = _ensure_load_named(
-            "", actions, cards, card_list, current_view=current_view
-        ) if actions else ""
-        final_text = (
-            "TradeWave cannot determine whether this security is suitable for you. "
-            + (("Historical evidence: " + evidence + " ") if evidence else "")
-            + "This is historical research, not a forecast or personal recommendation."
-        )
-    final_text = _break_before_cta(final_text)
-    if response_violates_view_contract(final_text, actions, current_view):
-        trace("protocol_violation", reason="unsafe_final_response")
-        if actions:
-            final_text = _ensure_load_named(
-                "", actions, cards, card_list, current_view=current_view
-            )
-            if not final_text:
-                latest = actions[-1].get("spec", {})
-                symbol = str(latest.get("symbol") or "").upper()
-                final_text = "<b>%s</b> chart request." % symbol if symbol else "Requested view change."
-        else:
-            final_text = (
-                "I couldn't complete that chart request safely, so I haven't changed the chart. "
-                "Please try again."
-            )
-    return _apply_turn_notes(final_text, turn_notes), actions
 
 
 # --------------------------------------------------------------------------
@@ -5534,3 +6234,68 @@ def build_direction_flip_reply(wave_viewer, user_id, market=None, message=None):
         parts.append(figures)
     parts.extend((meaning, screen, offer))
     return "<br><br>".join(parts)
+
+
+# --------------------------------------------------------------------------
+# Reply markup: one HTML subset for every provider.
+#
+# Tara's replies are rendered as HTML (<b>, <i>, <br>, <a>). Luna writes that subset;
+# Claude models tend to write Markdown, which reached users as literal ** and "- ".
+# --------------------------------------------------------------------------
+_BLOCK_HTML_RE = re.compile(r"<\s*(?:div|ul|ol|li|table|p)\b", re.IGNORECASE)
+
+
+def normalize_reply_markup(text):
+    """Convert Markdown in a model reply to the HTML subset the chat renders."""
+
+    if not isinstance(text, str) or not text:
+        return text
+    text = re.sub(r"(?:<br\s*/?>\s*){2,}(?=\u2022 )", "<br>", text)
+    if not re.search(r"\*\*|__|`|^\s{0,3}(?:[-*\u2022]\s|#{1,6}\s|\d{1,2}[.)]\s)|\n|\[[^\]]+\]\("
+                     r"|<br\s*/?>\s*[-*]\s", text, re.M):
+        return text
+    out = text.replace("\r\n", "\n")
+    out = re.sub(r"```[a-zA-Z]*\n?", "", out)
+    out = re.sub(r"`([^`\n]+)`", r"\1", out)
+    out = re.sub(r"\[([^\]\n]+)\]\((https?://[^)\s]+)\)", r"\1 (\2)", out)
+    out = re.sub(r"\*\*(?=\S)(.+?)(?<=\S)\*\*", r"<b>\1</b>", out, flags=re.S)
+    out = re.sub(r"(?<![A-Za-z0-9_])__(?=\S)(.+?)(?<=\S)__(?![A-Za-z0-9_])", r"<b>\1</b>", out, flags=re.S)
+    out = out.replace("**", "")
+    out = re.sub(r"(?<![*\w])\*(?=[^\s*])([^*\n]+?)(?<=[^\s*])\*(?![*\w])", r"<i>\1</i>", out)
+    lines = []
+    for line in out.split("\n"):
+        heading = re.match(r"^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$", line)
+        if heading:
+            line = "<b>%s</b>" % re.sub(r"</?b>", "", heading.group(1))
+        else:
+            line = re.sub(r"^\s{0,6}[-*]\s+(?=\S)", "\u2022 ", line)
+        lines.append(line)
+    out = "\n".join(lines)
+    # a bullet that follows a <br> on the same physical line
+    out = re.sub(r"(<br\s*/?>\s*)[-*]\s+(?=\S)", "\\1\u2022 ", out)
+    out = re.sub(r"(?:<br\s*/?>\s*){2,}(?=\u2022 )", "<br>", out)
+    if not _BLOCK_HTML_RE.search(out):
+        out = re.sub(r"\s*\n\s*\n\s*(?=\u2022 )", "<br>", out.strip())
+        out = re.sub(r"\s*\n\s*\n\s*", "<br><br>", out)
+        out = re.sub(r"\s*\n\s*", "<br>", out)
+        out = re.sub(r"(?:<br\s*/?>\s*){3,}", "<br><br>", out)
+    return re.sub(r"(?:<br\s*/?>\s*){2,}(?=\u2022 )", "<br>", out)
+
+
+def verdict_floor_reply(current_view=None):
+    """Boundary plus the loaded pattern's own record, for a question that asked for a verdict."""
+
+    confirmed = _confirmed_view_setup(current_view)
+    card = _current_view_evidence_card(current_view, confirmed) if confirmed else None
+    evidence = ""
+    if card:
+        evidence = ("<br><br>What the history shows: " + _announce_line(confirmed["symbol"], card)
+                    + " Check the losing years and the deepest dip before deciding.")
+    else:
+        evidence = ("<br><br>Ask me to analyze a symbol or pattern and I will show its record, "
+                    "its losing years and its deepest dip.")
+    return (
+        "I can't give a yes or no, a buy or a pass: TradeWave cannot determine whether a trade "
+        "is suitable for you, and a one-word verdict would be a recommendation." + evidence
+        + "<br><br><i>" + DISCLAIMER_TEXT + "</i>"
+    )

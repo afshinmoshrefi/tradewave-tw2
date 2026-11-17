@@ -238,9 +238,15 @@ PYTHONPATH="$release_dir:$release_dir/appserver/appserver" \
   /home/flask/venv/bin/python "$release_dir/ops/smoke_tara_model_bound.py"
 new_log="$snapshot_dir/appserver-smoke.log"
 tail -n "+$((before_lines + 1))" "$model_log" >"$new_log"
-grep -Fq 'Tara model turn phase=complete provider=openai model=gpt-5.6-luna status=success' "$new_log"
+# The gate follows the RELEASE's own model policy (tara_runtime_policy.ACTIVE_POLICY), so
+# a Luna, Haiku 5.5 or Sonnet 5.5 primary is verified the same way: the primary must have
+# answered the model-bound smoke, and no fallback may have happened.
+primary_line=$(PYTHONPATH="$release_dir:$release_dir/appserver/appserver" \
+  /home/flask/venv/bin/python -c \
+  'import tara_runtime_policy as p; p.validate_policy(); print("provider=%s model=%s" % (p.PRIMARY_PROVIDER, p.PRIMARY_MODEL))')
+grep -Fq "Tara model turn phase=complete ${primary_line} status=success" "$new_log"
 if grep -Fq 'Tara model fallback' "$new_log"; then
-  echo "ABORT: fallback occurred during the live Luna gate" >&2
+  echo "ABORT: fallback occurred during the live primary-model gate (${primary_line})" >&2
   false
 fi
 

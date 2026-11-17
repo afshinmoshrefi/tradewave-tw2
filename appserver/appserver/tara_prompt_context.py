@@ -406,7 +406,11 @@ def research_capability_reply(message: Any) -> str:
         return (
             "I can't apply an earnings-exclusion filter with Tara's current tools. "
             "I can help inspect supplied earnings dates for named candidates, but "
-            "an estimated or missing date does not establish that a setup is earnings-free."
+            "an estimated or missing date does not establish that a setup is earnings-free. "
+            "Nearest thing I can do: ask for the scan itself (for example \"best S&amp;P 500 "
+            "setups for the next month\") and I will list the candidates; then open the Price "
+            "Chart for any of them, where the E markers show its past earnings dates and the "
+            "estimated next one."
         )
     if (re.search(r"\b(?:add|create|save|schedule|set|put)\b", text, re.I)
             and re.search(r"\b(?:calendar(?!\s+days?\b)|reminders?)\b", text, re.I)):
@@ -414,7 +418,8 @@ def research_capability_reply(message: Any) -> str:
             "I can't create calendar events or entry/exit reminders directly. "
             "With the pattern loaded, click Remind me in the Gain-Loss Bar Chart toolbar: "
             "it saves the pattern and adds Google Calendar reminders for its start and end "
-            "dates. I can help research the setup and verify its dates first."
+            "dates. I can help research the setup and verify its dates first: ask me to find "
+            "or load the setup and I will put it on the chart with its exact entry and exit dates."
         )
     return ""
 
@@ -550,11 +555,33 @@ _DIRECTION_DEFINE_RE = re.compile(
 )
 
 
+# Turns that mention a direction word without asking for the other side. The flip reply
+# has a fixed shape, so a false match answers a different question entirely: a PE-cycle
+# change ("flip this to pe+3"), a metric or hedging question about a short, "how does it
+# decide long or short", a report that the label changed, an advice question, or "long"
+# used as a duration ("why does it hold so long").
+_DIR_NOT_FLIP_RE = re.compile(
+    r"\bpe\s*\+?\s*[0-3]\b|\b(?:election|midterm)\b"
+    r"|\b(?:mfe|mae|hedg\w*|stops?|std\.?\s*dev\w*|volatil\w*|intraday|closes?)\b"
+    r"|\bhow\s+(?:does|do|is|are|did)\b[^.?!]{0,40}"
+    r"\b(?:decide\w*|determin\w*|detect\w*|pick\w*|choose\w*|label\w*|know)\b"
+    r"|\bwhy\s+(?:does|did|is|are|has|would)\b[^.?!]{0,40}"
+    r"\b(?:say|show\w*|label\w*|flip\w*|chang\w*|switch\w*|turn\w*)\b"
+    r"|\b(?:flipped|changed|switched|turned)\s+to\s+(?:short|long)\b"
+    r"|\b(?:what(?:'s|s|\s+is)|which\s+is)\s+better\b"
+    r"|^\s*(?:so\s+)?should\s+i\b"
+    r"|\b(?:so|too|how|as|that)\s+long\b|\blong(?:er)?[-\s]+(?:term|time|window|hold|period)\b",
+    re.I,
+)
+
+
 def is_direction_flip_request(message: Any) -> bool:
     """Whether the turn asks to see the LOADED pattern in the opposite direction."""
 
     text = str(message or "").strip()
     if not text:
+        return False
+    if _DIR_NOT_FLIP_RE.search(text) and not _DIR_SWAP_RE.search(text):
         return False
     if _DIRECTION_SCAN_RE.search(text):
         return False

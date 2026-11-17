@@ -19,14 +19,19 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 import config
-from tara_runtime_policy import PRIMARY_MODEL
+import tara_runtime_policy as _policy
 
 
 log = logging.getLogger("openai_tools_appserver")
 
 OPENAI_API_KEY = config.OPENAI_KEY
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
-GPT_56_LUNA = PRIMARY_MODEL
+# The OpenAI model named by the release policy, whichever side of the policy it is on.
+GPT_56_LUNA = (
+    _policy.PRIMARY_MODEL
+    if getattr(_policy, "PRIMARY_PROVIDER", "openai") == "openai"
+    else _policy.FALLBACK_MODEL
+)
 
 _CACHE_KEY_VERSION = "tara-luna-v1"
 _CACHE_SHARDS = 4

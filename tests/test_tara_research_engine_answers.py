@@ -429,10 +429,37 @@ def test_comparison_with_the_loaded_pattern_uses_its_window_and_lookback(engine)
     assert {(c["entry"], c["days"], c["years"]) for c in engine["chart"]} == {("2026-11-17", 45, "20")}
 
 
-def test_comparison_without_dates_asks_for_the_window(engine):
+def test_comparison_without_dates_uses_a_stated_default_window(engine):
+    # TW-TASK-0033: a comparison with no dates used to stop and ask which dates. It now
+    # runs on a stated default (the next 30 calendar days when nothing is loaded) and
+    # says so, so the user gets an answer and can still name another window.
     command = ask("compare XLK vs XLF")
-    assert "Which dates should I compare XLK and XLF over?" in command["reply"]
-    assert command["actions"] == [] and engine["chart"] == []
+    # The replay fixture holds no 30-day XLK/XLF study, so the command itself falls back
+    # to the normal chat path; what this pins is the study the engine was ASKED for.
+    assert command is None or "Which dates should I compare" not in command["reply"]
+    assert {(c["symbol"], c["entry"], c["days"]) for c in engine["chart"]} == {
+        ("XLK", "2026-11-17", 30), ("XLF", "2026-11-17", 30)}
+
+
+def test_comparison_without_dates_prefers_the_loaded_window(engine):
+    view = {"symbol": "MSFT", "market": "2", "start_date": "2026-11-17", "days_out": 45,
+            "years": "20", "pe_cycle": "cons"}
+    command = ask("compare AAPL and MSFT", view=view)
+    assert "You did not name dates" in command["reply"]
+    assert "window loaded in the Wave Viewer" in command["reply"]
+    assert {(c["entry"], c["days"]) for c in engine["chart"]} == {("2026-11-17", 45)}
+
+
+@pytest.mark.parametrize("message, expected", [
+    ("screen the wilshire 5000 on 15y, min 13 of 15", 15),
+    ("use 20 years for this", 20),
+    ("how does it look over the last 25 years", 25),
+    ("AAPL 15 yrs", 15),
+    ("a 12-year lookback please", 12),
+    ("what happened 2 days ago", None),
+])
+def test_lookback_wordings_are_read(message, expected):
+    assert research._lookback_years(message) == expected
 
 
 def test_unequal_cohorts_are_never_compared(engine, monkeypatch):
