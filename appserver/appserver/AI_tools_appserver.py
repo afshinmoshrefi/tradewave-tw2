@@ -29,6 +29,26 @@ CLAUDE_HAIKU_35  = 'claude-3-5-haiku-20241022' # very cheap
 
 CLAUDE_MODEL_DEFAULT = CLAUDE_SONNET_46
 
+# Claude 5-generation request shape: adaptive thinking only (no budget_tokens), no
+# sampling parameters, depth via output_config.effort, prompt caching without a beta
+# header. Older model ids keep the original request untouched.
+_CURRENT_GEN_PREFIXES = ('claude-haiku-5', 'claude-sonnet-5', 'claude-opus-5')
+_CURRENT_GEN_MIN_TOKENS = 8000
+
+
+def is_current_generation(model):
+    return str(model or '').startswith(_CURRENT_GEN_PREFIXES)
+
+
+def response_text(data):
+    """Join the text blocks of a Messages response (thinking blocks are skipped)."""
+    return ''.join(
+        block.get('text', '')
+        for block in (data.get('content') or [])
+        if isinstance(block, dict) and block.get('type') == 'text'
+        and isinstance(block.get('text'), str)
+    )
+
 
 class AnthropicAPIError(Exception):
     pass
@@ -87,7 +107,8 @@ def _prepare_system(system, cache_system=False, cache_ttl='5m'):
 
 def send_claude_messages(messages, model=CLAUDE_MODEL_DEFAULT, system=None,
                          max_tokens=4096, temperature=0.0, timeout=(15, 100),
-                         cache_system=False, cache_ttl='5m', tools=None, return_raw=False):
+                         cache_system=False, cache_ttl='5m', tools=None, return_raw=False,
+                         effort='low'):
     """
     Send a multi-turn conversation to Claude.
     `messages` is a list of {'role': 'user'|'assistant', 'content': str|blocks} dicts.
@@ -110,7 +131,8 @@ def send_claude_messages(messages, model=CLAUDE_MODEL_DEFAULT, system=None,
         'anthropic-version': ANTHROPIC_VERSION,
         'content-type':      'application/json',
     }
-    if cache_system:
+    current_gen = is_current_generation(model)
+    if cache_system and not current_gen:
         headers['anthropic-beta'] = 'prompt-caching-2024-07-31'
 
     payload = {
@@ -125,6 +147,12 @@ def send_claude_messages(messages, model=CLAUDE_MODEL_DEFAULT, system=None,
         payload['temperature'] = temperature
     if tools:
         payload['tools'] = tools
+    if current_gen:
+        payload.pop('temperature', None)
+        payload['thinking'] = {'type': 'adaptive'}
+        payload['output_config'] = {'effort': effort or 'low'}
+        # Thinking shares max_tokens with the visible answer.
+        payload['max_tokens'] = max(int(max_tokens), _CURRENT_GEN_MIN_TOKENS)
 
     resp = requests.post(ANTHROPIC_API_URL, headers=headers,
                          json=payload, timeout=timeout)
@@ -146,4 +174,6 @@ def send_claude_messages(messages, model=CLAUDE_MODEL_DEFAULT, system=None,
         )
     if return_raw:
         return data
+    if current_gen:
+        return response_text(data)
     return data['content'][0]['text']

@@ -65,7 +65,8 @@ def _replace(text, old, new, label, count=1):
     return text.replace(old, new, count)
 
 
-def apply_overlay(tree):
+def apply_overlay_legacy(tree):
+    """Overlay for refs before TW-TASK-0033 (no ACTIVE_POLICY switch, routed KB)."""
     app = tree / "appserver" / "appserver"
     (app / "tara_eval_usage.py").write_text(USAGE_MODULE, encoding="utf-8")
 
@@ -159,6 +160,72 @@ def apply_overlay(tree):
     path.write_text(text, encoding="utf-8")
 
 
+POLICY_BY_MODEL = {"claude-haiku-5-5": "haiku55", "claude-sonnet-5-5": "sonnet55"}
+
+
+def apply_overlay(tree, policy="luna", claude_effort="low"):
+    """Eval-only overlay for refs that carry tara_runtime_policy.ACTIVE_POLICY.
+
+    The model is selected the same way a release would select it: by rewriting the one
+    ACTIVE_POLICY line in the private copy. The only other change is token accounting.
+    """
+    app = tree / "appserver" / "appserver"
+    policy_path = app / "tara_runtime_policy.py"
+    text = policy_path.read_text(encoding="utf-8")
+    if "ACTIVE_POLICY" not in text:
+        return apply_overlay_legacy(tree)
+    text = _replace(text, 'ACTIVE_POLICY = "luna"\n', 'ACTIVE_POLICY = "%s"\n' % policy, "active policy")
+    text = _replace(text, 'CLAUDE_EFFORT = "low"\n', 'CLAUDE_EFFORT = "%s"\n' % claude_effort, "claude effort")
+    policy_path.write_text(text, encoding="utf-8")
+    (app / "tara_eval_usage.py").write_text(USAGE_MODULE, encoding="utf-8")
+
+    path = app / "openai_tools_appserver.py"
+    text = path.read_text(encoding="utf-8")
+    text = _replace(text, 'import hashlib\n', 'import hashlib\nimport os\nimport tara_eval_usage\n', "openai imports")
+    text = _replace(
+        text, '"reasoning": {"effort": "low"},',
+        '"reasoning": {"effort": os.environ.get("TARA_EVAL_OPENAI_EFFORT") or "low"},', "openai effort")
+    text = _replace(
+        text, '"max_output_tokens": max_output_tokens,',
+        '"max_output_tokens": (max_output_tokens if (os.environ.get("TARA_EVAL_OPENAI_EFFORT") or "low") == "low"'
+        ' else max(max_output_tokens, 6000)),', "openai output cap")
+    text = _replace(
+        text, '    output_details = usage.get("output_tokens_details") or {}\n',
+        '    output_details = usage.get("output_tokens_details") or {}\n'
+        '    tara_eval_usage.add("openai", model, input=usage.get("input_tokens", 0),\n'
+        '        cache_read=input_details.get("cached_tokens", input_details.get("cache_read_tokens", 0)),\n'
+        '        cache_write=input_details.get("cache_write_tokens", input_details.get("cache_write_input_tokens", 0)),\n'
+        '        output=usage.get("output_tokens", 0), reasoning=output_details.get("reasoning_tokens", 0))\n',
+        "openai usage")
+    path.write_text(text, encoding="utf-8")
+
+    path = app / "AI_tools_appserver.py"
+    text = path.read_text(encoding="utf-8")
+    text = _replace(text, 'import logging\n', 'import logging\nimport tara_eval_usage\n', "anthropic imports")
+    text = _replace(
+        text, "    if return_raw:\n        return data\n    if current_gen:\n",
+        "    if isinstance(usage, dict):\n"
+        "        tara_eval_usage.add('anthropic', model, input=usage.get('input_tokens', 0),\n"
+        "            cache_read=usage.get('cache_read_input_tokens', 0),\n"
+        "            cache_write=usage.get('cache_creation_input_tokens', 0),\n"
+        "            output=usage.get('output_tokens', 0))\n"
+        "    if return_raw:\n        return data\n    if current_gen:\n",
+        "anthropic usage")
+    path.write_text(text, encoding="utf-8")
+
+    path = app / "chatbot.py"
+    text = path.read_text(encoding="utf-8")
+    text = _replace(text, "from tara_model_router import select_tara_provider\n",
+                    "from tara_model_router import select_tara_provider\nimport tara_eval_usage\n", "chatbot import")
+    text = _replace(
+        text, "    turn_id = uuid.uuid4().hex\n    protocol_trace = []\n",
+        "    turn_id = uuid.uuid4().hex\n    tara_eval_usage.reset()\n    protocol_trace = []\n", "usage reset")
+    text = _replace(text, "        'turn_id': turn_id,\n    })\n\n",
+                    "        'turn_id': turn_id,\n        '_eval_usage': tara_eval_usage.snapshot(),\n    })\n\n",
+                    "usage envelope")
+    path.write_text(text, encoding="utf-8")
+
+
 def _flask(cmd, **kw):
     return subprocess.run(["sudo", "-u", "flask"] + cmd, **kw)
 
@@ -180,10 +247,24 @@ def _env_from_files():
 def start(args):
     tree = WORKTREE_ROOT / ("tara-eval-private-" + args.name)
     if not tree.exists():
-        result = _flask(["git", "-C", MAIN_REPO, "worktree", "add", "--detach", str(tree), args.ref])
-        if result.returncode:
-            raise SystemExit("git worktree add failed")
-        apply_overlay(tree)
+        if args.from_tree:
+            # Private COPY of an uncommitted working tree (fast iteration; no git state).
+            source = Path(args.from_tree).resolve()
+            if not (source / "appserver" / "appserver" / "chatbot.py").exists():
+                raise SystemExit("--from-tree is not a TradeWave checkout")
+            tree.mkdir(parents=True)
+            subprocess.run(
+                ["rsync", "-a", "--exclude", ".git", "--exclude", "node_modules", "--exclude", ".eval",
+                 "--exclude", "docs", "--exclude", "web-react", "--exclude", "__pycache__",
+                 str(source) + "/", str(tree) + "/"], check=True)
+            subprocess.run(["chown", "-R", "flask:flask", str(tree)], check=True)
+        else:
+            result = _flask(["git", "-C", MAIN_REPO, "worktree", "add", "--detach", str(tree), args.ref])
+            if result.returncode:
+                raise SystemExit("git worktree add failed")
+        policy = args.policy or (
+            POLICY_BY_MODEL.get(args.claude_model, "haiku55") if args.provider == "anthropic" else "luna")
+        apply_overlay(tree, policy=policy, claude_effort=args.claude_effort)
         subprocess.run(["chown", "-R", "flask:flask", str(tree / "appserver" / "appserver")], check=True)
     eval_dir = tree / ".eval"
     eval_dir.mkdir(exist_ok=True)
@@ -254,7 +335,11 @@ def stop(args):
     else:
         print("no pid file for %s" % args.name)
     if args.remove and tree.exists():
-        _flask(["git", "-C", MAIN_REPO, "worktree", "remove", "--force", str(tree)])
+        if (tree / ".git").exists():
+            _flask(["git", "-C", MAIN_REPO, "worktree", "remove", "--force", str(tree)])
+        elif tree.parent == WORKTREE_ROOT and tree.name.startswith("tara-eval-private-"):
+            import shutil
+            shutil.rmtree(tree)      # a --from-tree copy: no git state to unregister
         print("removed worktree %s" % tree)
     return 0
 
@@ -266,11 +351,16 @@ def main():
     p_start.add_argument("--name", required=True)
     p_start.add_argument("--port", type=int, required=True)
     p_start.add_argument("--ref", default="origin/main")
+    p_start.add_argument("--from-tree", default="",
+                         help="copy this working tree instead of checking out --ref (uncommitted work)")
     p_start.add_argument("--provider", choices=["openai", "anthropic"], default="openai")
     p_start.add_argument("--claude-model", default="claude-haiku-5-5")
     p_start.add_argument("--claude-effort", default="low")
     p_start.add_argument("--openai-effort", default="low")
-    p_start.add_argument("--full-kb", action="store_true")
+    p_start.add_argument("--full-kb", action="store_true",
+                         help="legacy refs only; from TW-TASK-0033 the whole KB is always in the prefix")
+    p_start.add_argument("--policy", choices=["luna", "haiku55", "sonnet55"], default=None,
+                         help="tara_runtime_policy.ACTIVE_POLICY for the private copy")
     p_start.set_defaults(func=start)
     p_stop = sub.add_parser("stop")
     p_stop.add_argument("--name", required=True)

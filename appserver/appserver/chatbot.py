@@ -49,6 +49,8 @@ from tara_gateway import (
     guided_next_questions,
     investor_guidance_response,
     loaded_pattern_suitability_response,
+    plan_context_lines,
+    repair_view_contract,
     response_violates_investor_contract,
     response_violates_view_contract,
     unsupported_live_data_response,
@@ -58,7 +60,7 @@ from tara_gateway import (
     run_chat_with_tools,
 )
 from tara_security_lists import build_security_list_command
-from tara_gateway import _loopback_json
+from tara_gateway import _loopback_json, _market_today
 from tara_research import build_research_command
 from tara_answer_planner import (
     build_bottom_slide_command,
@@ -175,8 +177,11 @@ def check_for_token(func):
 #   '1h' - $2.00/MTok to write, survives 1hr of inactivity. Good for sporadic use.
 # -----------------------------------------------------------------
 CACHE_TTL     = '5m'   # '1h' is supported; keep 5m as the active default for chat sessions
-CHATBOT_MODEL = CLAUDE_HAIKU_45
-OPENAI_CHATBOT_MODEL = GPT_56_LUNA
+# Both ids come from the release policy (tara_runtime_policy.ACTIVE_POLICY); whichever
+# provider is primary, each adapter always receives its own provider's model.
+_POLICY_MODELS = {PRIMARY_PROVIDER: PRIMARY_MODEL, FALLBACK_PROVIDER: FALLBACK_MODEL}
+CHATBOT_MODEL = _POLICY_MODELS["anthropic"]
+OPENAI_CHATBOT_MODEL = _POLICY_MODELS["openai"]
 
 # Appended to the system prompt (recency: it must win over the base 'tell the user where to
 # click' persona) when the gateway tools are live. Constant => stays cacheable across turns.
@@ -278,6 +283,51 @@ def _load_knowledge():
 
 _KNOWLEDGE = _load_knowledge()
 _KNOWLEDGE_SECTIONS = parse_knowledge_sections(_KNOWLEDGE)
+_KNOWLEDGE_BLOCK = (
+    "\n=== TRADEWAVE KNOWLEDGE BASE (COMPLETE) ===\n"
+    "These are the product facts. Answer product, plan, price, UI, definition, methodology "
+    "and troubleshooting questions from them, and do not infer product details that are not "
+    "stated here.\n" + _KNOWLEDGE
+)
+
+# Stable answer-quality rules (part of the cached prefix; identical on every turn).
+_ANSWER_QUALITY_RULES = (
+    "\n=== ANSWER QUALITY RULES ===\n"
+    "USE THE KNOWLEDGE BASE FACT ITSELF: for a product, plan, price, limit, UI-location, "
+    "definition, methodology or troubleshooting question, state the specific fact from the "
+    "knowledge base below (the actual price, the actual control name and where it is, the "
+    "actual limit) instead of sending the user to a page to look it up. If the knowledge base "
+    "does not state it, say plainly that you do not have that detail and where to get it "
+    "(tradewave.ai/pricing, tradewave.ai/account, or help@tradewave.ai); never guess a policy, "
+    "price, limit or UI location.\n"
+    "WHEN THE EXACT ASK IS NOT POSSIBLE, DO THE NEAREST USEFUL THING: say what is not possible in "
+    "one sentence, then in the same reply do the closest supported thing - run the closest study "
+    "with a read tool, load the closest view, or give the closest documented fact - and say "
+    "exactly what you substituted. A bare 'I can't' or 'TradeWave doesn't do that' with nothing "
+    "after it is a failed answer.\n"
+    "ACT, DON'T OFFER: when a read tool or update_view can answer the request, call it in this "
+    "turn and report the result. Do not ask permission, and do not end with 'want me to...?' for "
+    "something you could already have done. Offer only a genuinely different next step.\n"
+    "ANSWER EVERY PART: when the user names several symbols, date windows, lookbacks or "
+    "questions, cover each one (one short line each). For several symbols call analyze_symbol "
+    "once per symbol with the SAME window and lookback and report every symbol - never drop one "
+    "silently. Use the lookback (years), dates/period, direction and market the user asked for; "
+    "pass them to the tool instead of the defaults, and if the engine had to change one (plan "
+    "cap, shorter history), say which value was actually used.\n"
+    "NO ARITHMETIC ON STATISTICS: every number you state must be a figure the engine, the "
+    "live context or a tool result gave you. Never compute a new statistic yourself - no "
+    "difference, ratio, sum, annualization, compounding or subset average. To compare two "
+    "engine figures, quote both and say which is higher or lower in words.\n"
+    "STATE THE WINDOW: every statistic you quote names its window (entry date to exit date or "
+    "the month/day range plus days) and its sample (n years or observations).\n"
+    "RESPECT THE USER'S PLAN: the USER PLAN block in the live context is verified. When the ask "
+    "needs a market, lookback, AI score or feature outside it, say which plan includes it and "
+    "give tradewave.ai/pricing once, then do the nearest thing the user's own plan allows. Do "
+    "not repeat a plan boundary sentence that is already in a tool result note.\n"
+    "A QUESTION IS NOT A CHART COMMAND: 'how do I...', 'where is...', 'what does ... mean', "
+    "'can you see...' and 'why...' are answered in words first. Change the view only when the "
+    "user asked for a change or the answer is a pattern you are putting on screen."
+)
 
 # Cache financial groups
 financial_groups = get_financial_groups()
@@ -1196,6 +1246,13 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
         "bottom_slide=trend_chart, wave_stats, ai_scores, or price_chart. Confirm the panel in one short line; "
         "never tell the user to swipe. Explanatory questions still receive the concept explanation."
     )
+    static_parts.append(_ANSWER_QUALITY_RULES)
+    # The WHOLE knowledge base rides in the cached stable prefix. Per-question regex
+    # routing (at most three sections) left 46% of non-helpful answers without the
+    # section that held the fact (TW-TASK-0032); the full text is byte-identical on
+    # every turn, so both providers read it from their prompt cache.
+    if _KNOWLEDGE:
+        static_parts.append(_KNOWLEDGE_BLOCK)
     parts = []
 
     # Detect if the loaded pattern is the named "100-Year Pattern"
@@ -1282,7 +1339,9 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
                 parts.append(f"  {k}: {v}")
         mae_enabled = wave_viewer.get("mae_enabled", False)
         yearly = wave_viewer.get("yearly_results", [])
-        if yearly and needs_yearly_results(user_message):
+        # Row-level results are always attached: gating them on the question's wording
+        # made Tara say a loaded pattern's worst year or drawdown was "not available".
+        if yearly:
             today      = datetime.datetime.now().date()
             today_str  = today.strftime('%Y-%m-%d')
             current_year = today.year
@@ -1312,9 +1371,10 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
             )
             if not mae_enabled:
                 parts.append(
-                    "NOTE: MAE (max adverse excursion) is NOT enabled - the MAE checkbox is "
-                    "unchecked. Do NOT mention or discuss MAE values. If the user asks about MAE "
-                    "or drawdown, say MAE is not currently enabled."
+                    "NOTE: the MAE overlay is currently hidden on the bar chart (MAE unchecked). "
+                    "The MAE values below are still real engine data: use them when the user asks "
+                    "about MAE, drawdown, the worst dip or risk, and you may show the overlay with "
+                    "update_view(show_mae=true). Do not volunteer MAE when it was not asked about."
                 )
 
             def _year_values(row):
@@ -1339,7 +1399,8 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
                     f"{direction} trade {trade_return:+.2f}% [{result}]; "
                     f"MFE {favorable:+.2f}%"
                 )
-                if mae_enabled:
+                if mae_enabled or row.get("downside_excursion_pct") is not None \
+                        or row.get("mae_pct") is not None:
                     line += f"; MAE {adverse:+.2f}%"
                 return line
 
@@ -1563,18 +1624,26 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
                 "completed observations, use and name its available maximum."
             )
     parts.append("\n" + "\n".join(verified_lines))
+    market_today = _market_today()
+    parts.append(
+        "\nTODAY: %s (%s), the TradeWave market date. 'Now', 'today', 'this week' and 'the "
+        "next N days' start from this date; never use a past date for an upcoming window."
+        % (market_today.isoformat(), market_today.strftime("%A"))
+    )
+    plan_lines = plan_context_lines()
+    if plan_lines:
+        parts.append("\n" + "\n".join(plan_lines))
 
-    knowledge = select_topic_knowledge(user_message, _KNOWLEDGE_SECTIONS)
     blocks = segmented_system_blocks(
         "\n".join(static_parts),
-        knowledge.text,
+        "",
         "\n".join(parts),
     )
     logging.info(
-        "Tara prompt segments chars=%s knowledge_sections=%s yearly_rows=%s opportunity_rows=%s",
+        "Tara prompt segments chars=%s knowledge=%s yearly_rows=%s opportunity_rows=%s",
         prompt_segment_sizes(blocks),
-        knowledge.headings,
-        bool(yearly) and needs_yearly_results(user_message),
+        "complete" if _KNOWLEDGE else "missing",
+        bool(yearly),
         bool(opportunities) and needs_opportunity_rows(user_message),
     )
     return blocks
@@ -2357,24 +2426,31 @@ def chat():
                         messages.append({"role": role, "content": content})
             messages.append({"role": "user", "content": user_message})
             provider = select_tara_provider()
-            try:
-                bot_reply = send_openai_messages(
-                    messages,
-                    model=OPENAI_CHATBOT_MODEL,
-                    system=report_prompt,
-                    user_id=user_id,
-                )
-            except OpenAIConfigurationError:
-                raise
-            except Exception:
-                provider = "anthropic_fallback"
-                bot_reply = send_claude_messages(
+
+            def report_turn(provider_name):
+                if provider_name == "openai":
+                    return send_openai_messages(
+                        messages,
+                        model=OPENAI_CHATBOT_MODEL,
+                        system=report_prompt,
+                        user_id=user_id,
+                    )
+                return send_claude_messages(
                     messages,
                     model=CHATBOT_MODEL,
                     system=report_prompt,
                     cache_system=True,
                     cache_ttl=CACHE_TTL,
                 )
+
+            try:
+                bot_reply = report_turn(provider)
+            except OpenAIConfigurationError:
+                raise
+            except Exception:
+                report_fallback = "anthropic" if provider == "openai" else "openai"
+                provider = report_fallback + "_fallback"
+                bot_reply = report_turn(report_fallback)
             investor_intent = classify_investor_intent(messages)
             if response_violates_investor_contract(bot_reply, investor_intent):
                 bot_reply = (
@@ -2859,50 +2935,74 @@ def chat():
             TARA_TOOLS_ENABLED,
         )
         response_provider = provider
+        fallback_provider = "anthropic" if provider == "openai" else "openai"
 
-        actions = []
-        try:
-            if TARA_TOOLS_ENABLED:
-                bot_reply, actions = run_chat_with_openai_tools(
-                    messages,
-                    system_prompt,
-                    user_id,
-                    OPENAI_CHATBOT_MODEL,
-                    opp_table=opportunities,
-                    opp_table_market=opp_table_market,
-                    user_token=user_token,
-                    user_years_cap=user_years_cap,
-                    opp_table_years=opp_table_years,
-                    full_history_request=full_history_request,
-                    named_symbol_override=named_symbol_override,
-                    named_symbol_lookback=named_symbol_lookback,
-                    viewer_entry_year=viewer_entry_year,
-                    current_view=wave_viewer,
-                    turn_id=turn_id,
-                    protocol_trace=protocol_trace,
-                )
-            else:
+        def run_model_turn(provider_name):
+            """Run this turn on one provider; both loops share tools, guards and actions."""
+            if not TARA_TOOLS_ENABLED:
+                turn_view_intent = classify_view_intent(user_message)
                 if investor_intent in {
                     'seasonal_etf', 'seasonal_stock', 'weak_etf', 'weak_stock',
                 }:
-                    bot_reply = (
+                    return (
                         "The historical opportunity screen is temporarily unavailable, so I won't "
                         "invent or choose a candidate. Please try this research screen again in a moment."
-                    )
-                elif view_intent == 'unsupported_live':
-                    bot_reply = unsupported_live_data_response()
-                elif view_intent in {'chart', 'view'}:
-                    bot_reply = (
+                    ), []
+                if turn_view_intent == 'unsupported_live':
+                    return unsupported_live_data_response(), []
+                if turn_view_intent in {'chart', 'view'}:
+                    return (
                         "Chart controls are temporarily unavailable, so I haven't changed the chart. "
                         "Please try again in a moment."
-                    )
-                else:
-                    bot_reply = send_openai_messages(
+                    ), []
+                if provider_name == "openai":
+                    return send_openai_messages(
                         messages,
                         model=OPENAI_CHATBOT_MODEL,
                         system=system_prompt,
                         user_id=user_id,
-                    )
+                    ), []
+                return send_claude_messages(
+                    messages,
+                    model=CHATBOT_MODEL,
+                    system=system_prompt,
+                    cache_system=True,
+                    cache_ttl=CACHE_TTL,
+                ), []
+            loop_context = dict(
+                opp_table=opportunities,
+                opp_table_market=opp_table_market,
+                user_token=user_token,
+                user_years_cap=user_years_cap,
+                opp_table_years=opp_table_years,
+                full_history_request=full_history_request,
+                named_symbol_override=named_symbol_override,
+                named_symbol_lookback=named_symbol_lookback,
+                viewer_entry_year=viewer_entry_year,
+                current_view=wave_viewer,
+                turn_id=turn_id,
+                protocol_trace=protocol_trace,
+            )
+            if provider_name == "openai":
+                return run_chat_with_openai_tools(
+                    messages,
+                    system_prompt,
+                    user_id,
+                    OPENAI_CHATBOT_MODEL,
+                    **loop_context,
+                )
+            return run_chat_with_tools(
+                messages,
+                system_prompt,
+                user_id,
+                CHATBOT_MODEL,
+                CACHE_TTL,
+                **loop_context,
+            )
+
+        actions = []
+        try:
+            bot_reply, actions = run_model_turn(provider)
             logging.info(
                 "Tara model turn phase=complete provider=%s model=%s status=success",
                 PRIMARY_PROVIDER,
@@ -2914,8 +3014,8 @@ def chat():
             raise
         except Exception as exc:
             # Tool reads are GET-only and update_view actions are not returned until
-            # the loop completes, so a fresh Haiku retry is safe after a genuine
-            # primary API/connection/adapter failure.
+            # the loop completes, so a fresh retry on the fallback provider is safe
+            # after a genuine primary API/connection/adapter failure.
             category = failure_category(exc)
             logging.warning(
                 "Tara model fallback primary_provider=%s primary_model=%s "
@@ -2926,52 +3026,9 @@ def chat():
                 FALLBACK_MODEL,
                 category,
             )
-            response_provider = "anthropic_fallback"
+            response_provider = fallback_provider + "_fallback"
             actions = []
-            if TARA_TOOLS_ENABLED:
-                bot_reply, actions = run_chat_with_tools(
-                    messages,
-                    system_prompt,
-                    user_id,
-                    CHATBOT_MODEL,
-                    CACHE_TTL,
-                    opp_table=opportunities,
-                    opp_table_market=opp_table_market,
-                    user_token=user_token,
-                    user_years_cap=user_years_cap,
-                    opp_table_years=opp_table_years,
-                    full_history_request=full_history_request,
-                    named_symbol_override=named_symbol_override,
-                    named_symbol_lookback=named_symbol_lookback,
-                    viewer_entry_year=viewer_entry_year,
-                    current_view=wave_viewer,
-                    turn_id=turn_id,
-                    protocol_trace=protocol_trace,
-                )
-            else:
-                view_intent = classify_view_intent(user_message)
-                if investor_intent in {
-                    'seasonal_etf', 'seasonal_stock', 'weak_etf', 'weak_stock',
-                }:
-                    bot_reply = (
-                        "The historical opportunity screen is temporarily unavailable, so I won't "
-                        "invent or choose a candidate. Please try this research screen again in a moment."
-                    )
-                elif view_intent == 'unsupported_live':
-                    bot_reply = unsupported_live_data_response()
-                elif view_intent in {'chart', 'view'}:
-                    bot_reply = (
-                        "Chart controls are temporarily unavailable, so I haven't changed the chart. "
-                        "Please try again in a moment."
-                    )
-                else:
-                    bot_reply = send_claude_messages(
-                        messages,
-                        model=CHATBOT_MODEL,
-                        system=system_prompt,
-                        cache_system=True,
-                        cache_ttl=CACHE_TTL,
-                    )
+            bot_reply, actions = run_model_turn(fallback_provider)
             logging.info(
                 "Tara model turn phase=complete provider=%s model=%s status=fallback_success",
                 FALLBACK_PROVIDER,
@@ -2993,9 +3050,13 @@ def chat():
                 "tool-grounded historical seasonal evidence, including losing years, but not a "
                 "personal buy, sell, hold, allocation, or return forecast."
             )
-        if response_violates_view_contract(
+        # Remove only an unproven status sentence; fail closed when nothing safe is left.
+        repaired_reply, _ = repair_view_contract(
             bot_reply, actions=actions, current_view=wave_viewer
-        ):
+        )
+        if repaired_reply:
+            bot_reply = repaired_reply
+        else:
             protocol_trace.append({
                 'event': 'protocol_violation',
                 'reason': 'unsafe_postprocessed_response',

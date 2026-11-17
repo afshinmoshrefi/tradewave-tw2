@@ -2324,7 +2324,19 @@ def build_current_table_pick_command(
 def build_metric_definitions_reply(message: Any) -> Optional[str]:
     """Define Tara's historical, model, and path metrics without blending them."""
 
-    if not _METRIC_DEFINITION_PATTERN.search(str(message or "")):
+    text = str(message or "")
+    if not _METRIC_DEFINITION_PATTERN.search(text):
+        return None
+    # "What does MFE mean" asks for ONE term. This block is the side-by-side glossary for
+    # questions that put the historical, AI and path metrics next to each other.
+    families = sum(
+        bool(re.search(pattern, text, re.I)) for pattern in (
+            r"\bhistorical win rate\b", r"\bai win\b|\bwin probability\b",
+            r"\bpredr\b|\bpredicted return\b", r"\bmfe\b|\bmaximum favorable\b",
+            r"\bmae\b|\bmaximum adverse\b", r"\btwr\b|\btradewave ratio\b",
+        )
+    )
+    if families < 2:
         return None
     lines = [
         (
@@ -5177,6 +5189,56 @@ def build_median_definition_reply(
     return reply
 
 
+_BEYOND_CANNED_SCOPE_RE = re.compile(
+    # counts and limits ("how many watchlists do I get")
+    r"\bhow\s+(?:many|much)\b"
+    # something went wrong on screen: the answer is a cause and a way back
+    r"|\b(?:bug|bugged|glitch\w*|stuck|frozen|broken|disappear\w*|vanish\w*|"
+    r"not\s+working|error)\b"
+    r"|\b(?:doesn|won|isn|can)['\u2019]?t\s+(?:work|load|show|open|see|find)\b"
+    r"|\bhow\s+(?:do|can)\s+i\s+(?:get|go)\s+back\b"
+    # a year named relatively; the year blocks only read four-digit years
+    r"|\b(?:last|previous|prior)\s+year\b"
+    # instruments TradeWave does not analyze
+    r"|\b0\s*dte\b|\boptions?\b|\b(?:long|short|covered)\s+(?:calls?|puts?)\b"
+    r"|\bhedg\w+\b"
+    # an existing object, where the canned steps describe creating a new one
+    r"|\b(?:existing|already\s+have)\b",
+    re.I,
+)
+_AI_VALUE_TOPIC_RE = re.compile(
+    r"\bai\s+(?:win|scores?|return|panel|window|probabilit\w+)\b|\bwin\s+(?:chance|probability)\b|"
+    r"\b(?:ais|predr|pmfe)\b",
+    re.I,
+)
+_SECOND_QUESTION_RE = re.compile(
+    r"[,;]\s*(?:and\s+|or\s+|but\s+)?"
+    r"(?:can|could|is|are|do|does|did|how|why|what|when|where|which|should|would|will)\b"
+    r"|\b(?:and|but)\s+(?:can|could|is|are|do|does|did|how|why|what|when|where|which|"
+    r"should|would|will)\b"
+    r"|\?\s*(?:and\s+|or\s+|also\s+|but\s+)?"
+    r"(?:can|could|is|are|do|does|did|how|why|what|when|where|which|should|would|will|also)\b",
+    re.I,
+)
+
+
+def question_exceeds_canned_scope(message: Any) -> bool:
+    """Whether the turn asks for more than one deterministic block can answer."""
+
+    text = str(message or "").strip()
+    if not text:
+        return False
+    # Advice-shaped turns and AI-score readings keep their deterministic replies: the
+    # advice boundary and the trusted score values must not depend on a model.
+    if is_advice_shaped_question(text) or _AI_VALUE_TOPIC_RE.search(text):
+        return False
+    if _BEYOND_CANNED_SCOPE_RE.search(text):
+        return True
+    # Two questions in one message: the second one starts after the first clause.
+    second = _SECOND_QUESTION_RE.search(text)
+    return bool(second and second.start() >= 12)
+
+
 def build_deterministic_reply(
     message: Any,
     wave_viewer: Any,
@@ -5186,6 +5248,14 @@ def build_deterministic_reply(
     current_year: Optional[int] = None,
 ) -> Optional[str]:
     """Route high-confidence UI questions to verified, provider-independent replies."""
+
+    # A canned block answers ONE well-shaped question. A compound ask, a troubleshooting
+    # report, a count/limit question or an options/stop question matched a block on one
+    # keyword and got that block's answer to a neighbouring question (TW-TASK-0032
+    # cluster 6). Those go to the model, which has the same verified screen facts, the
+    # yearly rows and the whole knowledge base.
+    if question_exceeds_canned_scope(message):
+        return None
 
     tooltip_help = build_tooltip_help_reply(message)
     if tooltip_help is not None:
