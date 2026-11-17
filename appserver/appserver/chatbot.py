@@ -57,6 +57,7 @@ from tara_gateway import (
 )
 from tara_security_lists import build_security_list_command
 from tara_gateway import _loopback_json
+from tara_research import build_research_command
 from tara_answer_planner import (
     build_bottom_slide_command,
     build_excursion_overlay_command,
@@ -2461,6 +2462,40 @@ def chat():
             return finish(
                 suitability_reply,
                 [],
+                messages_or_text=investor_messages,
+            )
+
+        # Research requests with an exact engine answer (index screens, ranked screens,
+        # dated symbol studies, same-window comparisons, and the date of a pattern's
+        # low/high) are answered from engine data before any model routing. The model
+        # path kept collapsing them to a single announce line (TW-TASK-0030).
+        try:
+            research_years_cap = config.num_years_allowed_by_level.get(
+                str((getattr(g, 'chatbot_jwt', None) or {}).get('user_level', '')), None
+            )
+        except Exception:
+            research_years_cap = None
+        research_command = build_research_command(
+            user_message,
+            wave_viewer,
+            user_token,
+            investor_intent=investor_intent,
+            table_market=opp_table_market,
+            years_cap=research_years_cap,
+        )
+        if research_command is not None:
+            actions = []
+            for research_action in research_command.get("actions") or []:
+                cleaned = _validate_view_spec(research_action.get("spec"))
+                if cleaned:
+                    actions.append({"type": "set_view", "spec": cleaned})
+            research_trace = dict(research_command.get("trace") or {})
+            research_trace.setdefault('event', 'research_command')
+            research_trace['action_queued'] = bool(actions)
+            protocol_trace.append(research_trace)
+            return finish(
+                research_command["reply"],
+                actions,
                 messages_or_text=investor_messages,
             )
 

@@ -1,0 +1,73 @@
+{
+ "task": "TW-TASK-0030",
+ "captured_utc": "2026-11-17T12:31:43+00:00",
+ "method": "Authenticated POST /chatbot/chat against a private appserver started from the task worktree on 127.0.0.1:5391 with its own pid file and no control socket (loopback engine = the same worktree instance, real dev engine data). Synthetic Strategist-level test identity; no customer account. Active dev runtime and pointers untouched. Captured after the independent-review fixes.",
+ "turns": [
+  {
+   "question": "find s&p500 stocks entering seasonaly bearish patterns htis week",
+   "reply_text": "S&P 500 bearish seasonal windows starting in the rest of this week (Nov 17 \u2013 Nov 22) Top 10 by Sharpe Ratio over a 10-year lookback. A short-direction win means the security fell during the window.\n1. WELL - starts Wed Nov 18, 35-day window: fell in 8 of 10 years (80%), avg move -3.6%, Sharpe 0.82\n2. BIIB - starts Fri Nov 20, 124-day window: fell in 8 of 10 years (80%), avg move -9.2%, Sharpe 0.65\n3. VLO - starts Tue Nov 17, 12-day window: fell in 8 of 10 years (80%), avg move -1.8%, Sharpe 0.63\n4. CSGP - starts Tue Nov 17, 32-day window: fell in 9 of 10 years (90%), avg move -2.5%, Sharpe 0.60\n5. ORCL - starts Tue Nov 17, 44-day window: fell in 8 of 10 years (80%), avg move -4.6%, Sharpe 0.57\n6. ALB - starts Thu Nov 19, 16-day window: fell in 8 of 10 years (80%), avg move -3.7%, Sharpe 0.57\n7. EQT - starts Thu Nov 19, 18-day window: fell in 8 of 10 years (80%), avg move -3.1%, Sharpe 0.57\n8. PODD - starts Fri Nov 20, 45-day window: fell in 9 of 10 years (90%), avg move -3.1%, Sharpe 0.56\n9. XOM - starts Tue Nov 17, 12-day window: fell in 8 of 10 years (80%), avg move -1.1%, Sharpe 0.56\n10. TAP - starts Tue Nov 17, 345-day window: fell in 8 of 10 years (80%), avg move -11.7%, Sharpe 0.54\nScope TradeWave's detector listed 59 bearish patterns for these dates that won at least 8 of the last 10 years; each record above is the engine's completed-year result. Historical research candidates, not sell or short recommendations; past patterns may not repeat. Name a ticker to load its chart.",
+   "actions": []
+  },
+  {
+   "question": "which S&P500 stocks have the highest seasonal win rate over the next 10 days",
+   "reply_text": "S&P 500 bullish seasonal windows starting in the next 10 days (Nov 17 \u2013 Nov 26) Top 10 by win rate, then Sharpe Ratio over a 10-year lookback. I read \"next 10 days\" as windows that START in the next 10 days, at any length; ask for \"10-day holds\" to fix the holding period instead.\n1. HLT - starts Fri Nov 20, 88-day window: profitable in 10 of 10 years (100%), avg return +13.5%, Sharpe 3.27\n2. CIEN - starts Thu Nov 26, 53-day window: profitable in 10 of 10 years (100%), avg return +15.6%, Sharpe 3.01\n3. YUM - starts Thu Nov 19, 29-day window: profitable in 10 of 10 years (100%), avg return +3.4%, Sharpe 2.74\n4. UNH - starts Thu Nov 19, 16-day window: profitable in 10 of 10 years (100%), avg return +4.7%, Sharpe 2.70\n5. CBRE - starts Fri Nov 20, 60-day window: profitable in 10 of 10 years (100%), avg return +7.5%, Sharpe 2.67\n6. PFE - starts Fri Nov 20, 11-day window: profitable in 10 of 10 years (100%), avg return +3.6%, Sharpe 2.50\n7. FISV - starts Mon Nov 23 (calendar start Sat Nov 21), 9-day window: profitable in 10 of 10 years (100%), avg return +2%, Sharpe 2.17\n8. AJG - starts Thu Nov 19, 252-day window: profitable in 10 of 10 years (100%), avg return +12.9%, Sharpe 2.06\n9. MAR - starts Mon Nov 23 (calendar start Sat Nov 21), 92-day window: profitable in 10 of 10 years (100%), avg return +11.2%, Sharpe 2.00\n10. CSCO - starts Mon Nov 23 (calendar start Sat Nov 21), 74-day window: profitable in 10 of 10 years (100%), avg return +6.6%, Sharpe 1.98\nScope TradeWave's detector listed 579 bullish patterns for these dates that won at least 10 of the last 10 years; each record above is the engine's completed-year result. Historical research candidates, not buy recommendations; past patterns may not repeat. Name a ticker to load its chart.",
+   "actions": []
+  },
+  {
+   "question": "analyze apple historic return from now to year end over the last 20 years",
+   "reply_text": "AAPL (Apple Inc.), Nov 17 \u2013 Dec 31, 2026 45 calendar days (now to year end), 20 completed consecutive years.\nRecord AAPL was profitable in 12 of 20 completed consecutive years (60%). Average return +2.5%, median +1.7%, Sharpe Ratio 0.22. Average gain in up years +8.4%; average loss in down years -6.3%.\nRange of outcomes Underlying's best year: 2007 at +20.8%. Worst year: 2018 at -15.1%. Largest rise inside the window (MFE): +23.8% in 2007. Deepest drop inside the window (MAE): -21.1% in 2018. Yearly figures are the underlying's own move.\nScope I am loading this exact study in the Wave Viewer so every year is visible. Historical results are not a forecast.",
+   "actions": [
+    {
+     "days_out": 45,
+     "entry_date": "2026-11-17",
+     "market": "2",
+     "pe_cycle": "cons",
+     "symbol": "AAPL",
+     "years": 20
+    }
+   ]
+  },
+  {
+   "question": "compare the seasonal performance of technology and utilities ETFs for the 4th quarter",
+   "reply_text": "XLK vs XLU, Oct 1 \u2013 Dec 31 Q4, 92 calendar days. Same dates and the same 10 completed consecutive years (2016-2025) for every symbol, long direction.\nXLK (S&P 500 Technology Sector SPDR): up in 9 of 10 years (90%), avg +5.9%, median +7.1%, Sharpe 0.48, best +16.4%, worst -17.8%, deepest drop inside the window -23.6%\nXLU (S&P 500 Utilities Sector SPDR): up in 8 of 10 years (80%), avg +3.3%, median +1.6%, Sharpe 0.37, best +13.8%, worst -6.3%, deepest drop inside the window -10.5%\nRead Higher average return: XLK at +5.9%. Most consistent: XLK, up in 9 of 10 years. Best Sharpe Ratio: XLK at 0.48.\nScope I am loading XLK in the Wave Viewer; open Analysis, then Compare Symbols, for the full report. Historical results are not a forecast.",
+   "actions": [
+    {
+     "days_out": 92,
+     "entry_date": "2026-10-01",
+     "market": "11",
+     "pe_cycle": "cons",
+     "symbol": "XLK",
+     "years": 10
+    }
+   ]
+  },
+  {
+   "question": "compare the seasonal performance of technology and utilities ETFs for the 4th quarter XLK and XLF",
+   "reply_text": "XLK vs XLF, Oct 1 \u2013 Dec 31 Q4, 92 calendar days. Same dates and the same 10 completed consecutive years (2016-2025) for every symbol, long direction.\nXLK (S&P 500 Technology Sector SPDR): up in 9 of 10 years (90%), avg +5.9%, median +7.1%, Sharpe 0.48, best +16.4%, worst -17.8%, deepest drop inside the window -23.6%\nXLF (S&P 500 Financials Sector SPDR): up in 9 of 10 years (90%), avg +9%, median +9%, Sharpe 0.77, best +22.9%, worst -13.4%, deepest drop inside the window -19.9%\nRead Higher average return: XLF at +9%. Most consistent: XLK and XLF, up in 9 of 10 years. Best Sharpe Ratio: XLF at 0.77.\nScope You mentioned Utilities, but XLF is the Financials sector ETF; the Utilities sector ETF is XLU. I compared the tickers you named - say \"add XLU\" to include it. I am loading XLK in the Wave Viewer; open Analysis, then Compare Symbols, for the full report. Historical results are not a forecast.",
+   "actions": [
+    {
+     "days_out": 92,
+     "entry_date": "2026-10-01",
+     "market": "11",
+     "pe_cycle": "cons",
+     "symbol": "XLK",
+     "years": 10
+    }
+   ]
+  },
+  {
+   "question": "what's the latest date that the 100 year pattern has bottomed",
+   "reply_text": "The 100-Year Pattern: date of the low The latest the pattern has bottomed: 1930 cycle: Jun 2, 1931, calendar day 249 of 295 (-35.4% vs the entry close).\nAcross 24 completed cycles Latest three: 1930 cycle: Jun 2, 1931, calendar day 249 of 295 (-35.4% vs the entry close); 1946 cycle: May 19, 1947, calendar day 235 of 295 (-8.9% vs the entry close); 1938 cycle: Apr 11, 1939, calendar day 197 of 295 (-5.2% vs the entry close).\nThe earliest: 1942 cycle: Sep 29, 1942, calendar day 3 of 295 (-0.5% vs the entry close).\nMost recent completed cycle: Oct 13, 2022, calendar day 17 of 295 (-4.3% vs the entry close).\nThe 2026 cycle is still running: its low so far was Nov 5, 2026, and it is excluded from the completed record.\nScope SPX, PE+2 (midterm years), Sep 27 through Jul 18, 295 calendar days. The low is each cycle's lowest traded price after entry - the point TradeWave's MAE is measured from for this long pattern. Dates and day numbers are the engine's, with the window's start date as day 1. History describes past cycles; it does not time the current one.",
+   "actions": [
+    {
+     "days_out": 295,
+     "entry_date": "2026-09-27",
+     "market": "5",
+     "pe_cycle": "pe2",
+     "symbol": "SPX",
+     "years": 24
+    }
+   ]
+  }
+ ]
+}
