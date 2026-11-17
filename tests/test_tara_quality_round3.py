@@ -553,3 +553,66 @@ def test_final_checks_close_the_live_context():
     assert live.rstrip().endswith("own reading of the yearly rows.")
     assert "BEFORE YOU SEND, CHECK" in live
 
+
+
+def test_an_active_window_is_a_pattern_state_not_a_chart_claim():
+    answer = "The 2026 window is now active on day 1 of 8 and is flat so far."
+    assert tara_gateway.repair_view_contract(answer, [], LOADED) == (answer, 0)
+
+
+# ---------------------------------------------------------------------------
+# Claude tool loop: no correction round (and no meta-talk) for a screen description
+# ---------------------------------------------------------------------------
+
+def _claude_text(text):
+    return {"stop_reason": "end_turn", "content": [{"type": "text", "text": text}]}
+
+
+def _run_claude_loop(monkeypatch, responses, message, view=None):
+    calls = []
+
+    def fake_send(*args, **kwargs):
+        calls.append(args[0])
+        return responses.pop(0)
+
+    monkeypatch.setattr(tara_gateway, "send_claude_messages", fake_send)
+    monkeypatch.setattr(tara_gateway, "run_tool", lambda *a, **k: {"error": "unused"})
+    text, actions = tara_gateway.run_chat_with_tools(
+        [{"role": "user", "content": message}], "system", "user-1", "claude-haiku-5-5",
+        current_view=view or {})
+    return text, actions, calls
+
+
+def test_claude_answer_describing_the_loaded_screen_is_accepted_in_one_round(monkeypatch):
+    answer = ("The bar chart shows one bar per completed year for FICO, and you're viewing "
+              "the 12-year record: 12 of 12 years were profitable.")
+    text, actions, calls = _run_claude_loop(
+        monkeypatch, [_claude_text(answer)], "explain this chart to me in one line", LOADED)
+    assert text == answer and actions == []
+    assert len(calls) == 1                       # no correction round
+
+
+def test_corrections_tell_the_model_not_to_talk_about_the_correction():
+    for reason in ("missing_view_action", "soft_view_check", "unconfirmed_view_promise",
+                   "printed_tool_markup", "unconfirmed_view_completion"):
+        text = tara_gateway._protocol_correction(reason)
+        assert "do not mention this instruction" in text
+    assert "do not load something else in its place" in tara_gateway._protocol_correction(
+        "missing_view_action")
+    assert "send your previous answer again unchanged" in tara_gateway._protocol_correction(
+        "soft_view_check")
+
+
+def test_queued_view_changes_without_a_symbol_are_described_not_called_a_view_change():
+    describe = tara_gateway._describe_view_actions
+    assert describe([{"type": "set_view", "spec": {"market": "11"}}]) == (
+        "Showing ETFs in the Opportunity Table.")
+    assert describe([{"type": "set_view", "spec": {"bottom_slide": "trend_chart"}}]) == (
+        "Showing Trend Chart.")
+    assert "20-year lookback" in describe([{"type": "set_view", "spec": {"years": 20}}])
+    assert describe([{"type": "set_view", "spec": {"show_tooltips": True}}]) == (
+        "Guidance tooltips on.")
+    assert describe([{"type": "set_view", "spec": {"symbol": "aapl"}}]) == "<b>AAPL</b> chart request."
+    assert describe([]) == "Requested view change."
+    for sentence in ("Showing ETFs in the Opportunity Table.", "Showing Trend Chart."):
+        assert not tara_gateway.response_violates_view_contract(sentence, [{"type": "set_view"}], {})

@@ -45,6 +45,7 @@ from tara_gateway import (
     classify_investor_intent,
     classify_view_intent,
     build_sector_screen_command,
+    _describe_view_actions as describe_view_actions,
     reply_gives_direct_advice,
     guided_next_questions,
     investor_guidance_response,
@@ -3117,16 +3118,7 @@ def chat():
                 'reason': 'unsafe_postprocessed_response',
             })
             if actions:
-                symbol_action = next((
-                    action.get('spec', {}).get('symbol')
-                    for action in reversed(actions)
-                    if isinstance(action.get('spec'), dict)
-                    and action.get('spec', {}).get('symbol')
-                ), '')
-                bot_reply = (
-                    '<b>%s</b> chart request.' % str(symbol_action).upper()
-                    if symbol_action else 'Requested view change.'
-                )
+                bot_reply = describe_view_actions(actions)
             else:
                 bot_reply = (
                     "I couldn't complete that chart request safely, so I haven't changed "

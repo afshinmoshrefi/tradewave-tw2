@@ -54,9 +54,9 @@ touches the live service, `/home/flask/.gunicorn/gunicorn.ctl`, or systemd.
 
 ```bash
 sudo python3 private_instance.py start --name fix-branch --port 5096 --ref origin/claude/tara-prod-failures-20261117
-sudo python3 private_instance.py start --name sonnet55 --port 5094 --provider anthropic --claude-model claude-sonnet-5-5
+sudo python3 private_instance.py start --name sonnet55 --port 5094 --policy sonnet55
 sudo python3 private_instance.py start --name luna-med --port 5092 --openai-effort medium
-sudo python3 private_instance.py start --name luna-fullkb --port 5095 --full-kb
+sudo python3 private_instance.py start --name wip --port 5095 --from-tree /home/tradewave-worktrees/<task>
 
 $PY run_eval.py --run sonnet55 --target http://127.0.0.1:5094 --ids-file subset.txt \
     --question-log /home/tradewave-worktrees/tara-eval-private-sonnet55/.eval/tara_questions.log
@@ -66,18 +66,28 @@ $PY report.py --compare luna-low luna-med haiku55 sonnet55 luna-fullkb
 sudo python3 private_instance.py stop --name sonnet55 --remove
 ```
 
-Overlay switches (environment of the private instance only):
+Overlay switches (the private copy only; nothing here is committed):
 
 | Flag | Effect in the private copy |
 |---|---|
-| `--provider anthropic --claude-model <id>` | every model-bound turn runs on that Claude model through the existing Anthropic tool loop. For `claude-haiku-5-5` / `claude-sonnet-5-5` the request uses the current API shape: adaptive thinking, `output_config.effort`, no `budget_tokens`, no sampling params, no forced `tool_choice` |
-| `--claude-effort low\|medium\|high` | effort for those Claude models (default low) |
+| `--policy luna\|haiku55\|sonnet55` | rewrites the one `ACTIVE_POLICY` line of `tara_runtime_policy.py`, which is exactly how a release would switch Tara's primary model (TW-TASK-0033). `--provider anthropic --claude-model <id>` maps to the same switch |
+| `--claude-effort low\|medium\|high` | `tara_runtime_policy.CLAUDE_EFFORT` for Claude 5 models (default low) |
 | `--openai-effort low\|medium\|high` | Luna reasoning effort (live = low) |
-| `--full-kb` | the whole knowledge base goes into the cached stable prompt prefix instead of the 3-section regex routing |
+| `--from-tree <path>` | run a private COPY of an uncommitted working tree instead of checking out `--ref` (fast iteration; `stop --remove` deletes the copy) |
+| `--full-kb` | only for refs before TW-TASK-0033 (routed KB); from 0033 on the whole knowledge base is always in the cached prefix |
 | always | per-request token usage is returned as `_eval_usage`, which `report.py --compare` turns into measured $ per question |
+
+A ref without `ACTIVE_POLICY` (before TW-TASK-0033) gets the legacy overlay (`apply_overlay_legacy`),
+so old and new branches can still be compared with the same bank.
 
 With no flags a private instance behaves exactly like its ref, which is how two branches
 are compared with the same bank.
+
+## Tuning without overfitting
+
+`tests/fixtures/tara_eval_subset.txt` (154 ids) is the HELD-OUT check. Tune on the other 577
+questions only, never read held-out replies while changing Tara, and report held-out and rest
+separately. A fix must be a general rule (a class of question), not a rule for one bank question.
 
 ## Question bank schema
 

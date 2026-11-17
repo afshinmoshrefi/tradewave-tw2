@@ -1617,7 +1617,7 @@ _UNSUPPORTED_ACTION_CLAIM_RE = re.compile(
 # claims the browser has not confirmed, in wordings the completion detector misses.
 _NOW_STATUS_CLAIM_RE = re.compile(
     r"\b(?:is|are)\s+now\s+(?:being\s+)?(?:shown|opened|pulled\s+up|brought\s+up|loaded|"
-    r"displayed|set|applied|active|visible|on\s+screen|in\s+view|up)\b"
+    r"displayed|set|applied|on\s+screen|in\s+view)\b"
     r"|\bnow\s+on\s+(?:screen|the\s+chart|your\s+chart|display)\b"
     r"|\b(?:has|have)\s+been\s+(?:loaded|opened|pulled\s+up|set|applied|switched)\b",
     re.IGNORECASE,
@@ -1980,7 +1980,20 @@ def _soft_view_request_answered(candidate, view_intent, actions, latest_user_tex
     return not _view_completion_violation(candidate, actions, current_view)
 
 
+# A correction is an instruction to the model, never content for the user. Without this
+# line a model answers the correction itself ("Understood, I won't describe any view
+# action as complete ...") and that meta-talk becomes the reply.
+_CORRECTION_SUFFIX = (
+    " Reply with the answer for the user only: do not mention this instruction, your "
+    "previous reply, the browser or the client, and do not apologise."
+)
+
+
 def _protocol_correction(reason, action_queued=False):
+    return _protocol_correction_text(reason, action_queued) + _CORRECTION_SUFFIX
+
+
+def _protocol_correction_text(reason, action_queued=False):
     if reason == "personalized_investment_advice":
         queued = " A valid chart action is already queued; do not call more tools." if action_queued else ""
         return (
@@ -2003,9 +2016,18 @@ def _protocol_correction(reason, action_queued=False):
     if reason == "missing_view_action":
         return (
             "The user directly requested a chart/view change, but your response did not call "
-            "update_view. For a symbol/setup, first use a read tool in this turn, then copy its "
-            "exact symbol + market + entry_date + hold_days/days_out into update_view. Do not claim "
-            "completion; the browser confirms it."
+            "update_view. If the request can be done, do it now: for a symbol/setup, first use a "
+            "read tool in this turn, then copy its exact symbol + market + entry_date + "
+            "hold_days/days_out into update_view. If it cannot be done (not a TradeWave symbol, "
+            "outside the user's plan, not a view at all), do not load something else in its "
+            "place: answer the user and say plainly why nothing was changed. Do not claim completion."
+        )
+    if reason == "soft_view_check":
+        return (
+            "If the user asked for a chart or view change, call update_view now (for a "
+            "symbol/setup, read it first and copy its exact fields). If the user asked a "
+            "question that needs no view change, send your previous answer again unchanged; do "
+            "not load anything just to have an action."
         )
     if reason == "unconfirmed_view_promise":
         return (
@@ -5233,6 +5255,43 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
     return out
 
 
+_PANEL_LABELS = {"trend_chart": "Trend Chart", "wave_stats": "Wave Stats",
+                 "ai_scores": "AI Scores", "price_chart": "Price Chart"}
+_CYCLE_LABELS = {"cons": "consecutive years", "pe0": "PE (election years)",
+                 "pe1": "PE+1 (post-election years)", "pe2": "PE+2 (midterm years)",
+                 "pe3": "PE+3 (pre-election years)"}
+
+
+def _describe_view_actions(actions):
+    """Status-neutral description of queued view changes that carry no symbol.
+
+    Used only when the model left no usable text. It names what was requested (the same
+    "Showing Wave Stats." style as the deterministic view commands) and claims nothing
+    about completion, which the browser confirms.
+    """
+    merged = {}
+    for action in actions or []:
+        if action.get("type") == "set_view" and isinstance(action.get("spec"), dict):
+            merged.update(action["spec"])
+    symbol = str(merged.get("symbol") or "").upper()
+    if symbol:
+        return "<b>%s</b> chart request." % symbol
+    parts = []
+    if merged.get("market") not in (None, ""):
+        parts.append("Showing %s in the Opportunity Table." % _market_label(merged["market"]))
+    if merged.get("bottom_slide") in _PANEL_LABELS:
+        parts.append("Showing %s." % _PANEL_LABELS[merged["bottom_slide"]])
+    if isinstance(merged.get("years"), int) and not isinstance(merged.get("years"), bool):
+        parts.append("Using a %d-year lookback." % merged["years"])
+    if merged.get("pe_cycle") in _CYCLE_LABELS:
+        parts.append("Using %s." % _CYCLE_LABELS[merged["pe_cycle"]])
+    for key, label in (("show_mfe", "MFE overlay"), ("show_mae", "MAE overlay"),
+                       ("show_tooltips", "Guidance tooltips")):
+        if isinstance(merged.get(key), bool):
+            parts.append("%s %s." % (label, "on" if merged[key] else "off"))
+    return " ".join(parts) or "Requested view change."
+
+
 def _finish_tool_reply(final_text, actions, cards, card_list, *, view_intent,
                        latest_user_text, non_actionable_symbols, current_view,
                        investor_intent, full_history_request, named_symbol_override,
@@ -5293,13 +5352,13 @@ def _finish_tool_reply(final_text, actions, cards, card_list, *, view_intent,
     # with status-neutral prose. Otherwise fail closed.
     if not final_text:
         if actions:
-            loaded = [
-                action.get("spec", {}) for action in actions
-                if action.get("type") == "set_view" and isinstance(action.get("spec"), dict)
-            ]
-            latest = loaded[-1] if loaded else {}
-            symbol = str(latest.get("symbol") or "").upper()
-            final_text = "<b>%s</b> chart request." % symbol if symbol else "Requested view change."
+            # A symbol load is announced from its own evidence card further down; other
+            # view changes get a status-neutral description of what was requested.
+            loads_symbol = any(
+                action.get("type") == "set_view" and isinstance(action.get("spec"), dict)
+                and action["spec"].get("symbol") for action in actions
+            )
+            final_text = "" if loads_symbol else _describe_view_actions(actions)
         elif protocol_failures:
             final_text = (
                 "I couldn't send a valid chart action, so I haven't changed the chart. "
@@ -5373,9 +5432,7 @@ def _finish_tool_reply(final_text, actions, cards, card_list, *, view_intent,
                 "", actions, cards, card_list, current_view=current_view
             )
             if not final_text:
-                latest = actions[-1].get("spec", {})
-                symbol = str(latest.get("symbol") or "").upper()
-                final_text = "<b>%s</b> chart request." % symbol if symbol else "Requested view change."
+                final_text = _describe_view_actions(actions)
         else:
             final_text = (
                 "I couldn't complete that chart request safely, so I haven't changed the chart. "
@@ -5507,17 +5564,25 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
             candidate = _text_of(blocks)
             # Remove an unproven status sentence instead of spending a correction round
             # on it; a reply that is nothing but such a claim still gets corrected.
-            repaired_candidate, _ = repair_view_contract(candidate, actions, current_view)
+            repaired_candidate, removed_claims = repair_view_contract(
+                candidate, actions, current_view)
+            # What repair returns already satisfies the view contract (its sentences were
+            # each checked), so only an empty repair - a reply that was nothing but a
+            # claim, a promise or tool markup - is sent back for correction.
+            view_contract_ok = bool(repaired_candidate)
             if repaired_candidate:
+                if removed_claims:
+                    trace("view_claim_removed", count=removed_claims, round=round_index + 1)
                 candidate = repaired_candidate
             reason = None
             if not blocks_are_valid or native_tool_blocks:
                 reason = "invalid_tool_envelope"
-            elif _contains_internal_tool_markup(candidate):
+            elif not view_contract_ok and _contains_internal_tool_markup(candidate):
                 reason = "printed_tool_markup"
-            elif _contains_view_promise(candidate):
+            elif not view_contract_ok and _contains_view_promise(candidate):
                 reason = "unconfirmed_view_promise"
-            elif _view_completion_violation(candidate, actions, current_view):
+            elif not view_contract_ok and _view_completion_violation(
+                    candidate, actions, current_view):
                 reason = "unconfirmed_view_completion"
             elif response_violates_investor_contract(candidate, investor_intent):
                 reason = "personalized_investment_advice"
@@ -5537,7 +5602,14 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
                     )
                 )
             ):
-                reason = "missing_view_action"
+                # A "show me ..." answered in clean words gets ONE check that leaves the
+                # model free to repeat its answer; an explicit "load"/"switch" stays strict.
+                reason = (
+                    "soft_view_check"
+                    if not soft_view_nudged and _soft_view_request_answered(
+                        candidate, view_intent, actions, latest_user_text, current_view)
+                    else "missing_view_action"
+                )
                 soft_view_nudged = True
             if reason:
                 protocol_failures += 1
@@ -5560,7 +5632,8 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
                     "role": "user",
                     "content": _protocol_correction(
                         reason,
-                        action_queued=bool(actions) and reason != "missing_view_action",
+                        action_queued=bool(actions) and reason not in {
+                            "missing_view_action", "soft_view_check"},
                     ),
                 })
                 continue
