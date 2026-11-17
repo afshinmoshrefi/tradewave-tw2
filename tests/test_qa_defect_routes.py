@@ -56,6 +56,7 @@ def test_methodology_does_not_enter_screening_funnel(chat, wave, message):
     assert not calls
 
 
+@pytest.mark.tara_rewrite_off
 @pytest.mark.parametrize('days, expected', [(9, '10 days and is not presented as an exact score'),
                                           (30, 'exact 30-day window'), (133, '90-day reading')])
 def test_exact_window_question_uses_selected_horizon(chat, days, expected):
@@ -66,6 +67,7 @@ def test_exact_window_question_uses_selected_horizon(chat, days, expected):
     assert not calls
 
 
+@pytest.mark.tara_rewrite_off
 @pytest.mark.parametrize('message', [
     'What AI Win Chance percentage is currently displayed for this AAPL pattern, and is it the same as its historical win rate?',
     'The AI Scores panel is open now. What AI Win Chance percentage does it show for AAPL, and how does that differ from the historical win rate?',
@@ -82,6 +84,7 @@ def test_visible_probability_fetches_trusted_value(chat, message, probability, l
     assert '99%' not in reply
 
 
+@pytest.mark.tara_rewrite_off
 def test_missing_context_does_not_deny_website_data(chat):
     reply, calls = chat('What AI Win Chance is displayed?', {'symbol': 'AAPL'}, None)
     assert len(calls) == 1
@@ -89,6 +92,7 @@ def test_missing_context_does_not_deny_website_data(chat):
     assert 'does not mean the AI Scores panel has no value' in reply
 
 
+@pytest.mark.tara_rewrite_off
 def test_initial_qa_analysis_retrieves_ai_context(chat):
     message = ('Explain this selected AAPL pattern. State its direction, entry and exit dates, '
                'holding period, completed years, wins and losses, average return, and what the AI probability means.')

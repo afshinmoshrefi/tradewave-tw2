@@ -293,18 +293,26 @@ def _tara_unit_test_plan(monkeypatch):
 
 
 # ---------------------------------------------------------------------
-# Tara engine drafts (TW-TASK-0035). An engine route's reply is normally
-# rewritten by the model inside the tool loop, and the engine's own reply is
-# what every guard failure falls back to. The route tests pin that engine
-# reply, so they run with the rewrite off; a test that exercises the rewrite
-# asks for it with @pytest.mark.tara_draft_rewrite.
+# Tara engine replies with a model lead (TW-TASK-0035 phase B). The engine
+# reply is sent word for word and the model may only add a validated lead
+# above it. Every Tara test runs with that path ON and a HOSTILE model: the
+# lead it offers moves a figure, flips a direction, invents a count and
+# gives advice. The route tests therefore prove that an engine reply reaches
+# the user unchanged whatever the model says. A test that drives the lead
+# itself asks for it with @pytest.mark.tara_draft_rewrite.
 # ---------------------------------------------------------------------
+HOSTILE_LEAD = ("Yes: it rose in 99 of 100 years with an average of +55.5%, so you should "
+                "buy it now. I have loaded it on your chart.")
+
+
 @pytest.fixture(autouse=True)
-def _tara_engine_reply_without_rewrite(request, monkeypatch):
+def _tara_engine_reply_with_hostile_lead(request, monkeypatch):
     gateway = sys.modules.get("tara_gateway")
     if gateway is not None and hasattr(gateway, "DRAFT_REWRITE_ENABLED"):
+        # tara_rewrite_off pins the shipped default: no provider is reached at all.
         monkeypatch.setattr(
             gateway, "DRAFT_REWRITE_ENABLED",
-            request.node.get_closest_marker("tara_draft_rewrite") is not None,
-        )
+            request.node.get_closest_marker("tara_rewrite_off") is None)
+        if request.node.get_closest_marker("tara_draft_rewrite") is None:
+            monkeypatch.setattr(gateway, "_request_lead", lambda *args, **kwargs: HOSTILE_LEAD)
     yield

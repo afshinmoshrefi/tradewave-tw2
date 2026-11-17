@@ -1,5 +1,7 @@
 # TW-TASK-0035 results - Tara on Claude Haiku 5.5 after steps 1 to 6 (2026-11-17)
 
+> **Read section 8 first.** Sections 1 to 7 were measured at commit 8ff5a607 with the first engine-draft rewrite ON. An independent review then showed that rewrite's number guard was too weak (NO-GO), so it was removed. What is live on dev is phase A (918626f1): the same code with the rewrite OFF. Section 8 has the phase A and phase B figures.
+
 All figures below use judge v3 and the revised bank from TW-TASK-0036, except where "old stick" is written. Private instance only (port 5087, `--no-control-socket`, own pid file, copy of this worktree, stopped and removed). Model: `claude-haiku-5-5`, effort low, adaptive thinking, 1-hour cache TTL. Held-out replies were not read; only aggregate verdicts were used.
 
 ## 1. Final table
@@ -85,3 +87,34 @@ sudo python3 private_instance.py stop --name h80i --remove
 ```
 
 Raw runs (private, on the dev box): `/root/tara-eval-runs/h80i-*`; helper scripts `/root/tara-eval-runs/h80i/{stats,final,show}.py`; sample id lists `/root/tara-eval-runs/h80/ids_det.txt`, `ids_model.txt`, `/root/tara-eval-runs/h80i/ids_tuned_half.txt`.
+
+## 8. After the independent review: phase A (shipped) and phase B (lead only, off)
+
+The review of 8ff5a607 found that the rewrite's guard only checked that each number existed somewhere: it accepted symbol swaps, sign flips, rose/fell swaps, changed n, date and best/worst swaps, dropped rows and plan notices, and figures taken from the user's own message; real Haiku dropped a row under a "Ranked by win rate" header, replaced an engine reply with its own scan and answered owner question 5 with Oct 13 2022 instead of Jun 2 1931 in 3 of 4 runs. The lift in section 3 for steps 1 to 3 (56.4% to 71.8% on the route questions) was therefore bought with answers that could be wrong, and it is withdrawn.
+
+- **Phase A (918626f1, live on dev, main).** Rewrite off: every engine route sends its own reply. Template fixes, rendered lists on the model path, dead-end fixes, live context, knowledge-base facts and the review fixes (engine Sharpe in rendered rows, "avg short-side return", the hold range, crypto pair and empty-read note, price-level asks in the advice floor) are on.
+- **Phase B (this commit, OFF by default).** The engine reply is sent word for word and the model may only add a short lead above it; `tara_draft_lead.validate_lead` checks the lead clause by clause against the engine reply (section "Engine replies with a validated model lead" in the ecosystem doc). All 22 hand-written probes from the review behave as required (2 faithful leads allowed, 20 refused), and with each of the 52 recorded real-model rewrites the engine reply reaches the user complete and unchanged.
+
+Measured on the 117 tuned route questions, judge v3, one phase A run and three phase B runs (private instances on ports 5087 and 5088):
+
+| arm | helpful | partial | unhelpful | false-fact | concise | $ per question | p50 / p90 |
+|---|---:|---:|---:|---:|---:|---:|---|
+| Round 3, same stick | 56.4% | 32.5% | 11.1% | 11.1% | 71.8% | 0 | 0.0s / 4.0s |
+| First rewrite (8ff5a607, withdrawn) | 71.8% | 26.5% | 1.7% | 11.1% | 82.9% | 0.0015 | 4.4s / 8.9s |
+| Phase A, rewrite off (`h80p-a1`) | 65.8% (77) | 23.9% | 10.3% | 7.7% | 69.2% | 0.00003 | 0.0s / 3.5s |
+| Phase B, lead only, run 1 (`h80p-b1`) | 65.8% (77) | 24.8% | 9.4% | 7.7% | 66.7% | 0.0011 | 2.1s / 5.6s |
+| Phase B, lead only, run 2 (`h80p-b2`) | 65.8% (77) | 23.9% | 10.3% | 7.7% | 61.5% | 0.0011 | 2.2s / 5.6s |
+| Phase B, lead only, run 3 (`h80p-b3`) | 65.8% (77) | 24.8% | 9.4% | 6.8% | 62.4% | 0.0011 | 2.1s / 5.3s |
+
+Phase B rows are paired to phase A: a question whose reply is byte-identical to phase A's keeps phase A's verdict (the judge graded identical replies differently 2 or 3 times per run, which is pure judge noise), and a lead that the final, slightly stricter rules would refuse is counted as the engine reply. Raw judge output for the three runs is 65.8%, 63.2% and 64.1%.
+
+Reading:
+
+- **The lead adds no measurable helpfulness.** 12 to 15 of 117 replies got a lead; paired against phase A the helpful count moved by +0 / -0, +0 / -0 and +1 / -1. Concise pass is 3 to 8 points lower because the reply is longer. It costs one model call ($0.0011) and about 2 seconds on every engine-route question.
+- **Recommendation: leave `DRAFT_REWRITE_ENABLED` off.** The safe version of the idea does not pay for its latency. The route gain that is real and kept is the template work: 56.4% to 65.8% helpful on these questions with no model call.
+- Owner's five research questions, three runs each with the lead on: the engine reply was present word for word in 15 of 15 replies with the same chart actions; a lead was added in 5 of 15 (questions 3 and 4) and every figure in it is the engine's; question 5 answers Jun 2, 1931 in every run.
+- Where the withdrawn lift came from: the model restructuring and shortening the engine reply, answering a second intent and calling tools. Those are exactly the freedoms the review showed to be unsafe behind a number-existence guard. Getting that lift back safely means changing the engine templates themselves (shorter replies that lead with the answer, a second-intent handler), not a model pass over them.
+
+Whole-bank estimate for what is live (phase A), not re-measured on the full bank: the route questions are 117 of 577 tuned, so 56.4% to 65.8% there is about +1.9 points on tuned, against +3.1 with the withdrawn rewrite; tuned helpfulness for phase A is therefore about 78 to 79% rather than the 79.9% in section 1. The model path (460 questions, 81.1%) is unchanged between the two.
+
+Phase B spend: judge $7.60, Haiku 5.5 about $0.40, total about $8.00 of the additional $15. Overall task spend about $50.84 across the two budgets ($42.84 + $8.00).

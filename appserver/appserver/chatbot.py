@@ -67,6 +67,8 @@ from tara_gateway import (
     run_chat_with_tools,
     command_has_more_to_answer,
     draft_is_rewritable,
+    engine_reply_with_lead,
+    disclaimer_last,
     ai_scores_entitled,
 )
 from tara_security_lists import build_security_list_command
@@ -1247,7 +1249,7 @@ def _finalize_chat_response(user_id, turn_id, question, reply, wave_viewer,
         if isinstance(protocol_trace, list):
             protocol_trace.append({'event': 'protocol_violation', 'reason': 'bare_verdict'})
         reply = verdict_floor_reply(wave_viewer)
-    reply = ensure_required_disclaimer(question, reply)
+    reply = disclaimer_last(ensure_required_disclaimer(question, reply))
     prepared_actions = _prepare_audited_actions(user_id, turn_id, actions or [])
     if _write_question_audit(
         user_id,
@@ -2687,17 +2689,18 @@ def chat():
             )
 
         def finish_draft(reply, response_actions=None, messages_or_text=None):
-            """Send an engine route's reply through the model as a verified draft.
+            """Send an engine route's reply, with a validated model lead above it.
 
-            The route has already produced the numbers, applied the plan gates and chosen
-            the chart actions. The model rewrites that draft inside the normal tool loop
-            (TW-TASK-0035) so the reply answers what was asked; the gateway returns the
-            draft itself when the rewrite adds a figure, drops an engine action, gives
-            advice or fails. Compliance-only replies are never rewritten.
+            The engine reply goes out word for word and its chart actions are never
+            touched. The model may only add a short lead that answers the question
+            directly from what the reply says (TW-TASK-0035 phase B); the gateway
+            checks that lead clause by clause and sends the engine reply alone when
+            it fails, when the provider fails, or when the switch is off. Compliance-only
+            replies never get a lead.
             """
 
             draft_actions = response_actions or []
-            final_reply, final_actions, provider_label = reply, draft_actions, 'deterministic'
+            final_reply, provider_label = reply, 'deterministic'
             if TARA_TOOLS_ENABLED and draft_is_rewritable(reply, draft_actions):
                 try:
                     draft_system = build_system_prompt(
@@ -2709,49 +2712,24 @@ def chat():
                         for h in history[:-1]
                     ]
                     draft_messages.append({"role": "user", "content": user_message})
-                    try:
-                        draft_years_cap = config.num_years_allowed_by_level.get(
-                            str((getattr(g, 'chatbot_jwt', None) or {}).get('user_level', '')),
-                            None)
-                    except Exception:
-                        draft_years_cap = None
-                    draft_context = dict(
-                        opp_table=opportunities,
-                        opp_table_market=opp_table_market,
-                        user_token=user_token,
-                        user_years_cap=draft_years_cap,
-                        opp_table_years=opp_table_years,
-                        current_view=wave_viewer,
-                        turn_id=turn_id,
-                        protocol_trace=protocol_trace,
-                        engine_draft=reply,
-                        draft_actions=draft_actions,
-                        number_sources=[_KNOWLEDGE] + [
-                            block.get("text", "") for block in draft_system[1:]
-                            if isinstance(block, dict)
-                        ] + [str(h.get("content", "")) for h in history[:-1]],
-                    )
                     draft_provider = select_tara_provider()
-                    if draft_provider == "openai":
-                        final_reply, final_actions = run_chat_with_openai_tools(
-                            draft_messages, draft_system, user_id, OPENAI_CHATBOT_MODEL,
-                            **draft_context)
-                    else:
-                        final_reply, final_actions = run_chat_with_tools(
-                            draft_messages, draft_system, user_id, CHATBOT_MODEL, CACHE_TTL,
-                            **draft_context)
+                    final_reply = engine_reply_with_lead(
+                        draft_provider, draft_messages, draft_system,
+                        OPENAI_CHATBOT_MODEL if draft_provider == "openai" else CHATBOT_MODEL,
+                        reply, draft_actions, user_id=user_id, cache_ttl=CACHE_TTL,
+                        protocol_trace=protocol_trace)
                     if final_reply != reply:
                         provider_label = draft_provider
                 except (OpenAIConfigurationError, AnthropicConfigurationError):
                     raise
                 except Exception:
-                    logging.exception("Tara draft rewrite failed; sending the engine draft")
+                    logging.exception("Tara engine-reply lead failed; sending the engine reply")
                     protocol_trace.append(
-                        {'event': 'draft_rewrite_rejected', 'reason': 'route_error'})
-                    final_reply, final_actions = reply, draft_actions
+                        {'event': 'draft_lead_rejected', 'reason': 'route_error'})
+                    final_reply = reply
             return finish(
                 final_reply,
-                final_actions,
+                draft_actions,
                 provider=provider_label,
                 messages_or_text=messages_or_text,
             )
@@ -3262,10 +3240,6 @@ def chat():
                 current_view=wave_viewer,
                 turn_id=turn_id,
                 protocol_trace=protocol_trace,
-                number_sources=[_KNOWLEDGE] + [
-                    block.get("text", "") for block in system_prompt[1:]
-                    if isinstance(block, dict)
-                ] + [str(h.get("content", "")) for h in history[:-1]],
             )
             if provider_name == "openai":
                 return run_chat_with_openai_tools(
