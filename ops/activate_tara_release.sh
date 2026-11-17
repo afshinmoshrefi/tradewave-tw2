@@ -97,7 +97,8 @@ for relative in \
   appserver/appserver/tara_gateway.py \
   appserver/appserver/tara_model_router.py \
   appserver/appserver/tara_prompt_context.py \
-  appserver/appserver/tara_research.py; do
+  appserver/appserver/tara_research.py \
+  appserver/appserver/appserver.py; do
   prior="$(cat "$snapshot_dir/prior-app-target")/$relative"
   if [[ -f "$prior" ]]; then
     install -D -m 0600 "$prior" "$snapshot_dir/prior-source/$relative"

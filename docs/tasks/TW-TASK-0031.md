@@ -45,7 +45,7 @@ Base: `origin/claude/tara-integrated-20261117` (e11aecf2), which already holds T
 
 ## Acceptance and Regression Checks
 
-- New `tests/test_tara_prod_failures.py`: 165 tests, one section per class, with the production phrasings and generalized variants, the neighbours that must keep working (real tickers, explicit loads, real advice asks, record-recency questions, named indexes, pinned windows, in-band screens), and `/chatbot/chat` route tests for the deterministic classes.
+- New `tests/test_tara_prod_failures.py`: 170 tests, one section per class, with the production phrasings and generalized variants, the neighbours that must keep working (real tickers, explicit loads, real advice asks, record-recency questions, named indexes, pinned windows, in-band screens), and `/chatbot/chat` route tests for the deterministic classes.
 - Updated assertions in `tests/test_tara_answer_planner.py` and `tests/test_tara_action_contract.py` for the intentionally changed wording (next checks, advice reply, screen footer, Best Waves empty result, calendar boundary).
 - Results: see Final Verification in History.
 
@@ -83,3 +83,4 @@ Dev: not activated. Verified locally on 2026-11-17 against real dev engine data 
 
 - 2026-11-17T12:05:00+00:00: Claude claimed the task, replayed the 23 triage questions on the base branch and traced root causes.
 - 2026-11-17T12:50:00+00:00: Fix, tests and records pushed on the task branch for orchestrator integration. Final Verification: `tests/test_tara_*.py` 681 passed; `pytest -m "not db"` 1943 passed, 5 skipped; `git diff --check` clean. Self-verification, not independent review.
+- 2026-11-17T13:05:00+00:00: Merged origin/main 59615573 (TW-TASK-0030 final `tara_research.py`, live on dev). README conflict resolved keeping all rows. The sector screen now passes the plan's `years_cap` to `build_screen_command`. Added route tests proving the five TW-TASK-0030 owner questions still reach `build_research_command`; all five were also re-asked on the private instance and answered by the research route. `tests/test_tara_*.py` 844 passed; `pytest -m "not db"` rerun on the merged code (result in the handoff message); `git diff --check` clean.

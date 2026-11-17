@@ -3,7 +3,7 @@
 - Status: fixed on branch, awaiting dev integration and activation
 - Confidence: reproduced
 - Priority: P1 - the owner asked five ordinary research questions on dev and every answer was wrong, thin or off-topic
-- First observed / last updated: 2026-11-16T19:26:29+00:00 / 2026-11-17T12:40:00+00:00
+- First observed / last updated: 2026-11-16T19:26:29+00:00 / 2026-11-17T14:10:00+00:00
 - Executor/session/claim time: Claude Code session_01Pi1koVo3NroLWvCft5ehNR (subagent), 2026-11-17T11:30:00+00:00
 - Authorization: Afshin asked for the failures to be fixed. Scope: code, tests and records on a task branch. Dev activation, pointer changes, service restarts and main are the orchestrator's; staging and production excluded.
 
@@ -29,9 +29,9 @@ Baseline origin/main 589df95308eaef8d3e1da1982aa75bf11ed771c4.
 
 ## Acceptance and Regression Checks
 
-- New `tests/test_tara_research_engine_answers.py`: 69 tests replaying engine responses recorded on 2026-11-17 (`tests/fixtures/tara_research_engine_20261117.json`, no prices, no user data). Covers the five owner questions through `/chatbot/chat`, generalized variants (other indexes, directions, windows, hold lengths, filters, forex pairs, loaded-pattern comparisons, PE cycles), real phrasings from the production Tara log (question text only), plan boundaries, engine outage fall-through, and neighbor questions that must stay on their existing paths.
+- New `tests/test_tara_research_engine_answers.py` (233 tests after two review rounds) replaying engine responses recorded on 2026-11-17 (`tests/fixtures/tara_research_engine_20261117.json`, no prices, no user data). Covers the five owner questions through `/chatbot/chat`, generalized variants (other indexes, directions, windows, hold lengths, filters, forex pairs, loaded-pattern comparisons, PE cycles), real phrasings from the production Tara log (question text only), plan boundaries, engine outage fall-through, and neighbor questions that must stay on their existing paths.
 - Existing Tara suites unchanged and passing (see Final Verification).
-- Engine: with `excursion_dates` absent, `ChartData4` responses from the worktree engine are byte-identical to the active dev engine for four studies; with it, `pct` rows and `stats` are identical and only the four date fields are added.
+- Engine: a real route test (`test_default_chartdata4_output_is_byte_identical_without_excursion_dates`) runs `ChartData4` over synthetic history and proves the default response bytes are unchanged before and after an opt-in call, that the opt-in call uses its own cache key, and that it only adds the four dates and two day numbers.
 
 ## Implementation and Handoff
 
@@ -52,9 +52,19 @@ Not changed, for a follow-up: gateway `/v1/scan` still screens only the first da
 
 ## Environment Verification
 
-Dev: not activated. Verified locally on 2026-11-17 against real dev engine data by running the worktree appserver privately on 127.0.0.1:5077 with a synthetic Strategist-level identity: [answers](evidence/TW-TASK-0030-local-20261117.json). Staging and production: not changed or tested.
+Dev: not activated. Verified locally on 2026-11-17 against real dev engine data by running the worktree appserver privately on its own localhost port (no control socket) with synthetic test identities at plan levels 1, 2 and 6: [answers](evidence/TW-TASK-0030-local-20261117.json). Staging and production: not changed or tested.
 
 ## History
 
 - 2026-11-17T11:30:00+00:00: Claude claimed the task, reproduced from the audit log and traced root causes.
 - 2026-11-17T12:40:00+00:00: Fix, tests and records pushed on the task branch for orchestrator integration. Self-verification, not independent review.
+- 2026-11-17T13:30:00+00:00: Independent review found silently wrong answers; fixed on the same branch. Blockers: common English words and upper-case words resolved to tickers; currency pairs split into two tickers; unparsed dates answered for today; direction inverted by "short list", "this fall" and negation; free-tier responses mislabelled because the engine's echoed request was never compared with the ask. Should-fixes: plan years cap on screens, bounded fan-out (40 engine reads, 3 concurrent), explicit years, narrower low/high-date routing, 1-day holds, election-cycle screens, "this week" from today, engine-supplied day numbers (no chatbot-derived frequency), direction-aware MFE/MAE labels, an advice boundary, an honest average-return label. Every reviewer probe is a regression test.
+- 2026-11-17T14:10:00+00:00: Re-review verdict GO for dev with three should-fixes, done on the same branch: (R1) bearish wording outside the vocabulary ("go down", "negative seasonal returns", "underperform", "sink", "slide", "tank", "sell candidates") is a short screen, and vaguely bearish wording ("worst", "losers", "avoid") returns to the normal path instead of a bullish list; (R2) a win-rate ranking reads consecutive bands from the strictest down, never skipping one, and states the lowest record it covers when the read budget ends first; (R3) a comparison where fewer than two securities resolve is never answered as a single-symbol study, and one-letter tickers (F, T) are read in a comparison. Nits: index names with numbers are not years, "high season" is not a high-date question, the engine's Jan 1 -> Jan 2 rule is a match for detector rows, and short-side figures are printed as the engine returns them with no negation.
+
+## Review round: remaining risks
+
+- Entry dates that fall on a market holiday are shown as the engine dates them.
+- A month-long screen makes up to 23 detector reads and can take 10 to 30 seconds cold.
+- Loopback reads run inside the same gunicorn pool that serves the chat request; the per-process limit of 3 bounds it but does not remove the shared-pool dependency.
+- "By average return" ranks each stock's highest-Sharpe window and says so; a true per-symbol best-average search would need an expanded detector read.
+- Plan wording is read from token claims plus config; the engine remains the enforcer.

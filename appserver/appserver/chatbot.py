@@ -2553,6 +2553,7 @@ def chat():
             user_token,
             investor_intent=investor_intent,
             table_market=opp_table_market,
+            years_cap=research_years_cap,
         )
         if sector_command is not None:
             actions = []

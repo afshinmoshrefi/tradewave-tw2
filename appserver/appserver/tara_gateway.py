@@ -3155,7 +3155,7 @@ _NAMED_UNIVERSE_RE = re.compile(
 
 
 def build_sector_screen_command(message, user_token, *, investor_intent=None,
-                                table_market=None, today=None):
+                                table_market=None, today=None, years_cap=None):
     """Answer "which <sector> stocks ..." honestly: TradeWave has no sector tags.
 
     Returns {'reply', 'actions', 'trace'} or None. The screen itself is the engine
@@ -3180,9 +3180,10 @@ def build_sector_screen_command(message, user_token, *, investor_intent=None,
         rewritten = text[:phrase.start()] + universe + " stocks" + text[phrase.end():]
         try:
             import tara_research        # lazy: tara_research imports this module
-            command = tara_research.build_screen_command(
-                rewritten, user_token, today=today, table_market=table_market
-            )
+            screen_kwargs = {"today": today, "table_market": table_market}
+            if years_cap is not None:
+                screen_kwargs["years_cap"] = years_cap     # the plan's lookback limit
+            command = tara_research.build_screen_command(rewritten, user_token, **screen_kwargs)
         except Exception:               # noqa: BLE001 - fall back to the normal path
             log.exception("tara sector screen failed")
             return None

@@ -2302,35 +2302,55 @@ Best Wave at that setting.
 **Engine-answered research requests (TW-TASK-0030, 2026-11-17).** `appserver/appserver/tara_research.py`
 (`build_research_command`, called from `chatbot.chat()` after the suitability boundary and before
 every other shortcut or model route) answers five request classes directly from engine output,
-through loopback calls made with the user's own token so plan entitlements apply unchanged:
+through loopback calls made with the user's own token so plan entitlements apply unchanged. Its
+rule is: answer only what was unambiguously asked, otherwise return `None` so the normal path runs.
 - **Index screens and ranked screens** ("S&P 500 stocks entering bearish patterns this week",
   "highest win rate over the next 10 days", top-N, hold-length, win-rate/Sharpe/average filters).
   `OppList4` is keyed to ONE entry date, so a window is screened by calling it once per weekday in
   the window (a Monday table already carries Saturday and Sunday patterns; a weekend-dated pattern
-  is presented on its first session). The detector is read at the market's band FLOOR from
-  `apiserver/market_bands.json` (S&P 500 at 10 years = at least 8 winning years) so the list is not
-  limited to the React table's stricter default; a win-rate ranking walks the bands from "won every
-  year" downward. A hold length is passed as OppList4's `day_range` (engine days = display days - 1).
-  Only the short-listed rows are then verified with `ChartData4` (`comparison_direction` pinned),
-  and the printed record, average and Sharpe are that response's values. Default lookback 10 years,
-  default list 10, entry window capped at 31 days and at December 31.
+  is presented on its first session). "This week" means the days still ahead (the coming week when
+  asked on a weekend). The detector is read at the market's band FLOOR from
+  `apiserver/market_bands.json` (S&P 500 at 10 years = at least 8 winning years); a win-rate
+  ranking reads CONSECUTIVE bands from "won every year" downward (never skipping one) until the
+  pool fills or the read budget ends, and then states the lowest record it covers. A hold length is passed as OppList4's `day_range`
+  (engine days = display days - 1; `0-0` means NO filter in the engine, so a 1-day hold is not
+  screened). Only the short-listed rows are verified with `ChartData4` (`comparison_direction`
+  pinned), and the printed record, average and Sharpe are that response's values. Defaults: 10-year
+  lookback, 10 rows, 31-day entry window, current calendar year only. Bounds per message: 6 bands,
+  40 engine reads, 3 concurrent loopbacks per process (`_ENGINE_SLOTS`). Not screened (returns
+  `None`): an unparsed month/quarter/year/season/weekday, negated or two-sided direction wording,
+  "lowest/worst" rankings, vaguely bearish wording ("worst", "losers", "avoid") with no explicit side, election-cycle screens, sector words, explicit tickers.
 - **Dated symbol studies** ("analyze Apple from now to year end over the last 20 years"): one
   `ChartData4` call with no direction override, so the reply matches what the Wave Viewer shows
-  after the signed `set_view`; the action is built from the response's effective `request` echo
-  (for example a January 1 entry is moved to January 2 by the engine).
-- **Same-window comparisons** (2 to 4 symbols, sector words map to the SPDR sector ETFs): every
-  symbol is fetched with `comparison_direction=long` and `report_completed_years=N`, where N is the
-  lookback all symbols share, so the ENGINE computes each record on the same completed years. If
-  the completed-year cohorts differ, no comparison is stated.
-- **Date of a pattern's low or high** (the 100-Year Pattern or the loaded pattern): `ChartData4`
-  accepts the opt-in query parameter `excursion_dates=1`, which adds `entry_trade_date`,
-  `exit_trade_date`, `high_date` and `low_date` to every yearly row - the dates of the same
-  extremes the MFE/MAE percentages are measured from. The parameter has its own redis key suffix;
-  requests without it return the unchanged legacy rows.
-Company names resolve only on an exact match with the engine's own security list
-(`GetListSymbols`); an unreachable engine returns `None` so the turn falls through to the normal
-path. Root cause this replaced: `_ensure_load_named` (tara_gateway.py) rewrites any model reply
-whose numbers differ from the ONE loaded setup's headline, which collapsed multi-symbol and
+  after the signed `set_view`. MFE/MAE labels follow the engine's `Trade Dir`.
+- **Same-window comparisons** (2 to 4 symbols, sector words map to the SPDR sector ETFs when the
+  text says ETF): every symbol is fetched with `comparison_direction=long` and
+  `report_completed_years=N`, where N is the lookback all symbols share, so the ENGINE computes
+  each record on the same completed years. If the completed-year cohorts differ, nothing is stated.
+- **Date of a pattern's low or high** (the 100-Year Pattern or the loaded pattern, only when one
+  clause asks WHEN an extreme happened): `ChartData4` accepts the opt-in query parameter
+  `excursion_dates=1`, which adds `entry_trade_date`, `exit_trade_date`, `high_date`, `low_date`,
+  `high_day` and `low_day` to every yearly row - the dates of the same extremes the MFE/MAE
+  percentages are measured from, and their calendar day number with the window's start date as
+  day 1. The parameter has its own redis key suffix; requests without it return byte-identical
+  legacy output. The chatbot orders and prints these values; it derives no frequency statistic.
+**The engine's echoed `request` is the only proof of what a ChartData4 response describes.** A
+date-locked plan (`level_access_hierarchy_free_registered`) is silently given TODAY's window, a
+capped plan fewer years, and `OppList4` truncates a free-tier table to
+`max_opportunities_loggedin_free` rows BEFORE any direction filter. So every screen row and study
+is rejected when the echoed `entry_date`/`days_out`/`years` differ from the ask (the engine's own
+Jan 1 -> Jan 2 entry rule is the one accepted shift), and a plan-limited or truncated result is
+described as plan-limited, never as "none found". Plan limits are read from the token claims plus
+config for wording only; the engine enforces them.
+**Security names.** Upper-case tokens are tickers unless they are ordinary English words that
+happen to be listed (IT, ALL, NOW, SO: accepted only as `$NOW` or "NOW stock"); currency pairs
+(EUR/USD, eurusd) are one instrument. The engine's US name list has about 1,100 ONE-WORD names
+that are plain English ("happen", "people", "post", "capital"), so single words resolve only
+through the curated `_KNOWN_COMPANIES` map; multi-word names need an exact match with the engine
+list (`GetListSymbols`, cached one hour per process). A 4-digit year in a study request returns
+`None` (it is one year, not a seasonal study). An unreachable or failing engine returns `None`.
+Root cause this replaced: `_ensure_load_named` (tara_gateway.py) rewrites any model reply whose
+numbers differ from the ONE loaded setup's headline, which collapsed multi-symbol and
 multi-statistic answers to a single announce line. The gateway `/v1/scan` still fetches OppList4
 only at a window's first date; it is unchanged here.
 

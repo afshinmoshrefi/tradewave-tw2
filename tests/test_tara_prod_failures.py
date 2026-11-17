@@ -357,7 +357,7 @@ def test_recency_of_the_record_is_still_recognized(message):
 # ---------------------------------------------------------------------------
 
 def _fake_screen(seen):
-    def build_screen_command(text, token, today=None, table_market=None):
+    def build_screen_command(text, token, today=None, table_market=None, years_cap=None):
         seen.append(text)
         return {
             "reply": '<div class="tara-analysis"><div class="tara-analysis-section">LIST</div></div>',
@@ -1034,3 +1034,37 @@ def test_chat_route_sends_tech_question_to_the_sector_screen(chat_app, monkeypat
     plain = _plain(body["reply"])
     assert plain.startswith("Screened on the NASDAQ 100, a tech-heavy index.")
     assert body["actions"] and body["actions"][0]["spec"] == {"market": "1"}
+
+
+# ---------------------------------------------------------------------------
+# The five TW-TASK-0030 owner questions stay on the engine research route
+# ---------------------------------------------------------------------------
+
+OWNER_QUESTIONS = [
+    "find s&p500 stocks entering seasonaly bearish patterns htis week",
+    "which S&P500 stocks have the highest seasonal win rate over the next 10 days",
+    "analyze apple historic return from now to year end over the last 20 years",
+    "compare the seasonal performance of technology and utilities ETFs for the 4th quarter",
+    "what's the latest date that the 100 year pattern has bottomed",
+]
+
+
+@pytest.mark.parametrize("message", OWNER_QUESTIONS)
+def test_owner_research_questions_are_not_preempted(chat_app, monkeypatch, message):
+    import tara_research
+    seen = []
+
+    def research(text, *args, **kwargs):
+        seen.append(text)
+        return {"reply": "ENGINE RESEARCH ANSWER", "actions": [], "trace": {}}
+
+    monkeypatch.setattr(chatbot, "build_research_command", research)
+    monkeypatch.setattr(tara_research, "build_screen_command",
+                        lambda *a, **k: pytest.fail("sector route pre-empted research"))
+    body = _ask(chat_app, message)
+    assert seen == [message]
+    assert body["reply"] == "ENGINE RESEARCH ANSWER"
+    # and the new routes do not claim these questions on their own
+    assert tara_gateway.build_sector_screen_command(message, "token") is None
+    assert tara_gateway.classify_view_intent(message) is None
+    assert planner.build_deterministic_reply(message, {}, {}) is None
