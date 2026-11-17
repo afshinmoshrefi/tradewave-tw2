@@ -781,7 +781,9 @@ def test_loaded_personal_direction_question_uses_historical_boundary():
     assert "average pattern result of +4.2%" in text
     assert "Sharpe ratio of 1.4" in text
     assert "not today's market direction or a forecast" in text
-    assert "Past performance does not guarantee future results" in text
+    assert text.endswith(
+        "<i>Past performance and model estimates do not guarantee future results. "
+        "TradeWave provides research context, not individualized recommendations.</i>")
 
 
 def test_personal_direction_boundary_does_not_replace_factual_direction_question():

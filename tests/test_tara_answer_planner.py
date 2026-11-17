@@ -1727,10 +1727,14 @@ def test_loaded_advice_ask_gets_evidence_without_a_trade_recommendation():
     # Evidence first; one short boundary last (TW-TASK-0031).
     assert reply.index("<b>Read:</b>") < reply.index("<b>Your call:</b>")
     assert "Whether to take the trade is your decision; I can't make it for you." in reply
+    assert "not a forecast or recommendation" in reply
+    assert reply.endswith(
+        "<i>Past performance and model estimates do not guarantee future results. "
+        "TradeWave provides research context, not individualized recommendations.</i></div></div>")
     assert "14 of 17 completed years (82%, 2009-2025)" in reply
     assert "latest 5 were weaker than the earlier 12" in reply
     assert "yes, trade" not in reply.lower()
-    assert len(re.sub(r"<[^>]+>", " ", reply).split()) < 130
+    assert len(re.sub(r"<[^>]+>", " ", reply).split()) < 160
 
 
 def test_rank_reply_uses_exact_visible_order_without_assuming_sharpe_sort():

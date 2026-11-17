@@ -2379,6 +2379,24 @@ found eleven failure classes. The invariants that came out of fixing them:
   carries a score the rows stay in historical Sharpe order and the reply must say AI scores were
   not available. A historical average is never presented as PredR. Result-level notices and each
   row's `ai` block survive `_bounded_json` trimming (`_RESULT_NOTICE_KEYS`).
+- **Plan gate before any gateway call.** Tara reaches the gateway as the internal `chatbot`
+  principal, which is scoped to every market and to AI scoring, so the user's plan is applied in
+  `tara_gateway` first (`_plan_scope`, from the browser token's level and the same config the
+  engine uses: `level_access_hierarchy`, `ml_score_access_mode/levels/userids`). A scan of a
+  market outside the plan returns a plan boundary and names no symbol; an unscoped scan is clamped
+  to the plan's markets (and Explorer's row cap); AI ranking is attempted only for a plan with AI
+  access on a scored market (0-4 and 11), otherwise the ordinary historical screen runs with a
+  stated reason; the investor-funnel stock screen moves to the broadest stock index in the plan
+  (Explorer: Dow 30) and an out-of-plan ETF screen stops at the boundary.
+- **AI scan scope is stated in the reply.** The gateway fetches by AI Win% only and scores a
+  bounded number of rows, so a PredR/AIS ranking or an AI filter carries a deterministic note:
+  "among the N setups this scan returned", how many carried a score, and that unscored rows were
+  not checked. An empty filter is never reported as "none qualify" while rows were unscored.
+- **Required disclaimer.** The advice reply, the exit-timing reply and the loaded-pattern
+  suitability reply end with the exact sentence in `DISCLAIMER_TEXT`, after the evidence and a
+  "not a forecast or recommendation" line. Stops, position size, allocation, "recommend me" and
+  "what would you do" are advice however they are worded (`_TRADE_INSTRUCTION_PATTERN`); the
+  interrogative exemption covers reading and timing questions only.
 - **Advice boundary.** `tara_answer_planner._is_trade_advice_request` matches a personal
   buy/sell/hold/enter decision only; a modal after an interrogative ("how should I read", "when
   should I exit", "what should I look at") is an ordinary question. The advice reply is evidence

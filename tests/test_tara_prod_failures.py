@@ -6,6 +6,7 @@ literal string. Engine and model seams are replaced with small stand-ins; no exp
 statistic is computed here.
 """
 import datetime
+import html
 import re
 import sys
 import time
@@ -26,6 +27,18 @@ import tara_prompt_context  # noqa: E402
 pytestmark = pytest.mark.unit
 
 TODAY = datetime.date(2026, 11, 17)
+
+
+def _level_token(level, user="tw-task-0031-test"):
+    """A browser-token stand-in carrying only a plan level (the gate reads its claims)."""
+    return jwt.encode({"user": user, "user_level": str(level), "aud": "tw2-appserver",
+                       "iss": "tw2-web", "exp": int(time.time()) + 3600},
+                      "tw-task-0031-test-secret-xxxxxxxxxxxxxxxxxxxxxxxx", algorithm="HS256")
+
+
+TOKEN6 = _level_token(6)
+DISCLAIMER = ("Past performance and model estimates do not guarantee future results. "
+              "TradeWave provides research context, not individualized recommendations.")
 
 
 def _plain(reply):
@@ -82,7 +95,7 @@ def _run(monkeypatch, responses, message, run_tool=None, current_view=None, **kw
     )
     text, actions = tara_gateway.run_chat_with_tools(
         [{"role": "user", "content": message}], "system", "user-1", "model",
-        current_view=current_view or {}, user_token="token", **kwargs,
+        current_view=current_view or {}, user_token=TOKEN6, **kwargs,
     )
     return text, actions, calls
 
@@ -198,7 +211,7 @@ def test_scan_ranks_by_the_engines_ai_values(monkeypatch, message, tool_input, e
     monkeypatch.setattr(tara_gateway, "run_tool", _scan_tool(cards, seen))
     out = tara_gateway._execute_tara_tool(
         "find_best_opportunities", tool_input, "user-1", [], {}, [],
-        latest_user_text=message, turn_notes=notes, user_token="token",
+        latest_user_text=message, turn_notes=notes, user_token=TOKEN6,
     )
     assert seen[0][1]["rank_by"] == "ml"         # asked the gateway for AI-scored rows
     rows = out["opportunities"]
@@ -207,7 +220,12 @@ def test_scan_ranks_by_the_engines_ai_values(monkeypatch, message, tool_input, e
     assert out["ai_scores"]["delivered"] is True
     assert rows[0]["ai"]["ai_win_prob_pct"] in (70, 80, 84)
     assert all("wave_viewer" not in row for row in rows)
-    assert notes == []
+    # One row had no score: the reply is told so, with counts, by a turn note.
+    assert [note["key"] for note in notes] == ["ai_scope"]
+    scope = notes[0]["text"]
+    assert "among the 4 setups this scan returned (its highest AI Win% rows)" in scope
+    assert "3 of those 4 carried an AI score; the other 1 could not be scored" in scope
+    assert out["ai_scores"]["rows_unscored_not_checked"] == 1
 
 
 def test_predicted_return_floor_filters_on_predr_not_the_historical_average(monkeypatch):
@@ -222,7 +240,7 @@ def test_predicted_return_floor_filters_on_predr_not_the_historical_average(monk
         {"markets": "2", "min_days": 40, "max_days": 100, "min_pred_return": 5},
         "user-1", [], {}, [],
         latest_user_text="best setup today with prdicted profit of minimum 5% and holding 40-100 ays",
-        turn_notes=[], user_token="token",
+        turn_notes=[], user_token=TOKEN6,
     )
     assert [row["symbol"] for row in out["opportunities"]] == ["HIPRED"]
     assert "min_pred_return" not in seen[0][1] and "min_avg_return" not in seen[0][1]
@@ -306,8 +324,10 @@ def test_real_trade_decisions_get_evidence_then_one_short_boundary(message):
     plain = _plain(reply)
     assert plain.startswith("Read: ATO long, Nov 17 to Dec 10")
     assert "profitable in 10 of 10 completed years" in plain
-    assert plain.endswith("Whether to take the trade is your decision; I can't make it for you.")
-    assert _words(reply) < 130
+    assert ("this is historical evidence, not a forecast or recommendation. Whether to take "
+            "the trade is your decision; I can't make it for you. " + DISCLAIMER) in plain
+    assert plain.endswith(DISCLAIMER)
+    assert _words(reply) < 175
     assert "Cycle context" not in plain and "Payoff and path" not in plain
 
 
@@ -554,7 +574,7 @@ def test_metal_alias_also_applies_to_the_pattern_list_tool(monkeypatch):
     notes = []
     out = tara_gateway._execute_tara_tool(
         "get_symbol_patterns", {"symbol": "XAG", "market": "9"}, "user-1", [], {}, [],
-        turn_notes=notes, user_token="token", latest_user_text="best patterns for xag")
+        turn_notes=notes, user_token=TOKEN6, latest_user_text="best patterns for xag")
     assert seen[0]["symbol"] == "XAGUSD" and seen[0]["market"] == "8"
     assert "XAGUSD" in out["symbol_note"]
 
@@ -572,7 +592,7 @@ def test_pattern_list_outside_the_symbol_grid_falls_back_to_the_current_setup(mo
     cards, card_list = {}, []
     out = tara_gateway._execute_tara_tool(
         "get_symbol_patterns", {"symbol": "XAU", "market": "8"}, "user-1", [], cards, card_list,
-        turn_notes=[], user_token="token", latest_user_text="patrones del xau")
+        turn_notes=[], user_token=TOKEN6, latest_user_text="patrones del xau")
     assert out["card"]["symbol"] == "XAUUSD"
     assert "no full pattern list" in out["pattern_list_note"]
     assert card_list and card_list[0]["symbol"] == "XAUUSD"
@@ -732,7 +752,9 @@ def test_investor_screen_has_win_counts_and_one_short_closing_line(monkeypatch):
 
     def chart(market, symbol, entry_date, days_out, years_value, token, *, direction="long"):
         chart_calls.append((market, symbol, entry_date, days_out, years_value, direction))
-        return 200, {"stats": {"Num Winners": "10" if symbol == "GWW" else "9",
+        return 200, {"request": {"symbol": symbol, "entry_date": entry_date,
+                                 "days_out": days_out, "years": int(years_value)},
+                     "stats": {"Num Winners": "10" if symbol == "GWW" else "9",
                                "Num Losers": "0" if symbol == "GWW" else "1"}}
 
     monkeypatch.setattr(tara_gateway, "_chart_data4", chart)
@@ -741,7 +763,7 @@ def test_investor_screen_has_win_counts_and_one_short_closing_line(monkeypatch):
     text, actions = tara_gateway.run_chat_with_tools(
         [{"role": "user", "content": "Show me bullish stock patterns this time of year"}],
         "system", "user-1", "model", opp_table=rows, opp_table_market="2",
-        user_token="token", opp_table_years=10,
+        user_token=TOKEN6, opp_table_years=10,
     )
     plain = _plain(text)
     assert "GWW — window near Nov 17; 8-day study; profitable in 10 of 10 years" in plain
@@ -760,7 +782,7 @@ def test_screen_still_answers_when_the_win_record_cannot_be_read(monkeypatch):
     monkeypatch.setattr(tara_gateway, "_chart_data4", lambda *a, **k: (None, None))
     text, _ = tara_gateway.run_chat_with_tools(
         [{"role": "user", "content": "Show me bullish stock patterns this time of year"}],
-        "system", "user-1", "model", opp_table=rows, opp_table_market="2", user_token="token",
+        "system", "user-1", "model", opp_table=rows, opp_table_market="2", user_token=TOKEN6,
     )
     assert "GWW" in text and "profitable in" not in text
 
@@ -793,7 +815,7 @@ def test_out_of_band_threshold_runs_the_nearest_supported_screen(monkeypatch, as
         "find_best_opportunities",
         {"markets": market, "years": years, "min_winning_years": asked, "pe_cycle": "pe"},
         "user-1", actions, {}, [], latest_user_text="min %d of %d years" % (asked, years),
-        turn_notes=notes, user_token="token",
+        turn_notes=notes, user_token=TOKEN6,
     )
     assert [call["min_winning_years"] for call in seen] == [asked, floor]
     assert out["opportunities"][0]["symbol"] == "TOL"
@@ -833,7 +855,7 @@ def test_in_band_empty_result_is_left_alone(monkeypatch):
                         lambda name, tool_input, user_id: seen.append(1) or {"opportunities": []})
     out = tara_gateway._execute_tara_tool(
         "find_best_opportunities", {"markets": "4", "years": 7, "min_winning_years": 7},
-        "user-1", [], {}, [], turn_notes=[], user_token="token",
+        "user-1", [], {}, [], turn_notes=[], user_token=TOKEN6,
     )
     assert len(seen) == 1 and "threshold_adjusted" not in out
 
@@ -1068,3 +1090,330 @@ def test_owner_research_questions_are_not_preempted(chat_app, monkeypatch, messa
     assert tara_gateway.build_sector_screen_command(message, "token") is None
     assert tara_gateway.classify_view_intent(message) is None
     assert planner.build_deterministic_reply(message, {}, {}) is None
+
+
+# ---------------------------------------------------------------------------
+# Review of 6a5a5512: plan gates, required disclaimer, instruction asks, AI scope
+# ---------------------------------------------------------------------------
+
+def _gate_tool(monkeypatch, cards=None):
+    seen = []
+    monkeypatch.setattr(tara_gateway, "run_tool", _scan_tool(
+        cards or [_scan_card("AVGO", win_prob=0.84, ais=95.4, pred=6.6)], seen))
+    monkeypatch.setattr(tara_gateway, "_opplist4_rows", lambda *a, **k: None)
+    return seen
+
+
+def _scan(level, tool_input, text, table_market="2"):
+    notes, actions = [], []
+    out = tara_gateway._execute_tara_tool(
+        "find_best_opportunities", dict(tool_input), "user-1", actions, {}, [],
+        table_market=table_market, latest_user_text=text, turn_notes=notes,
+        user_token=_level_token(level))
+    return out, notes, actions
+
+
+@pytest.mark.parametrize("level, tool_input, text", [
+    (1, {"markets": "0", "rank_by": "ai_win_prob"}, "rank the Dow by AI win probability"),
+    (2, {"markets": "2", "rank_by": "ais"}, "sort by AIS"),
+    (2, {"markets": "2", "min_pred_return": 5}, "predicted profit of minimum 5%"),
+    (2, {"markets": "2"}, "best s&p 500 setups with ai based ranking"),
+])
+def test_ai_scores_never_reach_a_plan_without_them(monkeypatch, level, tool_input, text):
+    seen = _gate_tool(monkeypatch)
+    out, notes, _ = _scan(level, tool_input, text)
+    # the scorer-ranked gateway call is never made, and no AI value is returned
+    assert all(call[1].get("rank_by") != "ml" for call in seen)
+    assert "ai_scores" not in out
+    assert all("ai" not in row for row in tara_gateway._result_rows(out)[1])
+    assert "95.4" not in str(out)
+    assert [note["key"] for note in notes] == ["ai_not_in_plan"]
+    assert notes[0]["text"].startswith("AI scores (AIS, AI Win%, PredR) are not included in your plan")
+
+
+@pytest.mark.parametrize("level", [4, 5, 6, 7])
+def test_ai_scores_reach_entitled_plans_on_scored_markets(monkeypatch, level):
+    seen = _gate_tool(monkeypatch)
+    out, notes, _ = _scan(level, {"markets": "2", "rank_by": "ai_win_prob"}, "rank by AI win%")
+    assert seen[0][1]["rank_by"] == "ml"
+    assert out["ai_scores"]["delivered"] is True
+    assert out["opportunities"][0]["ai"]["ais"] == 95.4
+
+
+def test_ai_request_on_an_unscored_market_is_answered_historically(monkeypatch):
+    seen = _gate_tool(monkeypatch)
+    out, notes, _ = _scan(6, {"markets": "7", "rank_by": "pred_return"}, "futures by PredR")
+    assert all(call[1].get("rank_by") != "ml" for call in seen)
+    assert notes[0]["text"].startswith("AI scores cover US stocks and ETFs only")
+
+
+@pytest.mark.parametrize("level, markets, blocked_label, covers", [
+    (1, "2", "S&P 500 Stocks", "Dow 30 Stocks"),
+    (1, "S&P 500 STOCKS", "S&P 500 Stocks", "Dow 30 Stocks"),
+    (2, "11", "ETFs", "Dow 30 Stocks, NASDAQ 100 Stocks, S&P 500 Stocks"),
+    (4, "7,16", "Futures & Commodities and Crypto Currencies", "Dow 30 Stocks"),
+])
+def test_scan_of_a_market_outside_the_plan_stops_at_a_boundary(monkeypatch, level, markets,
+                                                              blocked_label, covers):
+    seen = _gate_tool(monkeypatch)
+    out, notes, actions = _scan(level, {"markets": markets}, "best setups")
+    assert seen == [] and actions == []
+    assert out["error"] == "market_not_in_plan"
+    assert tara_gateway._result_rows(out)[1] == []
+    text = html.unescape(notes[0]["text"])
+    assert text.startswith(blocked_label) and "not included in your plan" in text
+    assert "Your plan covers " + covers in text
+
+
+def test_unscoped_scan_is_clamped_to_the_plans_markets_and_row_cap(monkeypatch):
+    seen = _gate_tool(monkeypatch)
+    _scan(1, {"limit": 10}, "what are today's best set ups", table_market="0")
+    assert seen[0][1]["markets"] == "0" and seen[0][1]["limit"] == 5
+    del seen[:]
+    _scan(2, {"markets": "2,11"}, "best setups")
+    assert seen[0][1]["markets"] == "2"
+    del seen[:]
+    _scan(6, {"markets": "7,16"}, "best setups")
+    assert seen[0][1]["markets"] == "7,16"
+
+
+def test_token_without_a_known_level_grants_no_market_and_no_ai():
+    scope = tara_gateway._plan_scope(_level_token("unknown"))
+    assert scope["markets"] == set() and scope["ai"] is False
+    assert tara_gateway._plan_scope(None)["markets"] is None        # no session: legacy harness
+
+
+@pytest.mark.parametrize("level, expected_market, heading", [
+    (1, "0", "Bullish Dow 30 stock seasonal windows"),
+    (2, "2", "Bullish S&P 500 stock seasonal windows"),
+    (6, "2", "Bullish S&P 500 stock seasonal windows"),
+])
+def test_stock_screen_stays_inside_the_plan(monkeypatch, level, expected_market, heading):
+    fetched = []
+
+    def rows(market_id, token, years):
+        fetched.append(market_id)
+        return [{"date": "2026-11-17", "symbol": "CAT", "days_out": 20, "direction": "L",
+                 "avg_profit": 4.0, "sharpe_ratio": 1.5}]
+
+    monkeypatch.setattr(tara_gateway, "_opplist4_rows", rows)
+    monkeypatch.setattr(tara_gateway, "_chart_data4", lambda *a, **k: (None, None))
+    monkeypatch.setattr(tara_gateway, "run_tool",
+                        lambda *a, **k: pytest.fail("screen fell back to the all-markets gateway"))
+    text, actions = tara_gateway.run_chat_with_tools(
+        [{"role": "user", "content": "Find bullish seasonal stock opportunities now"}],
+        "system", "user-1", "model", opp_table_market="5", user_token=_level_token(level))
+    assert fetched == [expected_market]
+    assert heading in _plain(text) and "CAT" in text
+    assert actions[0]["spec"] == {"market": expected_market}
+
+
+@pytest.mark.parametrize("level", [1, 2])
+def test_etf_screen_outside_the_plan_names_no_symbols(monkeypatch, level):
+    monkeypatch.setattr(tara_gateway, "_opplist4_rows",
+                        lambda *a, **k: pytest.fail("fetched a market outside the plan"))
+    monkeypatch.setattr(tara_gateway, "run_tool",
+                        lambda *a, **k: pytest.fail("screen fell back to the all-markets gateway"))
+    text, actions = tara_gateway.run_chat_with_tools(
+        [{"role": "user", "content": "I have $2,000. Show bullish ETF patterns this time of the year."}],
+        "system", "user-1", "model", opp_table_market="0", user_token=_level_token(level))
+    assert actions == []
+    assert "ETFs is not included in your plan" in _plain(text)
+    assert not re.search(r"\b(?:SPY|QQQ|VTI|IWM)\b", text)
+
+
+INSTRUCTION_ASKS = [
+    "what stop loss should I use", "where should I put my stop", "how many shares should I buy",
+    "what would you do", "recommend me a stock to buy", "how much should I put in",
+    "what position size makes sense for my account", "should I set a trailing stop",
+]
+
+
+@pytest.mark.parametrize("message", INSTRUCTION_ASKS)
+def test_stop_size_and_pick_requests_are_advice_however_they_are_worded(message):
+    wave = _loaded()
+    assert planner.is_pattern_advice_question(message, wave) is True
+    plain = _plain(planner.build_deterministic_reply(message, wave, {}, current_year=2026))
+    assert plain.startswith("Read: ATO long")
+    assert "TradeWave has no stop levels, position sizes or allocations, and I won't suggest any." in plain
+    assert "not a forecast or recommendation" in plain
+    assert plain.endswith(DISCLAIMER)
+    assert not re.search(r"\b(?:set (?:a|your) stop (?:at|around|near)|buy \d+ shares|risk \d+ ?%)", plain, re.I)
+
+
+@pytest.mark.parametrize("message", INSTRUCTION_ASKS)
+def test_instruction_requests_without_a_loaded_pattern_get_the_boundary(chat_app, message):
+    body = _ask(chat_app, message)
+    plain = _plain(body["reply"])
+    assert body["actions"] == []
+    assert "I can't choose a trade for you" in plain
+    assert "not a forecast or recommendation" in plain
+    assert plain.endswith(DISCLAIMER)
+
+
+@pytest.mark.parametrize("message", [
+    "how should I read Win%?", "should I use 10 or 20 years?", "when should I exit historically?",
+    "what should I look at first on this screen?", "when should I buy AAPL?",
+    "where is the stop button for the video", "what does the stop sign icon mean",
+])
+def test_reading_and_timing_questions_keep_the_interrogative_exemption(message):
+    assert planner.is_pattern_advice_question(message, _loaded()) is False
+
+
+@pytest.mark.parametrize("message, builder", [
+    ("would you take this trade?", "advice"),
+    ("should I buy this?", "suitability"),
+    ("when and where should I get out", "exit"),
+    ("what price target should I use", "exit"),
+])
+def test_advice_exit_and_suitability_replies_end_with_the_required_disclaimer(message, builder):
+    wave = dict(_loaded(), entry_date="2026-11-17", days_out=24)
+    if builder == "suitability":
+        reply = tara_gateway.loaded_pattern_suitability_response(message, wave)
+    else:
+        reply = planner.build_deterministic_reply(message, _loaded(), {}, current_year=2026)
+    plain = _plain(reply)
+    assert plain.endswith(DISCLAIMER)
+    assert "not a forecast or recommendation" in plain or "or a forecast" in plain
+    # evidence first, boundary and disclaimer last
+    assert plain.index("ATO") < plain.index(DISCLAIMER)
+    assert plain.index("ATO") < 60
+
+
+def test_suitability_without_a_loaded_pattern_still_carries_the_disclaimer():
+    plain = _plain(tara_gateway.loaded_pattern_suitability_response("should I buy this?", {}))
+    assert plain.endswith(DISCLAIMER)
+
+
+def test_partial_ai_scoring_reports_the_unscored_count_and_never_none_qualify(monkeypatch):
+    cards = ([_scan_card("S1", win_prob=0.84, ais=95.0, pred=4.7),
+              _scan_card("S2", win_prob=0.80, ais=90.0, pred=3.9)]
+             + [_scan_card("U%02d" % i) for i in range(13)])
+
+    def run_tool(name, tool_input, user_id):
+        return {"opportunities": [dict(card) for card in cards], "markets_scanned": ["2"]}
+
+    text, _, _ = _run(
+        monkeypatch,
+        [
+            _tool_response("scan-1", "find_best_opportunities", {"markets": "2", "min_pred_return": 5}),
+            _text_response("No S&P 500 setups qualify for a predicted profit of 5%."),
+        ],
+        "S&P 500 stocks with predicted profit of minimum 5%",
+        run_tool=run_tool,
+    )
+    plain = _plain(text)
+    assert plain.startswith("AI scope: filtered and ranked by PredR among the 15 setups this scan "
+                            "returned (its highest AI Win% rows)")
+    assert "2 of those 15 carried an AI score; the other 13 could not be scored" in plain
+    assert "were not checked" in plain
+    assert "none of the 2 scored setups met the AI filter, which is not the same as no setup qualifying" in plain
+
+
+@pytest.mark.parametrize("rank, label", [("pred_return", "PredR"), ("ais", "AIS")])
+def test_predr_and_ais_rankings_disclose_their_scope(monkeypatch, rank, label):
+    cards = [_scan_card("A%d" % i, win_prob=0.8, ais=90.0 + i, pred=3.0 + i) for i in range(4)]
+    seen, notes = [], []
+    monkeypatch.setattr(tara_gateway, "run_tool", _scan_tool(cards, seen))
+    out = tara_gateway._execute_tara_tool(
+        "find_best_opportunities", {"markets": "2", "rank_by": rank}, "user-1", [], {}, [],
+        latest_user_text="rank them", turn_notes=notes, user_token=TOKEN6)
+    assert out["opportunities"][0]["symbol"] == "A3"
+    assert notes[0]["key"] == "ai_scope"
+    assert notes[0]["text"] == ("AI scope: ranked by %s among the 4 setups this scan returned "
+                                "(its highest AI Win%% rows)." % label)
+    assert out["ai_scores"]["scope"] == notes[0]["text"]
+
+
+def test_plain_ai_win_ranking_with_every_row_scored_needs_no_scope_note(monkeypatch):
+    cards = [_scan_card("A%d" % i, win_prob=0.7 + i / 100, ais=90.0, pred=3.0) for i in range(3)]
+    notes = []
+    monkeypatch.setattr(tara_gateway, "run_tool", _scan_tool(cards, []))
+    tara_gateway._execute_tara_tool(
+        "find_best_opportunities", {"markets": "2", "rank_by": "ai_win_prob"}, "user-1", [], {}, [],
+        latest_user_text="rank by ai win", turn_notes=notes, user_token=TOKEN6)
+    assert notes == []
+
+
+@pytest.mark.parametrize("echo, shown", [
+    ({"symbol": "GWW", "entry_date": "2026-11-21", "days_out": 8, "years": 10}, True),
+    ({"symbol": "GWW", "entry_date": "2026-11-17", "days_out": 8, "years": 10}, False),   # date-locked plan
+    ({"symbol": "GWW", "entry_date": "2026-11-21", "days_out": 8, "years": 5}, False),    # capped lookback
+    (None, False),
+])
+def test_win_record_is_shown_only_when_the_engine_computed_the_row_asked_for(monkeypatch, echo, shown):
+    def chart(*args, **kwargs):
+        payload = {"stats": {"Num Winners": "9", "Num Losers": "1"}}
+        if echo:
+            payload["request"] = echo
+        return 200, payload
+
+    monkeypatch.setattr(tara_gateway, "_chart_data4", chart)
+    out = {"cards": [{"symbol": "GWW", "direction": "long",
+                      "setup": {"entry_date": "2026-11-21", "hold_days": 8}, "stats": {}}]}
+    tara_gateway._attach_win_records(out, "2", TOKEN6, 10)
+    assert ("history" in out["cards"][0]) is shown
+
+
+@pytest.mark.parametrize("message, intent", [
+    ("show me A", "chart"), ("load F", "chart"), ("show me T", "chart"), ("show V", "chart"),
+    ("show me O", "chart"), ("show me a", None), ("show me v", "chart"), ("can I see it", None),
+])
+def test_single_letter_tickers_in_an_explicit_command(message, intent):
+    assert tara_gateway.classify_view_intent(message) == intent
+
+
+def _market_card(symbol, market):
+    card = _plain_window_card(symbol, market=market)
+    card["card"]["headline"] = "%s long - Won 9/10 years, avg +3.0%%." % symbol
+    return card
+
+
+def test_symbol_read_is_reread_inside_the_plans_own_index(monkeypatch):
+    seen = []
+
+    def run_tool(name, tool_input, user_id):
+        seen.append(dict(tool_input))
+        return _market_card("AAPL", tool_input.get("market", "2"))
+
+    monkeypatch.setattr(tara_gateway, "run_tool", run_tool)
+    cards, card_list = {}, []
+    out = tara_gateway._execute_tara_tool(
+        "analyze_symbol", {"symbol": "AAPL"}, "user-1", [], cards, card_list,
+        turn_notes=[], user_token=_level_token(1), latest_user_text="analyze AAPL")
+    assert [call.get("market") for call in seen] == [None, "0"]      # S&P 500 read is discarded
+    assert tara_gateway._card_market_id(out["card"]) == "0"
+    assert {tara_gateway._card_market_id(card) for card in card_list} <= {"0", ""}
+    assert "2" not in {tara_gateway._card_market_id(card) for card in card_list}
+
+
+@pytest.mark.parametrize("level, tool_input, market", [
+    (1, {"symbol": "ROKU"}, "2"),
+    (2, {"symbol": "GLD", "market": "11"}, "11"),
+    (4, {"symbol": "GC", "market": "7"}, "7"),
+])
+def test_symbol_read_outside_the_plan_returns_a_boundary_without_statistics(
+        monkeypatch, level, tool_input, market):
+    def run_tool(name, call_input, user_id):
+        if call_input.get("market") not in (None, market):
+            return {"error": "gateway 404", "code": "not_found", "message": "symbol not found"}
+        return _market_card(tool_input["symbol"], market)
+
+    monkeypatch.setattr(tara_gateway, "run_tool", run_tool)
+    notes, cards, card_list = [], {}, []
+    out = tara_gateway._execute_tara_tool(
+        "analyze_symbol", tool_input, "user-1", [], cards, card_list,
+        turn_notes=notes, user_token=_level_token(level), latest_user_text="analyze it")
+    assert out["error"] == "market_not_in_plan" and "card" not in out
+    assert card_list == [] and "Won 9/10" not in str(out)
+    assert "not included in your plan" in notes[-1]["text"]
+
+
+def test_symbol_read_inside_the_plan_is_untouched(monkeypatch):
+    seen = []
+    monkeypatch.setattr(tara_gateway, "run_tool",
+                        lambda name, call_input, user_id: seen.append(1) or _market_card("NVDA", "2"))
+    out = tara_gateway._execute_tara_tool(
+        "analyze_symbol", {"symbol": "NVDA"}, "user-1", [], {}, [],
+        turn_notes=[], user_token=_level_token(2), latest_user_text="analyze NVDA")
+    assert len(seen) == 1 and out["card"]["symbol"] == "NVDA"

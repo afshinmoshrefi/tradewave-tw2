@@ -787,8 +787,8 @@ def _plausible_ticker_token(token, text):
         return False
     source = str(text or "")
     shouting = not re.search(r"[a-z]", source)
-    if token.isupper() and not shouting and token not in {"I", "A"}:
-        return True
+    if token.isupper() and not shouting and token != "I":
+        return True                 # includes one-letter tickers: "show me A", "load F"
     return token.lower() not in _COMMON_ENGLISH_WORDS
 
 
@@ -1945,7 +1945,7 @@ def loaded_pattern_suitability_response(text, current_view=None):
     boundary = (
         "TradeWave cannot tell you whether to go long or short or whether a trade "
         "is suitable for you; that decision is yours. "
-        "<i>Past performance does not guarantee future results.</i>"
+        "<i>" + DISCLAIMER_TEXT + "</i>"
     )
     view = current_view if isinstance(current_view, dict) else {}
     symbol = str(view.get("symbol") or "").strip().upper()
@@ -3293,6 +3293,12 @@ def _attach_win_records(out, market, token, years):
         lookback = 12                                 # the React opp-table default
     if not cards or not token:
         return
+    try:
+        import tara_research            # lazy: tara_research imports this module
+        echo_matches = tara_research._echo_matches
+    except Exception:                   # noqa: BLE001 - without the check, show no record
+        log.exception("tara echo check unavailable; win records skipped")
+        return
 
     def record(card):
         setup = card.get("setup") if isinstance(card.get("setup"), dict) else {}
@@ -3301,6 +3307,11 @@ def _attach_win_records(out, market, token, years):
             str(lookback), token, direction=card.get("direction") or "long",
         )
         stats = payload.get("stats") if status == 200 and isinstance(payload, dict) else None
+        # A date-locked or capped plan gets a DIFFERENT study than the one asked for
+        # (today's window, fewer years). Its record must not be shown against this row.
+        if not echo_matches(payload, card.get("symbol"), setup.get("entry_date"),
+                            setup.get("hold_days"), years=lookback):
+            return None
         wins, losses = _stat_number(stats, "Num Winners"), _stat_number(stats, "Num Losers")
         if wins is None or losses is None or wins + losses <= 0:
             return None
@@ -3328,6 +3339,16 @@ def _investor_screen_result(intent, user_id, opp_table, table_market,
     """
     target = "11" if intent in {"seasonal_etf", "weak_etf"} else "2"
     direction = "short" if intent in {"weak_etf", "weak_stock"} else "long"
+    # The gateway fallback below runs as the all-markets chatbot principal, so the
+    # caller's plan is applied first: a stock screen moves to the broadest stock index
+    # the plan includes (Explorer: Dow 30) and anything else stops at a plan boundary.
+    scope = _plan_scope(user_token)
+    if scope["markets"] is not None and target not in scope["markets"]:
+        fallback = next(
+            (m for m in ("2", "1", "0") if target == "2" and m in scope["markets"]), None)
+        if fallback is None:
+            return {"plan_boundary": _plan_markets_boundary([target], scope)}, target
+        target = fallback
     inp = {
         "markets": target,
         "direction": direction,
@@ -3346,6 +3367,8 @@ def _investor_screen_result(intent, user_id, opp_table, table_market,
             if str((row or {}).get("symbol") or "").upper()
             in _BEGINNER_ETF_RESEARCH_UNIVERSE
         ]
+    if scope["row_cap"]:
+        inp["limit"] = min(inp["limit"], scope["row_cap"])
     screen_rows = _filter_table_rows(source_rows, inp) if source_rows else []
     if screen_rows:
         out = _rows_to_scan_cards(screen_rows, target)
@@ -3419,9 +3442,11 @@ def _investor_candidate_line(card, weak=False):
     return "<b>%s</b> — %s." % (symbol, "; ".join(pieces) if pieces else "historical candidate")
 
 
-def _investor_screen_response(intent, out, user_text):
+def _investor_screen_response(intent, out, user_text, market=None):
     weak = intent in {"weak_etf", "weak_stock"}
     etf = intent in {"seasonal_etf", "weak_etf"}
+    if isinstance(out, dict) and out.get("plan_boundary"):
+        return html.escape(str(out["plan_boundary"]), quote=False)
     candidates = _cards_from_result(out)[:5]
     if not candidates:
         if etf:
@@ -3435,7 +3460,10 @@ def _investor_screen_response(intent, out, user_text):
             "invent a candidate. I haven't changed the chart; please try the screen again."
         )
 
-    universe = "broad, unleveraged ETF" if etf else "S&P 500 stock"
+    if market is None and isinstance(out, dict):
+        market = out.get("market")          # the screen records which index it read
+    stock_universe = {"0": "Dow 30 stock", "1": "NASDAQ 100 stock"}.get(str(market), "S&P 500 stock")
+    universe = "broad, unleveraged ETF" if etf else stock_universe
     if weak:
         heading = (
             "<b>Historically weak %s windows starting now</b>, ranked by the strength of the "
@@ -3667,6 +3695,136 @@ def _enforce_named_symbol_action(
 # only source of numbers and tells the user exactly what was substituted.
 # ---------------------------------------------------------------------------
 
+# Markets the engine scores with AI (US stocks and ETFs). Mirrors apiserver tiers.ML_MARKETS.
+_AI_SCORE_MARKETS = frozenset({"0", "1", "2", "3", "4", "11"})
+DISCLAIMER_TEXT = (
+    "Past performance and model estimates do not guarantee future results. "
+    "TradeWave provides research context, not individualized recommendations."
+)
+
+
+def _token_claims(token):
+    """Claims of the browser token the route already authenticated (no re-verification)."""
+
+    if not token:
+        return None
+    try:
+        import jwt
+        claims = jwt.decode(str(token), options={"verify_signature": False})
+    except Exception:               # noqa: BLE001
+        # The route authenticates the token before Tara runs, so this is a test
+        # harness placeholder, not a caller: there is no plan to read.
+        return None
+    return claims if isinstance(claims, dict) else {}
+
+
+def _plan_scope(token):
+    """What this caller's plan allows: {'markets': set|None, 'ai': bool, 'row_cap': int|None}.
+
+    Tara reaches the gateway as the internal chatbot principal, which is scoped to every
+    market and to AI scoring. The user's own plan therefore has to be applied here, from
+    the same config the engine uses (level_access_hierarchy, ml_score_access_*), before
+    any gateway call. ``markets`` None means unrestricted. With no readable token (unit
+    harnesses, no browser session) nothing can be looked up and the legacy behaviour is
+    kept; a readable token with a missing or unknown level grants no market and no AI.
+    """
+
+    claims = _token_claims(token)
+    if claims is None:
+        return {"markets": None, "ai": True, "row_cap": None, "level": None}
+    if claims.get("is_admin") or claims.get("is_service_account"):
+        return {"markets": None, "ai": True, "row_cap": None, "level": "admin"}
+    level = str(claims.get("user_level", ""))
+    markets = set(getattr(config, "level_access_hierarchy", {}).get(level, []))
+    if getattr(config, "ml_score_access_mode", "level") == "list":
+        ai = str(claims.get("user", "")) in getattr(config, "ml_score_userids", [])
+    else:
+        ai = level in getattr(config, "ml_score_access_levels", [])
+    row_cap = getattr(config, "max_opportunities_loggedin_free", None) if level == "1" else None
+    return {"markets": markets, "ai": ai, "row_cap": row_cap, "level": level}
+
+
+def _market_label(market_id):
+    name = str(config.available_resources.get(str(market_id), "market %s" % market_id))
+    return name.title().replace("Etfs", "ETFs").replace("Nasdaq", "NASDAQ")
+
+
+def _requested_market_ids(markets_param):
+    """Market ids named in a scan's ``markets`` argument (ids or catalog names)."""
+
+    if markets_param in (None, ""):
+        return []
+    names = {
+        re.sub(r"[^a-z0-9]", "", str(name).lower()): market_id
+        for market_id, name in config.available_resources.items()
+    }
+    found = []
+    for part in str(markets_param).split(","):
+        part = part.strip()
+        if part in _VS_MARKETS:
+            found.append(part)
+            continue
+        squashed = re.sub(r"[^a-z0-9]", "", part.lower())
+        match = names.get(squashed) or next(
+            (market_id for name, market_id in names.items()
+             if squashed and (name.startswith(squashed) or squashed.startswith(name))), None)
+        found.append(match or "?")
+    return found
+
+
+def _plan_markets_boundary(blocked, scope):
+    allowed = sorted(scope["markets"], key=lambda value: int(value))
+    included = ", ".join(_market_label(m) for m in allowed) or "no markets"
+    return (
+        "%s %s not included in your plan, so I have not screened %s. Your plan covers %s. "
+        "Plans are at tradewave.ai/pricing."
+        % (" and ".join(_market_label(m) for m in blocked),
+           "is" if len(blocked) == 1 else "are",
+           "it" if len(blocked) == 1 else "them", included)
+    )
+
+
+def _apply_plan_to_scan(inp, scope):
+    """Clamp a scan to the caller's plan. Returns (inp, boundary_text_or_None)."""
+
+    if scope["markets"] is None:
+        return inp, None
+    inp = dict(inp)
+    asked = _requested_market_ids(inp.get("markets"))
+    allowed = [m for m in asked if m in scope["markets"]]
+    blocked = [m for m in asked if m != "?" and m not in scope["markets"]]
+    if asked and not allowed and blocked:
+        return inp, _plan_markets_boundary(blocked, scope)
+    chosen = allowed or sorted(scope["markets"], key=lambda value: int(value))
+    if not chosen:
+        return inp, "Your plan does not include any market I can screen."
+    inp["markets"] = ",".join(chosen)
+    if scope["row_cap"]:
+        try:
+            inp["limit"] = min(int(inp.get("limit") or scope["row_cap"]), scope["row_cap"])
+        except (TypeError, ValueError):
+            inp["limit"] = scope["row_cap"]
+    return inp, None
+
+
+def _ai_plan_block(inp, scope):
+    """Why AI scores cannot be used for this scan under the caller's plan, or None."""
+
+    if not scope["ai"]:
+        return (
+            "AI scores (AIS, AI Win%, PredR) are not included in your plan, so this list is "
+            "ranked by Sharpe on the historical record. They are part of the Analyst and "
+            "Strategist plans: tradewave.ai/pricing."
+        )
+    asked = [m for m in _requested_market_ids(inp.get("markets")) if m != "?"]
+    if asked and not any(m in _AI_SCORE_MARKETS for m in asked):
+        return (
+            "AI scores cover US stocks and ETFs only, so this list is ranked by Sharpe on the "
+            "historical record."
+        )
+    return None
+
+
 # ISO 4217 precious-metal codes. Traders say "XAU" for spot gold; TradeWave lists the
 # spot pair (XAUUSD) in Forex, while a bare XAU also collides with an unrelated index
 # and a Toronto stock.
@@ -3841,6 +3999,53 @@ def _analyze_with_recoveries(inp, user_id, user_token, turn_notes):
     return out, inp
 
 
+def _result_market_ids(out):
+    found = set()
+    if isinstance(out, dict):
+        items = [out.get("card")] + [row for key in _LIST_KEYS for row in (out.get(key) or [])]
+        for item in items:
+            market = _card_market_id(item) if isinstance(item, dict) else ""
+            if market:
+                found.add(market)
+    return found
+
+
+def _keep_symbol_read_in_plan(name, inp, out, user_id, user_token, turn_notes):
+    """A symbol read must come from a market the caller's plan includes.
+
+    The gateway resolves a bare ticker as the all-markets chatbot principal (AAPL ->
+    S&P 500). For a plan without that market the same ticker is re-read in the plan's
+    own stock indexes (AAPL is also in the Dow 30); if none lists it, the reply is a
+    plan boundary with no statistics.
+    """
+
+    scope = _plan_scope(user_token)
+    if scope["markets"] is None:
+        return out
+    blocked = sorted(_result_market_ids(out) - scope["markets"], key=lambda value: int(value))
+    explicit = str((inp or {}).get("market") or "").strip()
+    if explicit in _VS_MARKETS and explicit not in scope["markets"]:
+        blocked = blocked or [explicit]
+    if not blocked:
+        return out
+    if not explicit or explicit not in scope["markets"]:
+        for market in ("2", "1", "0"):
+            if market not in scope["markets"]:
+                continue
+            retry = run_tool(name, dict(inp, market=market), user_id)
+            if isinstance(retry, dict) and not retry.get("error") and (
+                    _result_market_ids(retry) and _result_market_ids(retry) <= scope["markets"]):
+                return _briefify(retry)
+    boundary = _plan_markets_boundary(blocked, scope).replace(
+        "so I have not screened", "so I have not analyzed this symbol in")
+    _add_turn_note(
+        turn_notes, "plan_boundary", html.escape(boundary, quote=False),
+        r"(?:not|n['\u2019]t)\s+included\s+in\s+your\s+plan",
+    )
+    return {"error": "market_not_in_plan", "ok": False, "message": boundary,
+            "instruction": "Tell the user exactly this and give no statistics."}
+
+
 _AI_RANK_KEYS = {"ai_win_prob": "ml_win_prob", "ais": "ml_score", "pred_return": "pred_return_pct"}
 _AI_RANK_LABELS = {"ai_win_prob": "AI Win%", "ais": "AIS", "pred_return": "PredR"}
 _AI_SCAN_ASK_RE = re.compile(
@@ -3933,6 +4138,7 @@ def _scan_with_ai_scores(inp, request, user_id, turn_notes):
         rows.append(card)
     scored = [card for card in rows if card.get("ai")]
     label = _AI_RANK_LABELS[request["rank"]]
+    unscored = len(rows) - len(scored)
     if not scored:
         for card in rows:
             card.pop("_ml", None)
@@ -3987,20 +4193,51 @@ def _scan_with_ai_scores(inp, request, user_id, turn_notes):
             card["history"] = {
                 k: v for k, v in card["history"].items() if k in ("years_tested", "wins", "losses")
             }
+    filtered = request["min_ai_win_prob"] is not None or request["min_pred_return"] is not None
     out[key] = kept[:limit]
+    # The gateway can only fetch by AI Win%, and scores a bounded number of rows. Both
+    # limits are stated in the reply itself, never left for the model to mention: a
+    # PredR/AIS ranking or an AI filter is "among the rows this scan returned", and an
+    # unscored row was not checked - it is not a row that failed the filter.
+    scope_bits = [
+        "AI scope: %s among the %d setups this scan returned (its highest AI Win%% rows)"
+        % ("filtered and ranked by %s" % label if filtered else "ranked by %s" % label, len(rows))
+    ]
+    if unscored:
+        scope_bits.append(
+            "%d of those %d carried an AI score; the other %d could not be scored%s and "
+            "were not checked" % (
+                len(scored), len(rows), unscored,
+                (" (%s)" % reason.rstrip(".")) if reason else "")
+        )
+    if filtered and not kept:
+        scope_bits.append(
+            "none of the %d scored setups met the AI filter%s" % (
+                len(scored),
+                ", which is not the same as no setup qualifying" if unscored else "")
+        )
+    scope_text = "; ".join(scope_bits) + "."
     out["ai_scores"] = {
         "delivered": True,
         "ranked_by": label,
+        "rows_returned": len(rows),
         "rows_scored": len(scored),
-        "rows_without_ai_score_dropped": len(rows) - len(scored),
+        "rows_unscored_not_checked": unscored,
         "rows_meeting_ai_filters": len(kept),
+        "scope": scope_text,
         "instruction": (
             "These rows are ranked by %s using TradeWave's own AI values in each row's 'ai' "
             "block (ais, ai_win_prob_pct, pred_return_pct, pred_mfe_pct). State the AI values "
             "you rank or filter on next to each name, labelled as model estimates, and keep "
-            "them separate from the historical win record and average." % label
+            "them separate from the historical win record and average. Never say that no "
+            "setup qualifies when rows were unscored." % label
         ),
     }
+    if request["rank"] != "ai_win_prob" or filtered or unscored:
+        _add_turn_note(
+            turn_notes, "ai_scope", html.escape(scope_text, quote=False),
+            r"among\s+the\s+%d\s+setups\s+this\s+scan\s+returned" % len(rows),
+        )
     if out.get("note"):
         out.pop("note", None)
     return out
@@ -4168,7 +4405,30 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
     ai_request = (
         _ai_scan_request(inp, latest_user_text) if name == "find_best_opportunities" else None
     )
-    if name == "find_best_opportunities" and ai_request is not None:
+    plan_boundary = None
+    if name == "find_best_opportunities":
+        scope = _plan_scope(user_token)
+        inp, plan_boundary = _apply_plan_to_scan(inp, scope)
+        if plan_boundary is None and ai_request is not None:
+            ai_block = _ai_plan_block(inp, scope)
+            if ai_block:
+                # Not entitled (or not a scored market): run the ordinary historical
+                # screen and say why there are no AI values. Never call the scorer.
+                inp = {k: v for k, v in inp.items()
+                       if k not in {"rank_by", "min_ai_win_prob", "min_pred_return"}}
+                ai_request = None
+                _add_turn_note(
+                    turn_notes, "ai_not_in_plan", html.escape(ai_block, quote=False),
+                    r"AI\b[^.]{0,80}(?:(?:not|n['\u2019]t)\s+included|US\s+stocks\s+and\s+ETFs\s+only)",
+                )
+    if plan_boundary is not None:
+        out = {"error": "market_not_in_plan", "ok": False, "message": plan_boundary,
+               "instruction": "Tell the user exactly this and do not name any symbols."}
+        _add_turn_note(
+            turn_notes, "plan_boundary", html.escape(plan_boundary, quote=False),
+            r"(?:not|n['\u2019]t)\s+included\s+in\s+your\s+plan",
+        )
+    elif name == "find_best_opportunities" and ai_request is not None:
         # AI ranking/filtering needs the gateway's scored cards; the opp-table rows carry
         # no AI values, and substituting a historical average for PredR is never allowed.
         target = _single_market_id(inp.get("markets"))
@@ -4257,6 +4517,8 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
     else:
         out = _briefify(run_tool(name, inp, user_id))
 
+    if name in {"analyze_symbol", "get_symbol_patterns"}:
+        out = _keep_symbol_read_in_plan(name, inp, out, user_id, user_token, turn_notes)
     _index_cards(out, cards, card_list)
     if (
         name in {"analyze_symbol", "get_symbol_patterns"}
@@ -4343,7 +4605,8 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
             market=target,
             candidates=len(_cards_from_result(out)),
         )
-        return _investor_screen_response(investor_intent, out, latest_user_text), actions
+        return _investor_screen_response(
+            investor_intent, out, latest_user_text, market=target), actions
 
     if investor_intent == "weak_symbol":
         symbol = _explicit_ticker(latest_user_text)
@@ -4692,7 +4955,8 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
             market=target,
             candidates=len(_cards_from_result(out)),
         )
-        return _investor_screen_response(investor_intent, out, latest_user_text), actions
+        return _investor_screen_response(
+            investor_intent, out, latest_user_text, market=target), actions
 
     if investor_intent == "weak_symbol":
         symbol = _explicit_ticker(latest_user_text)

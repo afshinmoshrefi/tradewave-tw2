@@ -209,13 +209,47 @@ _ADVICE_PATTERNS = re.compile(
 )
 
 
+# Stops, position size, allocation and "pick one for me" are advice however the
+# question is worded: "what stop loss should I use", "how many shares should I buy",
+# "what would you do", "recommend me a stock". The interrogative exemption below is
+# only for reading and timing questions.
+_TRADE_INSTRUCTION_PATTERN = re.compile(
+    r"\b(?:"
+    r"stop[-\s]?loss(?:es)?|trailing\s+stops?|"
+    r"(?:my|a|your)\s+stops?\b(?!\s+(?:button|sign|icon|video))|"
+    r"\bstops?\s+(?:at|levels?|price|orders?)\b|"
+    r"how\s+many\s+(?:shares|contracts|units|lots|coins)|"
+    r"how\s+much\b.{0,30}\b(?:invest|risk|buy|allocate|put|bet)|"
+    r"(?:what|which)\s+(?:position\s+)?(?:size|percent(?:age)?|portion|allocation)\b.{0,40}"
+    r"\b(?:invest|risk|buy|allocate|put|position|portfolio|account)|"
+    r"position\s+siz(?:e|ing)|allocat(?:e|ion)\b.{0,30}\b(?:portfolio|account|capital|money)|"
+    r"what\s+would\s+you\s+(?:do|buy|sell|trade|pick|choose)|"
+    r"what\s+should\s+i\s+do\b|"
+    r"recommend\s+(?:me|us)\b|(?:pick|choose)\s+(?:one|a\s+(?:stock|trade))\s+for\s+me"
+    r")",
+    re.I,
+)
+
+DISCLAIMER_TEXT = (
+    "Past performance and model estimates do not guarantee future results. "
+    "TradeWave provides research context, not individualized recommendations."
+)
+_DISCLAIMER_LINE = "<i>" + DISCLAIMER_TEXT + "</i>"
+
+
+def is_trade_instruction_request(message: Any) -> bool:
+    """A request for a stop, a size, an allocation or a personal pick."""
+
+    return bool(_TRADE_INSTRUCTION_PATTERN.search(str(message or "")))
+
+
 def _is_trade_advice_request(message: Any) -> bool:
     """True only for a request to decide a personal buy/sell/hold/enter action."""
 
     text = str(message or "")
     if not text.strip():
         return False
-    if _ADVICE_PATTERNS.search(text):
+    if _ADVICE_PATTERNS.search(text) or _TRADE_INSTRUCTION_PATTERN.search(text):
         return True
     for match in _TRADE_DECISION_ASK_PATTERN.finditer(text):
         clause_start = max(
@@ -4694,15 +4728,47 @@ def build_advice_safe_reply(
         ai_line = _first_sentence(ai_line)
     else:
         ai_line = None
+    instruction_line = None
+    if is_trade_instruction_request(message):
+        instruction_line = (
+            "<b>Stops and size:</b> TradeWave has no stop levels, position sizes or "
+            "allocations, and I won't suggest any."
+        )
+        mae = facts.get("median_mae_pct")
+        worst_mae = facts.get("worst_mae_pct")
+        if mae is not None and worst_mae is not None:
+            instruction_line += (
+                " For context, past years moved a median "
+                + _pct(mae, signed=True, decimals=2)
+                + " against this setup, and "
+                + _pct(worst_mae, signed=True, decimals=2)
+                + " at worst (MAE)."
+            )
     lines = [
         _analysis_compact_read_line(facts),
         ai_line,
         _analysis_compact_context_line(facts, screen),
+        instruction_line,
         _first_sentence(_analysis_occurrence_line(facts)),
-        "<b>Your call:</b> that is the evidence. Whether to take the trade is your "
-        "decision; I can't make it for you.",
+        "<b>Your call:</b> this is historical evidence, not a forecast or recommendation. "
+        "Whether to take the trade is your decision; I can't make it for you.",
+        _DISCLAIMER_LINE,
     ]
     return _render_analysis_sections(lines)
+
+
+def build_trade_instruction_boundary_reply(message: Any, wave_viewer: Any) -> Optional[str]:
+    """Stops, sizing and "pick one for me" when no pattern is loaded to give evidence on."""
+
+    if _has_loaded_pattern(wave_viewer) or not is_trade_instruction_request(message):
+        return None
+    return (
+        "I can show you what TradeWave's history says, for example \"best S&amp;P 500 setups "
+        "this week\" or \"analyze AAPL\", and you can compare the records yourself."
+        "<br><br>TradeWave has no stop levels, position sizes or allocations, and I can't "
+        "choose a trade for you. This is not a forecast or recommendation."
+        "<br><br>" + _DISCLAIMER_LINE
+    )
 
 
 _EXIT_TIMING_PATTERNS = (
@@ -4793,6 +4859,8 @@ def build_exit_timing_reply(
             "These percentages are measured from each year's own entry, so they do not "
             "depend on the price you enter at."
         )
+    lines.append("<b>Scope:</b> This is not a forecast or recommendation; when to exit is your decision.")
+    lines.append(_DISCLAIMER_LINE)
     return _render_analysis_sections(lines)
 
 
@@ -5066,6 +5134,9 @@ def build_deterministic_reply(
     )
     if advice is not None:
         return advice
+    instruction_boundary = build_trade_instruction_boundary_reply(message, wave_viewer)
+    if instruction_boundary is not None:
+        return instruction_boundary
     return build_pattern_analysis_reply(
         message,
         wave_viewer,
