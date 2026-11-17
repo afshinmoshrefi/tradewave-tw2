@@ -2392,9 +2392,16 @@ found eleven failure classes. The invariants that came out of fixing them:
   bounded number of rows, so a PredR/AIS ranking or an AI filter carries a deterministic note:
   "among the N setups this scan returned", how many carried a score, and that unscored rows were
   not checked. An empty filter is never reported as "none qualify" while rows were unscored.
-- **Required disclaimer.** The advice reply, the exit-timing reply and the loaded-pattern
-  suitability reply end with the exact sentence in `DISCLAIMER_TEXT`, after the evidence and a
-  "not a forecast or recommendation" line. Stops, position size, allocation, "recommend me" and
+- **Required disclaimer.** `chatbot._finalize_chat_response` is the single exit of every answer and
+  calls `ensure_required_disclaimer`, so a reply to any advice-shaped question
+  (`is_advice_shaped_question`) ends with the exact sentence in `DISCLAIMER_TEXT` whichever path
+  produced it. The advice, exit-timing and suitability replies also carry it themselves, after
+  the evidence and a "not a forecast or recommendation" line.
+- **Date-locked plans.** Where `level_access_hierarchy_free_registered` locks a market's start
+  date, Tara's symbol study is re-read from today's date (same hold length) and `update_view`
+  refuses any other start date, so the reply and the chart always describe the same window.
+- **System prompt notes.** The system prompt is a list of segmented blocks; per-turn notes are
+  appended as a trailing block with `_with_system_note`, never by string concatenation. Stops, position size, allocation, "recommend me" and
   "what would you do" are advice however they are worded (`_TRADE_INSTRUCTION_PATTERN`); the
   interrogative exemption covers reading and timing questions only.
 - **Advice boundary.** `tara_answer_planner._is_trade_advice_request` matches a personal

@@ -4757,6 +4757,55 @@ def build_advice_safe_reply(
     return _render_analysis_sections(lines)
 
 
+# Any wording that asks Tara what to do with money. This is deliberately broader than
+# _is_trade_advice_request (which decides ROUTING): it only decides whether the reply
+# must end with the required disclaimer, so "which stock should I buy now" and "should
+# I hold through earnings" count even though they are answered by other paths.
+_ADVICE_SHAPED_PATTERN = re.compile(
+    r"\b(?:should|shall|would|could|can|may|do|must)\s+"
+    r"(?:i|we|my\s+\w+|someone)\s+(?:\w+\s+){0,3}?"
+    r"(?:buy|sell|short|trade|invest|hold|enter|exit|take\s+profits?|get\s+(?:in|out)|"
+    r"go\s+(?:long|short)|cover|add\s+to)\b|"
+    r"\b(?:is|was|are)\s+(?:it|this|that|now|[A-Za-z][A-Za-z0-9.\-]{0,9})\s+(?:a\s+|an\s+)?"
+    r"(?:(?:good|great|bad|safe|smart|solid)\s+)?"
+    r"(?:(?:time|moment|idea|opportunity)\s+to\s+(?:buy|sell|short|invest|enter|exit|get\s+in)|"
+    r"buy|sell|short|trade|investment|entry)\b|"
+    r"\bgood\s+(?:time|moment|idea)\s+to\s+(?:buy|sell|short|invest|enter|exit)\b|"
+    r"\bworth\s+(?:buying|selling|shorting|trading|taking|holding|it)\b|"
+    r"\bbuy\s+or\s+sell\b|\blong\s+or\s+short\b|"
+    r"\bwhether\s+to\s+(?:buy|sell|short|hold|trade|invest|go)\b|"
+    r"\bwhat\s+(?:stocks?|etfs?|should\s+i)\b.{0,25}\b(?:buy|invest\s+in|trade)\b|"
+    r"\b(?:tell|give)\s+me\s+(?:what|which)\s+to\s+(?:buy|sell|trade)\b",
+    re.I,
+)
+
+
+def is_advice_shaped_question(message: Any) -> bool:
+    """Whether a reply to this message must carry the required disclaimer."""
+
+    text = str(message or "")
+    return bool(
+        text.strip()
+        and (_is_trade_advice_request(text) or _ADVICE_SHAPED_PATTERN.search(text))
+    )
+
+
+def ensure_required_disclaimer(message: Any, reply: Any) -> Any:
+    """Append the exact required disclaimer to any reply to an advice-shaped question.
+
+    One floor for every path - the deterministic builders, the investor funnel, the
+    contract fallbacks and the model - so no advice-shaped turn can leave without it.
+    A reply that already ends with it is returned unchanged.
+    """
+
+    if not isinstance(reply, str) or not reply.strip() or not is_advice_shaped_question(message):
+        return reply
+    plain = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", reply)))
+    if DISCLAIMER_TEXT in plain:
+        return reply
+    return reply.rstrip() + "<br><br>" + _DISCLAIMER_LINE
+
+
 def build_trade_instruction_boundary_reply(message: Any, wave_viewer: Any) -> Optional[str]:
     """Stops, sizing and "pick one for me" when no pattern is loaded to give evidence on."""
 

@@ -313,7 +313,7 @@ def _mini(item):
 # Result-level notices that change how the rows must be described. They survive every
 # trimming step: dropping them is how a substitution becomes silent.
 _RESULT_NOTICE_KEYS = ("ai_scores", "threshold_adjusted", "detector_note", "symbol_note",
-                       "pattern_list_note", "lookback_note")
+                       "pattern_list_note", "date_lock_note", "lookback_note")
 
 
 # Tara (the in-app BRIEF assistant) receives the SAME gateway PatternCards as the public
@@ -1597,6 +1597,21 @@ def response_violates_investor_contract(text, investor_intent):
         bare_verdict = re.match(r"^\s*(?:go\s+)?(?:long|short)\b", plain, re.IGNORECASE)
         return bool(bare_verdict) or not _INVESTMENT_BOUNDARY_RE.search(plain)
     return False
+
+
+def reply_gives_direct_advice(text):
+    """A reply that tells the user what to do or forecasts a result, whatever the intent.
+
+    response_violates_investor_contract only inspects turns the investor classifier
+    recognised. An advice-shaped question it does not recognise ("is AAPL a buy",
+    "buy or sell?") must be held to the same no-directive, no-forecast rule.
+    """
+
+    plain = re.sub(r"<[^>]*>", " ", text or "")
+    advice_scan = _NEGATED_DIRECT_ADVICE_RE.sub(" ", plain)
+    return bool(
+        _DIRECT_INVESTMENT_ADVICE_RE.search(advice_scan) or _INVESTMENT_FORECAST_RE.search(plain)
+    )
 
 
 def _unsupported_live_data_request(text):
@@ -3731,9 +3746,11 @@ def _plan_scope(token):
 
     claims = _token_claims(token)
     if claims is None:
-        return {"markets": None, "ai": True, "row_cap": None, "level": None}
+        return {"markets": None, "ai": True, "row_cap": None, "level": None,
+                "date_locked": set()}
     if claims.get("is_admin") or claims.get("is_service_account"):
-        return {"markets": None, "ai": True, "row_cap": None, "level": "admin"}
+        return {"markets": None, "ai": True, "row_cap": None, "level": "admin",
+                "date_locked": set()}
     level = str(claims.get("user_level", ""))
     markets = set(getattr(config, "level_access_hierarchy", {}).get(level, []))
     if getattr(config, "ml_score_access_mode", "level") == "list":
@@ -3741,7 +3758,9 @@ def _plan_scope(token):
     else:
         ai = level in getattr(config, "ml_score_access_levels", [])
     row_cap = getattr(config, "max_opportunities_loggedin_free", None) if level == "1" else None
-    return {"markets": markets, "ai": ai, "row_cap": row_cap, "level": level}
+    locked = set(getattr(config, "level_access_hierarchy_free_registered", {}).get(level, []))
+    return {"markets": markets, "ai": ai, "row_cap": row_cap, "level": level,
+            "date_locked": locked}
 
 
 def _market_label(market_id):
@@ -3907,7 +3926,11 @@ def _apply_turn_notes(final_text, turn_notes):
 
     text = final_text or ""
     if re.match(r"\s*I couldn't (?:send|complete|resolve)\b", text):
-        return text                 # a failed turn carries no result to annotate
+        # A failed turn carries no result to annotate - but when the reason is the
+        # caller's plan, that reason is the answer, not a generic "try again".
+        reasons = [note["text"] for note in turn_notes or []
+                   if note.get("key") in {"date_locked", "plan_boundary"}]
+        return " ".join(reasons) if reasons else text
     missing = []
     for note in turn_notes or []:
         plain = re.sub(r"<[^>]*>", " ", text)
@@ -3997,6 +4020,83 @@ def _analyze_with_recoveries(inp, user_id, user_token, turn_notes):
             re.escape(alias["symbol"]),
         )
     return out, inp
+
+
+_DATE_LOCK_TEXT = (
+    "Your plan's start date is locked to today, so this is the window that starts today. "
+    "Custom start dates are part of the paid plans: tradewave.ai/pricing."
+)
+
+
+def _keep_symbol_read_on_todays_date(inp, out, user_id, user_token, turn_notes):
+    """On a date-locked plan a symbol study always starts today.
+
+    The viewer and the engine serve a date-locked market only at today's start date, so
+    a setup that starts on another day could never be shown: the chart would display a
+    different window from the one Tara described. The same hold length is re-read from
+    today, and the reply says the date is locked.
+    """
+
+    scope = _plan_scope(user_token)
+    card = out.get("card") if isinstance(out, dict) else None
+    if not scope.get("date_locked") or not isinstance(card, dict):
+        return out
+    if _card_market_id(card) not in scope["date_locked"]:
+        return out
+    today = _market_today().isoformat()
+    if _card_entry_date(card) == today:
+        return out
+    days = _card_days_out(card) or _DEFAULT_PLAIN_WINDOW_DAYS
+    retry_inp = {k: v for k, v in (inp or {}).items() if k not in {"period", "reverse"}}
+    retry_inp.update({"entry_date": today, "days_out": days, "market": _card_market_id(card)})
+    retry = run_tool("analyze_symbol", retry_inp, user_id)
+    retry_card = retry.get("card") if isinstance(retry, dict) else None
+    if (
+        isinstance(retry_card, dict)
+        and _card_entry_date(retry_card) == today
+        and _card_headline_stats(_brief_card(retry_card))
+    ):
+        locked = _briefify(retry)
+        locked["other_setups"] = []
+        locked["date_lock_note"] = _DATE_LOCK_TEXT
+        _add_turn_note(
+            turn_notes, "date_locked", html.escape(_DATE_LOCK_TEXT, quote=False),
+            r"locked\s+to\s+today",
+        )
+        return locked
+    boundary = (
+        "Your plan's start date is locked to today, and I could not read today's window for "
+        "this symbol, so I have not changed the chart. Custom start dates are part of the "
+        "paid plans: tradewave.ai/pricing."
+    )
+    _add_turn_note(
+        turn_notes, "date_locked", html.escape(boundary, quote=False), r"locked\s+to\s+today",
+    )
+    return {"error": "start_date_locked", "ok": False, "message": boundary,
+            "instruction": "Tell the user exactly this and give no statistics."}
+
+
+def _date_lock_rejects_view(cleaned, current_view, table_market, user_token):
+    """An update_view whose start date a date-locked plan cannot load, else None."""
+
+    entry = (cleaned or {}).get("entry_date")
+    if not entry:
+        return None
+    scope = _plan_scope(user_token)
+    if not scope.get("date_locked"):
+        return None
+    market = str(
+        cleaned.get("market")
+        or ((current_view or {}).get("market") if isinstance(current_view, dict) else "")
+        or table_market or ""
+    )
+    if market in scope["date_locked"] and str(entry) != _market_today().isoformat():
+        return (
+            "this plan's start date is locked to today; a different start date cannot be "
+            "loaded. Say that custom start dates are part of the paid plans "
+            "(tradewave.ai/pricing) and do not queue this view."
+        )
+    return None
 
 
 def _result_market_ids(out):
@@ -4272,6 +4372,30 @@ def _nearest_supported_threshold(inp, out):
     return market, years, asked, floor
 
 
+_NAMED_SECURITY_OVERRIDE = (
+    "\n\nNAMED INVESTMENT QUESTION OVERRIDE: The user selected a security and asked whether "
+    "to buy, sell, hold, or invest in it. Analyze and load the exact historical seasonal "
+    "evidence, but do NOT answer the suitability question yes or no. Start by saying "
+    "TradeWave cannot determine whether the security fits this user, then state the "
+    "historical setup, losing-year risk, and capability limits. Never tell them to buy, "
+    "sell, hold, allocate an amount, or expect a return."
+)
+
+
+def _with_system_note(system, note):
+    """Append a per-turn instruction to the system prompt in either of its shapes.
+
+    The prompt is a list of segmented blocks in production (a plain string only in
+    older callers and tests). Concatenating a string onto that list raised TypeError,
+    so every "should I buy NVDA?" turn ended in "Sorry, something went wrong". The
+    note goes in a new trailing block, leaving the cached stable prefix untouched.
+    """
+
+    if isinstance(system, list):
+        return list(system) + [{"type": "text", "text": note.strip()}]
+    return (system or "") + note
+
+
 def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
                        table_market=None, opp_table=None, user_token=None,
                        user_years_cap=None,
@@ -4380,6 +4504,16 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
                 "ok": False,
                 "error": "the user negated or is diagnosing a view action; do not change the view",
             }
+        date_lock = _date_lock_rejects_view(cleaned, current_view, table_market, user_token)
+        if date_lock:
+            _add_turn_note(
+                turn_notes, "date_locked",
+                "Your plan's start date is locked to today, so I have not loaded a different "
+                "start date on the chart. Custom start dates are part of the paid plans: "
+                "tradewave.ai/pricing.",
+                r"locked\s+to\s+today",
+            )
+            return {"ok": False, "error": date_lock}
         if cleaned and _view_spec_is_grounded(
             cleaned, card_list, current_view=current_view
         ):
@@ -4519,6 +4653,7 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
 
     if name in {"analyze_symbol", "get_symbol_patterns"}:
         out = _keep_symbol_read_in_plan(name, inp, out, user_id, user_token, turn_notes)
+        out = _keep_symbol_read_on_todays_date(inp, out, user_id, user_token, turn_notes)
     _index_cards(out, cards, card_list)
     if (
         name in {"analyze_symbol", "get_symbol_patterns"}
@@ -4632,14 +4767,7 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
         ), []
 
     if investor_intent == "named_security":
-        system = system + (
-            "\n\nNAMED INVESTMENT QUESTION OVERRIDE: The user selected a security and asked whether "
-            "to buy, sell, hold, or invest in it. Analyze and load the exact historical seasonal "
-            "evidence, but do NOT answer the suitability question yes or no. Start by saying "
-            "TradeWave cannot determine whether the security fits this user, then state the "
-            "historical setup, losing-year risk, and capability limits. Never tell them to buy, "
-            "sell, hold, allocate an amount, or expect a return."
-        )
+        system = _with_system_note(system, _NAMED_SECURITY_OVERRIDE)
 
     soft_view_nudged = False
     for round_index in range(_MAX_TOOL_ROUNDS):
@@ -4976,14 +5104,7 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
         ), []
 
     if investor_intent == "named_security":
-        system = system + (
-            "\n\nNAMED INVESTMENT QUESTION OVERRIDE: The user selected a security and asked whether "
-            "to buy, sell, hold, or invest in it. Analyze and load the exact historical seasonal "
-            "evidence, but do NOT answer the suitability question yes or no. Start by saying "
-            "TradeWave cannot determine whether the security fits this user, then state the "
-            "historical setup, losing-year risk, and capability limits. Never tell them to buy, "
-            "sell, hold, allocate an amount, or expect a return."
-        )
+        system = _with_system_note(system, _NAMED_SECURITY_OVERRIDE)
 
     input_items = build_responses_input(messages, system=system)
     cache_key = prompt_cache_key(user_id)

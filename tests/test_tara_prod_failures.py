@@ -93,9 +93,10 @@ def _run(monkeypatch, responses, message, run_tool=None, current_view=None, **kw
         tara_gateway, "run_tool",
         run_tool or (lambda name, tool_input, user_id: pytest.fail("unexpected tool call")),
     )
+    kwargs.setdefault("user_token", TOKEN6)
     text, actions = tara_gateway.run_chat_with_tools(
         [{"role": "user", "content": message}], "system", "user-1", "model",
-        current_view=current_view or {}, user_token=TOKEN6, **kwargs,
+        current_view=current_view or {}, **kwargs,
     )
     return text, actions, calls
 
@@ -1417,3 +1418,213 @@ def test_symbol_read_inside_the_plan_is_untouched(monkeypatch):
         "analyze_symbol", {"symbol": "NVDA"}, "user-1", [], {}, [],
         turn_notes=[], user_token=_level_token(2), latest_user_text="analyze NVDA")
     assert len(seen) == 1 and out["card"]["symbol"] == "NVDA"
+
+
+# ---------------------------------------------------------------------------
+# Required disclaimer on every advice-shaped path (deterministic, funnel, fallback, model)
+# ---------------------------------------------------------------------------
+
+def _model_app(tmp_path, monkeypatch, model_reply):
+    app = Flask(__name__)
+    app.config["SECRET_KEY"] = "tara-test-secret-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    app.register_blueprint(chatbot.chatbot_bp, url_prefix="/chatbot")
+    monkeypatch.setattr(chatbot, "ACTION_AUDIT_LOG", str(tmp_path / "a.jsonl"))
+    monkeypatch.setattr(chatbot, "QUESTION_LOG", str(tmp_path / "q.jsonl"))
+    monkeypatch.setattr(chatbot, "TARA_TOOLS_ENABLED", True)
+    for name in ("run_chat_with_tools", "run_chat_with_openai_tools"):
+        if hasattr(chatbot, name):
+            monkeypatch.setattr(chatbot, name, lambda *a, **k: (model_reply, []))
+    for name in ("send_claude_messages", "send_openai_messages"):
+        if hasattr(chatbot, name):
+            monkeypatch.setattr(chatbot, name, lambda *a, **k: model_reply)
+    monkeypatch.setattr(tara_gateway, "_loopback_json", lambda *a, **k: (None, None))
+    return app
+
+
+ADVICE_SHAPED = [
+    # (question, loaded pattern?) - the four paths named in the review first
+    ("should I buy NVDA now", True), ("what should I buy this week", True),
+    ("which stock should I buy now", True), ("should I hold through earnings", True),
+    ("should I buy NVDA now", False), ("what should I buy this week", False),
+    ("which stock should I buy now", False), ("should I hold through earnings", False),
+    # every other deterministic advice-shaped path
+    ("should I buy this?", True), ("do i long or short?", True), ("would you take this trade?", True),
+    ("is this a good trade?", True), ("when and where should I get out", True),
+    ("what price target should I use", True), ("what stop loss should I use", True),
+    ("how many shares should I buy", False), ("recommend me a stock to buy", False),
+    ("what would you do", True), ("I have $5000, what should I buy?", False),
+    ("should I sell before the window ends or hold longer", True),
+    ("is it a good time to sell my AAPL", False), ("is AAPL a buy", False),
+    ("buy or sell?", True), ("tell me whether to go long or short", True),
+    ("should my wife buy this", True), ("is now a good entry", True),
+    ("should I trade the 100-year pattern?", False),
+]
+
+
+@pytest.mark.parametrize("model_reply", [
+    "Here is the historical record for that window.",          # an ordinary model answer
+    "You should buy NVDA now; it will go up.",                # trips the investor-contract fallback
+])
+@pytest.mark.parametrize("message, with_pattern", ADVICE_SHAPED)
+def test_every_advice_shaped_reply_ends_with_the_exact_disclaimer(
+        tmp_path, monkeypatch, message, with_pattern, model_reply):
+    app = _model_app(tmp_path, monkeypatch, model_reply)
+    wave = dict(_loaded(), entry_date="2026-11-17") if with_pattern else None
+    body = _ask(app, message, wave)
+    plain = html.unescape(_plain(body["reply"]))
+    assert plain.endswith(DISCLAIMER), plain[-220:]
+    assert plain.count(DISCLAIMER) == 1
+    assert "You should buy NVDA now" not in plain
+
+
+@pytest.mark.parametrize("message", [
+    "what is median gain?", "create a watch list", "how should I read Win%?",
+    "should I use 10 or 20 years?", "show me 100 year pattern", "what does the buy and hold study show",
+])
+def test_ordinary_questions_do_not_get_the_advice_disclaimer(tmp_path, monkeypatch, message):
+    app = _model_app(tmp_path, monkeypatch, "Here is how that works.")
+    body = _ask(app, message, None)
+    assert DISCLAIMER not in html.unescape(_plain(body["reply"]))
+
+
+def test_disclaimer_floor_is_idempotent_and_keeps_the_reply():
+    reply = "ATO long won 10 of 10 years."
+    once = planner.ensure_required_disclaimer("should I buy this?", reply)
+    assert once.startswith(reply) and once.endswith("<i>" + DISCLAIMER + "</i>")
+    assert planner.ensure_required_disclaimer("should I buy this?", once) == once
+    assert planner.ensure_required_disclaimer("what is Sharpe?", reply) == reply
+    assert planner.ensure_required_disclaimer("should I buy this?", "") == ""
+
+
+# ---------------------------------------------------------------------------
+# Date-locked plans never get a chart action with a start date other than today
+# ---------------------------------------------------------------------------
+
+def _dated_card(symbol, market, entry, days=20):
+    return {"card": {
+        "symbol": symbol, "direction": "long", "market": {"id": market, "name": "M"},
+        "setup": {"entry_date": entry, "hold_days": days},
+        "stats": {"historical_win_rate": 0.9, "avg_return_pct": 3.0, "years": "10"},
+        "headline": "%s long - enter %s, hold %dd. Won 9/10 years, avg +3.0%%." % (symbol, entry, days),
+    }, "other_setups": [{"symbol": symbol, "setup": {"entry_date": "2026-12-20", "hold_days": 9}}]}
+
+
+def _locked_tool(seen, off_date="2026-11-15", days=348):
+    def run_tool(name, tool_input, user_id):
+        seen.append(dict(tool_input))
+        if tool_input.get("entry_date"):
+            return _dated_card("AAPL", "0", tool_input["entry_date"], tool_input["days_out"])
+        return _dated_card("AAPL", tool_input.get("market", "2"), off_date, days)
+    return run_tool
+
+
+def test_date_locked_plan_reads_the_window_that_starts_today(monkeypatch):
+    seen, notes, cards, card_list = [], [], {}, []
+    monkeypatch.setattr(tara_gateway, "run_tool", _locked_tool(seen))
+    out = tara_gateway._execute_tara_tool(
+        "analyze_symbol", {"symbol": "AAPL"}, "user-1", [], cards, card_list,
+        turn_notes=notes, user_token=_level_token(1), latest_user_text="analyze AAPL")
+    assert seen[-1]["entry_date"] == TODAY.isoformat() and seen[-1]["days_out"] == 348
+    assert seen[-1]["market"] == "0"
+    assert out["card"]["setup"]["entry_date"] == TODAY.isoformat()
+    assert out["other_setups"] == []                        # no off-date setup to load either
+    assert all(tara_gateway._card_entry_date(card) == TODAY.isoformat() for card in card_list)
+    assert out["date_lock_note"].startswith("Your plan's start date is locked to today")
+    assert notes[-1]["key"] == "date_locked"
+
+
+def test_date_locked_plan_queues_only_todays_start_date(monkeypatch):
+    seen = []
+    today_spec = {"symbol": "AAPL", "market": "0", "entry_date": TODAY.isoformat(), "days_out": 348}
+    text, actions, _ = _run(
+        monkeypatch,
+        [
+            _tool_response("read-1", "analyze_symbol", {"symbol": "AAPL"}),
+            _tool_response("view-1", "update_view", dict(today_spec, entry_date="2026-11-15")),
+            _tool_response("view-2", "update_view", today_spec),
+            _text_response("AAPL long - won 9/10 years, avg +3.0%."),
+        ],
+        "analyze AAPL", run_tool=_locked_tool(seen), user_token=_level_token(1),
+    )
+    # the off-date action is refused; the viewer contract accepts today's
+    assert [action["spec"]["entry_date"] for action in actions] == [TODAY.isoformat()]
+    assert actions[0]["type"] == "set_view" and actions[0]["status"] == "validated"
+    assert chatbot._validate_view_spec(actions[0]["spec"]) == actions[0]["spec"]
+    assert "Your plan's start date is locked to today" in _plain(text)
+
+
+def test_date_locked_plan_asking_for_another_date_gets_the_lock_explained(monkeypatch):
+    seen = []
+    off = {"symbol": "AAPL", "market": "0", "entry_date": "2026-12-01", "days_out": 20}
+    responses = [_tool_response("read-1", "analyze_symbol", {"symbol": "AAPL"})]
+    responses += [_tool_response("view-%d" % i, "update_view", off) for i in range(2)]
+    responses += [_text_response("AAPL from Dec 1.")] * 3
+    text, actions, _ = _run(
+        monkeypatch, responses, "load AAPL starting Dec 1",
+        run_tool=_locked_tool(seen), user_token=_level_token(1),
+    )
+    assert actions == []
+    plain = _plain(text)
+    assert "locked to today" in plain and "tradewave.ai/pricing" in plain
+    assert "couldn't send the complete chart action" not in plain
+
+
+@pytest.mark.parametrize("level, market", [(6, "2"), (2, "2"), (4, "11")])
+def test_unlocked_plans_keep_the_detected_start_date(monkeypatch, level, market):
+    seen = []
+
+    def run_tool(name, tool_input, user_id):
+        seen.append(dict(tool_input))
+        return _dated_card("AAPL", market, "2026-11-25")
+
+    monkeypatch.setattr(tara_gateway, "run_tool", run_tool)
+    out = tara_gateway._execute_tara_tool(
+        "analyze_symbol", {"symbol": "AAPL"}, "user-1", [], {}, [],
+        turn_notes=[], user_token=_level_token(level), latest_user_text="analyze AAPL")
+    assert len(seen) == 1 and out["card"]["setup"]["entry_date"] == "2026-11-25"
+    assert "date_lock_note" not in out
+    assert tara_gateway._date_lock_rejects_view(
+        {"symbol": "AAPL", "market": market, "entry_date": "2026-11-25", "days_out": 20},
+        {}, market, _level_token(level)) is None
+
+
+def test_date_lock_follows_the_plan_config():
+    scope = tara_gateway._plan_scope(_level_token(1))
+    assert "0" in scope["date_locked"]
+    assert tara_gateway._plan_scope(_level_token(6))["date_locked"] == set()
+    assert "2" not in tara_gateway._plan_scope(_level_token(2))["date_locked"]
+
+
+@pytest.mark.parametrize("system", [
+    "plain system prompt",
+    [{"type": "text", "text": "stable", "cache_control": {"type": "ephemeral"}},
+     {"type": "text", "text": "dynamic"}],
+])
+def test_named_investment_question_does_not_crash_on_segmented_system_blocks(monkeypatch, system):
+    seen = []
+
+    def fake_send(convo, **kwargs):
+        seen.append(kwargs["system"])
+        return _text_response(
+            "TradeWave cannot determine whether NVDA fits you. Historically the window won 9 of 10 years.")
+
+    monkeypatch.setattr(tara_gateway, "send_claude_messages", fake_send)
+    monkeypatch.setattr(tara_gateway, "run_tool", lambda *a, **k: _grounded("NVDA"))
+    text, actions = tara_gateway.run_chat_with_tools(
+        [{"role": "user", "content": "should I buy NVDA now"}], system, "user-1", "model",
+        user_token=TOKEN6)
+    assert "NVDA" in text
+    sent = seen[0]
+    rendered = sent if isinstance(sent, str) else " ".join(block["text"] for block in sent)
+    assert "NAMED INVESTMENT QUESTION OVERRIDE" in rendered
+    if isinstance(system, list):
+        assert sent[:2] == system and len(sent) == 3            # cached prefix untouched
+        assert system == [{"type": "text", "text": "stable", "cache_control": {"type": "ephemeral"}},
+                          {"type": "text", "text": "dynamic"}]  # caller's list not mutated
+
+
+def _grounded(symbol):
+    return {"card": {"symbol": symbol, "market": {"id": "2", "name": "S&P 500 STOCKS"},
+                     "setup": {"entry_date": "2026-11-17", "hold_days": 20},
+                     "stats": {"historical_win_rate": 0.9, "avg_return_pct": 3.0, "years": 10},
+                     "headline": "%s long - Won 9/10 years, avg +3.0%%." % symbol}}

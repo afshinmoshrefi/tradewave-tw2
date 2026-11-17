@@ -45,6 +45,7 @@ from tara_gateway import (
     classify_investor_intent,
     classify_view_intent,
     build_sector_screen_command,
+    reply_gives_direct_advice,
     guided_next_questions,
     investor_guidance_response,
     loaded_pattern_suitability_response,
@@ -63,6 +64,8 @@ from tara_answer_planner import (
     build_bottom_slide_command,
     build_excursion_overlay_command,
     build_deterministic_reply,
+    ensure_required_disclaimer,
+    is_advice_shaped_question,
     build_hundred_year_pattern_command,
     build_current_table_pick_command,
     build_opportunity_row_load_command,
@@ -1078,6 +1081,9 @@ def _finalize_chat_response(user_id, turn_id, question, reply, wave_viewer,
                             protocol_trace=None, provider='unknown',
                             analysis_report=None):
     """Audit and return one consistent Tara response envelope."""
+    # Every answer leaves through here, so this is where an advice-shaped question is
+    # guaranteed its required disclaimer whichever path produced the reply.
+    reply = ensure_required_disclaimer(question, reply)
     prepared_actions = _prepare_audited_actions(user_id, turn_id, actions or [])
     if _write_question_audit(
         user_id,
@@ -2970,7 +2976,9 @@ def chat():
         # Deterministic floor: guarantee a stat on a loaded-pattern strength question
         # (Haiku at temp 0 occasionally punts with a bare "loaded" and no number).
         bot_reply = _ensure_strength_answered(user_message, wave_viewer, bot_reply)
-        if response_violates_investor_contract(bot_reply, investor_intent):
+        if response_violates_investor_contract(bot_reply, investor_intent) or (
+            is_advice_shaped_question(user_message) and reply_gives_direct_advice(bot_reply)
+        ):
             protocol_trace.append({
                 'event': 'protocol_violation',
                 'reason': 'unsafe_investor_response',
