@@ -49,3 +49,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 
 | [TW-TASK-0029](TW-TASK-0029.md) | fixed on branch | Tara knowledge base cleanup: act-versus-click consistency, verified UI facts, account links, research-workflow tone |
 | [TW-TASK-0030](TW-TASK-0030.md) | fixed on branch, awaiting dev activation | Five failed Tara research questions: engine-answered screens, win-rate ranking, dated studies, comparisons and pattern low dates |
+| [TW-TASK-0032](TW-TASK-0032.md) | in-progress | Tara eval: question bank, LLM-judged harness, live-dev baseline, model and whole-KB comparison |
