@@ -1236,7 +1236,7 @@ def test_stock_screen_stays_inside_the_plan(monkeypatch, level, expected_market,
         "system", "user-1", "model", opp_table_market="5", user_token=_level_token(level))
     assert fetched == [expected_market]
     assert heading in _plain(text) and "CAT" in text
-    assert actions[0]["spec"] == {"market": expected_market}
+    assert actions == []            # a scan no longer moves the table unless asked to
 
 
 @pytest.mark.parametrize("level", [1, 2])

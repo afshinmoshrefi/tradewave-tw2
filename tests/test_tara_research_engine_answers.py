@@ -211,7 +211,11 @@ def test_explicit_hold_length_is_sent_to_the_detector(engine):
 
 
 def test_screen_switches_the_table_when_it_shows_another_market(engine):
+    # A screen answers in the chat; the table follows only when the user asks for it.
     command = ask("Top 5 Nasdaq 100 stocks by win rate next week, 10-day holds", table_market="2")
+    assert command["actions"] == []
+    command = ask("Show the top 5 Nasdaq 100 stocks by win rate next week in the table, "
+                  "10-day holds", table_market="2")
     assert command["actions"] == [{"type": "set_view", "spec": {"market": "1"}}]
 
 
@@ -348,14 +352,21 @@ def test_study_honors_cycle_and_named_index(engine):
 
 def test_study_reports_the_engine_direction_and_effective_dates(engine):
     command = ask("Analyze AAPL's historical return from January 1 to March 31 over the last 15 years.")
+    # TradeWave has no January 1 entry. The study starts January 2 and keeps the END date
+    # the user named (89 days to March 31), and the reply says so (TW-TASK-0035).
     call = engine["chart"][0]
-    assert (call["entry"], call["days"], call["years"]) == ("2026-01-01", 90, "15")
+    assert (call["entry"], call["days"], call["years"]) == ("2026-01-02", 89, "15")
+    # This year's Q1 is already complete, so a 15-year ask is the 15 most recent completed
+    # years: the engine is read again at 14 + the 2026 bar instead of reporting 16.
+    call = engine["chart"][-1]
+    assert (call["entry"], call["days"], call["years"]) == ("2026-01-02", 89, "14")
     payload = chart_payload(call)
     reply = text_of(command)
     assert payload["stats"]["Trade Dir"] == "short"
-    assert "short-direction pattern" in reply and "fell in %s of" % payload["stats"]["Num Winners"] in reply
-    # The engine moves a Jan 1 entry to Jan 2; the action follows the engine, not the request.
+    assert "short-direction pattern" in reply and "fell in %s of 15 completed" % payload["stats"]["Num Winners"] in reply
+    assert "no January 1 entry" in reply and "Jan 2 – Mar 31, 2026" in reply
     assert command["actions"][0]["spec"]["entry_date"] == payload["request"]["entry_date"] == "2026-01-02"
+    assert command["actions"][0]["spec"]["days_out"] == 89
 
 
 @pytest.mark.parametrize("message,expected", [
@@ -990,7 +1001,7 @@ def test_missing_engine_day_numbers_are_not_recomputed(engine, monkeypatch):
 
 def test_short_pattern_labels_follow_the_engine_trade_direction(engine):
     command = ask("Analyze AAPL's historical return from January 1 to March 31 over the last 15 years.")
-    assert chart_payload(engine["chart"][0])["stats"]["Trade Dir"] == "short"
+    assert chart_payload(engine["chart"][-1])["stats"]["Trade Dir"] == "short"
     reply = text_of(command)
     assert "Largest rise inside the window (MAE)" in reply
     assert "Deepest drop inside the window (MFE)" in reply
@@ -1294,7 +1305,7 @@ def test_january_first_detector_rows_match_the_engine_january_second_echo():
 
 def test_short_side_figures_are_engine_values_never_negated(engine):
     command = ask("Analyze AAPL's historical return from January 1 to March 31 over the last 15 years.")
-    stats = chart_payload(engine["chart"][0])["stats"]
+    stats = chart_payload(engine["chart"][-1])["stats"]
     reply = text_of(command)
     assert "the underlying averaged" not in reply
     assert "a positive figure means the underlying fell" in reply

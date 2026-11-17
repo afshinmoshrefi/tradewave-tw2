@@ -2496,6 +2496,55 @@ runs on the loaded window or the next 30 calendar days and says so (`tara_resear
 (lookback, "next N days", US listing for a bare ticker, the viewer's lookback on a re-read of the
 loaded symbol); it computes no statistic.
 
+**Engine drafts through the tool loop, lists rendered in code (2026-11-17, TW-TASK-0035).** A
+deterministic route still runs first and still owns every number, plan gate and chart action, but its
+reply is now a VERIFIED DRAFT: `chatbot.chat` calls `finish_draft`, which sends the draft to the
+primary model inside the normal tool loop (`tara_gateway.run_chat_with_tools(..., engine_draft=,
+draft_actions=, number_sources=)`; same tools and the same cached system prefix, the draft rides in
+the last user turn). The model answers the question that was asked, covers a second intent and may
+call a read tool for a part the route did not cover. `_accept_draft_rewrite` then decides: a number
+that is not in the draft, a tool result of the turn, the live context, the knowledge base or the
+transcript (`unsupported_numbers`), a changed or dropped engine action, direct advice, a mention of
+the draft, a fail-closed loop result or an over-long reply sends the ENGINE DRAFT unchanged; so does
+any provider failure or refusal (`_with_draft_fallback`; a missing credential is still raised). Plan,
+AI-entitlement, date-lock and disclaimer sentences and engine links are restored word for word
+(`_restore_locked_sentences`). Never rewritten (`draft_is_rewritable`, call sites that keep `finish`):
+the suitability boundary, the investor funnel, replies that are only a plan / AI-entitlement / date-lock
+notice, table row loads and one-action view commands. The engine replies inside both provider loops
+(investor screens, weak-symbol study, live-data boundary, exclusion-report notice) go through the same
+path (`_intent_prelude`). `tara_gateway.DRAFT_REWRITE_ENABLED` is **False by default** (independent
+review of 8ff5a607: the rewrite stays off until its redesign is re-reviewed), which sends the engine replies
+exactly; `tests/conftest.py` runs the older route tests that way and `@pytest.mark.tara_draft_rewrite`
+turns the rewrite on.
+
+Lists are rendered in code. A scan result carries `rendered_list` with a token (`[[TW_LIST_1]]`,
+`[[TW_LIST_1:K]]`, `[[TW_LIST_1 rows=2,5]]`); an engine draft's own list is `[[TW_LIST_0]]`. The
+gateway expands tokens (`_expand_rendered_lists`) and replaces model-typed versions of engine rows
+with the engine rows in engine order (`_enforce_rendered_rows`); opportunity-table screens read each
+shown row's win record from ChartData4 (`_attach_win_records`). A scan no longer queues a market-only
+`set_view` unless the user asked for the table or a group change (`_append_market_switch(...,
+user_text)`), which supersedes the "queues a `set_view {market}`" sentence in the 2026-06-21 note
+above.
+
+Loop dead ends: one request for a missing chart action, then an answer in words is accepted and the
+finish step states that nothing was changed; when the rounds run out one closing request is sent with
+`tool_choice: {"type": "none"}` (tools unchanged, so the cached prefix is reused); a reply that
+collapses to a one-line remnant after claim removal is corrected once. `AI_tools_appserver` raises
+`AnthropicRefusal` for `stop_reason: "refusal"` or an empty answer on text-only calls, so the report
+turn and the no-tools path retry on the fallback provider (Haiku 5.5 has no server-side fallback).
+Live context additions: `ai_live_context_lines` (server scorer values, only when
+`ai_scores_entitled()` and the screen reports AI scores available), `_current_year_bar_state`
+(upcoming / entry day / active day k of n / completed), `plan_ladder_lines` (markets per plan and the
+market count, from config), labelled stat keys (`Sharpe Ratio2` is TWR). Research templates: a
+January 1 start is studied from January 2 with the END date kept (`tara_research._january_first`,
+matching the engine's own rule in `ChartData4`), a lookback whose current-year window is already
+complete is read one year shorter so n equals the lookback asked for (`_study_for_lookback`), a
+comparison loads the stronger record, an ambiguous bare coin code resolves to the listed
+`<CODE>-USD` pair (`_crypto_pair_alias`), a sector screen on a plan without that index uses the
+widest stock index the plan includes. Injected lines follow the reply's language
+(`reply_language`, `_no_change_note`, the neutral `_announce_line`). The daily pick's live track
+record summary now reaches the model (`_briefify` keeps `live_track_record`).
+
 Model policy: `tara_runtime_policy.ACTIVE_POLICY` names one row of `POLICIES` (`luna`, `haiku55`,
 `sonnet55`). Changing that one line switches the primary; `chatbot.chat`, the report-explanation turn
 and `portfolio_scenarios` dispatch on the provider, the other provider becomes the fallback, and

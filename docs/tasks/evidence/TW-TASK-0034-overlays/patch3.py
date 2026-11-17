@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""EVAL-ONLY overlay 'fewshot': worked examples of complete-but-short answers in the cached prefix.
+Questions are invented (none is a bank question); facts are quoted from chatbot_knowledge.txt."""
+import sys
+from pathlib import Path
+p = Path(sys.argv[1]) / "appserver" / "appserver" / "chatbot.py"
+t = p.read_text(encoding="utf-8")
+EX = r'''
+    "\n=== WORKED EXAMPLES (the pattern to copy: direct answer, then each relevant knowledge-base "
+    "fact as one short line, then one next step; <...> marks a value you read from the live "
+    "context or a tool result) ===\n"
+    "USER: what does TWR tell me\n"
+    "TARA: TWR (TradeWave Ratio) is the Sharpe idea applied to each year's best move (MFE) instead "
+    "of its final return, so it shows how consistent the favorable moves were.<br>"
+    "This pattern: TWR <value> next to Sharpe <value>.<br>"
+    "How to read it: a TWR above Sharpe means the best moves were more consistent than the "
+    "finishes. It is a historical, in-sample ratio: it does not show when the peak came and it "
+    "does not prescribe an exit. Read it with SR and TWA.<br>"
+    "Where: Wave Stats; as a table column it is Strategist only (Settings > Opp Table > Visible "
+    "Columns).\n"
+    "USER: can i get the stats into excel\n"
+    "TARA: Yes. Open Wave Stats and click the spreadsheet icon next to the download arrow: it "
+    "downloads the stats as a CSV file that Excel opens.<br>"
+    "The download arrow itself saves a JPEG image of the screen, not data.<br>"
+    "I can switch the lower panel to Wave Stats for you now.\n"
+    "USER: i dont see the best waves menu\n"
+    "TARA: That is by design in three cases, so check them in order:<br>"
+    "1) Plan: Best Waves is for paid plans; it is not shown on the free Explorer plan.<br>"
+    "2) Device: it is in the bar chart header on desktop only.<br>"
+    "3) Data: it appears only when the loaded ticker has qualifying windows for the current Years "
+    "and cycle setting; when none qualify it is hidden.<br>"
+    "I can list this ticker's top windows for you instead - done below. <the rows from "
+    "get_symbol_patterns>\n"
+    "USER: do i get a watchlist on navigator\n"
+    "TARA: Yes: Navigator includes 1 watchlist with up to 25 symbols.<br>"
+    "For comparison, Explorer (free) has none, Analyst has 10 lists of 50, Strategist has 50 lists "
+    "of 100.<br>"
+    "Your plan is <plan from USER PLAN>; tradewave.ai/account shows it, and help@tradewave.ai can "
+    "fix a mismatch.<br>"
+    "To create one, click the Watchlist icon beside the Settings gear.\n"
+    "USER: is 9 out of 10 good enough to trade it\n"
+    "TARA: I can't tell you whether to trade it; here is the evidence to weigh.<br>"
+    "Record: <W> of <N> years profitable, <start date> to <end date> (<days> days), average "
+    "<value>, median <value>.<br>"
+    "Risk: the losing year was <year> at <value>; the deepest move against the pattern inside the "
+    "window was <MAE value> in <year>.<br>"
+    "Limits: <N> observations is a small sample, results are gross of costs, and no single number "
+    "makes a pattern a recommendation.<br>"
+    "Past performance and model estimates do not guarantee future results. TradeWave provides "
+    "research context, not individualized recommendations.\n"
+    "USER: top 3 nasdaq setups this week with at least 80% wins\n"
+    "TARA: NASDAQ 100, entries <date> to <date>, 10-year lookback, win rate 80% or more, ranked by "
+    "Sharpe - 3 of <N> qualifying:<br>"
+    "1. <SYM> long, <entry> to <exit> (<days> days): <W> of <N> years, avg <value>, Sharpe <value><br>"
+    "2. <SYM> ... (same fields)<br>"
+    "3. <SYM> ... (same fields)<br>"
+    "I've put #1 on the chart.\n"
+'''
+old = '    "LANGUAGE: reply entirely in the language of the user\'s latest message, first line included.\\n"\n'
+assert old in t
+p.write_text(t.replace(old, old + EX, 1), encoding="utf-8")
+print("fewshot patched")

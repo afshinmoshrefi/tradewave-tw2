@@ -290,3 +290,21 @@ def _tara_unit_test_plan(monkeypatch):
 
     monkeypatch.setattr(gateway, "_verified_claims", claims)
     yield
+
+
+# ---------------------------------------------------------------------
+# Tara engine drafts (TW-TASK-0035). An engine route's reply is normally
+# rewritten by the model inside the tool loop, and the engine's own reply is
+# what every guard failure falls back to. The route tests pin that engine
+# reply, so they run with the rewrite off; a test that exercises the rewrite
+# asks for it with @pytest.mark.tara_draft_rewrite.
+# ---------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def _tara_engine_reply_without_rewrite(request, monkeypatch):
+    gateway = sys.modules.get("tara_gateway")
+    if gateway is not None and hasattr(gateway, "DRAFT_REWRITE_ENABLED"):
+        monkeypatch.setattr(
+            gateway, "DRAFT_REWRITE_ENABLED",
+            request.node.get_closest_marker("tara_draft_rewrite") is not None,
+        )
+    yield
