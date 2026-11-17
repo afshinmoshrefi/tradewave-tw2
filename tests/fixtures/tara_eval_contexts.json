@@ -1,0 +1,3405 @@
+{
+ "schema_version": 1,
+ "built_on": "2026-11-17",
+ "built_from": "live engine OppList4/ChartData4 (percent statistics only; no customer data)",
+ "contexts": {
+  "empty": {
+   "wave_viewer": {},
+   "screen_context": {},
+   "opportunities": []
+  },
+  "default_table": {
+   "opportunities": [
+    {
+     "date": "2026-11-17",
+     "symbol": "GWW",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.98
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "ZBRA",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 5.8,
+     "sharpe_ratio": 1.75
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "RSG",
+     "days_out": 269,
+     "direction": "Long",
+     "avg_profit": 14.6,
+     "sharpe_ratio": 1.56
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "FICO",
+     "days_out": 19,
+     "direction": "Long",
+     "avg_profit": 4.3,
+     "sharpe_ratio": 1.47
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AJG",
+     "days_out": 254,
+     "direction": "Long",
+     "avg_profit": 12.0,
+     "sharpe_ratio": 1.46
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DPZ",
+     "days_out": 13,
+     "direction": "Long",
+     "avg_profit": 4.4,
+     "sharpe_ratio": 1.45
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "V",
+     "days_out": 272,
+     "direction": "Long",
+     "avg_profit": 15.4,
+     "sharpe_ratio": 1.36
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "PGR",
+     "days_out": 227,
+     "direction": "Long",
+     "avg_profit": 17.7,
+     "sharpe_ratio": 1.22
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "CL",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 1.3,
+     "sharpe_ratio": 1.18
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "NEM",
+     "days_out": 150,
+     "direction": "Long",
+     "avg_profit": 26.2,
+     "sharpe_ratio": 1.09
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AAPL",
+     "days_out": 346,
+     "direction": "Long",
+     "avg_profit": 25.1,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SYK",
+     "days_out": 101,
+     "direction": "Long",
+     "avg_profit": 9.0,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "WM",
+     "days_out": 266,
+     "direction": "Long",
+     "avg_profit": 13.5,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "LLY",
+     "days_out": 310,
+     "direction": "Long",
+     "avg_profit": 26.7,
+     "sharpe_ratio": 1.06
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DGX",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.03
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "MKC",
+     "days_out": 25,
+     "direction": "Long",
+     "avg_profit": 3.4,
+     "sharpe_ratio": 1.02
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DE",
+     "days_out": 53,
+     "direction": "Long",
+     "avg_profit": 7.0,
+     "sharpe_ratio": 1.01
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "CDNS",
+     "days_out": 272,
+     "direction": "Long",
+     "avg_profit": 24.9,
+     "sharpe_ratio": 1.01
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "MCHP",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 2.4,
+     "sharpe_ratio": 1.0
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "COST",
+     "days_out": 264,
+     "direction": "Long",
+     "avg_profit": 14.5,
+     "sharpe_ratio": 0.94
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AVGO",
+     "days_out": 52,
+     "direction": "Long",
+     "avg_profit": 10.1,
+     "sharpe_ratio": 0.93
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DRI",
+     "days_out": 359,
+     "direction": "Long",
+     "avg_profit": 17.1,
+     "sharpe_ratio": 0.9
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "JKHY",
+     "days_out": 18,
+     "direction": "Long",
+     "avg_profit": 3.0,
+     "sharpe_ratio": 0.88
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "WTW",
+     "days_out": 363,
+     "direction": "Long",
+     "avg_profit": 12.0,
+     "sharpe_ratio": 0.76
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SJM",
+     "days_out": 273,
+     "direction": "Long",
+     "avg_profit": 9.9,
+     "sharpe_ratio": 0.67
+    }
+   ],
+   "opp_table_length": 25,
+   "opp_table_market": "2",
+   "opp_table_market_name": "S&P 500 STOCKS",
+   "opp_table_years": 12,
+   "opp_table_pe_cycle": "cons",
+   "wave_viewer": {
+    "market": "2",
+    "symbol": "GWW",
+    "start_date": "2026-11-17",
+    "entry_date": "2026-11-17",
+    "days_out": 8,
+    "years": 12,
+    "pe_cycle": "cons",
+    "direction": "long",
+    "selection_origin": "scanner",
+    "mfe_enabled": false,
+    "mae_enabled": false,
+    "view_ready": true,
+    "view_request_key": "2|GWW|2026-11-17|8|12|cons|0",
+    "stats": {
+     "Trade Dir": "long",
+     "Num Winners": "12",
+     "Num Losers": "0",
+     "Percent Profitable": "100.0%",
+     "Avg Profit - All": "1.94%",
+     "Avg Profit": "1.94%",
+     "Avg Loss": "0%",
+     "Median Profit": "2.08%",
+     "Annualized Return": "1.93%",
+     "Cumulative Return": "25.8%",
+     "Std Dev": "0.94%",
+     "Sharpe Ratio": "1.98",
+     "Sharpe Ratio2": "2.74",
+     "Trend Long": 87,
+     "Trend Short": 0,
+     "Trend Long1": 88,
+     "Trend Short1": 0,
+     "Trend Score Available": true,
+     "next_earnings_est": "2027-02-02",
+     "days_to_earnings": 77
+    },
+    "yearly_results": [
+     {
+      "year": 2014,
+      "underlying_return_pct": 2.62,
+      "upside_excursion_pct": 2.7,
+      "downside_excursion_pct": -1.01
+     },
+     {
+      "year": 2015,
+      "underlying_return_pct": 2.69,
+      "upside_excursion_pct": 4.04,
+      "downside_excursion_pct": 0.0
+     },
+     {
+      "year": 2016,
+      "underlying_return_pct": 2.55,
+      "upside_excursion_pct": 2.55,
+      "downside_excursion_pct": -1.67
+     },
+     {
+      "year": 2017,
+      "underlying_return_pct": 1.18,
+      "upside_excursion_pct": 3.51,
+      "downside_excursion_pct": -0.44
+     },
+     {
+      "year": 2018,
+      "underlying_return_pct": 0.93,
+      "upside_excursion_pct": 1.29,
+      "downside_excursion_pct": -3.31
+     },
+     {
+      "year": 2019,
+      "underlying_return_pct": 0.94,
+      "upside_excursion_pct": 1.84,
+      "downside_excursion_pct": -2.62
+     },
+     {
+      "year": 2020,
+      "underlying_return_pct": 2.46,
+      "upside_excursion_pct": 3.32,
+      "downside_excursion_pct": -1.27
+     },
+     {
+      "year": 2021,
+      "underlying_return_pct": 2.44,
+      "upside_excursion_pct": 2.97,
+      "downside_excursion_pct": -1.39
+     },
+     {
+      "year": 2022,
+      "underlying_return_pct": 1.73,
+      "upside_excursion_pct": 2.87,
+      "downside_excursion_pct": -0.15
+     },
+     {
+      "year": 2023,
+      "underlying_return_pct": 1.26,
+      "upside_excursion_pct": 1.45,
+      "downside_excursion_pct": -0.75
+     },
+     {
+      "year": 2024,
+      "underlying_return_pct": 3.72,
+      "upside_excursion_pct": 4.72,
+      "downside_excursion_pct": -1.07
+     },
+     {
+      "year": 2025,
+      "underlying_return_pct": 0.7,
+      "upside_excursion_pct": 3.71,
+      "downside_excursion_pct": -1.84
+     },
+     {
+      "year": 2026,
+      "underlying_return_pct": 0.0,
+      "upside_excursion_pct": 0.0,
+      "downside_excursion_pct": 0.0
+     }
+    ]
+   },
+   "screen_context": {
+    "active_bottom_slide": "trend_chart",
+    "ai_scores_available": false,
+    "price_chart_mode": "unknown",
+    "selected_projection_visible": false,
+    "full_history_projection_visible": false,
+    "opportunity_table_visible": true,
+    "selected_lookback": "12",
+    "projection_period": "90",
+    "opportunity_rows": 25,
+    "selected_window_path": "unknown",
+    "full_history_window_path": "unknown"
+   }
+  },
+  "stock_long_strong": {
+   "opportunities": [
+    {
+     "date": "2026-11-17",
+     "symbol": "GWW",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.98
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "ZBRA",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 5.8,
+     "sharpe_ratio": 1.75
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "RSG",
+     "days_out": 269,
+     "direction": "Long",
+     "avg_profit": 14.6,
+     "sharpe_ratio": 1.56
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "FICO",
+     "days_out": 19,
+     "direction": "Long",
+     "avg_profit": 4.3,
+     "sharpe_ratio": 1.47
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AJG",
+     "days_out": 254,
+     "direction": "Long",
+     "avg_profit": 12.0,
+     "sharpe_ratio": 1.46
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DPZ",
+     "days_out": 13,
+     "direction": "Long",
+     "avg_profit": 4.4,
+     "sharpe_ratio": 1.45
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "V",
+     "days_out": 272,
+     "direction": "Long",
+     "avg_profit": 15.4,
+     "sharpe_ratio": 1.36
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "PGR",
+     "days_out": 227,
+     "direction": "Long",
+     "avg_profit": 17.7,
+     "sharpe_ratio": 1.22
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "CL",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 1.3,
+     "sharpe_ratio": 1.18
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "NEM",
+     "days_out": 150,
+     "direction": "Long",
+     "avg_profit": 26.2,
+     "sharpe_ratio": 1.09
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AAPL",
+     "days_out": 346,
+     "direction": "Long",
+     "avg_profit": 25.1,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SYK",
+     "days_out": 101,
+     "direction": "Long",
+     "avg_profit": 9.0,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "WM",
+     "days_out": 266,
+     "direction": "Long",
+     "avg_profit": 13.5,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "LLY",
+     "days_out": 310,
+     "direction": "Long",
+     "avg_profit": 26.7,
+     "sharpe_ratio": 1.06
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DGX",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.03
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "MKC",
+     "days_out": 25,
+     "direction": "Long",
+     "avg_profit": 3.4,
+     "sharpe_ratio": 1.02
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DE",
+     "days_out": 53,
+     "direction": "Long",
+     "avg_profit": 7.0,
+     "sharpe_ratio": 1.01
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "CDNS",
+     "days_out": 272,
+     "direction": "Long",
+     "avg_profit": 24.9,
+     "sharpe_ratio": 1.01
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "MCHP",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 2.4,
+     "sharpe_ratio": 1.0
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "COST",
+     "days_out": 264,
+     "direction": "Long",
+     "avg_profit": 14.5,
+     "sharpe_ratio": 0.94
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AVGO",
+     "days_out": 52,
+     "direction": "Long",
+     "avg_profit": 10.1,
+     "sharpe_ratio": 0.93
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DRI",
+     "days_out": 359,
+     "direction": "Long",
+     "avg_profit": 17.1,
+     "sharpe_ratio": 0.9
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "JKHY",
+     "days_out": 18,
+     "direction": "Long",
+     "avg_profit": 3.0,
+     "sharpe_ratio": 0.88
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "WTW",
+     "days_out": 363,
+     "direction": "Long",
+     "avg_profit": 12.0,
+     "sharpe_ratio": 0.76
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SJM",
+     "days_out": 273,
+     "direction": "Long",
+     "avg_profit": 9.9,
+     "sharpe_ratio": 0.67
+    }
+   ],
+   "opp_table_length": 25,
+   "opp_table_market": "2",
+   "opp_table_market_name": "S&P 500 STOCKS",
+   "opp_table_years": 12,
+   "opp_table_pe_cycle": "cons",
+   "wave_viewer": {
+    "market": "2",
+    "symbol": "FICO",
+    "start_date": "2026-11-17",
+    "entry_date": "2026-11-17",
+    "days_out": 19,
+    "years": 12,
+    "pe_cycle": "cons",
+    "direction": "long",
+    "selection_origin": "scanner",
+    "mfe_enabled": false,
+    "mae_enabled": false,
+    "view_ready": true,
+    "view_request_key": "2|FICO|2026-11-17|19|12|cons|0",
+    "stats": {
+     "Trade Dir": "long",
+     "Num Winners": "12",
+     "Num Losers": "0",
+     "Percent Profitable": "100.0%",
+     "Avg Profit - All": "4.27%",
+     "Avg Profit": "4.27%",
+     "Avg Loss": "0%",
+     "Median Profit": "4.25%",
+     "Annualized Return": "4.23%",
+     "Cumulative Return": "64.45%",
+     "Std Dev": "2.78%",
+     "Sharpe Ratio": "1.46",
+     "Sharpe Ratio2": "2.09",
+     "Trend Long": 6,
+     "Trend Short": 42,
+     "Trend Long1": 8,
+     "Trend Short1": 41,
+     "Trend Score Available": true,
+     "next_earnings_est": "2027-01-27",
+     "days_to_earnings": 71
+    },
+    "yearly_results": [
+     {
+      "year": 2014,
+      "underlying_return_pct": 2.39,
+      "upside_excursion_pct": 3.37,
+      "downside_excursion_pct": -0.85
+     },
+     {
+      "year": 2015,
+      "underlying_return_pct": 4.84,
+      "upside_excursion_pct": 9.62,
+      "downside_excursion_pct": -0.3
+     },
+     {
+      "year": 2016,
+      "underlying_return_pct": 0.82,
+      "upside_excursion_pct": 3.41,
+      "downside_excursion_pct": -1.99
+     },
+     {
+      "year": 2017,
+      "underlying_return_pct": 1.89,
+      "upside_excursion_pct": 4.13,
+      "downside_excursion_pct": -0.27
+     },
+     {
+      "year": 2018,
+      "underlying_return_pct": 5.1,
+      "upside_excursion_pct": 11.59,
+      "downside_excursion_pct": -3.63
+     },
+     {
+      "year": 2019,
+      "underlying_return_pct": 1.9,
+      "upside_excursion_pct": 4.6,
+      "downside_excursion_pct": -0.51
+     },
+     {
+      "year": 2020,
+      "underlying_return_pct": 4.94,
+      "upside_excursion_pct": 5.32,
+      "downside_excursion_pct": -2.59
+     },
+     {
+      "year": 2021,
+      "underlying_return_pct": 10.12,
+      "upside_excursion_pct": 10.94,
+      "downside_excursion_pct": -5.43
+     },
+     {
+      "year": 2022,
+      "underlying_return_pct": 4.33,
+      "upside_excursion_pct": 8.69,
+      "downside_excursion_pct": -3.13
+     },
+     {
+      "year": 2023,
+      "underlying_return_pct": 8.52,
+      "upside_excursion_pct": 10.48,
+      "downside_excursion_pct": -0.45
+     },
+     {
+      "year": 2024,
+      "underlying_return_pct": 4.17,
+      "upside_excursion_pct": 5.62,
+      "downside_excursion_pct": -1.76
+     },
+     {
+      "year": 2025,
+      "underlying_return_pct": 2.17,
+      "upside_excursion_pct": 4.25,
+      "downside_excursion_pct": -3.27
+     },
+     {
+      "year": 2026,
+      "underlying_return_pct": 0.0,
+      "upside_excursion_pct": 0.0,
+      "downside_excursion_pct": 0.0
+     }
+    ]
+   },
+   "screen_context": {
+    "active_bottom_slide": "wave_stats",
+    "ai_scores_available": false,
+    "price_chart_mode": "unknown",
+    "selected_projection_visible": false,
+    "full_history_projection_visible": false,
+    "opportunity_table_visible": true,
+    "selected_lookback": "12",
+    "projection_period": "90",
+    "opportunity_rows": 25,
+    "selected_window_path": "unknown",
+    "full_history_window_path": "unknown"
+   }
+  },
+  "stock_short": {
+   "opportunities": [
+    {
+     "date": "2026-11-17",
+     "symbol": "GWW",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.98
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "ZBRA",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 5.8,
+     "sharpe_ratio": 1.75
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "RSG",
+     "days_out": 269,
+     "direction": "Long",
+     "avg_profit": 14.6,
+     "sharpe_ratio": 1.56
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "FICO",
+     "days_out": 19,
+     "direction": "Long",
+     "avg_profit": 4.3,
+     "sharpe_ratio": 1.47
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AJG",
+     "days_out": 254,
+     "direction": "Long",
+     "avg_profit": 12.0,
+     "sharpe_ratio": 1.46
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DPZ",
+     "days_out": 13,
+     "direction": "Long",
+     "avg_profit": 4.4,
+     "sharpe_ratio": 1.45
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "V",
+     "days_out": 272,
+     "direction": "Long",
+     "avg_profit": 15.4,
+     "sharpe_ratio": 1.36
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "PGR",
+     "days_out": 227,
+     "direction": "Long",
+     "avg_profit": 17.7,
+     "sharpe_ratio": 1.22
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "CL",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 1.3,
+     "sharpe_ratio": 1.18
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "NEM",
+     "days_out": 150,
+     "direction": "Long",
+     "avg_profit": 26.2,
+     "sharpe_ratio": 1.09
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AAPL",
+     "days_out": 346,
+     "direction": "Long",
+     "avg_profit": 25.1,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SYK",
+     "days_out": 101,
+     "direction": "Long",
+     "avg_profit": 9.0,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "WM",
+     "days_out": 266,
+     "direction": "Long",
+     "avg_profit": 13.5,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "LLY",
+     "days_out": 310,
+     "direction": "Long",
+     "avg_profit": 26.7,
+     "sharpe_ratio": 1.06
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DGX",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.03
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "MKC",
+     "days_out": 25,
+     "direction": "Long",
+     "avg_profit": 3.4,
+     "sharpe_ratio": 1.02
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DE",
+     "days_out": 53,
+     "direction": "Long",
+     "avg_profit": 7.0,
+     "sharpe_ratio": 1.01
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "CDNS",
+     "days_out": 272,
+     "direction": "Long",
+     "avg_profit": 24.9,
+     "sharpe_ratio": 1.01
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "MCHP",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 2.4,
+     "sharpe_ratio": 1.0
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "COST",
+     "days_out": 264,
+     "direction": "Long",
+     "avg_profit": 14.5,
+     "sharpe_ratio": 0.94
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AVGO",
+     "days_out": 52,
+     "direction": "Long",
+     "avg_profit": 10.1,
+     "sharpe_ratio": 0.93
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DRI",
+     "days_out": 359,
+     "direction": "Long",
+     "avg_profit": 17.1,
+     "sharpe_ratio": 0.9
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "JKHY",
+     "days_out": 18,
+     "direction": "Long",
+     "avg_profit": 3.0,
+     "sharpe_ratio": 0.88
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "WTW",
+     "days_out": 363,
+     "direction": "Long",
+     "avg_profit": 12.0,
+     "sharpe_ratio": 0.76
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SJM",
+     "days_out": 273,
+     "direction": "Long",
+     "avg_profit": 9.9,
+     "sharpe_ratio": 0.67
+    }
+   ],
+   "opp_table_length": 25,
+   "opp_table_market": "2",
+   "opp_table_market_name": "S&P 500 STOCKS",
+   "opp_table_years": 12,
+   "opp_table_pe_cycle": "cons",
+   "wave_viewer": {
+    "market": "2",
+    "symbol": "J",
+    "start_date": "2026-12-02",
+    "entry_date": "2026-12-02",
+    "days_out": 18,
+    "years": 12,
+    "pe_cycle": "cons",
+    "direction": "short",
+    "selection_origin": "scanner",
+    "mfe_enabled": false,
+    "mae_enabled": false,
+    "view_ready": true,
+    "view_request_key": "2|J|2026-12-02|18|12|cons|0",
+    "stats": {
+     "Trade Dir": "short",
+     "Num Winners": "12",
+     "Num Losers": "0",
+     "Percent Profitable": "100.0%",
+     "Avg Profit - All": "4.09%",
+     "Avg Profit": "4.09%",
+     "Avg Loss": "0%",
+     "Median Profit": "3.66%",
+     "Annualized Return": "4.03%",
+     "Cumulative Return": "60.59%",
+     "Std Dev": "3.91%",
+     "Sharpe Ratio": "1.0",
+     "Sharpe Ratio2": "1.37",
+     "Trend Long": 74,
+     "Trend Short": 0,
+     "Trend Long1": 72,
+     "Trend Short1": 0,
+     "Trend Score Available": true,
+     "next_earnings_est": "2027-01-31",
+     "days_to_earnings": 75
+    },
+    "yearly_results": [
+     {
+      "year": 2014,
+      "underlying_return_pct": -7.15,
+      "upside_excursion_pct": 2.96,
+      "downside_excursion_pct": -14.6
+     },
+     {
+      "year": 2015,
+      "underlying_return_pct": -7.25,
+      "upside_excursion_pct": 2.29,
+      "downside_excursion_pct": -7.93
+     },
+     {
+      "year": 2016,
+      "underlying_return_pct": -3.17,
+      "upside_excursion_pct": 2.21,
+      "downside_excursion_pct": -3.68
+     },
+     {
+      "year": 2017,
+      "underlying_return_pct": -0.45,
+      "upside_excursion_pct": 3.99,
+      "downside_excursion_pct": -1.18
+     },
+     {
+      "year": 2018,
+      "underlying_return_pct": -12.93,
+      "upside_excursion_pct": 0.0,
+      "downside_excursion_pct": -13.64
+     },
+     {
+      "year": 2019,
+      "underlying_return_pct": -0.92,
+      "upside_excursion_pct": 1.56,
+      "downside_excursion_pct": -5.47
+     },
+     {
+      "year": 2020,
+      "underlying_return_pct": -0.22,
+      "upside_excursion_pct": 4.0,
+      "downside_excursion_pct": -2.15
+     },
+     {
+      "year": 2021,
+      "underlying_return_pct": -6.48,
+      "upside_excursion_pct": 2.15,
+      "downside_excursion_pct": -8.25
+     },
+     {
+      "year": 2022,
+      "underlying_return_pct": -5.25,
+      "upside_excursion_pct": 0.33,
+      "downside_excursion_pct": -5.83
+     },
+     {
+      "year": 2023,
+      "underlying_return_pct": -0.44,
+      "upside_excursion_pct": 1.62,
+      "downside_excursion_pct": -2.49
+     },
+     {
+      "year": 2024,
+      "underlying_return_pct": -4.15,
+      "upside_excursion_pct": 0.16,
+      "downside_excursion_pct": -5.38
+     },
+     {
+      "year": 2025,
+      "underlying_return_pct": -0.7,
+      "upside_excursion_pct": 6.03,
+      "downside_excursion_pct": -2.98
+     },
+     {
+      "year": 2026,
+      "underlying_return_pct": 0.0,
+      "upside_excursion_pct": 0.0,
+      "downside_excursion_pct": 0.0
+     }
+    ]
+   },
+   "screen_context": {
+    "active_bottom_slide": "trend_chart",
+    "ai_scores_available": false,
+    "price_chart_mode": "unknown",
+    "selected_projection_visible": false,
+    "full_history_projection_visible": false,
+    "opportunity_table_visible": true,
+    "selected_lookback": "12",
+    "projection_period": "90",
+    "opportunity_rows": 25,
+    "selected_window_path": "unknown",
+    "full_history_window_path": "unknown"
+   }
+  },
+  "stock_mixed_custom": {
+   "opportunities": [
+    {
+     "date": "2026-11-17",
+     "symbol": "GWW",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.98
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "ZBRA",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 5.8,
+     "sharpe_ratio": 1.75
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "RSG",
+     "days_out": 269,
+     "direction": "Long",
+     "avg_profit": 14.6,
+     "sharpe_ratio": 1.56
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "FICO",
+     "days_out": 19,
+     "direction": "Long",
+     "avg_profit": 4.3,
+     "sharpe_ratio": 1.47
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AJG",
+     "days_out": 254,
+     "direction": "Long",
+     "avg_profit": 12.0,
+     "sharpe_ratio": 1.46
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DPZ",
+     "days_out": 13,
+     "direction": "Long",
+     "avg_profit": 4.4,
+     "sharpe_ratio": 1.45
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "V",
+     "days_out": 272,
+     "direction": "Long",
+     "avg_profit": 15.4,
+     "sharpe_ratio": 1.36
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "PGR",
+     "days_out": 227,
+     "direction": "Long",
+     "avg_profit": 17.7,
+     "sharpe_ratio": 1.22
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "CL",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 1.3,
+     "sharpe_ratio": 1.18
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "NEM",
+     "days_out": 150,
+     "direction": "Long",
+     "avg_profit": 26.2,
+     "sharpe_ratio": 1.09
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AAPL",
+     "days_out": 346,
+     "direction": "Long",
+     "avg_profit": 25.1,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SYK",
+     "days_out": 101,
+     "direction": "Long",
+     "avg_profit": 9.0,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "WM",
+     "days_out": 266,
+     "direction": "Long",
+     "avg_profit": 13.5,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "LLY",
+     "days_out": 310,
+     "direction": "Long",
+     "avg_profit": 26.7,
+     "sharpe_ratio": 1.06
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DGX",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.03
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "MKC",
+     "days_out": 25,
+     "direction": "Long",
+     "avg_profit": 3.4,
+     "sharpe_ratio": 1.02
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DE",
+     "days_out": 53,
+     "direction": "Long",
+     "avg_profit": 7.0,
+     "sharpe_ratio": 1.01
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "CDNS",
+     "days_out": 272,
+     "direction": "Long",
+     "avg_profit": 24.9,
+     "sharpe_ratio": 1.01
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "MCHP",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 2.4,
+     "sharpe_ratio": 1.0
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "COST",
+     "days_out": 264,
+     "direction": "Long",
+     "avg_profit": 14.5,
+     "sharpe_ratio": 0.94
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AVGO",
+     "days_out": 52,
+     "direction": "Long",
+     "avg_profit": 10.1,
+     "sharpe_ratio": 0.93
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DRI",
+     "days_out": 359,
+     "direction": "Long",
+     "avg_profit": 17.1,
+     "sharpe_ratio": 0.9
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "JKHY",
+     "days_out": 18,
+     "direction": "Long",
+     "avg_profit": 3.0,
+     "sharpe_ratio": 0.88
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "WTW",
+     "days_out": 363,
+     "direction": "Long",
+     "avg_profit": 12.0,
+     "sharpe_ratio": 0.76
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SJM",
+     "days_out": 273,
+     "direction": "Long",
+     "avg_profit": 9.9,
+     "sharpe_ratio": 0.67
+    }
+   ],
+   "opp_table_length": 25,
+   "opp_table_market": "2",
+   "opp_table_market_name": "S&P 500 STOCKS",
+   "opp_table_years": 12,
+   "opp_table_pe_cycle": "cons",
+   "wave_viewer": {
+    "market": "2",
+    "symbol": "AAPL",
+    "start_date": "2026-11-17",
+    "entry_date": "2026-11-17",
+    "days_out": 45,
+    "years": 12,
+    "pe_cycle": "cons",
+    "direction": "long",
+    "selection_origin": "user_defined",
+    "mfe_enabled": false,
+    "mae_enabled": false,
+    "view_ready": true,
+    "view_request_key": "2|AAPL|2026-11-17|45|12|cons|0",
+    "stats": {
+     "Trade Dir": "long",
+     "Num Winners": "7",
+     "Num Losers": "5",
+     "Percent Profitable": "58.33%",
+     "Avg Profit - All": "1.25%",
+     "Avg Profit": "7.87%",
+     "Avg Loss": "-8.01%",
+     "Median Profit": "1.58%",
+     "Annualized Return": "0.8%",
+     "Cumulative Return": "10.07%",
+     "Std Dev": "9.84%",
+     "Sharpe Ratio": "0.08",
+     "Sharpe Ratio2": "1.29",
+     "Trend Long": 52,
+     "Trend Short": 0,
+     "Trend Long1": 63,
+     "Trend Short1": 0,
+     "Trend Score Available": true,
+     "next_earnings_est": "2027-01-28",
+     "days_to_earnings": 73
+    },
+    "yearly_results": [
+     {
+      "year": 2014,
+      "underlying_return_pct": -3.17,
+      "upside_excursion_pct": 5.05,
+      "downside_excursion_pct": -6.78
+     },
+     {
+      "year": 2015,
+      "underlying_return_pct": -7.42,
+      "upside_excursion_pct": 5.48,
+      "downside_excursion_pct": -7.8
+     },
+     {
+      "year": 2016,
+      "underlying_return_pct": 5.34,
+      "upside_excursion_pct": 7.34,
+      "downside_excursion_pct": -1.55
+     },
+     {
+      "year": 2017,
+      "underlying_return_pct": -0.54,
+      "upside_excursion_pct": 4.14,
+      "downside_excursion_pct": -2.17
+     },
+     {
+      "year": 2018,
+      "underlying_return_pct": -15.13,
+      "upside_excursion_pct": 0.0,
+      "downside_excursion_pct": -21.13
+     },
+     {
+      "year": 2019,
+      "underlying_return_pct": 9.94,
+      "upside_excursion_pct": 10.06,
+      "downside_excursion_pct": -4.05
+     },
+     {
+      "year": 2020,
+      "underlying_return_pct": 11.14,
+      "upside_excursion_pct": 16.25,
+      "downside_excursion_pct": -5.7
+     },
+     {
+      "year": 2021,
+      "underlying_return_pct": 15.69,
+      "upside_excursion_pct": 18.66,
+      "downside_excursion_pct": -0.29
+     },
+     {
+      "year": 2022,
+      "underlying_return_pct": -13.79,
+      "upside_excursion_pct": 1.31,
+      "downside_excursion_pct": -16.49
+     },
+     {
+      "year": 2023,
+      "underlying_return_pct": 1.5,
+      "upside_excursion_pct": 5.23,
+      "downside_excursion_pct": -1.18
+     },
+     {
+      "year": 2024,
+      "underlying_return_pct": 9.82,
+      "upside_excursion_pct": 14.07,
+      "downside_excursion_pct": -1.01
+     },
+     {
+      "year": 2025,
+      "underlying_return_pct": 1.65,
+      "upside_excursion_pct": 7.91,
+      "downside_excursion_pct": -0.8
+     },
+     {
+      "year": 2026,
+      "underlying_return_pct": 0.0,
+      "upside_excursion_pct": 0.0,
+      "downside_excursion_pct": 0.0
+     }
+    ]
+   },
+   "screen_context": {
+    "active_bottom_slide": "trend_chart",
+    "ai_scores_available": false,
+    "price_chart_mode": "unknown",
+    "selected_projection_visible": false,
+    "full_history_projection_visible": false,
+    "opportunity_table_visible": true,
+    "selected_lookback": "12",
+    "projection_period": "90",
+    "opportunity_rows": 25,
+    "selected_window_path": "unknown",
+    "full_history_window_path": "unknown"
+   }
+  },
+  "stock_long_ai": {
+   "opportunities": [
+    {
+     "date": "2026-11-17",
+     "symbol": "GWW",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.98
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "ZBRA",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 5.8,
+     "sharpe_ratio": 1.75
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "RSG",
+     "days_out": 269,
+     "direction": "Long",
+     "avg_profit": 14.6,
+     "sharpe_ratio": 1.56
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "FICO",
+     "days_out": 19,
+     "direction": "Long",
+     "avg_profit": 4.3,
+     "sharpe_ratio": 1.47
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AJG",
+     "days_out": 254,
+     "direction": "Long",
+     "avg_profit": 12.0,
+     "sharpe_ratio": 1.46
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DPZ",
+     "days_out": 13,
+     "direction": "Long",
+     "avg_profit": 4.4,
+     "sharpe_ratio": 1.45
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "V",
+     "days_out": 272,
+     "direction": "Long",
+     "avg_profit": 15.4,
+     "sharpe_ratio": 1.36
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "PGR",
+     "days_out": 227,
+     "direction": "Long",
+     "avg_profit": 17.7,
+     "sharpe_ratio": 1.22
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "CL",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 1.3,
+     "sharpe_ratio": 1.18
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "NEM",
+     "days_out": 150,
+     "direction": "Long",
+     "avg_profit": 26.2,
+     "sharpe_ratio": 1.09
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AAPL",
+     "days_out": 346,
+     "direction": "Long",
+     "avg_profit": 25.1,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SYK",
+     "days_out": 101,
+     "direction": "Long",
+     "avg_profit": 9.0,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "WM",
+     "days_out": 266,
+     "direction": "Long",
+     "avg_profit": 13.5,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "LLY",
+     "days_out": 310,
+     "direction": "Long",
+     "avg_profit": 26.7,
+     "sharpe_ratio": 1.06
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DGX",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.03
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "MKC",
+     "days_out": 25,
+     "direction": "Long",
+     "avg_profit": 3.4,
+     "sharpe_ratio": 1.02
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DE",
+     "days_out": 53,
+     "direction": "Long",
+     "avg_profit": 7.0,
+     "sharpe_ratio": 1.01
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "CDNS",
+     "days_out": 272,
+     "direction": "Long",
+     "avg_profit": 24.9,
+     "sharpe_ratio": 1.01
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "MCHP",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 2.4,
+     "sharpe_ratio": 1.0
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "COST",
+     "days_out": 264,
+     "direction": "Long",
+     "avg_profit": 14.5,
+     "sharpe_ratio": 0.94
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AVGO",
+     "days_out": 52,
+     "direction": "Long",
+     "avg_profit": 10.1,
+     "sharpe_ratio": 0.93
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DRI",
+     "days_out": 359,
+     "direction": "Long",
+     "avg_profit": 17.1,
+     "sharpe_ratio": 0.9
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "JKHY",
+     "days_out": 18,
+     "direction": "Long",
+     "avg_profit": 3.0,
+     "sharpe_ratio": 0.88
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "WTW",
+     "days_out": 363,
+     "direction": "Long",
+     "avg_profit": 12.0,
+     "sharpe_ratio": 0.76
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SJM",
+     "days_out": 273,
+     "direction": "Long",
+     "avg_profit": 9.9,
+     "sharpe_ratio": 0.67
+    }
+   ],
+   "opp_table_length": 25,
+   "opp_table_market": "2",
+   "opp_table_market_name": "S&P 500 STOCKS",
+   "opp_table_years": 12,
+   "opp_table_pe_cycle": "cons",
+   "wave_viewer": {
+    "market": "2",
+    "symbol": "MKC",
+    "start_date": "2026-11-17",
+    "entry_date": "2026-11-17",
+    "days_out": 25,
+    "years": 12,
+    "pe_cycle": "cons",
+    "direction": "long",
+    "selection_origin": "scanner",
+    "mfe_enabled": false,
+    "mae_enabled": false,
+    "view_ready": true,
+    "view_request_key": "2|MKC|2026-11-17|25|12|cons|0",
+    "stats": {
+     "Trade Dir": "long",
+     "Num Winners": "12",
+     "Num Losers": "0",
+     "Percent Profitable": "100.0%",
+     "Avg Profit - All": "3.45%",
+     "Avg Profit": "3.45%",
+     "Avg Loss": "0%",
+     "Median Profit": "2.27%",
+     "Annualized Return": "3.41%",
+     "Cumulative Return": "49.54%",
+     "Std Dev": "3.14%",
+     "Sharpe Ratio": "1.02",
+     "Sharpe Ratio2": "1.79",
+     "Trend Long": 6,
+     "Trend Short": 32,
+     "Trend Long1": 2,
+     "Trend Short1": 41,
+     "Trend Score Available": true,
+     "next_earnings_est": "2027-01-02",
+     "days_to_earnings": 47
+    },
+    "yearly_results": [
+     {
+      "year": 2014,
+      "underlying_return_pct": 1.06,
+      "upside_excursion_pct": 3.09,
+      "downside_excursion_pct": -0.48
+     },
+     {
+      "year": 2015,
+      "underlying_return_pct": 1.38,
+      "upside_excursion_pct": 5.74,
+      "downside_excursion_pct": 0.0
+     },
+     {
+      "year": 2016,
+      "underlying_return_pct": 2.16,
+      "upside_excursion_pct": 2.34,
+      "downside_excursion_pct": -3.02
+     },
+     {
+      "year": 2017,
+      "underlying_return_pct": 1.2,
+      "upside_excursion_pct": 5.47,
+      "downside_excursion_pct": -0.63
+     },
+     {
+      "year": 2018,
+      "underlying_return_pct": 2.52,
+      "upside_excursion_pct": 3.72,
+      "downside_excursion_pct": -3.86
+     },
+     {
+      "year": 2019,
+      "underlying_return_pct": 3.13,
+      "upside_excursion_pct": 4.74,
+      "downside_excursion_pct": -0.59
+     },
+     {
+      "year": 2020,
+      "underlying_return_pct": 2.29,
+      "upside_excursion_pct": 4.04,
+      "downside_excursion_pct": -1.35
+     },
+     {
+      "year": 2021,
+      "underlying_return_pct": 10.85,
+      "upside_excursion_pct": 11.58,
+      "downside_excursion_pct": -1.56
+     },
+     {
+      "year": 2022,
+      "underlying_return_pct": 3.44,
+      "upside_excursion_pct": 4.1,
+      "downside_excursion_pct": -1.31
+     },
+     {
+      "year": 2023,
+      "underlying_return_pct": 2.25,
+      "upside_excursion_pct": 2.91,
+      "downside_excursion_pct": -4.05
+     },
+     {
+      "year": 2024,
+      "underlying_return_pct": 9.03,
+      "upside_excursion_pct": 10.16,
+      "downside_excursion_pct": -0.94
+     },
+     {
+      "year": 2025,
+      "underlying_return_pct": 2.12,
+      "upside_excursion_pct": 6.67,
+      "downside_excursion_pct": -2.99
+     },
+     {
+      "year": 2026,
+      "underlying_return_pct": 0.0,
+      "upside_excursion_pct": 0.0,
+      "downside_excursion_pct": 0.0
+     }
+    ]
+   },
+   "screen_context": {
+    "active_bottom_slide": "ai_scores",
+    "ai_scores_available": true,
+    "price_chart_mode": "unknown",
+    "selected_projection_visible": false,
+    "full_history_projection_visible": false,
+    "opportunity_table_visible": true,
+    "selected_lookback": "12",
+    "projection_period": "90",
+    "opportunity_rows": 25,
+    "selected_window_path": "unknown",
+    "full_history_window_path": "unknown"
+   }
+  },
+  "etf_long": {
+   "opportunities": [
+    {
+     "date": "2026-11-17",
+     "symbol": "VCLT",
+     "days_out": 10,
+     "direction": "Long",
+     "avg_profit": 1.3,
+     "sharpe_ratio": 1.89
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "IGLB",
+     "days_out": 10,
+     "direction": "Long",
+     "avg_profit": 1.3,
+     "sharpe_ratio": 1.78
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "BLV",
+     "days_out": 10,
+     "direction": "Long",
+     "avg_profit": 1.3,
+     "sharpe_ratio": 1.71
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SQQQ",
+     "days_out": 8,
+     "direction": "Short",
+     "avg_profit": 3.0,
+     "sharpe_ratio": 1.64
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SDOW",
+     "days_out": 360,
+     "direction": "Short",
+     "avg_profit": 33.4,
+     "sharpe_ratio": 1.64
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "ZROZ",
+     "days_out": 6,
+     "direction": "Long",
+     "avg_profit": 1.2,
+     "sharpe_ratio": 1.6
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "QID",
+     "days_out": 8,
+     "direction": "Short",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.58
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "PSQ",
+     "days_out": 8,
+     "direction": "Short",
+     "avg_profit": 1.0,
+     "sharpe_ratio": 1.5
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "QQQ",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 1.0,
+     "sharpe_ratio": 1.46
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "HYD",
+     "days_out": 21,
+     "direction": "Long",
+     "avg_profit": 1.1,
+     "sharpe_ratio": 1.46
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "QLD",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.42
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "FAZ",
+     "days_out": 364,
+     "direction": "Short",
+     "avg_profit": 36.5,
+     "sharpe_ratio": 1.35
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DXD",
+     "days_out": 360,
+     "direction": "Short",
+     "avg_profit": 22.0,
+     "sharpe_ratio": 1.33
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "TQQQ",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 2.7,
+     "sharpe_ratio": 1.31
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "EDV",
+     "days_out": 11,
+     "direction": "Long",
+     "avg_profit": 2.2,
+     "sharpe_ratio": 1.3
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "VGLT",
+     "days_out": 6,
+     "direction": "Long",
+     "avg_profit": 0.6,
+     "sharpe_ratio": 1.3
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "VOE",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 1.5,
+     "sharpe_ratio": 1.28
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SPTL",
+     "days_out": 11,
+     "direction": "Long",
+     "avg_profit": 1.3,
+     "sharpe_ratio": 1.28
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "VDC",
+     "days_out": 273,
+     "direction": "Long",
+     "avg_profit": 9.0,
+     "sharpe_ratio": 1.27
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "IWF",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 1.0,
+     "sharpe_ratio": 1.25
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "XMMO",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 2.0,
+     "sharpe_ratio": 1.25
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "XLP",
+     "days_out": 273,
+     "direction": "Long",
+     "avg_profit": 9.0,
+     "sharpe_ratio": 1.14
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "VONG",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 0.9,
+     "sharpe_ratio": 1.12
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "GLL",
+     "days_out": 203,
+     "direction": "Short",
+     "avg_profit": 15.9,
+     "sharpe_ratio": 1.09
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DXJ",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 1.2,
+     "sharpe_ratio": 1.02
+    }
+   ],
+   "opp_table_length": 35,
+   "opp_table_market": "11",
+   "opp_table_market_name": "ETFs",
+   "opp_table_years": 12,
+   "opp_table_pe_cycle": "cons",
+   "wave_viewer": {
+    "market": "11",
+    "symbol": "XLK",
+    "start_date": "2026-11-17",
+    "entry_date": "2026-11-17",
+    "days_out": 45,
+    "years": 12,
+    "pe_cycle": "cons",
+    "direction": "long",
+    "selection_origin": "user_defined",
+    "mfe_enabled": false,
+    "mae_enabled": false,
+    "view_ready": true,
+    "view_request_key": "11|XLK|2026-11-17|45|12|cons|0",
+    "stats": {
+     "Trade Dir": "long",
+     "Num Winners": "10",
+     "Num Losers": "2",
+     "Percent Profitable": "83.33%",
+     "Avg Profit - All": "1.48%",
+     "Avg Profit": "2.83%",
+     "Avg Loss": "-5.26%",
+     "Median Profit": "1.58%",
+     "Annualized Return": "1.41%",
+     "Cumulative Return": "18.31%",
+     "Std Dev": "3.83%",
+     "Sharpe Ratio": "0.26",
+     "Sharpe Ratio2": "3.16",
+     "Trend Long": 0,
+     "Trend Short": 69,
+     "Trend Long1": 6,
+     "Trend Short1": 47,
+     "Trend Score Available": true
+    },
+    "yearly_results": [
+     {
+      "year": 2014,
+      "underlying_return_pct": 0.08,
+      "upside_excursion_pct": 2.61,
+      "downside_excursion_pct": -4.09
+     },
+     {
+      "year": 2015,
+      "underlying_return_pct": 0.04,
+      "upside_excursion_pct": 3.75,
+      "downside_excursion_pct": -1.67
+     },
+     {
+      "year": 2016,
+      "underlying_return_pct": 2.48,
+      "upside_excursion_pct": 4.68,
+      "downside_excursion_pct": -2.17
+     },
+     {
+      "year": 2017,
+      "underlying_return_pct": 1.32,
+      "upside_excursion_pct": 3.3,
+      "downside_excursion_pct": -1.97
+     },
+     {
+      "year": 2018,
+      "underlying_return_pct": -5.12,
+      "upside_excursion_pct": 6.25,
+      "downside_excursion_pct": -11.87
+     },
+     {
+      "year": 2019,
+      "underlying_return_pct": 5.11,
+      "upside_excursion_pct": 5.82,
+      "downside_excursion_pct": -2.67
+     },
+     {
+      "year": 2020,
+      "underlying_return_pct": 7.09,
+      "upside_excursion_pct": 8.23,
+      "downside_excursion_pct": -2.18
+     },
+     {
+      "year": 2021,
+      "underlying_return_pct": 3.45,
+      "upside_excursion_pct": 5.34,
+      "downside_excursion_pct": -3.17
+     },
+     {
+      "year": 2022,
+      "underlying_return_pct": -5.41,
+      "upside_excursion_pct": 5.6,
+      "downside_excursion_pct": -7.81
+     },
+     {
+      "year": 2023,
+      "underlying_return_pct": 5.53,
+      "upside_excursion_pct": 6.21,
+      "downside_excursion_pct": -0.81
+     },
+     {
+      "year": 2024,
+      "underlying_return_pct": 1.5,
+      "upside_excursion_pct": 5.45,
+      "downside_excursion_pct": -0.63
+     },
+     {
+      "year": 2025,
+      "underlying_return_pct": 1.67,
+      "upside_excursion_pct": 5.22,
+      "downside_excursion_pct": -5.7
+     },
+     {
+      "year": 2026,
+      "underlying_return_pct": 0.0,
+      "upside_excursion_pct": 0.0,
+      "downside_excursion_pct": 0.0
+     }
+    ]
+   },
+   "screen_context": {
+    "active_bottom_slide": "trend_chart",
+    "ai_scores_available": false,
+    "price_chart_mode": "unknown",
+    "selected_projection_visible": false,
+    "full_history_projection_visible": false,
+    "opportunity_table_visible": true,
+    "selected_lookback": "12",
+    "projection_period": "90",
+    "opportunity_rows": 25,
+    "selected_window_path": "unknown",
+    "full_history_window_path": "unknown"
+   }
+  },
+  "futures_gold": {
+   "opportunities": [
+    {
+     "date": "2026-11-17",
+     "symbol": "ZC",
+     "days_out": 38,
+     "direction": "Long",
+     "avg_profit": 4.3,
+     "sharpe_ratio": 1.67
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "NQ",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 0.9,
+     "sharpe_ratio": 1.31
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "FBTP",
+     "days_out": 6,
+     "direction": "Long",
+     "avg_profit": 0.5,
+     "sharpe_ratio": 1.15
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "FGBL",
+     "days_out": 10,
+     "direction": "Long",
+     "avg_profit": 0.5,
+     "sharpe_ratio": 1.11
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "RU",
+     "days_out": 107,
+     "direction": "Long",
+     "avg_profit": 15.6,
+     "sharpe_ratio": 0.88
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "GC",
+     "days_out": 206,
+     "direction": "Long",
+     "avg_profit": 8.7,
+     "sharpe_ratio": 0.7
+    }
+   ],
+   "opp_table_length": 6,
+   "opp_table_market": "7",
+   "opp_table_market_name": "FUTURES & COMMODITIES",
+   "opp_table_years": 12,
+   "opp_table_pe_cycle": "cons",
+   "wave_viewer": {
+    "market": "7",
+    "symbol": "GC",
+    "start_date": "2026-11-17",
+    "entry_date": "2026-11-17",
+    "days_out": 90,
+    "years": 12,
+    "pe_cycle": "cons",
+    "direction": "long",
+    "selection_origin": "user_defined",
+    "mfe_enabled": false,
+    "mae_enabled": false,
+    "view_ready": true,
+    "view_request_key": "7|GC|2026-11-17|90|12|cons|0",
+    "stats": {
+     "Trade Dir": "long",
+     "Num Winners": "10",
+     "Num Losers": "2",
+     "Percent Profitable": "83.33%",
+     "Avg Profit - All": "6.06%",
+     "Avg Profit": "7.74%",
+     "Avg Loss": "-2.36%",
+     "Median Profit": "4.95%",
+     "Annualized Return": "5.81%",
+     "Cumulative Return": "96.93%",
+     "Std Dev": "7.67%",
+     "Sharpe Ratio": "0.66",
+     "Sharpe Ratio2": "0.98",
+     "Trend Long": 0,
+     "Trend Short": 75,
+     "Trend Long1": 0,
+     "Trend Short1": 70,
+     "Trend Score Available": true
+    },
+    "yearly_results": [
+     {
+      "year": 2014,
+      "underlying_return_pct": 2.12,
+      "upside_excursion_pct": 10.19,
+      "downside_excursion_pct": -3.49
+     },
+     {
+      "year": 2015,
+      "underlying_return_pct": 15.94,
+      "upside_excursion_pct": 17.98,
+      "downside_excursion_pct": -2.11
+     },
+     {
+      "year": 2016,
+      "underlying_return_pct": 0.61,
+      "upside_excursion_pct": 2.25,
+      "downside_excursion_pct": -7.61
+     },
+     {
+      "year": 2017,
+      "underlying_return_pct": 4.61,
+      "upside_excursion_pct": 5.14,
+      "downside_excursion_pct": -4.58
+     },
+     {
+      "year": 2018,
+      "underlying_return_pct": 7.09,
+      "upside_excursion_pct": 8.36,
+      "downside_excursion_pct": -0.97
+     },
+     {
+      "year": 2019,
+      "underlying_return_pct": 7.6,
+      "upside_excursion_pct": 9.06,
+      "downside_excursion_pct": -1.28
+     },
+     {
+      "year": 2020,
+      "underlying_return_pct": -4.63,
+      "upside_excursion_pct": 4.0,
+      "downside_excursion_pct": -6.48
+     },
+     {
+      "year": 2021,
+      "underlying_return_pct": -0.09,
+      "upside_excursion_pct": 0.05,
+      "downside_excursion_pct": -6.19
+     },
+     {
+      "year": 2022,
+      "underlying_return_pct": 5.29,
+      "upside_excursion_pct": 11.26,
+      "downside_excursion_pct": -1.4
+     },
+     {
+      "year": 2023,
+      "underlying_return_pct": 0.44,
+      "upside_excursion_pct": 7.5,
+      "downside_excursion_pct": -0.6
+     },
+     {
+      "year": 2024,
+      "underlying_return_pct": 10.46,
+      "upside_excursion_pct": 12.82,
+      "downside_excursion_pct": -1.09
+     },
+     {
+      "year": 2025,
+      "underlying_return_pct": 23.22,
+      "upside_excursion_pct": 37.31,
+      "downside_excursion_pct": -0.9
+     },
+     {
+      "year": 2026,
+      "underlying_return_pct": 0.0,
+      "upside_excursion_pct": 0.0,
+      "downside_excursion_pct": 0.0
+     }
+    ]
+   },
+   "screen_context": {
+    "active_bottom_slide": "trend_chart",
+    "ai_scores_available": false,
+    "price_chart_mode": "unknown",
+    "selected_projection_visible": false,
+    "full_history_projection_visible": false,
+    "opportunity_table_visible": true,
+    "selected_lookback": "12",
+    "projection_period": "90",
+    "opportunity_rows": 6,
+    "selected_window_path": "unknown",
+    "full_history_window_path": "unknown"
+   }
+  },
+  "crypto_btc": {
+   "opportunities": [
+    {
+     "date": "2026-11-17",
+     "symbol": "FTC-USD",
+     "days_out": 43,
+     "direction": "Short",
+     "avg_profit": 36.9,
+     "sharpe_ratio": 1.99
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "FRC-USD",
+     "days_out": 10,
+     "direction": "Short",
+     "avg_profit": 20.7,
+     "sharpe_ratio": 1.81
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "UNO-USD",
+     "days_out": 130,
+     "direction": "Short",
+     "avg_profit": 36.3,
+     "sharpe_ratio": 1.51
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "CLOAK-USD",
+     "days_out": 11,
+     "direction": "Short",
+     "avg_profit": 25.6,
+     "sharpe_ratio": 1.4
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DGC-USD",
+     "days_out": 21,
+     "direction": "Short",
+     "avg_profit": 14.8,
+     "sharpe_ratio": 1.26
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "PPC-USD",
+     "days_out": 6,
+     "direction": "Short",
+     "avg_profit": 9.7,
+     "sharpe_ratio": 1.14
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "XEM-USD",
+     "days_out": 223,
+     "direction": "Short",
+     "avg_profit": 37.4,
+     "sharpe_ratio": 1.04
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "MAX-USD",
+     "days_out": 224,
+     "direction": "Short",
+     "avg_profit": 33.3,
+     "sharpe_ratio": 1.02
+    }
+   ],
+   "opp_table_length": 8,
+   "opp_table_market": "16",
+   "opp_table_market_name": "CRYPTO CURRENCIES",
+   "opp_table_years": 8,
+   "opp_table_pe_cycle": "cons",
+   "wave_viewer": {
+    "market": "16",
+    "symbol": "BTC-USD",
+    "start_date": "2026-11-17",
+    "entry_date": "2026-11-17",
+    "days_out": 60,
+    "years": 8,
+    "pe_cycle": "cons",
+    "direction": "long",
+    "selection_origin": "user_defined",
+    "mfe_enabled": false,
+    "mae_enabled": false,
+    "view_ready": true,
+    "view_request_key": "16|BTC-USD|2026-11-17|60|8|cons|0",
+    "stats": {
+     "Trade Dir": "long",
+     "Num Winners": "6",
+     "Num Losers": "2",
+     "Percent Profitable": "75.0%",
+     "Avg Profit - All": "13.14%",
+     "Avg Profit": "28.04%",
+     "Avg Loss": "-31.56%",
+     "Median Profit": "7.8%",
+     "Annualized Return": "6.78%",
+     "Cumulative Return": "68.99%",
+     "Std Dev": "43.91%",
+     "Sharpe Ratio": "0.28",
+     "Sharpe Ratio2": "0.62",
+     "Trend Long": 0,
+     "Trend Short": 83,
+     "Trend Long1": 0,
+     "Trend Short1": 86,
+     "Trend Score Available": true
+    },
+    "yearly_results": [
+     {
+      "year": 2018,
+      "underlying_return_pct": -34.63,
+      "upside_excursion_pct": 1.79,
+      "downside_excursion_pct": -42.54
+     },
+     {
+      "year": 2019,
+      "underlying_return_pct": 2.67,
+      "upside_excursion_pct": 3.64,
+      "downside_excursion_pct": -23.76
+     },
+     {
+      "year": 2020,
+      "underlying_return_pct": 108.7,
+      "upside_excursion_pct": 137.72,
+      "downside_excursion_pct": -7.34
+     },
+     {
+      "year": 2021,
+      "underlying_return_pct": -28.48,
+      "upside_excursion_pct": 0.96,
+      "downside_excursion_pct": -34.08
+     },
+     {
+      "year": 2022,
+      "underlying_return_pct": 25.13,
+      "upside_excursion_pct": 26.29,
+      "downside_excursion_pct": -6.52
+     },
+     {
+      "year": 2023,
+      "underlying_return_pct": 16.16,
+      "upside_excursion_pct": 33.81,
+      "downside_excursion_pct": -2.53
+     },
+     {
+      "year": 2024,
+      "underlying_return_pct": 11.86,
+      "upside_excursion_pct": 20.5,
+      "downside_excursion_pct": -0.65
+     },
+     {
+      "year": 2025,
+      "underlying_return_pct": 3.75,
+      "upside_excursion_pct": 6.26,
+      "downside_excursion_pct": -12.42
+     },
+     {
+      "year": 2026,
+      "underlying_return_pct": 0.0,
+      "upside_excursion_pct": 0.0,
+      "downside_excursion_pct": 0.0
+     }
+    ]
+   },
+   "screen_context": {
+    "active_bottom_slide": "trend_chart",
+    "ai_scores_available": false,
+    "price_chart_mode": "unknown",
+    "selected_projection_visible": false,
+    "full_history_projection_visible": false,
+    "opportunity_table_visible": true,
+    "selected_lookback": "8",
+    "projection_period": "90",
+    "opportunity_rows": 8,
+    "selected_window_path": "unknown",
+    "full_history_window_path": "unknown"
+   }
+  },
+  "stock_pe2": {
+   "opportunities": [
+    {
+     "date": "2026-11-17",
+     "symbol": "GWW",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.98
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "ZBRA",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 5.8,
+     "sharpe_ratio": 1.75
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "RSG",
+     "days_out": 269,
+     "direction": "Long",
+     "avg_profit": 14.6,
+     "sharpe_ratio": 1.56
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "FICO",
+     "days_out": 19,
+     "direction": "Long",
+     "avg_profit": 4.3,
+     "sharpe_ratio": 1.47
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AJG",
+     "days_out": 254,
+     "direction": "Long",
+     "avg_profit": 12.0,
+     "sharpe_ratio": 1.46
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DPZ",
+     "days_out": 13,
+     "direction": "Long",
+     "avg_profit": 4.4,
+     "sharpe_ratio": 1.45
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "V",
+     "days_out": 272,
+     "direction": "Long",
+     "avg_profit": 15.4,
+     "sharpe_ratio": 1.36
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "PGR",
+     "days_out": 227,
+     "direction": "Long",
+     "avg_profit": 17.7,
+     "sharpe_ratio": 1.22
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "CL",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 1.3,
+     "sharpe_ratio": 1.18
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "NEM",
+     "days_out": 150,
+     "direction": "Long",
+     "avg_profit": 26.2,
+     "sharpe_ratio": 1.09
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AAPL",
+     "days_out": 346,
+     "direction": "Long",
+     "avg_profit": 25.1,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SYK",
+     "days_out": 101,
+     "direction": "Long",
+     "avg_profit": 9.0,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "WM",
+     "days_out": 266,
+     "direction": "Long",
+     "avg_profit": 13.5,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "LLY",
+     "days_out": 310,
+     "direction": "Long",
+     "avg_profit": 26.7,
+     "sharpe_ratio": 1.06
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DGX",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.03
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "MKC",
+     "days_out": 25,
+     "direction": "Long",
+     "avg_profit": 3.4,
+     "sharpe_ratio": 1.02
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DE",
+     "days_out": 53,
+     "direction": "Long",
+     "avg_profit": 7.0,
+     "sharpe_ratio": 1.01
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "CDNS",
+     "days_out": 272,
+     "direction": "Long",
+     "avg_profit": 24.9,
+     "sharpe_ratio": 1.01
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "MCHP",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 2.4,
+     "sharpe_ratio": 1.0
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "COST",
+     "days_out": 264,
+     "direction": "Long",
+     "avg_profit": 14.5,
+     "sharpe_ratio": 0.94
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AVGO",
+     "days_out": 52,
+     "direction": "Long",
+     "avg_profit": 10.1,
+     "sharpe_ratio": 0.93
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DRI",
+     "days_out": 359,
+     "direction": "Long",
+     "avg_profit": 17.1,
+     "sharpe_ratio": 0.9
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "JKHY",
+     "days_out": 18,
+     "direction": "Long",
+     "avg_profit": 3.0,
+     "sharpe_ratio": 0.88
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "WTW",
+     "days_out": 363,
+     "direction": "Long",
+     "avg_profit": 12.0,
+     "sharpe_ratio": 0.76
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SJM",
+     "days_out": 273,
+     "direction": "Long",
+     "avg_profit": 9.9,
+     "sharpe_ratio": 0.67
+    }
+   ],
+   "opp_table_length": 25,
+   "opp_table_market": "2",
+   "opp_table_market_name": "S&P 500 STOCKS",
+   "opp_table_years": 12,
+   "opp_table_pe_cycle": "cons",
+   "wave_viewer": {
+    "market": "2",
+    "symbol": "MSFT",
+    "start_date": "2026-11-17",
+    "entry_date": "2026-11-17",
+    "days_out": 60,
+    "years": 10,
+    "pe_cycle": "pe2",
+    "direction": "long",
+    "selection_origin": "user_defined",
+    "mfe_enabled": false,
+    "mae_enabled": false,
+    "view_ready": true,
+    "view_request_key": "2|MSFT|2026-11-17|60|10|pe2|0",
+    "stats": {
+     "Trade Dir": "long",
+     "Num Winners": "6",
+     "Num Losers": "3",
+     "Percent Profitable": "66.67%",
+     "Avg Profit - All": "6.4%",
+     "Avg Profit": "10.97%",
+     "Avg Loss": "-2.74%",
+     "Median Profit": "0.75%",
+     "Annualized Return": "5.83%",
+     "Cumulative Return": "66.52%",
+     "Std Dev": "12.14%",
+     "Sharpe Ratio": "0.47",
+     "Sharpe Ratio2": "0.92",
+     "Trend Long": 20,
+     "Trend Short": 23,
+     "Trend Long1": 26,
+     "Trend Short1": 15,
+     "Trend Score Available": true,
+     "next_earnings_est": "2027-01-27",
+     "days_to_earnings": 71
+    },
+    "yearly_results": [
+     {
+      "year": 1990,
+      "underlying_return_pct": 12.76,
+      "upside_excursion_pct": 14.39,
+      "downside_excursion_pct": -3.61
+     },
+     {
+      "year": 1994,
+      "underlying_return_pct": -0.19,
+      "upside_excursion_pct": 0.78,
+      "downside_excursion_pct": -8.56
+     },
+     {
+      "year": 1998,
+      "underlying_return_pct": 33.85,
+      "upside_excursion_pct": 36.31,
+      "downside_excursion_pct": -2.51
+     },
+     {
+      "year": 2002,
+      "underlying_return_pct": 0.75,
+      "upside_excursion_pct": 5.57,
+      "downside_excursion_pct": -8.22
+     },
+     {
+      "year": 2006,
+      "underlying_return_pct": 5.99,
+      "upside_excursion_pct": 6.97,
+      "downside_excursion_pct": -2.04
+     },
+     {
+      "year": 2010,
+      "underlying_return_pct": 12.08,
+      "upside_excursion_pct": 12.83,
+      "downside_excursion_pct": -2.5
+     },
+     {
+      "year": 2014,
+      "underlying_return_pct": -7.47,
+      "upside_excursion_pct": 0.37,
+      "downside_excursion_pct": -8.65
+     },
+     {
+      "year": 2018,
+      "underlying_return_pct": 0.37,
+      "upside_excursion_pct": 8.41,
+      "downside_excursion_pct": -10.19
+     },
+     {
+      "year": 2022,
+      "underlying_return_pct": -0.55,
+      "upside_excursion_pct": 9.2,
+      "downside_excursion_pct": -9.24
+     },
+     {
+      "year": 2026,
+      "underlying_return_pct": 0.0,
+      "upside_excursion_pct": 0.0,
+      "downside_excursion_pct": 0.0
+     }
+    ]
+   },
+   "screen_context": {
+    "active_bottom_slide": "trend_chart",
+    "ai_scores_available": false,
+    "price_chart_mode": "unknown",
+    "selected_projection_visible": false,
+    "full_history_projection_visible": false,
+    "opportunity_table_visible": true,
+    "selected_lookback": "pe2-10",
+    "projection_period": "90",
+    "opportunity_rows": 25,
+    "selected_window_path": "unknown",
+    "full_history_window_path": "unknown"
+   }
+  },
+  "stock_long_window": {
+   "opportunities": [
+    {
+     "date": "2026-11-17",
+     "symbol": "GWW",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.98
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "ZBRA",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 5.8,
+     "sharpe_ratio": 1.75
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "RSG",
+     "days_out": 269,
+     "direction": "Long",
+     "avg_profit": 14.6,
+     "sharpe_ratio": 1.56
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "FICO",
+     "days_out": 19,
+     "direction": "Long",
+     "avg_profit": 4.3,
+     "sharpe_ratio": 1.47
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AJG",
+     "days_out": 254,
+     "direction": "Long",
+     "avg_profit": 12.0,
+     "sharpe_ratio": 1.46
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DPZ",
+     "days_out": 13,
+     "direction": "Long",
+     "avg_profit": 4.4,
+     "sharpe_ratio": 1.45
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "V",
+     "days_out": 272,
+     "direction": "Long",
+     "avg_profit": 15.4,
+     "sharpe_ratio": 1.36
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "PGR",
+     "days_out": 227,
+     "direction": "Long",
+     "avg_profit": 17.7,
+     "sharpe_ratio": 1.22
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "CL",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 1.3,
+     "sharpe_ratio": 1.18
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "NEM",
+     "days_out": 150,
+     "direction": "Long",
+     "avg_profit": 26.2,
+     "sharpe_ratio": 1.09
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AAPL",
+     "days_out": 346,
+     "direction": "Long",
+     "avg_profit": 25.1,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SYK",
+     "days_out": 101,
+     "direction": "Long",
+     "avg_profit": 9.0,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "WM",
+     "days_out": 266,
+     "direction": "Long",
+     "avg_profit": 13.5,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "LLY",
+     "days_out": 310,
+     "direction": "Long",
+     "avg_profit": 26.7,
+     "sharpe_ratio": 1.06
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DGX",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.03
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "MKC",
+     "days_out": 25,
+     "direction": "Long",
+     "avg_profit": 3.4,
+     "sharpe_ratio": 1.02
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DE",
+     "days_out": 53,
+     "direction": "Long",
+     "avg_profit": 7.0,
+     "sharpe_ratio": 1.01
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "CDNS",
+     "days_out": 272,
+     "direction": "Long",
+     "avg_profit": 24.9,
+     "sharpe_ratio": 1.01
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "MCHP",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 2.4,
+     "sharpe_ratio": 1.0
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "COST",
+     "days_out": 264,
+     "direction": "Long",
+     "avg_profit": 14.5,
+     "sharpe_ratio": 0.94
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AVGO",
+     "days_out": 52,
+     "direction": "Long",
+     "avg_profit": 10.1,
+     "sharpe_ratio": 0.93
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DRI",
+     "days_out": 359,
+     "direction": "Long",
+     "avg_profit": 17.1,
+     "sharpe_ratio": 0.9
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "JKHY",
+     "days_out": 18,
+     "direction": "Long",
+     "avg_profit": 3.0,
+     "sharpe_ratio": 0.88
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "WTW",
+     "days_out": 363,
+     "direction": "Long",
+     "avg_profit": 12.0,
+     "sharpe_ratio": 0.76
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SJM",
+     "days_out": 273,
+     "direction": "Long",
+     "avg_profit": 9.9,
+     "sharpe_ratio": 0.67
+    }
+   ],
+   "opp_table_length": 25,
+   "opp_table_market": "2",
+   "opp_table_market_name": "S&P 500 STOCKS",
+   "opp_table_years": 12,
+   "opp_table_pe_cycle": "cons",
+   "wave_viewer": {
+    "market": "2",
+    "symbol": "RSG",
+    "start_date": "2026-11-17",
+    "entry_date": "2026-11-17",
+    "days_out": 269,
+    "years": 12,
+    "pe_cycle": "cons",
+    "direction": "long",
+    "selection_origin": "scanner",
+    "mfe_enabled": false,
+    "mae_enabled": false,
+    "view_ready": true,
+    "view_request_key": "2|RSG|2026-11-17|269|12|cons|0",
+    "stats": {
+     "Trade Dir": "long",
+     "Num Winners": "12",
+     "Num Losers": "0",
+     "Percent Profitable": "100.0%",
+     "Avg Profit - All": "14.77%",
+     "Avg Profit": "14.77%",
+     "Avg Loss": "0%",
+     "Median Profit": "16.1%",
+     "Annualized Return": "14.55%",
+     "Cumulative Return": "410.54%",
+     "Std Dev": "7.3%",
+     "Sharpe Ratio": "1.62",
+     "Sharpe Ratio2": "2.37",
+     "Trend Long": 86,
+     "Trend Short": 1,
+     "Trend Long1": 85,
+     "Trend Short1": 0,
+     "Trend Score Available": true,
+     "next_earnings_est": "2027-01-28",
+     "days_to_earnings": 72
+    },
+    "yearly_results": [
+     {
+      "year": 2014,
+      "underlying_return_pct": 10.02,
+      "upside_excursion_pct": 11.25,
+      "downside_excursion_pct": -3.62
+     },
+     {
+      "year": 2015,
+      "underlying_return_pct": 21.11,
+      "upside_excursion_pct": 23.94,
+      "downside_excursion_pct": -3.24
+     },
+     {
+      "year": 2016,
+      "underlying_return_pct": 20.04,
+      "upside_excursion_pct": 21.78,
+      "downside_excursion_pct": -0.37
+     },
+     {
+      "year": 2017,
+      "underlying_return_pct": 18.84,
+      "upside_excursion_pct": 19.48,
+      "downside_excursion_pct": -2.99
+     },
+     {
+      "year": 2018,
+      "underlying_return_pct": 18.76,
+      "upside_excursion_pct": 20.11,
+      "downside_excursion_pct": -9.89
+     },
+     {
+      "year": 2019,
+      "underlying_return_pct": 6.15,
+      "upside_excursion_pct": 16.19,
+      "downside_excursion_pct": -24.73
+     },
+     {
+      "year": 2020,
+      "underlying_return_pct": 20.1,
+      "upside_excursion_pct": 20.54,
+      "downside_excursion_pct": -12.09
+     },
+     {
+      "year": 2021,
+      "underlying_return_pct": 6.37,
+      "upside_excursion_pct": 6.41,
+      "downside_excursion_pct": -17.1
+     },
+     {
+      "year": 2022,
+      "underlying_return_pct": 13.43,
+      "upside_excursion_pct": 20.04,
+      "downside_excursion_pct": -8.24
+     },
+     {
+      "year": 2023,
+      "underlying_return_pct": 26.82,
+      "upside_excursion_pct": 31.29,
+      "downside_excursion_pct": -0.51
+     },
+     {
+      "year": 2024,
+      "underlying_return_pct": 12.55,
+      "upside_excursion_pct": 24.41,
+      "downside_excursion_pct": -4.47
+     },
+     {
+      "year": 2025,
+      "underlying_return_pct": 3.01,
+      "upside_excursion_pct": 11.58,
+      "downside_excursion_pct": -5.84
+     },
+     {
+      "year": 2026,
+      "underlying_return_pct": 0.0,
+      "upside_excursion_pct": 0.0,
+      "downside_excursion_pct": 0.0
+     }
+    ]
+   },
+   "screen_context": {
+    "active_bottom_slide": "wave_stats",
+    "ai_scores_available": false,
+    "price_chart_mode": "unknown",
+    "selected_projection_visible": false,
+    "full_history_projection_visible": false,
+    "opportunity_table_visible": true,
+    "selected_lookback": "12",
+    "projection_period": "90",
+    "opportunity_rows": 25,
+    "selected_window_path": "unknown",
+    "full_history_window_path": "unknown"
+   }
+  },
+  "stock_active": {
+   "opportunities": [
+    {
+     "date": "2026-11-17",
+     "symbol": "GWW",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.98
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "ZBRA",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 5.8,
+     "sharpe_ratio": 1.75
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "RSG",
+     "days_out": 269,
+     "direction": "Long",
+     "avg_profit": 14.6,
+     "sharpe_ratio": 1.56
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "FICO",
+     "days_out": 19,
+     "direction": "Long",
+     "avg_profit": 4.3,
+     "sharpe_ratio": 1.47
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AJG",
+     "days_out": 254,
+     "direction": "Long",
+     "avg_profit": 12.0,
+     "sharpe_ratio": 1.46
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DPZ",
+     "days_out": 13,
+     "direction": "Long",
+     "avg_profit": 4.4,
+     "sharpe_ratio": 1.45
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "V",
+     "days_out": 272,
+     "direction": "Long",
+     "avg_profit": 15.4,
+     "sharpe_ratio": 1.36
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "PGR",
+     "days_out": 227,
+     "direction": "Long",
+     "avg_profit": 17.7,
+     "sharpe_ratio": 1.22
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "CL",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 1.3,
+     "sharpe_ratio": 1.18
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "NEM",
+     "days_out": 150,
+     "direction": "Long",
+     "avg_profit": 26.2,
+     "sharpe_ratio": 1.09
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AAPL",
+     "days_out": 346,
+     "direction": "Long",
+     "avg_profit": 25.1,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SYK",
+     "days_out": 101,
+     "direction": "Long",
+     "avg_profit": 9.0,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "WM",
+     "days_out": 266,
+     "direction": "Long",
+     "avg_profit": 13.5,
+     "sharpe_ratio": 1.07
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "LLY",
+     "days_out": 310,
+     "direction": "Long",
+     "avg_profit": 26.7,
+     "sharpe_ratio": 1.06
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DGX",
+     "days_out": 12,
+     "direction": "Long",
+     "avg_profit": 1.9,
+     "sharpe_ratio": 1.03
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "MKC",
+     "days_out": 25,
+     "direction": "Long",
+     "avg_profit": 3.4,
+     "sharpe_ratio": 1.02
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DE",
+     "days_out": 53,
+     "direction": "Long",
+     "avg_profit": 7.0,
+     "sharpe_ratio": 1.01
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "CDNS",
+     "days_out": 272,
+     "direction": "Long",
+     "avg_profit": 24.9,
+     "sharpe_ratio": 1.01
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "MCHP",
+     "days_out": 8,
+     "direction": "Long",
+     "avg_profit": 2.4,
+     "sharpe_ratio": 1.0
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "COST",
+     "days_out": 264,
+     "direction": "Long",
+     "avg_profit": 14.5,
+     "sharpe_ratio": 0.94
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "AVGO",
+     "days_out": 52,
+     "direction": "Long",
+     "avg_profit": 10.1,
+     "sharpe_ratio": 0.93
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "DRI",
+     "days_out": 359,
+     "direction": "Long",
+     "avg_profit": 17.1,
+     "sharpe_ratio": 0.9
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "JKHY",
+     "days_out": 18,
+     "direction": "Long",
+     "avg_profit": 3.0,
+     "sharpe_ratio": 0.88
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "WTW",
+     "days_out": 363,
+     "direction": "Long",
+     "avg_profit": 12.0,
+     "sharpe_ratio": 0.76
+    },
+    {
+     "date": "2026-11-17",
+     "symbol": "SJM",
+     "days_out": 273,
+     "direction": "Long",
+     "avg_profit": 9.9,
+     "sharpe_ratio": 0.67
+    }
+   ],
+   "opp_table_length": 25,
+   "opp_table_market": "2",
+   "opp_table_market_name": "S&P 500 STOCKS",
+   "opp_table_years": 12,
+   "opp_table_pe_cycle": "cons",
+   "wave_viewer": {
+    "market": "2",
+    "symbol": "ULTA",
+    "start_date": "2026-11-07",
+    "entry_date": "2026-11-07",
+    "days_out": 30,
+    "years": 12,
+    "pe_cycle": "cons",
+    "direction": "long",
+    "selection_origin": "scanner",
+    "mfe_enabled": false,
+    "mae_enabled": false,
+    "view_ready": true,
+    "view_request_key": "2|ULTA|2026-11-07|30|12|cons|0",
+    "stats": {
+     "Trade Dir": "long",
+     "Num Winners": "12",
+     "Num Losers": "0",
+     "Percent Profitable": "100.0%",
+     "Avg Profit - All": "9.32%",
+     "Avg Profit": "9.32%",
+     "Avg Loss": "0%",
+     "Median Profit": "9.09%",
+     "Annualized Return": "9.15%",
+     "Cumulative Return": "185.83%",
+     "Std Dev": "6.5%",
+     "Sharpe Ratio": "1.39",
+     "Sharpe Ratio2": "2.71",
+     "Trend Long": 56,
+     "Trend Short": 6,
+     "Trend Long1": 64,
+     "Trend Short1": 5,
+     "Trend Score Available": true,
+     "next_earnings_est": "2026-11-26",
+     "days_to_earnings": 9
+    },
+    "yearly_results": [
+     {
+      "year": 2014,
+      "underlying_return_pct": 4.3,
+      "upside_excursion_pct": 10.47,
+      "downside_excursion_pct": -0.62
+     },
+     {
+      "year": 2015,
+      "underlying_return_pct": 7.39,
+      "upside_excursion_pct": 8.57,
+      "downside_excursion_pct": -11.68
+     },
+     {
+      "year": 2016,
+      "underlying_return_pct": 9.3,
+      "upside_excursion_pct": 17.8,
+      "downside_excursion_pct": -2.61
+     },
+     {
+      "year": 2017,
+      "underlying_return_pct": 12.69,
+      "upside_excursion_pct": 14.84,
+      "downside_excursion_pct": -3.14
+     },
+     {
+      "year": 2018,
+      "underlying_return_pct": 0.83,
+      "upside_excursion_pct": 11.01,
+      "downside_excursion_pct": -5.3
+     },
+     {
+      "year": 2019,
+      "underlying_return_pct": 7.56,
+      "upside_excursion_pct": 10.72,
+      "downside_excursion_pct": -8.93
+     },
+     {
+      "year": 2020,
+      "underlying_return_pct": 10.54,
+      "upside_excursion_pct": 18.74,
+      "downside_excursion_pct": -0.64
+     },
+     {
+      "year": 2021,
+      "underlying_return_pct": 0.49,
+      "upside_excursion_pct": 7.66,
+      "downside_excursion_pct": -6.2
+     },
+     {
+      "year": 2022,
+      "underlying_return_pct": 11.02,
+      "upside_excursion_pct": 13.97,
+      "downside_excursion_pct": -1.48
+     },
+     {
+      "year": 2023,
+      "underlying_return_pct": 25.01,
+      "upside_excursion_pct": 25.66,
+      "downside_excursion_pct": -2.67
+     },
+     {
+      "year": 2024,
+      "underlying_return_pct": 8.88,
+      "upside_excursion_pct": 13.84,
+      "downside_excursion_pct": -15.64
+     },
+     {
+      "year": 2025,
+      "underlying_return_pct": 13.81,
+      "upside_excursion_pct": 18.18,
+      "downside_excursion_pct": -4.79
+     },
+     {
+      "year": 2026,
+      "underlying_return_pct": -1.93,
+      "upside_excursion_pct": 0.52,
+      "downside_excursion_pct": -2.9
+     }
+    ]
+   },
+   "screen_context": {
+    "active_bottom_slide": "price_chart",
+    "ai_scores_available": false,
+    "price_chart_mode": "current",
+    "selected_projection_visible": true,
+    "full_history_projection_visible": true,
+    "opportunity_table_visible": true,
+    "selected_lookback": "12",
+    "projection_period": "90",
+    "opportunity_rows": 25,
+    "selected_window_path": "unknown",
+    "full_history_window_path": "unknown"
+   }
+  }
+ }
+}

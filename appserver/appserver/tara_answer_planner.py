@@ -2186,6 +2186,52 @@ def _month_day_year(date_text: str) -> Optional[str]:
     return f"{date_value.strftime('%b')} {date_value.day}, {date_value.year}"
 
 
+_LISTED_SYMBOL_LINE = re.compile(
+    r"^\s*(?:\d{1,2}[.)]\s*|[-*\u2022]\s*)?(?:<b>\s*)?([A-Z][A-Z0-9.\-]{0,9})(?:\s*</b>)?"
+    r"(?:\s+(?:long|short))?\s*(?:[-:\u2013(,]|\s+(?:long|short|won|starts|is|was)\b)"
+)
+
+
+def previous_reply_listed_symbols(history: Any) -> List[str]:
+    """Symbols Tara listed, in order, in her most recent reply (one per line).
+
+    "Load the second one" right after Tara listed five names means the second name of
+    THAT list. The on-screen table can be a different market or a different order, so
+    the ordinal table command must not answer it.
+    """
+
+    if not isinstance(history, list):
+        return []
+    previous = ""
+    for item in reversed(history[:-1]):
+        if isinstance(item, Mapping) and item.get("role") == "assistant":
+            previous = str(item.get("content") or "")
+            break
+    symbols: List[str] = []
+    for line in re.split(r"<br\s*/?>|\n", previous):
+        match = _LISTED_SYMBOL_LINE.match(re.sub(r"</?(?:div|span|p|li|ul|ol)[^>]*>", " ", line))
+        if match and match.group(1) not in symbols:
+            symbols.append(match.group(1))
+    return symbols if len(symbols) >= 2 else []
+
+
+def previous_list_ordinal_target(message: Any, history: Any, opportunities: Any) -> str:
+    """The symbol an ordinal refers to in Tara's previous list, or "" for the table."""
+
+    rank = requested_opportunity_row_rank(message)
+    if rank is None or re.search(r"\b(?:table|rows?)\b", str(message or ""), re.I):
+        return ""
+    listed = previous_reply_listed_symbols(history)
+    if rank > len(listed):
+        return ""
+    rows = opportunities if isinstance(opportunities, list) else []
+    table_symbol = ""
+    if rank <= len(rows) and isinstance(rows[rank - 1], Mapping):
+        table_symbol = str(rows[rank - 1].get("symbol") or "").upper()
+    target = listed[rank - 1]
+    return "" if target == table_symbol else target
+
+
 def build_opportunity_row_load_command(
     message: Any,
     opportunities: Any,
@@ -2324,7 +2370,19 @@ def build_current_table_pick_command(
 def build_metric_definitions_reply(message: Any) -> Optional[str]:
     """Define Tara's historical, model, and path metrics without blending them."""
 
-    if not _METRIC_DEFINITION_PATTERN.search(str(message or "")):
+    text = str(message or "")
+    if not _METRIC_DEFINITION_PATTERN.search(text):
+        return None
+    # "What does MFE mean" asks for ONE term. This block is the side-by-side glossary for
+    # questions that put the historical, AI and path metrics next to each other.
+    families = sum(
+        bool(re.search(pattern, text, re.I)) for pattern in (
+            r"\bhistorical win rate\b", r"\bai win\b|\bwin probability\b",
+            r"\bpredr\b|\bpredicted return\b", r"\bmfe\b|\bmaximum favorable\b",
+            r"\bmae\b|\bmaximum adverse\b", r"\btwr\b|\btradewave ratio\b",
+        )
+    )
+    if families < 2:
         return None
     lines = [
         (
@@ -4847,6 +4905,46 @@ _SHAPED_VERB = (
     r"(?:buy|sell|short|invest|take\s+profits?|get\s+(?:in|out)|go\s+(?:long|short)|"
     r"add\s+to|hold|trade)"
 )
+# A verdict asked for in one word ("is this pattern a buy?", "buy or pass?", "bullish
+# enough to go in? yes or no") is the same request for a recommendation.
+_VERDICT_ASK_PATTERN = re.compile(
+    r"\b(?:is|was|isn['\u2019]?t)\s+(?:this|that|it|the)\s*(?:pattern|setup|trade|stock|etf|one|"
+    r"window|opportunity)?\s+(?:a\s+|an\s+)?(?:(?:good|strong|clear|solid)\s+)?"
+    r"(?:buy|sell|go|pass|hold)\b"
+    r"|\b(?:buy|sell|go(?:\s+in)?|enter|trade\s+it)\s+or\s+"
+    r"(?:pass|skip|wait|avoid|not|sell|hold|stay\s+out)\b"
+    r"|\b(?:pass|skip)\s+or\s+(?:buy|play|trade|go)\b"
+    r"|\b(?:enough|ready|safe|ok(?:ay)?|good)\s+to\s+(?:go\s+in|get\s+in|jump\s+in|enter|buy|"
+    r"pull\s+the\s+trigger)\b"
+    r"|\b(?:go|get|jump)\s+in\b[^.?!]{0,40}\b(?:yes\s+or\s+no|one\s+word)\b"
+    r"|\b(?:yes\s+or\s+no|one[-\s]word|thumbs\s+up\s+or\s+down)\b[^.?!]{0,60}\b"
+    r"(?:buy|sell|short|trade|go\s+in|get\s+in|enter|take\s+it|worth\s+it)\b"
+    r"|\b(?:buy|sell|short|trade|go\s+in|get\s+in|enter|take\s+it|worth\s+it|bullish|bearish)\b"
+    r"[^.!]{0,60}\b(?:yes\s+or\s+no|one[-\s]word|thumbs\s+up\s+or\s+down)\b",
+    re.I,
+)
+_BARE_VERDICT_PATTERN = re.compile(
+    r"^\W*(?:yes|no|yep|yeah|nope|buy|sell|pass|hold|short|long|skip|wait|avoid|go(?:\s+(?:in|long|short|for\s+it))?|"
+    r"stay\s+out|bullish|bearish|do\s+it|don['\u2019]?t)\b[\s\W]*(?:(?:it|this|that|now|in|on\s+this)\b[\s\W]*){0,2}$",
+    re.I,
+)
+
+
+def reply_is_bare_verdict(message: Any, reply: Any) -> bool:
+    """A yes/no/buy/sell/pass with nothing behind it, given to a question about a trade."""
+
+    if not isinstance(reply, str) or not is_advice_shaped_question(message):
+        return False
+    plain = _plain_reply(reply)
+    plain = plain.replace(DISCLAIMER_TEXT, " ")
+    plain = _EQUIVALENT_DISCLAIMER_PATTERN.sub(" ", plain) if plain.strip() else plain
+    if len(plain.split()) < 3 and not _BARE_VERDICT_PATTERN.match(plain.strip() or "x"):
+        # Nothing but the disclaimer (or nothing at all) is not an answer either.
+        return not _FAILED_REPLY_PATTERN.search(_plain_reply(reply))
+    first = re.split(r"(?<=[.!?])\s+", plain.strip(), maxsplit=1)[0] if plain.strip() else ""
+    return bool(first) and bool(_BARE_VERDICT_PATTERN.match(first)) and len(plain.split()) <= 12
+
+
 _ADVICE_SHAPED_PATTERN = re.compile(
     # "should I/we/my wife ... buy|sell|hold ..." - a decision the user wants made
     r"\b(?:should|shall|must)\s+(?:i|we|my\s+\w+|someone)\s+(?:\w+\s+){0,3}?" + _SHAPED_VERB + r"\b|"
@@ -4889,7 +4987,8 @@ def is_advice_shaped_question(message: Any) -> bool:
     text = _trade_question_text(message)
     return bool(
         text.strip()
-        and (_is_trade_advice_request(text) or _ADVICE_SHAPED_PATTERN.search(text))
+        and (_is_trade_advice_request(text) or _ADVICE_SHAPED_PATTERN.search(text)
+             or _VERDICT_ASK_PATTERN.search(text))
     )
 
 
@@ -5177,6 +5276,77 @@ def build_median_definition_reply(
     return reply
 
 
+_BEYOND_CANNED_SCOPE_RE = re.compile(
+    # counts and limits ("how many watchlists do I get")
+    r"\bhow\s+(?:many|much)\b"
+    # something went wrong on screen: the answer is a cause and a way back
+    r"|\b(?:bug|bugged|glitch\w*|stuck|frozen|broken|disappear\w*|vanish\w*|"
+    r"not\s+working|error)\b"
+    r"|\b(?:doesn|won|isn|can)['\u2019]?t\s+(?:work|load|show|open|see|find)\b"
+    r"|\bhow\s+(?:do|can)\s+i\s+(?:get|go)\s+back\b"
+    # a year named relatively; the year blocks only read four-digit years
+    r"|\b(?:last|previous|prior)\s+year\b"
+    # instruments TradeWave does not analyze
+    r"|\b0\s*dte\b|\boptions?\b|\b(?:long|short|covered)\s+(?:calls?|puts?)\b"
+    r"|\bhedg\w+\b"
+    # an existing object, where the canned steps describe creating a new one
+    r"|\b(?:existing|already\s+have)\b",
+    re.I,
+)
+_AI_VALUE_TOPIC_RE = re.compile(
+    r"\bai\s+(?:win|scores?|return|panel|window|probabilit\w+)\b|\bwin\s+(?:chance|probability)\b|"
+    r"\b(?:ais|predr|pmfe)\b",
+    re.I,
+)
+_SECOND_QUESTION_RE = re.compile(
+    r"[,;]\s*(?:and\s+|or\s+|but\s+)?"
+    r"(?:can|could|is|are|do|does|did|how|why|what|when|where|which|should|would|will)\b"
+    r"|\b(?:and|but)\s+(?:can|could|is|are|do|does|did|how|why|what|when|where|which|"
+    r"should|would|will)\b"
+    r"|\?\s*(?:and\s+|or\s+|also\s+|but\s+)?"
+    r"(?:can|could|is|are|do|does|did|how|why|what|when|where|which|should|would|will|also)\b",
+    re.I,
+)
+
+
+_SECOND_REQUEST_RE = re.compile(
+    r"\b(?:and|also|then|plus)\s+(?:please\s+)?(?:tell|explain|show|describe|what|why|how|is|are|"
+    r"does|do|can|turn|switch|open|load|compare|give|list|analy[sz]e)\b",
+    re.I,
+)
+
+
+def is_multi_part_request(message: Any) -> bool:
+    """A turn that asks for two things ("switch to the price chart and tell me ...").
+
+    A one-action deterministic command answers only its own half, so these go to the
+    model, which can fire the view action AND answer the rest.
+    """
+
+    text = str(message or "").strip()
+    if not text:
+        return False
+    second = _SECOND_QUESTION_RE.search(text) or _SECOND_REQUEST_RE.search(text)
+    return bool(second and second.start() >= 8)
+
+
+def question_exceeds_canned_scope(message: Any) -> bool:
+    """Whether the turn asks for more than one deterministic block can answer."""
+
+    text = str(message or "").strip()
+    if not text:
+        return False
+    # Advice-shaped turns and AI-score readings keep their deterministic replies: the
+    # advice boundary and the trusted score values must not depend on a model.
+    if is_advice_shaped_question(text) or _AI_VALUE_TOPIC_RE.search(text):
+        return False
+    if _BEYOND_CANNED_SCOPE_RE.search(text):
+        return True
+    # Two questions in one message: the second one starts after the first clause.
+    second = _SECOND_QUESTION_RE.search(text)
+    return bool(second and second.start() >= 12)
+
+
 def build_deterministic_reply(
     message: Any,
     wave_viewer: Any,
@@ -5186,6 +5356,14 @@ def build_deterministic_reply(
     current_year: Optional[int] = None,
 ) -> Optional[str]:
     """Route high-confidence UI questions to verified, provider-independent replies."""
+
+    # A canned block answers ONE well-shaped question. A compound ask, a troubleshooting
+    # report, a count/limit question or an options/stop question matched a block on one
+    # keyword and got that block's answer to a neighbouring question (TW-TASK-0032
+    # cluster 6). Those go to the model, which has the same verified screen facts, the
+    # yearly rows and the whole knowledge base.
+    if question_exceeds_canned_scope(message):
+        return None
 
     tooltip_help = build_tooltip_help_reply(message)
     if tooltip_help is not None:

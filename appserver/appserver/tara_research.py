@@ -48,7 +48,8 @@ _MAX_SCREEN_DAYS = 31
 _DEFAULT_LOOKBACK = 10
 _DEFAULT_LIMIT = 10
 _MAX_LIMIT = 15
-_MAX_COMPARE = 4
+_MAX_COMPARE = 6
+_DEFAULT_COMPARE_DAYS = 30   # window used when a comparison names no dates
 
 # Intents this module may answer. Suitability/guidance intents keep their own funnel.
 _ALLOWED_INVESTOR_INTENTS = {
@@ -381,10 +382,20 @@ def _direction(text):
 
 
 def _lookback_years(text):
+    """The lookback the user asked for, in any of the ways people write it.
+
+    "over the last 15 years", "15-year lookback", "13 of 15 years", "min 13 of 15",
+    "15y" / "15 yrs", "use 20 years", "with a 20 year history".
+    """
     for pattern in (
         r"\b(?:last|past|previous|prior|over)\s+(?:the\s+)?(?:last\s+|past\s+)?(\d{1,2})\s*(?:-|\s)?(?:consecutive\s+)?years?\b",
         r"\b(\d{1,2})\s*(?:-|\s)?years?\s+(?:view|look[-\s]?back|history|window|seasonal|trend|record|of\s+history)\b",
         r"\b(\d{1,2})\s+of\s+(\d{1,2})\s+years\b",
+        r"\b(?:min(?:imum)?|at\s+least|won|winning|wins?|winners?)\b[^.;]{0,25}?"
+        r"\b(\d{1,2})\s*(?:of|out\s+of|/)\s*(\d{1,2})\b",
+        r"(?<![A-Za-z0-9.$])(\d{1,2})\s?(?:y|yr|yrs)\b(?!\s*old)",
+        r"\b(?:use|using|with|on|at|across)\s+(?:a\s+|the\s+)?(\d{1,2})[-\s]?years?\b",
+        r"\b(\d{1,2})[-\s]years?\s+(?:of\s+)?(?:data|sample|period|stats?|statistics|results?|average|avg)\b",
     ):
         match = re.search(pattern, text, re.I)
         if match:
@@ -646,7 +657,11 @@ def _screen_request(text, today, table_market):
     # Lookback and threshold phrases contain numbers and "years"; read them before dates.
     year1 = _lookback_years(text) or _DEFAULT_LOOKBACK
     min_wins = None
-    match = re.search(r"\b(\d{1,2})\s+(?:of|out\s+of|ou[ft]\s+of)\s+(\d{1,2})\s+years\b", text, re.I)
+    match = re.search(
+        r"\b(\d{1,2})\s+(?:of|out\s+of|ou[ft]\s+of)\s+(\d{1,2})\s+years\b", text, re.I
+    ) or re.search(
+        r"\b(?:min(?:imum)?|at\s+least|won|winning|wins?|winners?)\b[^.;]{0,25}?"
+        r"\b(\d{1,2})\s*(?:of|out\s+of|/)\s*(\d{1,2})\b", text, re.I)
     if match and int(match.group(1)) <= int(match.group(2)):
         min_wins, year1 = int(match.group(1)), int(match.group(2))
 
@@ -985,8 +1000,12 @@ def build_screen_command(message, user_token, *, today=None, table_market=None, 
         if limits:
             return {"reply": (
                 "<b>I can't give a full %s %s screen on this plan.</b> %s Nothing %s in that "
-                "limited view matched, which says nothing about the full market."
-                % (_esc(label), side, " ".join(limits), side)), "actions": [], "trace": trace}
+                "limited view matched, which says nothing about the full market. What your plan "
+                "does show: ask for \"today's top %s setups\" for the patterns entering now, or "
+                "name a %s stock and I will analyze its current window. Full screens are part of "
+                "the paid plans: tradewave.ai/pricing."
+                % (_esc(label), side, " ".join(limits), side, _esc(label), _esc(label))),
+                "actions": [], "trace": trace}
         deeper = ""
         if request["rank"] == "win_rate" and reached > wanted:
             deeper = (" A win-rate screen reads the detector's %d strictest band%s; ask for the "
@@ -1171,7 +1190,7 @@ def _company_symbol(phrase, token):
     return None
 
 
-def _find_securities(text, token, current_view=None, allow_names=True):
+def _find_securities(text, token, current_view=None, allow_names=True, unresolved=None):
     """Ordered, de-duplicated securities named in the request: [{symbol, market, name}]."""
 
     found = []          # (position, symbol, market_hint, sector)
@@ -1230,7 +1249,16 @@ def _find_securities(text, token, current_view=None, allow_names=True):
                     add(words[index][0], known, "2")
                 index += 1
 
+    # Lower-case tickers are read last, and only in a comparison: named instruments
+    # ("gold" is GC, not the ticker GOLD) and company names have already been masked.
+    guessed = set()
+    if _is_comparison(text):
+        for position, ticker in _lowercase_compare_tickers(masked, {item[1] for item in found}):
+            add(position, ticker)
+            guessed.add(ticker)
+
     resolved = []
+    typed = set(_explicit_tickers(text, allow_single=True))
     for _, symbol, market, sector in sorted(found):
         resolution = tg._resolve_question_symbol(symbol, text, token, current_view)
         if resolution.get("status") != "ok":
@@ -1244,7 +1272,12 @@ def _find_securities(text, token, current_view=None, allow_names=True):
                 resolved.append({"symbol": symbol, "error": resolution})
                 continue
             if resolution.get("status") != "ok":
-                continue            # not a TradeWave security (or lookup down): not a slot
+                # Not a TradeWave security (or lookup down): not a slot. A ticker the
+                # user typed is reported so a comparison never drops it silently.
+                if (isinstance(unresolved, list) and resolution.get("status") == "not_found"
+                        and symbol in typed | guessed):
+                    unresolved.append((symbol, symbol in typed))
+                continue
         entry = {"symbol": resolution["symbol"], "market": resolution["market"],
                  "name": resolution.get("name") or ""}
         resolved.append(entry)
@@ -1263,6 +1296,11 @@ def _month_day(month_text, day_text, year, *, end=False, mid=False):
         day = 1
     day = min(day, calendar.monthrange(year, month)[1])
     return datetime.date(year, month, day)
+
+
+# Same season boundaries as the gateway's period presets (apiserver/routes.py).
+_SEASONS = {"spring": ((3, 21), (6, 20)), "summer": ((6, 21), (9, 21)),
+            "fall": ((9, 22), (12, 21)), "winter": ((12, 22), (3, 20))}
 
 
 def _parse_period(text, today):
@@ -1345,12 +1383,28 @@ def _parse_period_text(text, today):
             start = end - datetime.timedelta(days=length - 1)
         return start, end, format_date_range(start, end)
 
-    ahead = re.search(r"\b(?:over|in|for|during)?\s*the\s+next\s+%s\s+(day|week|month)s?\b" % _NUM, lower)
+    ahead = re.search(
+        r"\b(?:over|in|for|during)?\s*(?:the\s+)?(?:next|coming)\s+%s\s+(day|week|month)s?\b" % _NUM, lower)
     if ahead and _int(ahead.group(1)):
         span_days = _int(ahead.group(1)) * {"day": 1, "week": 7, "month": 30}[ahead.group(2)]
         if 1 <= span_days <= 367:
             end = today + datetime.timedelta(days=span_days - 1)
             return today, end, "the next %d days" % span_days
+
+    season = re.search(
+        r"\b(?:in|during|for|over|through|this|next|the|every|each)\s+(?:the\s+)?"
+        r"(spring|summer|fall|autumn|winter)\b|\b(spring|summer|autumn|winter)\b", lower)
+    if season:
+        name = season.group(1) or season.group(2)
+        (m1, d1), (m2, d2) = _SEASONS["fall" if name == "autumn" else name]
+        start = datetime.date(year, m1, d1)
+        end = datetime.date(year + (1 if (m2, d2) < (m1, d1) else 0), m2, d2)
+        return start, end, name
+
+    if re.search(r"\bnext\s+month\b", lower):
+        first = (today.replace(day=1) + datetime.timedelta(days=32)).replace(day=1)
+        last = first.replace(day=calendar.monthrange(first.year, first.month)[1])
+        return first, last, first.strftime("%B")
 
     month = re.search(
         r"\b(?:in|during|for|throughout|every|each)\s+(?:the\s+month\s+of\s+)?%s\b|\b%s(?:'s)?\s+"
@@ -1631,6 +1685,51 @@ _COMPARE_RE = re.compile(
     r"better\s+than|outperform(?:s|ed)?|stack(?:s)?\s+up)\b", re.I)
 
 
+# "spy or qqq for next month", "which is better, AAPL or MSFT" are comparisons too.
+_CHOICE_RE = re.compile(
+    r"\bwhich\s+(?:one\s+)?(?:is|was|looks|does)\s+(?:better|stronger|best|strongest)\b"
+    r"|\b(?:better|stronger)\b[^.?!]{0,30}\bor\b"
+    r"|(?<![A-Za-z])[A-Za-z]{1,5}\s+or\s+[A-Za-z]{1,5}\s+(?:for|in|over|during|this|next|right\s+now)\b",
+    re.I)
+
+
+def _is_comparison(text):
+    return bool(_COMPARE_RE.search(text) or _CHOICE_RE.search(text))
+
+
+_LOWERCASE_NOT_TICKERS = {
+    "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
+    "vs", "q1", "q2", "q3", "q4", "ytd", "eoy", "etf", "etfs", "month", "months", "fall",
+    "per", "plus", "mid", "late", "early", "term", "both", "each", "also", "does", "tell",
+    "show", "give", "look", "looks", "been", "were", "will", "into", "onto", "about",
+    "gold", "oil", "gas", "corn", "wheat", "bond", "bonds", "cash", "coin", "fx", "tech",
+    "bank", "banks", "chip", "chips", "rate", "rates", "yen", "euro", "peso", "real",
+    "small", "large", "cap", "caps", "value", "growth", "bull", "bear", "call", "put",
+    "puts", "calls", "usa", "china", "japan", "india", "uk", "eu", "summer", "fall",
+}
+
+
+def _lowercase_compare_tickers(text, already):
+    """Lower-case tickers in a comparison ("compare nvda amd avgo", "xom vs cvx").
+
+    Only read in a comparison, only for short words that are not ordinary English, and
+    every candidate still has to resolve to a TradeWave security before it counts.
+    """
+    out = []
+    for match in re.finditer(r"(?<![A-Za-z0-9.&$\-])([a-z]{2,5})(?![A-Za-z0-9&\-])", text):
+        word = match.group(1)
+        upper = word.upper()
+        if (word in tg._COMMON_ENGLISH_WORDS or word in _LOWERCASE_NOT_TICKERS
+                or word in _NAME_STOPWORDS or word in _NUMBER_WORDS
+                or upper in _TICKER_STOPWORDS or upper in already
+                or word in _KNOWN_COMPANIES):
+            continue
+        out.append((match.start(), upper))
+        if len(out) >= 8:
+            break
+    return out
+
+
 def _leaders(studies, key, lowest=False):
     usable = [study for study in studies if study.get(key) is not None]
     if not usable:
@@ -1645,7 +1744,7 @@ def _joined(studies):
 
 
 def build_comparison_command(message, current_view, user_token, *, today=None,
-                             years_cap=None, securities=None):
+                             years_cap=None, securities=None, missing=None):
     text = str(message or "").strip()
     if not user_token:
         return None
@@ -1654,7 +1753,7 @@ def build_comparison_command(message, current_view, user_token, *, today=None,
         text, user_token, current_view)
     if len(securities) < 2:
         return None
-    if not _COMPARE_RE.search(text) and _parse_period(text, current) is None:
+    if not _is_comparison(text) and _parse_period(text, current) is None:
         return None
     trace = {"event": "research_comparison"}
     for item in securities:
@@ -1687,12 +1786,22 @@ def build_comparison_command(message, current_view, user_token, *, today=None,
     period = _parse_period(text, current) or (
         _view_period(current_view)
         if re.search(r"\b(?:current|loaded|this)\b", text, re.I) else None)
+    default_note = ""
     if period is None:
-        return {"reply": (
-            "<b>Which dates should I compare %s over?</b> Give me a window such as the 4th "
-            "quarter, November through April, or now to year end, and I will run every symbol "
-            "on the same dates and the same completed years."
-            % _joined(securities)), "actions": [], "trace": trace}
+        # No dates named: compare on a stated default instead of asking. The loaded
+        # window is the user's current context; otherwise the next 30 calendar days.
+        period = _view_period(current_view)
+        if period is not None:
+            default_note = ("You did not name dates, so this uses the window loaded in the "
+                            "Wave Viewer. Name any window (a month, a quarter, now to year "
+                            "end) to rerun it.")
+        else:
+            period = (current, current + datetime.timedelta(days=_DEFAULT_COMPARE_DAYS - 1),
+                      "the next %d days" % _DEFAULT_COMPARE_DAYS)
+            default_note = ("You did not name dates, so this uses the next %d calendar days "
+                            "from today. Name any window (a month, a quarter, now to year "
+                            "end) to rerun it." % _DEFAULT_COMPARE_DAYS)
+        trace["default_window"] = True
     start, end, label = period
     days_out = (end - start).days + 1
     if not 1 <= days_out <= 367:
@@ -1775,6 +1884,12 @@ def build_comparison_command(message, current_view, user_token, *, today=None,
         reads.append("Best Sharpe Ratio: %s at %.2f." % (_joined(top), top[0]["sharpe"]))
 
     notes = list(sector_notes)
+    if missing:
+        notes.insert(0, "I could not find %s as a TradeWave symbol, so %s not in this comparison."
+                     % (", ".join(_esc(symbol) for symbol in missing[:4]),
+                        "it is" if len(missing) == 1 else "they are"))
+    if default_note:
+        notes.insert(0, default_note)
     if _ADVICE_RE.search(text):
         notes.insert(0, _ADVICE_BOUNDARY)
     if explicit and asked_years > years:
@@ -2010,18 +2125,23 @@ def build_research_command(message, current_view, user_token, *, investor_intent
                 return command
         if _names_several_cycles(text):
             return None
-        compare = bool(_COMPARE_RE.search(text))
+        compare = _is_comparison(text)
         study_shape = bool(_STUDY_VERB_RE.search(text)) and _parse_period(
             text, today or tg._market_today()) is not None
         if not (compare or study_shape):
             return None
-        securities = _find_securities(text, user_token, current_view)
+        unresolved = []
+        securities = _find_securities(text, user_token, current_view, unresolved=unresolved)
         if compare and len(securities) < 2:
             return None              # one side did not resolve: never answer for the other alone
         if compare or (len(securities) >= 2 and study_shape):
+            # A lower-case word that did not resolve is only reported as a missing ticker
+            # when the message is plainly a ticker list (two or more others resolved).
+            missing = [symbol for symbol, was_typed in unresolved
+                       if was_typed or len(securities) >= 2]
             command = build_comparison_command(
                 text, current_view, user_token, today=today, years_cap=years_cap,
-                securities=securities)
+                securities=securities, missing=missing)
             if command is not None:
                 return command
             if len(securities) >= 2:

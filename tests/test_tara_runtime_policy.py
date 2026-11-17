@@ -20,11 +20,11 @@ VERIFY_PATH = ROOT / "ops" / "verify_tara_release.py"
 def test_release_policy_is_exact_and_contains_no_routing_switches():
     assert validate_policy()
     assert public_policy() == {
-        "policy_version": "tara-model-policy-v2",
-        "primary_provider": "openai",
-        "primary_model": "gpt-5.6-luna",
-        "fallback_provider": "anthropic",
-        "fallback_model": "claude-haiku-4-5-20251001",
+        "policy_version": "tara-model-policy-v3",
+        "primary_provider": "anthropic",
+        "primary_model": "claude-haiku-5-5",
+        "fallback_provider": "openai",
+        "fallback_model": "gpt-5.6-luna",
     }
     encoded = json.dumps(public_policy()).lower()
     assert "percent" not in encoded
@@ -46,7 +46,7 @@ def test_runtime_fingerprint_is_stable_nonsecret_and_tracks_frontend_bundle(
 
     assert first == second
     assert first["release_sha"] == "a" * 40
-    assert first["primary_model"] == "gpt-5.6-luna"
+    assert first["primary_model"] == "claude-haiku-5-5"
     assert first["frontend_bundle_hash"] != "not-supplied"
     assert len(first["prompt_hash"]) == 64
     assert len(first["planner_hash"]) == 64
