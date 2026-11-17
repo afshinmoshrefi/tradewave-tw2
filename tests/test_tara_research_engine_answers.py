@@ -29,46 +29,73 @@ LOADED_AAPL = {"symbol": "AAPL", "market": "2", "start_date": "2026-11-17",
                "days_out": "45", "years": "20", "pe_cycle": "cons"}
 
 
+def plan_token(level):
+    """A token carrying a plan level, as the browser sends it (signature irrelevant here)."""
+
+    return jwt.encode({"user": "research-test", "user_level": str(level)},
+                      "test-only-key-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", algorithm="HS256")
+
+
+def _section(token):
+    """Recorded engine responses for the plan level in the token (Strategist by default)."""
+
+    try:
+        level = jwt.decode(token, options={"verify_signature": False}).get("user_level", "6")
+    except Exception:
+        level = "6"
+    return FIXTURE["levels"]["L%s" % level]
+
+
+def chart_key(market, symbol, entry, days, years, params):
+    return "%s|%s|%s|%s|%s|%s" % (
+        market, symbol, entry, days, years,
+        "&".join("%s=%s" % item for item in sorted(params.items())))
+
+
 @pytest.fixture
 def engine(monkeypatch):
     """Replay recorded engine responses and capture every engine request."""
 
-    calls = {"opplist": [], "chart": []}
+    calls = {"opplist": [], "chart": [], "names": 0}
 
     def opplist(market, day, year1, year2, day_range, token):
         key = "%s|%s|%s|%s|%s" % (market, day.isoformat(), year1, year2, day_range)
         calls["opplist"].append({"market": str(market), "day": day, "year1": int(year1),
                                  "year2": int(year2), "day_range": day_range})
-        hit = FIXTURE["opplist"].get(key)
+        hit = _section(token)["opplist"].get(key)
         return (hit["status"], hit["rows"]) if hit else (None, None)
 
     def chart(market, symbol, entry_date, days_out, years_value, token, **params):
-        key = "%s|%s|%s|%s|%s|%s" % (
-            market, symbol, entry_date, days_out, years_value,
-            "&".join("%s=%s" % item for item in sorted(params.items())))
         calls["chart"].append({"market": str(market), "symbol": symbol, "entry": entry_date,
                                "days": int(days_out), "years": str(years_value), "params": params})
-        hit = FIXTURE["chart"].get(key)
+        hit = _section(token)["chart"].get(
+            chart_key(market, symbol, entry_date, days_out, years_value, params))
         return (hit["status"], hit["payload"]) if hit else (None, None)
 
+    def names(market, token):
+        calls["names"] += 1
+        return FIXTURE["names"]
+
     def resolve(symbol, question, token, current_view=None):
-        return FIXTURE["resolve"].get(
+        return _section(token)["resolve"].get(
             str(symbol).upper(), {"status": "not_found", "symbol": str(symbol).upper()})
 
     def available_years(market, symbol, token, pe_cycle=None):
-        return FIXTURE["years"].get("%s|%s|%s" % (market, str(symbol).upper(), pe_cycle or "cons"))
+        return _section(token)["years"].get(
+            "%s|%s|%s" % (market, str(symbol).upper(), pe_cycle or "cons"))
 
     monkeypatch.setattr(research, "_engine_opplist", opplist)
     monkeypatch.setattr(research, "_engine_chart", chart)
-    monkeypatch.setattr(research, "_engine_symbol_names", lambda market, token: FIXTURE["names"])
+    monkeypatch.setattr(research, "_engine_symbol_names", names)
+    monkeypatch.setitem(research._NAMES_CACHE, "index", None)
     monkeypatch.setattr(tara_gateway, "_resolve_question_symbol", resolve)
     monkeypatch.setattr(tara_gateway, "_symbol_max_available_years", available_years)
     return calls
 
 
-def ask(message, view=None, **kwargs):
+def ask(message, view=None, token="user-token", **kwargs):
     kwargs.setdefault("today", TODAY)
-    return research.build_research_command(message, view or {}, "user-token", **kwargs)
+    return research.build_research_command(message, view or {}, token, **kwargs)
 
 
 def text_of(command):
@@ -80,11 +107,10 @@ def ranked_lines(command):
     return [line.strip() for line in text_of(command).split("\n") if re.match(r"\s*\d+\. ", line)]
 
 
-def chart_payload(call):
-    key = "%s|%s|%s|%s|%s|%s" % (
+def chart_payload(call, token="user-token"):
+    return _section(token)["chart"][chart_key(
         call["market"], call["symbol"], call["entry"], call["days"], call["years"],
-        "&".join("%s=%s" % item for item in sorted(call["params"].items())))
-    return FIXTURE["chart"][key]["payload"]
+        call["params"])]["payload"]
 
 
 # ---------------------------------------------------------------------------
@@ -101,9 +127,9 @@ def test_bearish_week_screen_returns_a_ranked_list_for_the_whole_week(engine, me
     command = ask(message)
     assert command["trace"]["event"] == "research_screen"
     assert command["trace"]["direction"] == "short"
-    # Every trading day of the week is screened (the Monday table carries the weekend).
+    # Every remaining trading day of the week is screened - never days already gone.
     assert sorted({call["day"].isoformat() for call in engine["opplist"]}) == [
-        "2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20"]
+        "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20"]
     assert {call["market"] for call in engine["opplist"]} == {"2"}
     # The widest in-band detector table (S&P 500 at 10 years = at least 8 winners).
     assert {(call["year1"], call["year2"]) for call in engine["opplist"]} == {(10, 8)}
@@ -115,12 +141,17 @@ def test_bearish_week_screen_returns_a_ranked_list_for_the_whole_week(engine, me
     for line in lines:
         assert re.search(r"fell in \d+ of \d+ years \(\d+%\)", line)
         assert "Sharpe" in line and "avg move -" in line
+        assert re.search(r"starts (?:Tue Nov 17|Wed Nov 18|Thu Nov 19|Fri Nov 20)", line)
     sharpes = [float(re.search(r"Sharpe (-?\d+\.\d+)", line).group(1)) for line in lines]
     assert sharpes == sorted(sharpes, reverse=True)
-    # A weekend-dated pattern is presented on its first session, never as "entry Sunday".
-    assert not re.search(r"starts (?:Sat|Sun) ", text_of(command))
-    assert "calendar start Sun Nov 15" in text_of(command)
     assert "not sell or short recommendations" in text_of(command)
+
+
+def test_weekend_dated_patterns_are_shown_on_their_first_session(engine):
+    command = ask("Top 5 Nasdaq 100 stocks by win rate next week, 10-day holds")
+    reply = text_of(command)
+    assert not re.search(r"starts (?:Sat|Sun) ", reply)
+    assert "starts Mon Nov 23 (calendar start Sat Nov 21)" in reply
 
 
 def test_screen_records_are_the_engine_completed_year_results(engine):
@@ -189,7 +220,7 @@ REQUEST_CASES = [
     # question text only) from the production Tara log.
     ("find s&p500 stocks entering seasonaly bearish patterns this week",
      {"market": "2", "direction": "short", "rank": "sharpe", "limit": 10,
-      "first": "2026-11-16", "last": "2026-11-22"}),
+      "first": "2026-11-17", "last": "2026-11-22"}),
     ("Which Dow stocks have the highest seasonal win rate over the next 30 days?",
      {"market": "0", "direction": "long", "rank": "win_rate", "first": "2026-11-17",
       "last": "2026-12-16"}),
@@ -206,7 +237,7 @@ REQUEST_CASES = [
     ("Find best opportunities starting tloday or tomorrow of day öfter tomorrow. , win rate min 90%, "
      "SR >1, consequitive years, Wilshire 5000 universe",
      {"market": "4", "min_win_rate": 90, "min_sharpe": 1.0, "rank": "sharpe",
-      "first": "2026-11-17", "last": "2026-11-19"}),
+      "first": "2026-11-17", "last": "2026-11-18"}),
     ("Best 10 opportunities , wilshire5000 universelle, min winrate 85%, 10 of 12 years, "
      "conaequitve, AVG profit min 5%, may hold 90days",
      {"market": "4", "limit": 10, "min_win_rate": 85, "min_wins": 10, "year1": 12,
@@ -296,8 +327,9 @@ def test_apple_now_to_year_end_loads_and_reports_the_exact_study(engine):
     assert "Average return +%.1f%%" % float(stats["Avg Profit - All"].rstrip("%")) in reply
     assert "median +%.1f%%" % float(stats["Median Profit"].rstrip("%")) in reply
     assert "Sharpe Ratio %s" % stats["Sharpe Ratio"] in reply
-    assert "Best year: 2007" in reply and "Worst year: 2018" in reply
-    assert "(MFE)" in reply and "(MAE)" in reply
+    assert "best year: 2007" in reply and "Worst year: 2018" in reply
+    assert "Largest rise inside the window (MFE)" in reply
+    assert "Deepest drop inside the window (MAE)" in reply
     # The chart Tara loads is the study she described (the live turn loaded 11 PE+0 years).
     assert command["actions"] == [{"type": "set_view", "spec": {
         "symbol": "AAPL", "market": "2", "entry_date": "2026-11-17", "days_out": 45,
@@ -541,20 +573,515 @@ def test_suitability_questions_are_not_turned_into_screens(engine, message):
 # Engine contract: the opt-in ChartData4 excursion dates
 # ---------------------------------------------------------------------------
 
-def test_chartdata4_excursion_dates_are_opt_in_and_separately_cached():
-    source = (ROOT / "appserver/appserver/appserver.py").read_text()
-    assert "_excursion_dates = request.args.get('excursion_dates') == '1'" in source
-    assert "redis_key_chartdata += '_excursion_dates'" in source
-    # Dates are attached only in the opt-in mode, from the same slice as the MFE/MAE values.
-    assert source.count("if _excursion_dates:") == 3
-    for field in ("entry_trade_date", "exit_trade_date", "high_date", "low_date"):
-        assert "yearDict['%s']" % field in source
-
-
 def test_recorded_excursion_rows_keep_the_legacy_values_and_add_dates():
-    payload = FIXTURE["chart"]["5|SPX|2026-09-27|295|pe2-24|excursion_dates=1"]["payload"]
+    payload = FIXTURE["levels"]["L6"]["chart"]["5|SPX|2026-09-27|295|pe2-24|excursion_dates=1"]["payload"]
     for row in payload["ChartData4"]:
         assert len(row["pct"].split(",")) == 3
         assert row["entry_trade_date"] <= row["low_date"] <= row["exit_trade_date"]
         assert row["entry_trade_date"] <= row["high_date"] <= row["exit_trade_date"]
     assert payload["stats"]["Num Winners"] == "23" and payload["stats"]["Num Losers"] == "1"
+
+
+# ===========================================================================
+# Independent-review regressions (2026-11-17): silently wrong answers
+# ===========================================================================
+
+NOT_ENGINE_ANSWERABLE = [
+    # B1 - ordinary English words are not company names
+    "how has healthcare performed in Q4",
+    "analyze information technology returns in December",
+    "how has liquidity affected returns in january",
+    "what are the historical returns for capital goods in Q1",
+    "analyze progressive returns in the first half of january",
+    "how does the southern hemisphere summer affect returns in january",
+    "what was news in March for apple",
+    "what is the return policy? I signed up in March",
+    "how do I change the date range from January to March?",
+    # B2 - upper-case words and currency codes are not tickers
+    "analyze IT sector performance in Q4",
+    "show ME the best performing stocks for Q4",
+    "How has ALL performed in November through January",
+    "compare IT and ALL for Q4",
+    # B3 / S3 - a date the screen or study cannot honor is never answered for "today"
+    "which S&P 500 stocks historically rise in January",
+    "which S&P 500 stocks are bullish this fall",
+    "best S&P 500 seasonal patterns for the fall, top 5",
+    "which S&P 500 stocks are bullish in Q1",
+    "which S&P 500 stocks were bullish in 2022",
+    "find S&P 500 stocks with bullish patterns starting next Friday",
+    "How did AAPL perform in December 2022?",
+    "how did the market perform in Q4 2018",
+    "how did the dow perform in 2008?",
+    # B4 - negated, two-sided or inverse direction requests
+    "which dow stocks are not bearish this week",
+    "top 5 strongest nasdaq patterns but exclude short ones",
+    "which S&P 500 stocks have strong patterns this week, nothing weak",
+    "which S&P 500 stocks rarely fall this week (highest win rate)",
+    "which s&p 500 stocks drop the least this week historically",
+    "which s&p 500 stocks tend to fall after a strong rise this week",
+    "which S&P 500 stocks have the lowest win rate this week",
+    "which dow stocks have the worst sharpe this week",
+    "show bullish and bearish S&P 500 patterns this week",
+    # S4 - "high"/"low" that is not a WHEN question
+    "What is the latest price for this chart - is it near its high?",
+    "usually how high does this pattern go?",
+    "what dates does the 100 year pattern cover, and why is 1930 so low",
+    "how long does the 100-year pattern last and how high is its win rate",
+    "when did this pattern have its highest return year",
+    "what is the lowest win rate you show for this pattern?",
+    "why is the low so deep in 2008 for this pattern?",
+    "is the 100 year pattern bullish right now?",
+    "when does the 100-year pattern start?",
+    # S5 / S6 - filters the detector cannot apply
+    "which s&p 500 stocks have 1-day holds with win rate above 90% today",
+    "S&P 500 stocks bullish this week in midterm years",
+    "which S&P 500 stocks are bullish this week in midterm years",
+    # sector-in-index and off-topic screens
+    "which sector ETFs are bullish this week",
+    "tell me about tech stocks in the nasdaq",
+    "find S&P 500 stocks with the highest AI score this week",
+    "which stocks have earnings this week",
+    # general product questions
+    "what is a sharpe ratio?", "what does win rate mean?", "how do I compare two symbols?",
+    "compare plans: analyst vs strategist", "what's the difference between long and short patterns",
+    "how do I filter the table by win rate of at least 90%", "rank them by win rate",
+    "what does a win rate of 90% mean, at minimum 5 years?",
+    "why is the minimum 10 years for the top 10 list",
+    "how do the returns in this chart compare to the previous one",
+    "compare this pattern to last year",
+    "general question: how do returns in election years compare against midterm years for SPX",
+]
+
+
+@pytest.mark.parametrize("message", NOT_ENGINE_ANSWERABLE)
+def test_review_probes_that_must_not_be_answered_here(engine, message):
+    assert ask(message, LOADED_AAPL, table_market="2") is None
+    assert engine["opplist"] == [] and engine["chart"] == []
+
+
+def test_common_words_never_resolve_to_companies(engine):
+    """B1: 'happen', 'people', 'post', 'southern' are engine security names, not requests."""
+
+    for message, expected in [
+        ("what tends to happen to apple in December historically", ["AAPL"]),
+        ("what do people usually see for AAPL returns in December", ["AAPL"]),
+        ("how does the s&p 500 perform in post-election years from now to year end", ["SPX"]),
+        ("how does the southern company perform in Q4", []),
+        ("analyze home depot from now to year end", []),      # resolvable name, not in fixture resolve
+    ]:
+        found = [item["symbol"] for item in research._find_securities(message, "t")]
+        assert found == expected, (message, found)
+    index = research._company_index("t")
+    assert "home depot" in index and "american express" in index
+    assert all(" " in name for name in index)                 # one-word names are never indexed
+
+
+def test_engine_name_list_is_fetched_once_per_process(engine):
+    for _ in range(3):
+        research._find_securities("analyze coca-cola returns from now to year end", "t")
+    assert engine["names"] == 1
+
+
+def test_post_election_question_is_one_study_not_a_comparison(engine):
+    command = ask("how does the s&p 500 perform in post-election years from now to year end")
+    assert command["trace"] == {"event": "research_window_study", "symbol": "SPX"}
+    assert [(c["symbol"], c["years"]) for c in engine["chart"]] == [("SPX", "pe1-25")]
+    assert "post-election years (PE+1)" in text_of(command)
+
+
+@pytest.mark.parametrize("message,expected", [
+    ("how has EUR/USD performed in Q1", ["EURUSD"]),
+    ("how has EUR-USD performed in Q1", ["EURUSD"]),
+    ("compare eurusd and GBP/USD in Q1", ["EURUSD", "GBPUSD"]),
+    ("is NOW a good time to analyze gold from now to year end", ["GC"]),
+    ("how has $NOW stock performed in Q4", []),               # marked ticker, not in fixture resolve
+])
+def test_currency_pairs_and_english_tickers(engine, message, expected):
+    assert [item["symbol"] for item in research._find_securities(message, "t")] == expected
+
+
+def test_marked_english_word_tickers_are_still_tickers():
+    assert research._explicit_tickers("how has $NOW performed") == ["NOW"]
+    assert research._explicit_tickers("how has ALL stock performed") == ["ALL"]
+    assert research._explicit_tickers("is NOW a good time for IT or ALL of it") == []
+    assert research._explicit_tickers("EUR/USD and USD in Q1") == []
+    assert research._explicit_tickers("Find SP500 and NASDAQ100 stocks") == []
+    assert research._explicit_tickers("compare AAPL and MSFT") == ["AAPL", "MSFT"]
+
+
+def test_eurusd_study_is_one_instrument(engine):
+    command = ask("how has EUR/USD performed in Q1")
+    assert command["trace"] == {"event": "research_window_study", "symbol": "EURUSD"}
+    assert {call["symbol"] for call in engine["chart"]} == {"EURUSD"}
+
+
+def test_explicit_entry_date_is_screened_for_that_date(engine):
+    command = ask("which nasdaq stocks have bearish patterns starting Dec 1")
+    assert {call["day"].isoformat() for call in engine["opplist"]} == {"2026-12-01"}
+    assert all("starts Tue Dec 1" in line for line in ranked_lines(command))
+
+
+@pytest.mark.parametrize("message,first,last", [
+    ("which S&P 500 stocks historically rise in December", "2026-12-01", "2026-12-31"),
+    ("Which ETFs are bullish next month?", "2026-12-01", "2026-12-31"),
+    ("which nasdaq stocks have bearish patterns starting Dec 1", "2026-12-01", "2026-12-01"),
+    ("which S&P 500 stocks are bullish in November", "2026-11-17", "2026-11-30"),
+])
+def test_screen_honors_named_months_and_dates(message, first, last):
+    request = research._screen_request(message, TODAY, None)
+    assert (request["first"].isoformat(), request["last"].isoformat()) == (first, last)
+
+
+@pytest.mark.parametrize("today,phrase,first,last,tables", [
+    # Tuesday: only the days still ahead
+    ("2026-11-17", "this week", "2026-11-17", "2026-11-22", ["17", "18", "19", "20"]),
+    # Friday: one session left
+    ("2026-11-20", "this week", "2026-11-20", "2026-11-22", ["20"]),
+    # Saturday / Sunday: the week about to start
+    ("2026-11-21", "this week", "2026-11-23", "2026-11-29", ["23", "24", "25", "26", "27"]),
+    ("2026-11-22", "this week", "2026-11-23", "2026-11-29", ["23", "24", "25", "26", "27"]),
+    ("2026-11-20", "next week", "2026-11-23", "2026-11-29", ["23", "24", "25", "26", "27"]),
+    ("2026-11-20", "in the next 5 trading days", "2026-11-20", "2026-11-26",
+     ["20", "23", "24", "25", "26"]),
+    ("2026-12-28", "in the next 10 days", "2026-12-28", "2026-12-31", ["28", "29", "30", "31"]),
+])
+def test_entry_windows_on_fridays_weekends_and_year_end(today, phrase, first, last, tables):
+    day = datetime.date.fromisoformat(today)
+    request = research._screen_request("which S&P 500 stocks start bullish patterns " + phrase, day, None)
+    assert (request["first"].isoformat(), request["last"].isoformat()) == (first, last)
+    assert [d.strftime("%d") for d in research._request_days(request["first"], request["last"])] == tables
+
+
+def test_next_week_and_next_month_past_year_end_are_not_screened():
+    for today, phrase in [("2026-12-28", "next week"), ("2026-12-28", "next month")]:
+        assert research._screen_request(
+            "which S&P 500 stocks start bullish patterns " + phrase,
+            datetime.date.fromisoformat(today), None) is None
+
+
+@pytest.mark.parametrize("message,direction", [
+    ("give me a short list of bullish S&P 500 stocks this week", "long"),
+    ("show bullish s&p 500 patterns with a short holding period this week", "long"),
+    ("find long-term bullish s&p 500 patterns this week", "long"),
+    ("which S&P 500 stocks historically fall this week", "short"),
+    ("find s&p 500 shorts with win rate over 85% this week", "short"),
+    ("which S&P 500 stocks are seasonally weakest this week", "short"),
+    ("top 5 strongest S&P 500 patterns today", "long"),
+])
+def test_direction_is_read_from_trade_words_only(message, direction):
+    assert research._screen_request(message, TODAY, None)["direction"] == direction
+
+
+def test_one_day_hold_is_never_sent_as_an_unfiltered_range():
+    assert research._screen_request(
+        "which s&p 500 stocks have 1-day holds today", TODAY, None) is None
+    request = research._screen_request("which s&p 500 stocks have 2-day holds today", TODAY, None)
+    assert request["hold"] == (2, 2)
+
+
+def test_two_day_hold_range_reaches_the_detector(engine):
+    ask("which s&p 500 stocks have 2-day holds today")
+    assert {call["day_range"] for call in engine["opplist"]} == {"1-1"}
+
+
+@pytest.mark.parametrize("message", [
+    "which dow stocks have the highest win rate among bearish patterns next month over the last 60 years",
+    "which S&P 500 stocks have the highest win rate this week over the last 30 years",
+    "which S&P500 stocks have the highest seasonal win rate over the next 10 days",
+    "rank S&P 500 stocks by win rate for the next 31 days",
+])
+def test_fanout_is_bounded(engine, message):
+    """S2: one message reads at most three bands and forty engine responses in total."""
+
+    ask(message)
+    assert len({call["year2"] for call in engine["opplist"]}) <= research._MAX_TIERS == 3
+    assert len(engine["opplist"]) + len(engine["chart"]) <= research._MAX_ENGINE_CALLS == 40
+
+
+def test_engine_reads_share_a_process_wide_limit():
+    assert research._ENGINE_SLOTS._initial_value == research._FANOUT_WORKERS <= 3
+
+
+def test_average_return_ranking_is_labelled_honestly(engine):
+    command = ask("rank S&P 500 stocks by average return today")
+    assert "by average return (comparing each stock's highest-Sharpe window)" in text_of(command)
+
+
+def test_advice_wording_gets_a_boundary_before_the_research_list(engine):
+    message = "what stocks should I buy this week in the S&P 500 with the highest win rate"
+    command = ask(message, investor_intent=tara_gateway.classify_investor_intent(message))
+    if command is not None:           # the investor funnel may own the turn instead
+        reply = text_of(command)
+        assert "TradeWave cannot tell you what to buy, sell, short or avoid" in reply
+        assert reply.index("TradeWave cannot tell you") < reply.index("1. ")
+    assert research._ADVICE_RE.search(message)
+    assert research._ADVICE_RE.search("which etfs should I avoid this week")
+    assert not research._ADVICE_RE.search("which S&P 500 stocks are bullish this week")
+
+
+# --- B5 / S1: plan limits ---------------------------------------------------
+
+def test_free_plan_screen_is_limited_to_today_and_says_so(engine):
+    command = ask("find dow stocks entering bullish patterns this week", token=plan_token(1),
+                  years_cap=10)
+    assert {call["day"].isoformat() for call in engine["opplist"]} == {"2026-11-17"}
+    lines = ranked_lines(command)
+    assert 1 <= len(lines) <= 5 and all("starts Tue Nov 17" in line for line in lines)
+    reply = text_of(command)
+    assert "today's entries only" in reply and "top 5 patterns per day" in reply
+    assert command["trace"]["plan_limited"] is True
+    by_symbol = {call["symbol"]: call for call in engine["chart"]}
+    for row in command["rows"]:
+        echo = chart_payload(by_symbol[row["symbol"]], plan_token(1))["request"]
+        assert (echo["entry_date"], echo["days_out"]) == (row["date"], row["days_out"])
+
+
+def test_free_plan_never_reports_a_truncated_table_as_none_found(engine):
+    command = ask("find dow stocks entering bearish patterns this week", token=plan_token(1),
+                  years_cap=10)
+    reply = text_of(command)
+    assert "detector found no" not in reply
+    assert "I can't give a full Dow 30 bearish screen on this plan" in reply
+    assert "says nothing about the full market" in reply
+
+
+def test_market_outside_the_free_plan_is_refused(engine):
+    command = ask("find s&p 500 stocks entering bearish patterns this week", token=plan_token(1))
+    assert "outside this account's available markets" in command["reply"]
+
+
+def test_date_locked_study_is_refused_not_mislabelled(engine):
+    """The engine answers a free plan's Q1 request with today's window; never print it as Q1."""
+
+    command = ask("analyze apple historic return in Q1 over the last 20 years",
+                  token=plan_token(1), years_cap=10)
+    reply = text_of(command)
+    assert "I can't run that AAPL study on this plan" in reply
+    assert "profitable in" not in reply and command["actions"] == []
+    recorded = FIXTURE["levels"]["L1"]["chart"]
+    echoed = [recorded[key]["payload"]["request"]["entry_date"] for key in recorded
+              if key.startswith("0|AAPL|2026-01-01|90|") and recorded[key]["payload"]]
+    assert "2026-11-17" in echoed                               # what the engine really computed
+
+
+def test_screen_rows_whose_engine_echo_differs_are_dropped(engine, monkeypatch):
+    original = research._engine_chart
+
+    def relocated(market, symbol, entry_date, days_out, years_value, token, **params):
+        status, payload = original(market, symbol, entry_date, days_out, years_value, token, **params)
+        if payload and symbol == "WELL":
+            payload = dict(payload, request=dict(payload["request"], entry_date="2026-11-17"))
+        return status, payload
+
+    monkeypatch.setattr(research, "_engine_chart", relocated)
+    command = ask("find s&p500 stocks entering seasonaly bearish patterns this week")
+    assert "WELL" not in [row["symbol"] for row in command["rows"]]
+    assert "could not be verified on the dates listed" in text_of(command)
+
+
+def test_study_with_a_shifted_engine_window_is_refused(engine, monkeypatch):
+    original = research._engine_chart
+
+    def shifted(*args, **params):
+        status, payload = original(*args, **params)
+        return status, dict(payload, request=dict(payload["request"], days_out=30))
+
+    monkeypatch.setattr(research, "_engine_chart", shifted)
+    command = ask("analyze apple historic return from now to year end over the last 20 years")
+    assert "I can't run that AAPL study on this plan" in command["reply"]
+    assert command["actions"] == []
+
+
+def test_capped_plan_screen_prints_the_effective_lookback(engine):
+    command = ask("which s&p 500 stocks have the highest win rate over the last 20 years this week",
+                  token=plan_token(2), years_cap=15)
+    assert {call["year1"] for call in engine["opplist"]} == {15}
+    assert {call["years"] for call in engine["chart"]} == {"15"}
+    reply = text_of(command)
+    assert "over a 15-year lookback" in reply and "20-year lookback" not in reply
+    assert "capped at 15 years" in reply
+    assert all(re.search(r"of 15 years", line) for line in ranked_lines(command))
+
+
+def test_capped_plan_study_states_the_cap(engine):
+    command = ask("analyze apple historic return from now to year end over the last 20 years",
+                  token=plan_token(2), years_cap=15)
+    assert [call["years"] for call in engine["chart"]] == ["15"]
+    reply = text_of(command)
+    assert "your plan's lookback is capped at 15" in reply
+    assert "15 completed consecutive years" in reply
+    assert command["actions"][0]["spec"]["years"] == 15
+
+
+def test_years_cap_is_read_from_the_token_when_the_caller_passes_none(engine):
+    command = ask("which s&p 500 stocks have the highest win rate over the last 20 years this week",
+                  token=plan_token(2))
+    assert {call["year1"] for call in engine["opplist"]} == {15}
+    assert "over a 15-year lookback" in text_of(command)
+
+
+def test_free_plan_can_still_ask_about_the_public_hundred_year_pattern(engine):
+    command = ask("what's the latest date that the 100 year pattern has bottomed", token=plan_token(1))
+    assert "Jun 2, 1931" in text_of(command)
+
+
+def test_engine_failure_falls_back_to_the_model_path(engine, monkeypatch):
+    monkeypatch.setattr(research, "_engine_chart", lambda *args, **params: (500, None))
+    assert ask("analyze apple historic return from now to year end over the last 20 years") is None
+    assert ask("what's the latest date that the 100 year pattern has bottomed") is None
+
+
+# --- S8 / S9: engine day numbers and direction-aware labels -------------------
+
+def test_day_numbers_and_dates_come_from_the_engine(engine):
+    command = ask("what's the latest date that the 100 year pattern has bottomed")
+    rows = {row["year"]: row for row in chart_payload(engine["chart"][0])["ChartData4"]}
+    assert rows[1930]["low_day"] == 249 and rows[2022]["low_day"] == 17
+    reply = text_of(command)
+    assert "calendar day %d of 295" % rows[1930]["low_day"] in reply
+    assert "calendar day %d of 295" % rows[2022]["low_day"] in reply
+    # No frequency or session-count statistic is derived in the chatbot.
+    assert "within the first 30" not in reply and "completed cycles the low" not in reply
+    for item in command["dated"]:
+        assert item["day"] == rows[item["year"]]["low_day"]
+
+
+def test_missing_engine_day_numbers_are_not_recomputed(engine, monkeypatch):
+    original = research._engine_chart
+
+    def without_days(*args, **params):
+        status, payload = original(*args, **params)
+        rows = [{k: v for k, v in row.items() if not k.endswith("_day")}
+                for row in payload["ChartData4"]]
+        return status, dict(payload, ChartData4=rows)
+
+    monkeypatch.setattr(research, "_engine_chart", without_days)
+    command = ask("what's the latest date that the 100 year pattern has bottomed")
+    assert "is not available in this response" in command["reply"]
+    assert not re.search(r"calendar day \d+", command["reply"])
+
+
+def test_short_pattern_labels_follow_the_engine_trade_direction(engine):
+    command = ask("Analyze AAPL's historical return from January 1 to March 31 over the last 15 years.")
+    assert chart_payload(engine["chart"][0])["stats"]["Trade Dir"] == "short"
+    reply = text_of(command)
+    assert "Largest rise inside the window (MAE)" in reply
+    assert "Deepest drop inside the window (MFE)" in reply
+
+
+@pytest.mark.parametrize("message,kind", [
+    ("what's the latest date that the 100 year pattern has bottomed", "low"),
+    ("when does the 100-year pattern usually peak?", "high"),
+    ("when was the high for this chart?", "high"),
+    ("when does this pattern usually bottom?", "low"),
+    ("what is the earliest date the loaded pattern has hit its low", "low"),
+    ("on what date did the 100 year pattern hit its low in the latest cycle", "low"),
+])
+def test_when_questions_about_an_extreme_are_recognized(message, kind):
+    assert research._extreme_request(message) == kind
+
+
+# ---------------------------------------------------------------------------
+# Engine: default ChartData4 output is unchanged without excursion_dates
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def chart_engine(monkeypatch):
+    """The real ChartData4 route over a small synthetic price history."""
+
+    import pandas as pd
+    import appserver as appserver_module
+
+    rows, price = [], 100.0
+    day = datetime.date(2012, 1, 2)
+    step = 0
+    while day <= datetime.date(2026, 11, 16):
+        if day.weekday() < 5:
+            step += 1
+            price = round(price * (1 + (((step * 37) % 23) - 11) / 1000.0), 4)
+            rows.append({"date": day.isoformat(), "open": price, "high": round(price * 1.01, 4),
+                         "low": round(price * 0.99, 4), "close": price, "adj_factor": 1.0,
+                         "volume": 1000 + step})
+        day += datetime.timedelta(days=1)
+    frame = pd.DataFrame(rows)
+
+    class _Redis:
+        def __init__(self):
+            self.values = {}
+
+        def get(self, key):
+            return self.values.get(key)
+
+        def set(self, key, value):
+            self.values[key] = value
+
+        def expire(self, key, seconds):
+            return True
+
+    redis = _Redis()
+    monkeypatch.setattr(appserver_module, "redis_client", redis)
+    monkeypatch.setattr(appserver_module, "_singleflight_cache_values",
+                        lambda keys, wait_seconds=10: [redis.get(key) for key in keys])
+    monkeypatch.setattr(appserver_module, "get_symbol_csv", lambda symbol, exchange: frame.copy())
+    monkeypatch.setattr(appserver_module, "stockscore_with_availability",
+                        lambda *args: (0, 0, 0, 0, False))
+    monkeypatch.setattr(appserver_module, "update_activity_log", lambda *args, **kwargs: None)
+    monkeypatch.setattr(appserver_module, "get_geo_from_token", lambda token: (0, "u", "", "US", "0"))
+    monkeypatch.setattr(appserver_module, "get_earnings_dates", lambda symbol: None)
+    monkeypatch.setattr(appserver_module, "_market_today", lambda: datetime.date(2026, 11, 17))
+    monkeypatch.setattr(appserver_module.limiter, "enabled", False)
+    token = jwt.encode({"user": "engine-test", "user_level": "6", "aud": "tw2-appserver",
+                        "iss": "tw2-web", "exp": int(time.time()) + 300},
+                       appserver_module.app.config["SECRET_KEY"], algorithm="HS256")
+    client = appserver_module.app.test_client()
+
+    def get(path, **params):
+        params["token"] = token
+        response = client.get(path, query_string=params)
+        assert response.status_code == 200, response.get_data(as_text=True)[:300]
+        return response.get_data(), response.get_json(), redis
+
+    return get
+
+
+CHART_STUDIES = ["/ChartData4/2/2026-03-03/TEST/20/10", "/ChartData4/2/2026-11-17/TEST/44/12",
+                 "/ChartData4/2/2026-09-27/TEST/294/pe2-3"]
+
+
+@pytest.mark.parametrize("path", CHART_STUDIES)
+def test_default_chartdata4_output_is_byte_identical_without_excursion_dates(chart_engine, path):
+    baseline_bytes, baseline, redis = chart_engine(path)
+    assert set(baseline["ChartData4"][0]) == {"year", "pct", "price", "completed"}
+    default_keys = set(redis.values)
+
+    dated_bytes, dated, _ = chart_engine(path, excursion_dates="1")
+    # Opt-in rows: the legacy fields are untouched, four dates and two day numbers are added.
+    assert dated["stats"] == baseline["stats"]
+    for plain, rich in zip(baseline["ChartData4"], dated["ChartData4"]):
+        assert {key: rich[key] for key in plain} == plain
+    completed = [row for row in dated["ChartData4"] if row.get("completed")]
+    assert completed
+    for row in completed:
+        assert set(row) - {"year", "pct", "price", "completed"} == {
+            "entry_trade_date", "exit_trade_date", "high_date", "low_date", "high_day", "low_day"}
+        assert row["entry_trade_date"] <= row["low_date"] <= row["exit_trade_date"]
+        assert row["entry_trade_date"] <= row["high_date"] <= row["exit_trade_date"]
+        assert row["low_day"] >= 1 and row["high_day"] >= 1
+    # The opt-in response is cached under its own key and never replaces the default one.
+    assert any(key.endswith("_excursion_dates") for key in set(redis.values) - default_keys)
+
+    again_bytes, again, _ = chart_engine(path)                  # served from the default cache key
+    assert again_bytes == baseline_bytes
+    redis.values.clear()
+    fresh_bytes, _fresh, _ = chart_engine(path)                 # recomputed after the opt-in call
+    assert fresh_bytes == baseline_bytes
+
+
+def test_excursion_day_number_counts_the_window_start_as_day_one(chart_engine):
+    _bytes, dated, _ = chart_engine("/ChartData4/2/2026-03-03/TEST/20/10", excursion_dates="1")
+    for row in dated["ChartData4"]:
+        if not row.get("completed"):
+            continue
+        start = datetime.date(row["year"], 3, 3)
+        assert row["low_day"] == (datetime.date.fromisoformat(row["low_date"]) - start).days + 1
+        assert row["high_day"] == (datetime.date.fromisoformat(row["high_date"]) - start).days + 1

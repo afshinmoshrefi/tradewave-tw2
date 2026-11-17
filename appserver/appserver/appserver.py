@@ -4212,6 +4212,17 @@ def getChartData4(resourceID, date, symbol, daysOut, yrs, cut_off_year=0):
             yearDict['exit_trade_date'] = d1
             yearDict['high_date'] = high_date
             yearDict['low_date'] = low_date
+            # Calendar day number of each extreme inside this year's window, counting the
+            # window's own start date (d_start_0) as day 1 - the same convention as the
+            # inclusive display day count. Computed here so no client derives it.
+            _window_start = datetime.datetime.strptime(d_start_0, '%Y-%m-%d')
+            for _field, _value in (('high_day', high_date), ('low_day', low_date)):
+                try:
+                    yearDict[_field] = (
+                        datetime.datetime.strptime(_value, '%Y-%m-%d') - _window_start
+                    ).days + 1
+                except (TypeError, ValueError):
+                    yearDict[_field] = None
         chartData.append(yearDict)
         completed_flags.append(not incomplete_observation)
 
