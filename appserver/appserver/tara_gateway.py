@@ -84,7 +84,7 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "markets": {"type": "string", "description": "for a 'which <group> stocks' screen pass the SINGLE market id of that group (NASDAQ 100=1, Dow 30=0; NASDAQ 100 is not a technology-sector universe); comma list of names/ids '0'..'16' for a multi-market scan; omit for all in scope"},
-                "window": {"type": "string", "description": "'now' | 'next_2_weeks' | 'next_month' | 'YYYY-MM-DD..YYYY-MM-DD'"},
+                "window": {"type": "string", "description": "ENTRY-date window: 'now' | 'next_2_weeks' | 'next_month' | 'YYYY-MM-DD..YYYY-MM-DD'. For 'which stocks rise in <month/period>' pass that period's dates here AND max_days = the period's length, so the results are windows inside the period rather than long holds that only start in it"},
                 "direction": {"type": "string", "enum": ["long", "short"]},
                 "min_win_rate": {"type": "number", "description": "0..1"},
                 "min_days": {"type": "integer"}, "max_days": {"type": "integer"},
@@ -1721,7 +1721,8 @@ _INVESTMENT_BOUNDARY_RE = re.compile(
 )
 _NEGATED_DIRECT_ADVICE_RE = re.compile(
     r"\b(?:cannot|can't|can\s+not|do\s+not|don't|not)\b.{0,55}\b"
-    r"(?:recommend(?:ation)?|tell|advise)\b.{0,35}\b(?:buy|sell|hold|invest|allocate)\b"
+    r"(?:recommend(?:ation)?|tell|advise|determine|decide|say|know|judge)\b.{0,45}\b"
+    r"(?:buy(?:ing)?|sell(?:ing)?|hold(?:ing)?|invest(?:ing)?|allocate|allocating)\b"
     r"(?:\s+(?-i:[A-Z][A-Z0-9.\-]{0,14})\b)?",
     re.IGNORECASE,
 )
@@ -1748,6 +1749,40 @@ def response_violates_investor_contract(text, investor_intent):
         bare_verdict = re.match(r"^\s*(?:go\s+)?(?:long|short)\b", plain, re.IGNORECASE)
         return bool(bare_verdict) or not _INVESTMENT_BOUNDARY_RE.search(plain)
     return False
+
+
+_SUITABILITY_BOUNDARY = (
+    "TradeWave cannot determine whether this security is suitable for you; this is "
+    "historical research, not a forecast or personal recommendation."
+)
+
+
+def repair_investor_contract(text, investor_intent, require_boundary=False):
+    """Remove directive or forecast sentences and keep the evidence around them.
+
+    The floor is unchanged: no sentence that tells the user to buy, sell, hold or size a
+    position, and no forecast, ever leaves; a suitability turn always carries the
+    boundary sentence. What changed is that one such sentence no longer deletes the
+    historical evidence the user asked about. Returns "" when nothing safe is left, so
+    the caller falls back to its fixed boundary reply.
+    """
+
+    kept = []
+    for segment, separator in _text_segments(text or ""):
+        if segment.strip() and reply_gives_direct_advice(segment):
+            continue
+        kept.append(segment + separator)
+    remainder = re.sub(
+        r"^(?:\s*<br\s*/?>\s*)+|(?:\s*<br\s*/?>\s*)+$", "", "".join(kept).strip(), flags=re.I)
+    plain = re.sub(r"<[^>]*>", " ", remainder)
+    if len(plain.split()) < 8 or reply_gives_direct_advice(remainder):
+        return ""
+    needs_boundary = require_boundary or investor_intent in {"named_security", "trade_suitability"}
+    if needs_boundary and not _INVESTMENT_BOUNDARY_RE.search(plain):
+        remainder = _SUITABILITY_BOUNDARY + "<br><br>" + remainder
+    if response_violates_investor_contract(remainder, investor_intent):
+        return ""
+    return remainder
 
 
 def reply_gives_direct_advice(text):
@@ -5278,10 +5313,20 @@ def _finish_tool_reply(final_text, actions, cards, card_list, *, view_intent,
     if _view_actions_conflict(actions):
         trace("protocol_violation", reason="conflicting_view_actions")
         actions = []
-        final_text = (
-            "I couldn't resolve that into one unambiguous chart setup, so I haven't changed "
-            "the chart. Please try again."
-        )
+        # Two different setups were queued, so none is applied. The research the reply
+        # reports is still the answer; only the chart status has to be stated.
+        prose, _ = repair_view_contract(final_text, actions, current_view)
+        plain = re.sub(r"<[^>]*>", " ", prose)
+        if len(plain.split()) >= 6:
+            if not (_NEGATED_VIEW_COMPLETION_RE.search(plain)
+                    or _NO_CHANGE_STATEMENT_RE.search(plain)):
+                prose += "<br><br>" + _NO_CHANGE_NOTE
+            final_text = prose
+        else:
+            final_text = (
+                "I couldn't resolve that into one unambiguous chart setup, so I haven't changed "
+                "the chart. Please try again."
+            )
     # Deterministic guard: guarantee the loaded pick is NAMED (symbol + lookback + stat).
     _enforce_full_history_action(actions, full_history_request)
     _enforce_named_symbol_action(
@@ -5296,14 +5341,25 @@ def _finish_tool_reply(final_text, actions, cards, card_list, *, view_intent,
     )
     if response_violates_investor_contract(final_text, investor_intent):
         trace("protocol_violation", reason="unsafe_investor_response")
-        evidence = _ensure_load_named(
-            "", actions, cards, card_list, current_view=current_view
-        ) if actions else ""
-        final_text = (
-            "TradeWave cannot determine whether this security is suitable for you. "
-            + (("Historical evidence: " + evidence + " ") if evidence else "")
-            + "This is historical research, not a forecast or personal recommendation."
-        )
+        safe_text = repair_investor_contract(final_text, investor_intent)
+        if safe_text:
+            final_text = safe_text
+        else:
+            evidence = _ensure_load_named(
+                "", actions, cards, card_list, current_view=current_view
+            ) if actions else ""
+            if not evidence:
+                confirmed = _confirmed_view_setup(current_view)
+                view_card = (
+                    _current_view_evidence_card(current_view, confirmed) if confirmed else None
+                )
+                if view_card:
+                    evidence = _announce_line(confirmed["symbol"], view_card)
+            final_text = (
+                "TradeWave cannot determine whether this security is suitable for you. "
+                + (("Historical evidence: " + evidence + " ") if evidence else "")
+                + "This is historical research, not a forecast or personal recommendation."
+            )
     final_text = _break_before_cta(final_text)   # closing CTA never runs onto the last list line
     repaired, removed = repair_view_contract(final_text, actions, current_view)
     if removed:

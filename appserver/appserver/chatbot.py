@@ -50,6 +50,7 @@ from tara_gateway import (
     investor_guidance_response,
     loaded_pattern_suitability_response,
     plan_context_lines,
+    repair_investor_contract,
     repair_view_contract,
     response_violates_investor_contract,
     response_violates_view_contract,
@@ -76,6 +77,7 @@ from tara_answer_planner import (
     explicit_pattern_symbol,
     needs_pattern_ai_context,
     normalize_screen_context,
+    previous_list_ordinal_target,
     requested_full_history_years,
     verified_context_lines,
 )
@@ -288,6 +290,22 @@ _KNOWLEDGE_BLOCK = (
     "These are the product facts. Answer product, plan, price, UI, definition, methodology "
     "and troubleshooting questions from them, and do not infer product details that are not "
     "stated here.\n" + _KNOWLEDGE
+)
+
+# Last lines of the live context (maximum recency). Constant text; it sits after the
+# cache breakpoint only because position, not content, is what makes it effective.
+_FINAL_CHECKS = (
+    "\nBEFORE YOU SEND, CHECK:\n"
+    "1) Every part of the question is answered, in the user's language.\n"
+    "2) If the answer is 'no' or 'not available', it ends with the nearest thing TradeWave "
+    "can do for the same goal, with a concrete fact, number or action - not a bare refusal.\n"
+    "3) A definition or 'what is X' asked while a pattern is loaded also gives that pattern's "
+    "own value for X from the live context (its reading, its band, its record).\n"
+    "4) Each statistic names its window and sample size (n). A risk, quality or should-I "
+    "question also names the worst year or deepest adverse move from the engine facts.\n"
+    "5) A UI answer names the control and where it is, exactly as the knowledge base does.\n"
+    "6) Best/worst/losing years come from the ENGINE-SELECTED EXTREMES lines, not from your "
+    "own reading of the yearly rows."
 )
 
 # Stable answer-quality rules (part of the cached prefix; identical on every turn).
@@ -1180,7 +1198,7 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
         "ANSWER THE QUESTION TOO, NOT JUST LOAD: Loading the chart does not replace answering. A yes/no ('is NVDA seasonal in July?') gets a direct yes/no + one real stat from the tool. A 'why is this the pick' gets the actual reason (top Sharpe / strongest seasonal edge / forward-tested record). A specific-year question ('how did 2022 do?') is answered directly from yearly_results - never say you can't see the chart or tell the user to read the bars. A proof/skeptic question ('does this actually work / is it just backtested?') gets ~2 confident sentences from the forward-tested record (made-in-advance picks scored later), not a definitions lecture. If a specific-year question names a symbol/window that is NOT yet loaded (e.g. 'how did NVDA's July setup do in 2022', 'show me the price chart for 2008'), first fire set_view to LOAD that pattern so its yearly_results populate, then answer that year from the data. If you genuinely lack the year's number, say so in one line and offer to load it - NEVER write 'find the 20XX bar' or 'click the bar'.",
         "MISSING-PROJECTION WHY-QUESTION ('why is there no projection line', 'where did the projection go'): if the loaded view uses a PE cycle phase OTHER than the current year's phase, the projection is hidden BY DESIGN - the view shows the next matching FUTURE cycle year, and a future window has no current price to anchor a forward projection to. This is an ANALYTICAL question: answer that reason in 1-2 sentences and STOP. Firing ANY set_view/update_view this turn, changing the user's PE mode uninvited, or reciting the Settings enable-steps is a HARD FAIL - the user chose that PE slice on purpose. End with one short offer ('Want me to flip back to consecutive so the projection returns?') and fire update_view with pe_cycle ONLY after the user says yes. If the PE mode is NOT the cause, check the viewed chart before reciting enable-steps: on a PAST year's historical chart the projection is hidden by design - point the user to the Current button in the price chart title bar (one line); for a pattern whose window already ENDED this year (completed trade) there is no live price to project from - say so in one line and offer to load a live pattern. Give the Settings enable-steps ONLY when the mode is consecutive (or the current year's own phase), the live/current-year chart is showing, and the projection is still absent.",
         "WHEN THERE IS NO DRIVING ACTION (documented UI gaps - click a year bar, highlight a year, open watchlist/portfolio): do NOT fall back to 'click a row'. Either answer from the data you already have (e.g. name the worst year + its loss from yearly_results), or point precisely to where it lives in ONE line ('Wave Stats is the second lower-viewer dot' / 'Price Chart is the final lower-viewer dot'), or open the matching guide popup. One honest sentence beats a manual procedure. Switching the lower viewer is NOT a gap: Tara has an action for it (update_view with bottom_slide=trend_chart, wave_stats, ai_scores, or price_chart), so do it instead of describing dots. For Getting Started, open that guide and give a one-line answer. For creating a watchlist or adding symbols to one, Tara has no action: put the short numbered steps from the knowledge base in the reply AND open the Watchlist guide - opening the guide alone is not an answer. Never emit a set_view with a placeholder/empty symbol.",
-        "PRICING / TIERS (ground in the knowledge base, stay brief - never recite the full tier wall): one or two sentences. Free Explorer exists (Dow 30, top-5 results, start date locked to today); paid unlocks more. If asked which tier for a capability, state the specific gate from the KB: custom start dates begin at Navigator for Dow/NASDAQ/S&P; Analyst adds all U.S. stocks + ETFs and ML scoring; Strategist adds all 15 markets. Point to tradewave.ai/pricing. Do not invent numbers or features not in the knowledge base. For a vague 'is it free?' give only: yes, there is a free Explorer tier (Dow 30, top-5 results, start date locked); paid unlocks more - point to tradewave.ai/pricing. Do NOT volunteer per-tier dollar amounts or portfolio/track limits unless the user names a tier or capability.",
+        "PRICING / TIERS (ground in the knowledge base): answer with the actual numbers. For a general 'how much is it / what does it cost / what are the plans' give ONE compact line per tier with its monthly price and its yearly-billed price (Explorer free; Navigator; Analyst; Strategist) plus the one thing each adds, then tradewave.ai/pricing. For a named tier give that tier's two prices and what it includes. For 'which tier for <capability>' state the specific gate from the KB: custom start dates begin at Navigator for Dow/NASDAQ/S&P; Analyst adds all U.S. stocks + ETFs and ML scoring; Strategist adds all 15 markets. For a vague 'is it free?' say yes, there is a free Explorer tier (Dow 30, top-5 results, start date locked to today) and name the lowest paid price. Use the USER PLAN block to say what the user's own plan already includes. Never invent numbers or features that are not in the knowledge base, and do not recite portfolio/watchlist limits unless asked.",
         "BLANK / ERROR / OUT-OF-SCOPE: If the message is empty or you hit a tool/rate-limit error, never dead-end - reply with one warm line offering a concrete starting move ('Want today's AI pick, a market scan, or a symbol loaded?'). Stay confident; do not expose 'system overloaded' as the whole answer. A pure KNOB command for the current view (change years to N, switch to PE+X) needs no data tool - fire update_view with only that field and state what was requested without claiming completion. A NEW SYMBOL command (load <symbol>, pull up <sym>) MUST first call analyze_symbol to resolve one real setup, then copy its exact symbol + market id + entry_date + hold_days (as days_out), plus any requested knobs, into update_view; if that read fails, do not queue a partial/stale setup and say honestly that the chart was not changed. On a should-I-trade / 'does it make money' / 'is it a good trade' ask: never give a buy, sell, long, or short verdict. State the exact historical direction and evidence, distinguish it from today's market direction and a forecast, mention losing-year or MAE risk, and append the disclaimer. Do not fire a new view action when the exact pattern is already confirmed in the viewer.",
         "FORMAT: Your output is rendered as HTML. Use <br> for line breaks. Use <b> for bold. When listing items, put each on its own line with <br> between them, INCLUDING a <br> after the LAST item; then put any closing sentence or question (e.g. 'Want me to pull one up?') on its own line after a <br><br> - never let it run onto the last list item. Never output a wall of text with no line breaks. NEVER use the em-dash character (—) anywhere in a reply - write ' - ' (spaced hyphen) instead; date ranges may use the en-dash.",
         "INFO POPUPS: When a user asks about a concept that has a guide panel, give a 1-2 sentence answer and auto-open the guide. End with: I just opened the [Name] guide for you. <a href=\"#\" data-action=\"ACTION\" style=\"font-size:0.85em\">[reopen guide]</a><span data-action=\"ACTION\" style=\"display:none\"></span> "
@@ -1404,6 +1422,30 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
                     line += f"; MAE {adverse:+.2f}%"
                 return line
 
+            completed_rows = []
+            for y in yearly:
+                yr = int(y.get("year", 0))
+                if yr < current_year or trade_status == 'completed':
+                    completed_rows.append((yr,) + _year_values(y))
+            if completed_rows:
+                # Selected by code from the engine rows above (no value is computed), so a
+                # "worst year" answer never depends on the model scanning twelve signed numbers.
+                best_row = max(completed_rows, key=lambda row: row[2])
+                worst_row = min(completed_rows, key=lambda row: row[2])
+                losers = [row for row in completed_rows if row[2] < 0]
+                parts.append(
+                    "ENGINE-SELECTED EXTREMES (completed years, %s trade returns): best year %d "
+                    "at %+.2f%%; worst year %d at %+.2f%%; losing years: %s."
+                    % (direction, best_row[0], best_row[2], worst_row[0], worst_row[2],
+                       ", ".join("%d (%+.2f%%)" % (row[0], row[2]) for row in losers) or "none")
+                )
+                deepest = min(completed_rows, key=lambda row: row[4])
+                highest = max(completed_rows, key=lambda row: row[3])
+                parts.append(
+                    "ENGINE-SELECTED PATH EXTREMES: deepest adverse move (MAE) %+.2f%% in %d; "
+                    "largest favorable move (MFE) %+.2f%% in %d."
+                    % (deepest[4], deepest[0], highest[3], highest[0])
+                )
             for y in yearly:
                 yr = int(y.get("year", 0))
                 if yr >= current_year:
@@ -1633,6 +1675,7 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
     plan_lines = plan_context_lines()
     if plan_lines:
         parts.append("\n" + "\n".join(plan_lines))
+    parts.append(_FINAL_CHECKS)
 
     blocks = segmented_system_blocks(
         "\n".join(static_parts),
@@ -2700,7 +2743,9 @@ def chat():
         # Ordinal table commands are exact UI actions, not language-model decisions. Resolve
         # them from the filtered/sorted visible rows supplied by the browser so "load the 3rd
         # one" cannot count the wrong list, forget the current market, or punt after a refresh.
-        row_command = build_opportunity_row_load_command(
+        # "Load the second one" after Tara listed names means her list, not the table.
+        ordinal_target = previous_list_ordinal_target(user_message, history, opportunities)
+        row_command = None if ordinal_target else build_opportunity_row_load_command(
             user_message,
             opportunities,
             market=opp_table_market,
@@ -2723,7 +2768,7 @@ def chat():
         # The visible table's first row is its highest-ranked row, so no model can
         # substitute a historical or off-screen candidate.
         table_pick = None
-        if investor_intent not in gateway_owned_intents:
+        if investor_intent not in gateway_owned_intents and not ordinal_target:
             table_pick = build_current_table_pick_command(
                 user_message,
                 opportunities,
@@ -2818,7 +2863,7 @@ def chat():
                 return finish(flip_reply, [])
 
         planned_reply = None
-        if investor_intent not in gateway_owned_intents:
+        if investor_intent not in gateway_owned_intents and not ordinal_target:
             planned_reply = build_deterministic_reply(
                 user_message,
                 wave_viewer,
@@ -2877,7 +2922,7 @@ def chat():
             logging.warning("Tara plan years cap unavailable; leaving the lookback unclamped")
             user_years_cap = None
 
-        explicit_named_symbol = explicit_pattern_symbol(user_message)
+        explicit_named_symbol = explicit_pattern_symbol(user_message) or ordinal_target or None
         loaded_symbol = str(wave_viewer.get("symbol") or "").strip().upper()
         named_symbol_override = (
             explicit_named_symbol
@@ -2925,7 +2970,13 @@ def chat():
         for h in history[:-1]:   # skip last - it's the current user turn
             role = "assistant" if h.get("role") == "assistant" else "user"
             messages.append({"role": role, "content": h.get("content", "")})
-        messages.append({"role": "user", "content": user_message})
+        model_user_message = user_message
+        if ordinal_target:
+            # Resolve the ordinal for the model: the symbol is read from Tara's own
+            # previous reply, so no statistic is supplied here.
+            model_user_message = "%s (that is %s, from your previous list)" % (
+                user_message.rstrip(), ordinal_target)
+        messages.append({"role": "user", "content": model_user_message})
 
         provider = select_tara_provider()
         logging.info(
@@ -3045,7 +3096,11 @@ def chat():
                 'event': 'protocol_violation',
                 'reason': 'unsafe_investor_response',
             })
-            bot_reply = (
+            # Drop the directive or forecast sentence and keep the evidence; when nothing
+            # safe is left, use the fixed boundary reply.
+            bot_reply = repair_investor_contract(
+                bot_reply, investor_intent, require_boundary=True
+            ) or (
                 "TradeWave cannot determine which security is suitable for you. I can provide "
                 "tool-grounded historical seasonal evidence, including losing years, but not a "
                 "personal buy, sell, hold, allocation, or return forecast."

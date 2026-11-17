@@ -2450,6 +2450,47 @@ invalidated the huge prefix. The replacement has three ordered layers:
    state, and the positively stated calendar-day/short-return fact ledger remain the final dynamic
    block, where they have maximum recency.
 
+**Whole knowledge base in the cached prefix, repairing guards and the one-line model policy
+(2026-11-17, TW-TASK-0033).** Layer 2 above no longer gates knowledge. The TW-TASK-0032 eval showed
+that 46% of non-helpful answers had the fact in the KB but not in the three routed sections, so
+`chatbot.build_system_prompt` now puts the WHOLE `chatbot_knowledge.txt` at the end of the stable
+first block (`_KNOWLEDGE_BLOCK`, after `_ANSWER_QUALITY_RULES`). That block is byte-identical for
+every user, screen, plan and question, so both providers read it from their prompt cache (about
+42.6K Luna tokens, `cached_tokens` equal to the full prefix from the second call per cache shard).
+`select_topic_knowledge` and its routes remain in `tara_prompt_context.py` as a tested library but
+are not called by the prompt builder. The live block now always carries the loaded pattern's yearly
+rows (with MAE values even when the overlay is hidden), `TODAY` (the market date), and a verified
+`USER PLAN` block from `tara_gateway.plan_context_lines()`, which reads the same verified claims and
+config tables as the tool-level plan gate (`_plan_scope`); it informs wording only, enforcement is
+unchanged.
+
+Guards keep their contract and change their remedy. `tara_gateway.repair_view_contract` removes only
+the sentence that claims or promises a view change the turn cannot prove (or an action Tara does not
+have, such as creating a calendar event) and keeps the rest; a reply that is nothing but such a claim
+still fails closed. A present-tense description of the loaded screen is allowed when no action is
+queued. `_ensure_load_named` still states the loaded setup's own record first when the reply quoted
+another one, but keeps sentences that explicitly belong to another symbol, lookback, duration or
+entry date instead of collapsing the reply to one announce line. `repair_investor_contract` removes
+a directive or forecast sentence and guarantees the suitability boundary sentence; the required
+disclaimer floor in `_finalize_chat_response` is unchanged. Both provider loops share one tail,
+`_finish_tool_reply`.
+
+Deterministic routes are narrower: `tara_answer_planner.question_exceeds_canned_scope` sends compound,
+troubleshooting, count/limit and options questions to the model (advice-shaped and AI-value turns keep
+their deterministic replies); the direction-flip detector ignores turns that merely contain a direction
+word; the investor funnel is skipped for definitions and how-to questions; a comparison with no dates
+runs on the loaded window or the next 30 calendar days and says so (`tara_research._DEFAULT_COMPARE_DAYS`).
+`tara_gateway._apply_user_stated_request` fills ENGINE ARGUMENTS the user stated and the model omitted
+(lookback, "next N days", US listing for a bare ticker, the viewer's lookback on a re-read of the
+loaded symbol); it computes no statistic.
+
+Model policy: `tara_runtime_policy.ACTIVE_POLICY` names one row of `POLICIES` (`luna`, `haiku55`,
+`sonnet55`). Changing that one line switches the primary; `chatbot.chat`, the report-explanation turn
+and `portfolio_scenarios` dispatch on the provider, the other provider becomes the fallback, and
+`AI_tools_appserver.send_claude_messages` sends the Claude 5 request shape (adaptive thinking,
+`output_config.effort`, no sampling parameters, no caching beta header) for `claude-*-5*` ids only.
+`tests/test_tara_runtime_policy.py` pins the active policy and must change in the same commit.
+
 Measured with the real tool-enabled prompt and representative loaded/screen questions, model-bound
 system content fell from roughly 117K-121K characters to 31K-34K characters (about 72%-74% smaller;
 character count, not a token estimate). Live dev provider usage then confirmed the cache boundary:

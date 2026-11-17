@@ -1000,8 +1000,12 @@ def build_screen_command(message, user_token, *, today=None, table_market=None, 
         if limits:
             return {"reply": (
                 "<b>I can't give a full %s %s screen on this plan.</b> %s Nothing %s in that "
-                "limited view matched, which says nothing about the full market."
-                % (_esc(label), side, " ".join(limits), side)), "actions": [], "trace": trace}
+                "limited view matched, which says nothing about the full market. What your plan "
+                "does show: ask for \"today's top %s setups\" for the patterns entering now, or "
+                "name a %s stock and I will analyze its current window. Full screens are part of "
+                "the paid plans: tradewave.ai/pricing."
+                % (_esc(label), side, " ".join(limits), side, _esc(label), _esc(label))),
+                "actions": [], "trace": trace}
         deeper = ""
         if request["rank"] == "win_rate" and reached > wanted:
             deeper = (" A win-rate screen reads the detector's %d strictest band%s; ask for the "

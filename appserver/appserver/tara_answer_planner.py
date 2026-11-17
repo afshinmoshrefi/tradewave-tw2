@@ -2186,6 +2186,52 @@ def _month_day_year(date_text: str) -> Optional[str]:
     return f"{date_value.strftime('%b')} {date_value.day}, {date_value.year}"
 
 
+_LISTED_SYMBOL_LINE = re.compile(
+    r"^\s*(?:\d{1,2}[.)]\s*|[-*\u2022]\s*)?(?:<b>\s*)?([A-Z][A-Z0-9.\-]{0,9})(?:\s*</b>)?"
+    r"(?:\s+(?:long|short))?\s*(?:[-:\u2013(,]|\s+(?:long|short|won|starts|is|was)\b)"
+)
+
+
+def previous_reply_listed_symbols(history: Any) -> List[str]:
+    """Symbols Tara listed, in order, in her most recent reply (one per line).
+
+    "Load the second one" right after Tara listed five names means the second name of
+    THAT list. The on-screen table can be a different market or a different order, so
+    the ordinal table command must not answer it.
+    """
+
+    if not isinstance(history, list):
+        return []
+    previous = ""
+    for item in reversed(history[:-1]):
+        if isinstance(item, Mapping) and item.get("role") == "assistant":
+            previous = str(item.get("content") or "")
+            break
+    symbols: List[str] = []
+    for line in re.split(r"<br\s*/?>|\n", previous):
+        match = _LISTED_SYMBOL_LINE.match(re.sub(r"</?(?:div|span|p|li|ul|ol)[^>]*>", " ", line))
+        if match and match.group(1) not in symbols:
+            symbols.append(match.group(1))
+    return symbols if len(symbols) >= 2 else []
+
+
+def previous_list_ordinal_target(message: Any, history: Any, opportunities: Any) -> str:
+    """The symbol an ordinal refers to in Tara's previous list, or "" for the table."""
+
+    rank = requested_opportunity_row_rank(message)
+    if rank is None or re.search(r"\b(?:table|rows?)\b", str(message or ""), re.I):
+        return ""
+    listed = previous_reply_listed_symbols(history)
+    if rank > len(listed):
+        return ""
+    rows = opportunities if isinstance(opportunities, list) else []
+    table_symbol = ""
+    if rank <= len(rows) and isinstance(rows[rank - 1], Mapping):
+        table_symbol = str(rows[rank - 1].get("symbol") or "").upper()
+    target = listed[rank - 1]
+    return "" if target == table_symbol else target
+
+
 def build_opportunity_row_load_command(
     message: Any,
     opportunities: Any,
