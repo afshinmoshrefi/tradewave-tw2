@@ -655,7 +655,7 @@ def test_explicit_loaded_pattern_analysis_is_compact_path_aware_and_non_advisory
     assert "no stronger/weaker conclusion yet" in reply
     assert 'data-action="switch-viewer-cycle" data-cycle="pe2"' in reply
     assert "Switch chart to PE+2 (midterm)" in reply
-    assert "<b>Next check:</b> compare this exact window on recent and full-history lookbacks" in reply
+    assert '<b>Next check:</b> ask "show the full history" to compare this window on the longest lookback' in reply
     assert "gross historical results exclude execution costs, taxes, short-borrow costs, and dividends owed" in reply
     assert "Scanner-selected, in-sample, and selection-sensitive" in reply
     assert "not a forecast or recommendation" in reply
@@ -761,7 +761,7 @@ def test_against_trend_is_translated_into_recent_movement_for_a_long_setup():
     assert "Trend Long is 0/100 (Against)" in reply
     assert "price movement over roughly the last one to two weeks has not been moving strongly upward" in reply
     assert "direction-specific Trend score" not in reply
-    assert "use the Price Chart to verify that recent movement is not yet moving upward" in reply
+    assert 'ask "open the price chart" to see whether price has started moving up' in reply
 
 
 def test_trend_alignment_question_names_the_short_direction_and_separates_history():
@@ -1724,12 +1724,13 @@ def test_loaded_advice_ask_gets_evidence_without_a_trade_recommendation():
         "Should I trade this pattern?", _peg_short_context(), _price_screen(), current_year=2026
     )
 
-    assert "can't decide whether you should take the trade" in reply
+    # Evidence first; one short boundary last (TW-TASK-0031).
+    assert reply.index("<b>Read:</b>") < reply.index("<b>Your call:</b>")
+    assert "Whether to take the trade is your decision; I can't make it for you." in reply
     assert "14 of 17 completed years (82%, 2009-2025)" in reply
     assert "latest 5 were weaker than the earlier 12" in reply
-    assert "median best move +4.50% (MFE)" in reply
-    assert "not a forecast or recommendation" in reply
     assert "yes, trade" not in reply.lower()
+    assert len(re.sub(r"<[^>]+>", " ", reply).split()) < 130
 
 
 def test_rank_reply_uses_exact_visible_order_without_assuming_sharpe_sort():

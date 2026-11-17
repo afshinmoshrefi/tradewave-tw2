@@ -2334,6 +2334,52 @@ whose numbers differ from the ONE loaded setup's headline, which collapsed multi
 multi-statistic answers to a single announce line. The gateway `/v1/scan` still fetches OppList4
 only at a window's first date; it is unchanged here.
 
+**Production failure classes (TW-TASK-0031, 2026-11-17).** A triage of 186 real production turns
+found eleven failure classes. The invariants that came out of fixing them:
+- **"Show ..." is a chart command only when its object can be a ticker.** `tara_gateway`
+  `_plausible_ticker_token` treats capitals inside mixed-case text as an explicit ticker and
+  rejects ordinary English words and UI nouns typed in lower or sentence case
+  (`_COMMON_ENGLISH_WORDS`). `_question_symbol` uses the same rule, so "show me 100 year pattern"
+  is no longer the ticker ME. The view-action guard still replaces a reply that CLAIMS or
+  PROMISES an unqueued chart change, and stays strict for load / pull up / switch / set, but
+  `_soft_view_request_answered` keeps a clean prose answer to a show/open/see turn (one corrective
+  round first) instead of "I couldn't send the complete chart action".
+- **Read-tool recoveries never change a number silently.** `_execute_tara_tool` (a) reads a bare
+  ISO metal code (XAU, XAG, XPT, XPD) as its listed USD spot pair unless the named market really
+  lists the bare code, (b) answers a symbol with NO detected pattern (ROKU) with the engine's plain
+  30-day window from today, labelled "not a detected pattern", (c) falls back from the per-symbol
+  pattern list to the symbol's current setup in markets outside the five-market symbol grid, and
+  (d) reruns a below-band "N of Y winning years" scan at the market's band floor
+  (`apiserver/market_bands.json`). Each recovery queues a turn note; `_apply_turn_notes` prepends
+  it when the model's prose left it out. `_get` now keeps the gateway's error code and message.
+- **AI scores in scans.** `find_best_opportunities` accepts `rank_by` (ai_win_prob, ais,
+  pred_return), `min_ai_win_prob` and `min_pred_return`. `_scan_with_ai_scores` asks the gateway
+  for `rank_by=ml`, then only sorts and filters the engine's own values; plan, market (US stocks
+  and ETFs) and horizon (10-90 days, entry within five days) gates stay in the gateway. When no row
+  carries a score the rows stay in historical Sharpe order and the reply must say AI scores were
+  not available. A historical average is never presented as PredR. Result-level notices and each
+  row's `ai` block survive `_bounded_json` trimming (`_RESULT_NOTICE_KEYS`).
+- **Advice boundary.** `tara_answer_planner._is_trade_advice_request` matches a personal
+  buy/sell/hold/enter decision only; a modal after an interrogative ("how should I read", "when
+  should I exit", "what should I look at") is an ordinary question. The advice reply is evidence
+  first and one "Your call" sentence last. Exit-timing questions get the window's exit date and
+  "no price targets"; "recent" counts as a recency question only when it is about the record.
+- **Next checks are runnable.** `_runnable_next_check` only suggests an ask that a deterministic
+  route performs (a year question, "show the full history", a lower-panel switch, a Best Waves
+  lookup). TradeWave has earnings DATES (Price Chart markers and an estimated next date) but no
+  with/without-earnings cohort study; `build_earnings_split_reply` says exactly that.
+- **Sector words.** TradeWave has no sector tags. `build_sector_screen_command` answers "tech
+  stocks" from the NASDAQ 100 engine screen and says it is a tech-heavy index, not a technology
+  list; other sectors get the S&P 500 screen with a plain "not sector-filtered" line and the
+  sector's SPDR ETF. It calls `tara_research.build_screen_command`; it does not edit it.
+- **Best Waves fallback.** `build_best_waves_command` tries the loaded view's lookback, then 10
+  consecutive years, then 5 (labelled as a small sample), and names the setting it used.
+- **Screens.** The investor-funnel screen reads each row's completed-year win record from
+  `ChartData4` and ends with one short line instead of a fixed 70-word disclaimer.
+- **How-to answers.** Watchlist creation steps and the Median Gain definition (median of ALL
+  completed years' returns, per `appserver.py` `statistics.median(pctArray)`) are deterministic;
+  KB routes were added for "watch list", chart-changed questions, billing/cancel and median.
+
 **Segmented prompt loading + verified loaded-pattern analysis (2026-07-31).** The previous prompt
 path appended the entire roughly 89,000-character `chatbot_knowledge.txt` plus up to 30 opportunity rows,
 every yearly row, and every `ChartData4.stats` field to every model call. Worse, Anthropic caching

@@ -1,0 +1,431 @@
+{
+ "task": "TW-TASK-0031",
+ "captured_utc": "2026-11-17T12:45:19+00:00",
+ "method": "Authenticated POST /chatbot/chat against a private appserver started from the task worktree on 127.0.0.1:5078 (own port, no control socket; loopback engine = the same worktree instance, real dev engine data; gateway = the dev apiserver). 'before' = the base branch origin/claude/tara-integrated-20261117 before any edit; 'after' = this branch. Synthetic Strategist-level test identities claude-tara-task-0031-test-*; no customer account or data. Loaded-view cases use synthetic viewer statistics, so they prove routing and wording, not numbers. Model-written answers vary between runs. Active dev runtime and pointers untouched.",
+ "turns": [
+  {
+   "case": "1_usage",
+   "question": "Show me my usage so far and which plan actually fits - including if free Explorer is enough.",
+   "loaded_view": null,
+   "before": {
+    "reply_text": "I couldn't send the complete chart action, so I haven't changed the chart. Please try that load again.",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "Usage so far: I can\u2019t access your account\u2019s actual usage or subscription details from here.\n\nIs Explorer enough? Yes, if you only need Dow 30 research, the top 5 results, up to 10 years of history, and today-locked pattern dates. It includes no ML scoring.\n\nUpgrade fit:\n   \nNavigator - $19/mo or $14/mo yearly: NASDAQ 100/S&P 500, custom dates, up to 15 years.\n   \nAnalyst - $47/mo or $33.25/mo yearly: all U.S. stocks and ETFs, full history, and ML scoring.\n   \nStrategist - $129/mo or $99/mo yearly: all markets, including international, forex, crypto, futures, and bonds.\n   \n   \n\nIf those Explorer limits cover your research, free is sufficient. See plan details at tradewave.ai/pricing.",
+    "actions": []
+   }
+  },
+  {
+   "case": "1_zprob",
+   "question": "show my Z probability for next 3 months",
+   "loaded_view": "Z",
+   "before": {
+    "reply_text": "Z long based on the last 6 years: won 4 of the last 6 years, avg +21.7%, Sharpe 0.50.",
+    "actions": [
+     {
+      "type": "set_view",
+      "spec": {
+       "bottom_slide": "ai_scores",
+       "days_out": 90,
+       "entry_date": "2026-11-17",
+       "market": "2",
+       "symbol": "Z"
+      }
+     }
+    ]
+   },
+   "after": {
+    "reply_text": "Z long - enter ~Nov 17, hold 90d. Won 4/6 years, a 66.67% historical win rate, avg +21.7%, Sharpe 0.5.\n   \n   \nThis is the historical record for a 3-month window, not a prediction of the next result.",
+    "actions": [
+     {
+      "type": "set_view",
+      "spec": {
+       "days_out": 90,
+       "entry_date": "2026-11-17",
+       "market": "2",
+       "symbol": "Z",
+       "years": 6
+      }
+     }
+    ]
+   }
+  },
+  {
+   "case": "2_predr",
+   "question": "best setup today with prdicted profit of minimum 5% and holding 40-100 ays",
+   "loaded_view": null,
+   "before": {
+    "reply_text": "Historical research candidates matching 40-100 days and average return above 5%:\n\nHLT long - hold 91 days, historical avg +13.3%, Sharpe 3.1\n   \nCIEN long - hold 58 days, historical avg +16.7%, Sharpe 2.7\n   \nMAR long - hold 96 days, historical avg +12.2%, Sharpe 1.8\n   \nCBRE long - hold 77 days, historical avg +8.2%, Sharpe 1.8\n   \nFAZ short - hold 82 days, historical avg +16.8%, Sharpe 1.8\n   \n   \n\nThese are historical averages, not predicted profits.\n   \n   Want me to pull one up?",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "No verified AI PredR \u22655% is available today. The screen returned historical candidates, ranked by Sharpe, not predicted profit:\n\nHLT long - 91 days, historical avg +13.3%, won 10/10 years\n   \nCIEN long - 58 days, historical avg +16.7%, won 10/10 years\n   \nMAR long - 96 days, historical avg +12.2%, won 10/10 years\n   \nCBRE long - 77 days, historical avg +8.2%, won 10/10 years\n   \nFAZ short - 82 days, historical avg +16.8%, won 10/10 years\n   \n   \n\nAI scores were unavailable, so these averages are historical, not predicted returns.",
+    "actions": []
+   }
+  },
+  {
+   "case": "2_ais",
+   "question": "Now give me your best 10 opportunities for today wirh hold max 100 days, Wilshire 5000 universe, based on AIS for highwst propability",
+   "loaded_view": null,
+   "before": {
+    "reply_text": "Wilshire 5000 screen - historical research candidates\n   \nThe available table is sorted by Sharpe, not AIS, so I can\u2019t verify highest AI probability from this result. All setups are long and hold no more than 100 days.\n   \n   \nGWW - 8 days, avg +1.9%, Sharpe 1.98\n   \nBMI - 6 days, avg +1.9%, Sharpe 1.93\n   \nZBRA - 12 days, avg +5.8%, Sharpe 1.75\n   \nLPX - 7 days, avg +3.0%, Sharpe 1.65\n   \nR - 8 days, avg +3.6%, Sharpe 1.57\n   \nROG - 8 days, avg +2.9%, Sharpe 1.55\n   \nWGO - 8 days, avg +3.6%, Sharpe 1.54\n   \nBC - 8 days, avg +3.6%, Sharpe 1.52\n   \nFICO - 19 days, avg +4.3%, Sharpe 1.47\n   \nRIGL - 8 days, avg +8.1%, Sharpe 1.46\n   \n   \nThese are historical seasonal results, not AIS-ranked recommendations.",
+    "actions": [
+     {
+      "type": "set_view",
+      "spec": {
+       "market": "4"
+      }
+     }
+    ]
+   },
+   "after": {
+    "reply_text": "Historical research candidates - Wilshire 5000, current window, max 100 days, ranked by AI Win%.\n\nAVGO - AI Win% 84%, AIS 95.4; historical record 9/10, avg +6.83%, hold 26d.\n   \nMHO - AI Win% 84%, AIS 95.3; historical record 10/10, avg +3.53%, hold 19d.\n   \nTOL - AI Win% 84%, AIS 95.3; historical record 9/10, avg +6.17%, hold 21d.\n   \nMKC - AI Win% 84%, AIS 95.3; historical record 10/10, avg +4.62%, hold 27d.\n   \nKBH - AI Win% 84%, AIS 95.2; historical record 10/10, avg +4.36%, hold 21d.\n   \n\nDPZ - AI Win% 84%, AIS 95.2; historical record 9/10, avg +4.33%, hold 14d.\n   \nUNH - AI Win% 84%, AIS 95.1; historical record 9/10, avg +3.51%, hold 18d.\n   \nCSCO - AI Win% 84%, AIS 95.1; historical record 10/10, avg +3.45%, hold 27d.\n   \n\nThe engine returned 10 opportunities, but only 8 detailed rows were available in this response. AI Win% is a model-calibrated estimate, separate from the historical record; AIS is a relative return-ranking score, not a probability.",
+    "actions": [
+     {
+      "type": "set_view",
+      "spec": {
+       "market": "4"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "case": "2_airank",
+   "question": "Give me ai eankes resukts",
+   "loaded_view": null,
+   "before": {
+    "reply_text": "Top seasonal rankings right now:\n   \nHLT long - Sharpe 3.1, avg +13.3%, entry ~Nov 17\n   \nTECS short - Sharpe 2.8, avg +6.8%, entry ~Nov 17\n   \nCIEN long - Sharpe 2.7, avg +16.7%, entry ~Nov 17\n   \nUVXY short - Sharpe 2.4, avg +59.3%, entry ~Nov 17\n   \nSQQQ short - Sharpe 2.3, avg +2.4%, entry ~Nov 17\n   \n   \nThese are historical research candidates, not forecasts or recommendations.",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "AI-ranked seasonal research candidates\n   \nUNH - AIS 95.1; AI Win% 84%; PredR 4.7%; historical record 9/10, avg +3.5%.\n   \nZBRA - AIS 95.0; AI Win% 84%; PredR 3.9%; historical record 10/10, avg +5.7%.\n   \nYUM - AIS 92.8; AI Win% 82%; PredR 3.5%; historical record 10/10, avg +4.2%.\n   \nBLV - AIS 92.2; AI Win% 82%; PredR 3.4%; historical record 10/10, avg +1.3%.\n   \nQYLD - AIS 90.7; AI Win% 82%; PredR 3.2%; historical record 10/10, avg +1.4%.\n   \n   \nAI values are model estimates; historical returns are separate evidence. 11 rows received AI scores.",
+    "actions": []
+   }
+  },
+  {
+   "case": "3_capital",
+   "question": "what should stocks should i look at for this week if im looking for bigger gains but don't have a huge amount of capital?",
+   "loaded_view": "ITW",
+   "before": {
+    "reply_text": "I can evaluate the evidence, but I can't decide whether you should take the trade.\nRead: ITW long, Nov 17 to May 12 (177 calendar days; entry day is day 1): profitable in 15 of 15 completed years (100%, 2011-2025); gross average +9.86%; median +9.90%; Sharpe 1.18 (final returns); TWR 2.10 (MFE). Every completed observation was profitable; the sample is modest.\nAI context: The current-condition model reading is unavailable, and Tara is not treating the missing values as zero.\nPayoff and path: median best move +11.90% (MFE); median adverse move -1.50% (MAE); worst MAE -1.50% in 2011; worst finish +6.10% in 2014. MAE is the move against the setup from entry, not peak-to-trough drawdown.\nTiming: Active: calendar day 1 of 177 in the Nov 17, 2026 to May 12, 2027 window; it ends in 176 calendar days. The partial live row is excluded from the completed record (n=15).\nWhat matters now: sample depth is the main limitation.\nCycle context: 2026 is PE+2 (midterm year); this sample is consecutive. Compare the exact same window in PE+2 (midterm) observations. That cohort is not loaded, so there is no stronger/weaker conclusion yet. Compare n in both views. Switch chart to PE+2 (midterm)\nNext check: inspect 2011 with MFE and MAE shown to see how the worst path developed.\nScope: gross historical results exclude execution costs and taxes. This is not a forecast or recommendation.",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "For a seasonal **stock** search over the next two weeks, ranked by historical average return:\n\nZBRA - won 10/10 years, average +5.7%, ~12-day window\n   \nMRVL - won 9/10 years, average +4.6%, ~13-day window\n   \nDPZ - won 9/10 years, average +4.3%, ~14-day window\n   \nAPO - won 9/10 years, average +4.2%, ~8-day window\n   \n\nThese are historical research candidates, not forecasts; limited capital does not change the underlying risk or expected percentage exposure.\n   \n   Want me to pull one up?",
+    "actions": []
+   }
+  },
+  {
+   "case": "3_readcols",
+   "question": "can you explain me how to read the tradewave chart above on Win% and PredR ? what should i be looking? ",
+   "loaded_view": "IRM",
+   "before": {
+    "reply_text": "I can evaluate the evidence, but I can't decide whether you should take the trade.\nRead: IRM long, Nov 17 to Dec 6 (20 calendar days; entry day is day 1): profitable in 10 of 10 completed years (100%, 2016-2025); gross average +4.23%; median +4.00%; Sharpe 2.46 (final returns); TWR 2.67 (MFE). Every completed observation was profitable; the sample is modest.\nAI context: Current-condition model for this same 20-calendar-day window: AI Win Probability 82% (18 percentage points below the historical rate); PredR +3.2%; PMFE +8.5%. AI Win Probability is the calibrated chance of a positive return and PredR is the predicted return for that same horizon. They are estimates, not additional historical observations. Evidence relationship: agreement because the historical record and AI estimates point the same way.\nPayoff and path: median best move +6.00% (MFE); median adverse move -1.50% (MAE); worst MAE -1.50% in 2016; worst finish +1.80% in 2019. MAE is the move against the setup from entry, not peak-to-trough drawdown.\nTiming: Active: calendar day 1 of 20 in the Nov 17 to Dec 6, 2026 window; it ends in 19 calendar days. The partial live row is excluded from the completed record (n=10).\nWhat matters now: sample depth is the main limitation.\nCycle context: 2026 is PE+2 (midterm year); this sample is consecutive. Compare the exact same window in PE+2 (midterm) observations. That cohort is not loaded, so there is no stronger/weaker conclusion yet. Compare n in both views. Switch chart to PE+2 (midterm)\nNext check: inspect 2016 with MFE and MAE shown to see how the worst path developed.\nScope: gross historical results exclude execution costs and taxes. This is not a forecast or recommendation.",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "Win% is the AI-calibrated probability that similar past model estimates finished profitably. It is separate from IRM\u2019s historical record of 10/10 profitable years.\n   \n   \nPredR is the model\u2019s estimated direction-adjusted ending return for the evaluated horizon. Compare it with Win%: higher values are generally more supportive, but neither is a guarantee or a forecast of this year\u2019s result.\n   \n   \nAlso review the sample size, historical return, Sharpe, and the difference between AI scores and the historical record. A large gap is a reason for deeper review, not an automatic signal.\n   \n   \nI just opened the AI Scores guide for you. [reopen guide]",
+    "actions": []
+   }
+  },
+  {
+   "case": "3_projection",
+   "question": "What about recent projections, for example where did you project NVDA price to be 30 days ago and how does that match where it is now ?",
+   "loaded_view": "NVDA",
+   "before": {
+    "reply_text": "Bottom line: NVDA's loaded long sample is driven mainly by frequent winning observations, but cross-year consistency is moderate rather than exceptional and the sample is small.\nHistorical record: NVDA long, Nov 19 to Nov 26 (8 calendar days; entry day is day 1): profitable in 4 of 5 completed PE+2 (midterm) observations (80%) from 2006 through 2022, gross average return +0.96% per trade, Sharpe 0.12 for cross-year consistency.\nEnding-loss profile: 1 losing observations; average loss -11.82%; worst year 2018 (-11.82%).\nCurrent context: the next occurrence starts in 2 calendar days; TWR 1.20 is above Sharpe 0.12, meaning favorable intrawindow movement was stronger than the final exit returns alone show.\nBest next check: inspect the standout best year beside a typical year; the positive average does not survive removing that outlier.\nScope: gross historical results exclude execution costs and taxes. This is not a forecast or recommendation.",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "I can\u2019t retrieve the archived projection snapshot from 30 days ago, so I can\u2019t calculate that projected-versus-current-price gap from the available data. The loaded NVDA pattern is still upcoming for Nov 19 to Nov 26, 2026; its historical record is 4 profitable of 5 PE+2 observations, with 2018 finishing -11.82% after reaching +6.00% MFE.",
+    "actions": []
+   }
+  },
+  {
+   "case": "3_exit",
+   "question": "tell me about the chart and the profitability of getting in this trade at $167, when and where should I get out",
+   "loaded_view": "ATO",
+   "before": {
+    "reply_text": "I can evaluate the evidence, but I can't decide whether you should take the trade.\nRead: ATO long, Nov 17 to Dec 10 (24 calendar days; entry day is day 1): profitable in 10 of 10 completed years (100%, 2016-2025); gross average +4.23%; median +4.00%; Sharpe 1.87 (final returns); TWR 2.85 (MFE). Every completed observation was profitable; the sample is modest.\nAI context: Current-condition model for this same 24-calendar-day window: AI Win Probability 80% (20 percentage points below the historical rate); PredR +2.9%; PMFE +9.3%. AI Win Probability is the calibrated chance of a positive return and PredR is the predicted return for that same horizon. They are estimates, not additional historical observations. Evidence relationship: agreement because the historical record and AI estimates point the same way.\nPayoff and path: median best move +6.00% (MFE); median adverse move -1.50% (MAE); worst MAE -1.50% in 2016; worst finish +1.80% in 2019. MAE is the move against the setup from entry, not peak-to-trough drawdown.\nTiming: Active: calendar day 1 of 24 in the Nov 17 to Dec 10, 2026 window; it ends in 23 calendar days. The partial live row is excluded from the completed record (n=10).\nWhat matters now: sample depth is the main limitation.\nCycle context: 2026 is PE+2 (midterm year); this sample is consecutive. Compare the exact same window in PE+2 (midterm) observations. That cohort is not loaded, so there is no stronger/weaker conclusion yet. Compare n in both views. Switch chart to PE+2 (midterm)\nNext check: inspect 2016 with MFE and MAE shown to see how the worst path developed.\nScope: gross historical results exclude execution costs and taxes. This is not a forecast or recommendation.",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "The historical window exits on Dec 10, 2026. ATO long runs Nov 17 to Dec 10 (24 calendar days, entry day is day 1). It is active now with 23 calendar days left.\nTradeWave measures a fixed calendar window, so the exit is a date, not a price: it has no price targets or stop levels.\nHeld to that date, it was profitable in 10 of 10 completed years, average +4.23%; inside the window the median best move was +6.00% (MFE) and the median move against it -1.50% (MAE).\nThese percentages are measured from each year's own entry, so they do not depend on the price you enter at.",
+    "actions": []
+   }
+  },
+  {
+   "case": "3_shouldbuy",
+   "question": "should I buy this?",
+   "loaded_view": "ATO",
+   "before": {
+    "reply_text": "TradeWave cannot tell you whether to go long or short or whether a trade is suitable for you. The confirmed ATO study is a historical Long pattern for the 2026-11-17, 24-day window; it had a Sharpe ratio of 1.87. That is evidence for this exact historical setup, not today's market direction or a forecast. Review its losing years and MAE/drawdown before deciding.\n   \n   Past performance does not guarantee future results. Always manage your risk.",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "The loaded ATO study is a historical Long pattern for the 2026-11-17, 24-day window; it had a Sharpe ratio of 1.87. That is evidence for this exact historical setup, not today's market direction or a forecast; its losing years and MAE show the downside.\n   \n   TradeWave cannot tell you whether to go long or short or whether a trade is suitable for you; that decision is yours. Past performance does not guarantee future results.",
+    "actions": []
+   }
+  },
+  {
+   "case": "4_tech",
+   "question": "Which tech stocks tend to rise this time of year?",
+   "loaded_view": null,
+   "before": {
+    "reply_text": "TradeWave's S&P 500 stock screen found these bullish historical seasonal research candidates, not personal recommendations:\n   GWW \u2014 window near Nov 17; 8-day study; avg historical return +1.9%; Sharpe 1.98.\n   ZBRA \u2014 window near Nov 17; 12-day study; avg historical return +5.8%; Sharpe 1.75.\n   RSG \u2014 window near Nov 17; 269-day study; avg historical return +14.6%; Sharpe 1.56.\n   FICO \u2014 window near Nov 17; 19-day study; avg historical return +4.3%; Sharpe 1.47.\n   AJG \u2014 window near Nov 17; 254-day study; avg historical return +12.0%; Sharpe 1.46.\n   \n   TradeWave does not check company fundamentals, valuation, breaking news, or portfolio fit. The research advantage is a repeatable calendar-window test across completed years, rather than a financial-news headline or a forecast. This screening feed has average return and Sharpe; a symbol deep dive adds its winning and losing years before any decision. Past patterns may not repeat. Name a candidate to inspect its full evidence, or ask for that ticker's historically weak window.",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "Screened on the NASDAQ 100, a tech-heavy index. TradeWave has no sector tags, so this is not a pure technology list; some names below are not technology companies.\nNASDAQ 100 bullish seasonal windows starting today (Nov 17) Top 10 by Sharpe Ratio over a 10-year lookback.\n1. MAR - starts Tue Nov 17, 96-day window: profitable in 10 of 10 years (100%), avg return +12.2%, Sharpe 1.84\n   2. MPWR - starts Tue Nov 17, 265-day window: profitable in 9 of 10 years (90%), avg return +38%, Sharpe 1.58\n   3. GOOGL - starts Tue Nov 17, 78-day window: profitable in 9 of 10 years (90%), avg return +9.5%, Sharpe 1.48\n   4. AVGO - starts Tue Nov 17, 26-day window: profitable in 9 of 10 years (90%), avg return +6.8%, Sharpe 1.45\n   5. KLAC - starts Tue Nov 17, 258-day window: profitable in 9 of 10 years (90%), avg return +32.2%, Sharpe 1.44\n   6. GOOG - starts Tue Nov 17, 78-day window: profitable in 9 of 10 years (90%), avg return +9.5%, Sharpe 1.43\n   7. CSCO - starts Tue Nov 17, 27-day window: profitable in 10 of 10 years (100%), avg return +3.5%, Sharpe 1.42\n   8. PEP - starts Tue Nov 17, 27-day window: profitable in 10 of 10 years (100%), avg return +2.7%, Sharpe 1.37\n   9. AAPL - starts Tue Nov 17, 346-day window: profitable in 10 of 10 years (100%), avg return +29.8%, Sharpe 1.36\n   10. LIN - starts Tue Nov 17, 201-day window: profitable in 10 of 10 years (100%), avg return +12.1%, Sharpe 1.35\nScope TradeWave's detector listed 78 bullish patterns for these dates that won at least 8 of the last 10 years; each record above is the engine's completed-year result. Historical research candidates, not buy recommendations; past patterns may not repeat. Name a ticker to load its chart.",
+    "actions": [
+     {
+      "type": "set_view",
+      "spec": {
+       "market": "1"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "case": "5_roku",
+   "question": "is roku a good buiyng opportunity right now",
+   "loaded_view": null,
+   "before": {
+    "reply_text": "TradeWave could not retrieve ROKU\u2019s seasonal data, so I can\u2019t evaluate it or change the chart right now. Past performance and model estimates do not guarantee future results. TradeWave provides research context, not individualized recommendations.",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "TradeWave's pattern detector lists no qualifying seasonal pattern for ROKU starting now, so this is the plain 30-day window from today, not a detected pattern.\n   \n   ROKU long based on the last 8 years: won 4 of the last 8 years, avg -0.3%, Sharpe -0.03.",
+    "actions": [
+     {
+      "type": "set_view",
+      "spec": {
+       "days_out": 30,
+       "entry_date": "2026-11-17",
+       "market": "2",
+       "symbol": "ROKU"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "case": "5_xau",
+   "question": "nesecesit que des patrones del xau",
+   "loaded_view": null,
+   "before": {
+    "reply_text": "No pude obtener datos para el s\u00edmbolo **XAU** en TradeWave, as\u00ed que no cambi\u00e9 el gr\u00e1fico. Puedo buscar patrones estacionales del **oro** en el mercado de materias primas o analizar **GLD** como ETF relacionado.",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "XAUUSD long based on the last 10 years: won 9 of the last 10 years, avg +11.0%, Sharpe 1.00.",
+    "actions": [
+     {
+      "type": "set_view",
+      "spec": {
+       "days_out": 148,
+       "entry_date": "2026-11-17",
+       "market": "8",
+       "symbol": "XAUUSD"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "case": "5_gold",
+   "question": "Vorrei vedere il grafico dell'oro",
+   "loaded_view": null,
+   "before": {
+    "reply_text": "GLD long - ingresso storico intorno al 17 novembre, durata 45 giorni. Ha chiuso in positivo in 8 anni su 10, con rendimento medio del 1,7% e Sharpe 0,3. Ho aperto il grafico del prezzo.",
+    "actions": [
+     {
+      "type": "set_view",
+      "spec": {
+       "bottom_slide": "price_chart",
+       "days_out": 45,
+       "entry_date": "2026-11-17",
+       "market": "11",
+       "pe_cycle": "cons",
+       "symbol": "GLD",
+       "years": 10
+      }
+     }
+    ]
+   },
+   "after": {
+    "reply_text": "Ho aperto il grafico dell\u2019oro spot (XAUUSD): il setup stagionale ha vinto 9 anni su 10, con rendimento medio storico del +11,0% e Sharpe 1,0.",
+    "actions": [
+     {
+      "type": "set_view",
+      "spec": {
+       "days_out": 148,
+       "entry_date": "2026-11-17",
+       "market": "8",
+       "symbol": "XAUUSD",
+       "years": 10
+      }
+     }
+    ]
+   }
+  },
+  {
+   "case": "6_me",
+   "question": "show me 100 year pattern",
+   "loaded_view": null,
+   "before": {
+    "reply_text": "I could not find ME in TradeWave's supported security lists.",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "Loaded The 100-Year Pattern SPX long, PE+2 (midterm years), September 27 through July 18 of the following year. That is 295 calendar days, with the entry date counted as day 1.\nWhat the bars show One bar per qualifying midterm-cycle observation. The completed cohort contains n=24 observations with entry years 1930-2022; these are not 24 consecutive calendar years.\nHistorical result 23 of 24 PE+2 observations were profitable (96%), averaging +18.8%; 1930 was the one losing observation.\nCurrent row 2026 is active on calendar day 52 of 295. Its partial row is shown separately and excluded from the completed n=24 until the window ends Jul 18, 2027.\nBook This is the pattern documented in The 100-Year Pattern.",
+    "actions": [
+     {
+      "type": "set_view",
+      "spec": {
+       "days_out": 295,
+       "entry_date": "2026-09-27",
+       "market": "5",
+       "pe_cycle": "pe2",
+       "symbol": "SPX",
+       "years": 24
+      }
+     }
+    ]
+   }
+  },
+  {
+   "case": "7_watchlist",
+   "question": "create a watch list",
+   "loaded_view": null,
+   "before": {
+    "reply_text": "A watchlist lets you track selected symbols and their seasonal patterns in one place. I just opened the Watchlist guide for you. [reopen guide]",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "I can't create or edit a watchlist for you, but it takes four short steps:\n   1) Click the Watchlist icon (the list icon beside the Settings gear, upper-left toolbar).\n   2) Type a name, select a Securities Group, and click Add.\n   3) Type each symbol in the symbol input and click Add Symbol.\n   4) Select the watchlist in the dropdown to make it active; its symbols then appear as quick picks below the symbol box.\n   \n   Watchlists are a paid feature (Navigator 1 list, Analyst 10, Strategist 50). I just opened the Watchlist guide for you. [reopen guide]",
+    "actions": []
+   }
+  },
+  {
+   "case": "7_chartchange",
+   "question": "why did my chart change",
+   "loaded_view": null,
+   "before": {
+    "reply_text": "Your chart may have changed because a new pattern, lookback period, PE-cycle phase, or lower viewer panel was selected. No pattern is currently loaded in this session, so I can\u2019t identify the exact change.",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "Your chart most likely changed because a year bar, table row, Years setting, date preset, or analysis action changed the active view. No pattern is currently loaded, so there is nothing to restore automatically.",
+    "actions": []
+   }
+  },
+  {
+   "case": "7_cancel",
+   "question": "how do I cancel my subscription",
+   "loaded_view": null,
+   "before": {
+    "reply_text": "Sign in at tradewave.ai/account, open Manage subscription, and cancel there. Tara cannot cancel subscriptions directly.",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "Sign in at tradewave.ai/account, choose Manage subscription, then cancel through the secure Stripe customer portal.",
+    "actions": []
+   }
+  },
+  {
+   "case": "8_sp500",
+   "question": "Show me bullish S&P 500 stock patterns this time of year",
+   "loaded_view": null,
+   "before": {
+    "reply_text": "S&amp;P 500 bullish seasonal windows starting today (Nov 17) Top 10 by Sharpe Ratio over a 10-year lookback.\n1. HLT - starts Tue Nov 17, 91-day window: profitable in 10 of 10 years (100%), avg return +13.3%, Sharpe 3.13\n   2. CIEN - starts Tue Nov 17, 58-day window: profitable in 10 of 10 years (100%), avg return +16.7%, Sharpe 2.74\n   3. YUM - starts Tue Nov 17, 27-day window: profitable in 10 of 10 years (100%), avg return +4.2%, Sharpe 2.24\n   4. UNH - starts Tue Nov 17, 18-day window: profitable in 9 of 10 years (90%), avg return +3.5%, Sharpe 1.90\n   5. MAR - starts Tue Nov 17, 96-day window: profitable in 10 of 10 years (100%), avg return +12.2%, Sharpe 1.84\n   6. CBRE - starts Tue Nov 17, 77-day window: profitable in 10 of 10 years (100%), avg return +8.2%, Sharpe 1.84\n   7. GWW - starts Tue Nov 17, 8-day window: profitable in 10 of 10 years (100%), avg return +1.8%, Sharpe 1.77\n   8. RSG - starts Tue Nov 17, 300-day window: profitable in 10 of 10 years (100%), avg return +16.8%, Sharpe 1.76\n   9. AJG - starts Tue Nov 17, 254-day window: profitable in 10 of 10 years (100%), avg return +12.6%, Sharpe 1.75\n   10. PFE - starts Tue Nov 17, 14-day window: profitable in 10 of 10 years (100%), avg return +3.3%, Sharpe 1.75\nScope TradeWave's detector listed 418 bullish patterns for these dates that won at least 8 of the last 10 years; each record above is the engine's completed-year result. Historical research candidates, not buy recommendations; past patterns may not repeat. Name a ticker to load its chart.",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "S&amp;P 500 bullish seasonal windows starting today (Nov 17) Top 10 by Sharpe Ratio over a 10-year lookback.\n1. HLT - starts Tue Nov 17, 91-day window: profitable in 10 of 10 years (100%), avg return +13.3%, Sharpe 3.13\n   2. CIEN - starts Tue Nov 17, 58-day window: profitable in 10 of 10 years (100%), avg return +16.7%, Sharpe 2.74\n   3. YUM - starts Tue Nov 17, 27-day window: profitable in 10 of 10 years (100%), avg return +4.2%, Sharpe 2.24\n   4. UNH - starts Tue Nov 17, 18-day window: profitable in 9 of 10 years (90%), avg return +3.5%, Sharpe 1.90\n   5. MAR - starts Tue Nov 17, 96-day window: profitable in 10 of 10 years (100%), avg return +12.2%, Sharpe 1.84\n   6. CBRE - starts Tue Nov 17, 77-day window: profitable in 10 of 10 years (100%), avg return +8.2%, Sharpe 1.84\n   7. GWW - starts Tue Nov 17, 8-day window: profitable in 10 of 10 years (100%), avg return +1.8%, Sharpe 1.77\n   8. RSG - starts Tue Nov 17, 300-day window: profitable in 10 of 10 years (100%), avg return +16.8%, Sharpe 1.76\n   9. AJG - starts Tue Nov 17, 254-day window: profitable in 10 of 10 years (100%), avg return +12.6%, Sharpe 1.75\n   10. PFE - starts Tue Nov 17, 14-day window: profitable in 10 of 10 years (100%), avg return +3.3%, Sharpe 1.75\nScope TradeWave's detector listed 418 bullish patterns for these dates that won at least 8 of the last 10 years; each record above is the engine's completed-year result. Historical research candidates, not buy recommendations; past patterns may not repeat. Name a ticker to load its chart.",
+    "actions": []
+   }
+  },
+  {
+   "case": "9_5of7",
+   "question": "Find me the 5 best oppoerunities in Wilshire 5000 universelle for ling, min hold 10d, max hold 90d, PE+2 Yeatrsonly, min 5 ouf 7 years, min gain more than 5%, ",
+   "loaded_view": null,
+   "before": {
+    "reply_text": "No results matched. Wilshire 5000\u2019s 7-year scan requires a stricter winning-year threshold, so \u201c5 of 7\u201d returned no candidates; PE+2 filtering is not available in this scan.",
+    "actions": [
+     {
+      "type": "set_view",
+      "spec": {
+       "market": "4"
+      }
+     }
+    ]
+   },
+   "after": {
+    "reply_text": "TradeWave's detector only lists Wilshire 5000 patterns that won at least 6 of the last 7 years, so a 5-of-7 screen does not exist. These are the 6-of-7-or-better results, the nearest supported threshold.\n   \n   Wilshire 5000 long candidates\n   \nBMRN - won 7/7 years, avg +11.3%, 46 days, entry Nov 17\n   \nAVGO - won 7/7 years, avg +7.9%, 26 days, entry Nov 17\n   \nCIEN - won 7/7 years, avg +18.1%, 57 days, entry Nov 17\n   \nSRPT - won 7/7 years, avg +20.0%, 44 days, entry Nov 17\n   \nRARE - won 7/7 years, avg +10.2%, 21 days, entry Nov 17\n   \n   \n\nThe screen used 7 consecutive years; TradeWave tightened the 5-of-7 threshold to at least 6 wins. The PE+2-only filter was not available in this scan. More are in the opportunity table.\n   \n   Want me to pull one up?",
+    "actions": [
+     {
+      "type": "set_view",
+      "spec": {
+       "market": "4"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "case": "10_earn",
+   "question": "ok do with and without earnings",
+   "loaded_view": "ATO",
+   "before": {
+    "reply_text": "TradeWave does not provide an earnings-inside-window comparison for ATO. Its available evidence is the full Nov 17 to Dec 10 record: 10 profitable years out of 10, with Sharpe 1.87.",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "TradeWave cannot split ATO's history into with-earnings and without-earnings years. No TradeWave study groups a window's years by whether an earnings report fell inside it, and I won't estimate one.\nWhat it does have: The Price Chart marks each past earnings date (E) and the estimated next one (Est), on the current chart and on each historical year, so you can see year by year whether earnings landed in the window. Ask \"open the price chart\" to see them.\nThe full record stays as it is: profitable in 10 of 10 completed years, earnings years included.",
+    "actions": []
+   }
+  },
+  {
+   "case": "10_analyze",
+   "question": "analyze this pattern",
+   "loaded_view": "ATO",
+   "before": {
+    "reply_text": "Read: ATO long, Nov 17 to Dec 10 (24 calendar days; entry day is day 1): profitable in 10 of 10 completed years (100%, 2016-2025); gross average +4.23%; median +4.00%; Sharpe 1.87 (final returns); TWR 2.85 (MFE). Every completed observation was profitable; the sample is modest.\nAI context: Current-condition model for this same 24-calendar-day window: AI Win Probability 80% (20 percentage points below the historical rate); PredR +2.9%; PMFE +9.3%. AI Win Probability is the calibrated chance of a positive return and PredR is the predicted return for that same horizon. They are estimates, not additional historical observations. Evidence relationship: agreement because the historical record and AI estimates point the same way.\nPayoff and path: median best move +6.00% (MFE); median adverse move -1.50% (MAE); worst MAE -1.50% in 2016; worst finish +1.80% in 2019. MAE is the move against the setup from entry, not peak-to-trough drawdown.\nTiming: Active: calendar day 1 of 24 in the Nov 17 to Dec 10, 2026 window; it ends in 23 calendar days. The partial live row is excluded from the completed record (n=10).\nWhat matters now: sample depth is the main limitation.\nCycle context: 2026 is PE+2 (midterm year); this sample is consecutive. Compare the exact same window in PE+2 (midterm) observations. That cohort is not loaded, so there is no stronger/weaker conclusion yet. Compare n in both views. Switch chart to PE+2 (midterm)\nNext check: inspect 2016 with MFE and MAE shown to see how the worst path developed.\nScope: gross historical results exclude execution costs and taxes. This is not a forecast or recommendation.",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "Read: ATO long, Nov 17 to Dec 10 (24 calendar days; entry day is day 1): profitable in 10 of 10 completed years (100%, 2016-2025); gross average +4.23%; median +4.00%; Sharpe 1.87 (final returns); TWR 2.85 (MFE). Every completed observation was profitable; the sample is modest.\nAI context: Current-condition model for this same 24-calendar-day window: AI Win Probability 80% (20 percentage points below the historical rate); PredR +2.9%; PMFE +9.3%. AI Win Probability is the calibrated chance of a positive return and PredR is the predicted return for that same horizon. They are estimates, not additional historical observations. Evidence relationship: agreement because the historical record and AI estimates point the same way.\nPayoff and path: median best move +6.00% (MFE); median adverse move -1.50% (MAE); worst MAE -1.50% in 2016; worst finish +1.80% in 2019. MAE is the move against the setup from entry, not peak-to-trough drawdown.\nTiming: Active: calendar day 1 of 24 in the Nov 17 to Dec 10, 2026 window; it ends in 23 calendar days. The partial live row is excluded from the completed record (n=10).\nWhat matters now: sample depth is the main limitation.\nCycle context: 2026 is PE+2 (midterm year); this sample is consecutive. Compare the exact same window in PE+2 (midterm) observations. That cohort is not loaded, so there is no stronger/weaker conclusion yet. Compare n in both views. Switch chart to PE+2 (midterm)\nNext check: ask \"what happened in 2016?\" to see how the worst path developed.\nScope: gross historical results exclude execution costs and taxes. This is not a forecast or recommendation.",
+    "actions": []
+   }
+  },
+  {
+   "case": "11_weak",
+   "question": "When is SPX historically weak?",
+   "loaded_view": "SPX",
+   "before": {
+    "reply_text": "No qualifying Short Best Wave was found for SPX at the 24 PE+2 samples setting. Best Waves data is not available for this symbol and setting. On desktop paid plans, the Best Waves dropdown above the bar chart is hidden or empty when nothing qualifies.",
+    "actions": []
+   },
+   "after": {
+    "reply_text": "Strongest qualifying weak window for SPX\n   SPX's Short Best Wave runs Feb 15, 2026 through Feb 21, 2026. Across the 5 consecutive years Best Waves setting, average direction-adjusted return was +2.3%, median was +1.9%, and Sharpe Ratio was 1.77. I used 5 consecutive years because no qualifying wave is listed at 24 PE+2 samples or 10 consecutive years. A 5-year sample is small; treat it as a lead, not a record.\n   \n   I am loading that exact chart. The Best Waves dropdown above the bar chart (desktop, paid plans) lists every qualifying wave for SPX. Historical timing research, not a recommendation.",
+    "actions": [
+     {
+      "type": "set_view",
+      "spec": {
+       "days_out": 7,
+       "entry_date": "2026-02-15",
+       "market": "5",
+       "pe_cycle": "cons",
+       "symbol": "SPX",
+       "years": 5
+      }
+     }
+    ]
+   }
+  }
+ ]
+}
