@@ -13,6 +13,7 @@ Fail-soft: a gateway hiccup returns an {'error': ...} dict the model can narrate
 it must never raise into the chat handler. When the gateway is not configured (no URL/key),
 TARA_TOOLS_ENABLED is False and chatbot.py falls back to the plain no-tools chat.
 """
+import concurrent.futures
 import datetime
 import html
 import json
@@ -67,9 +68,16 @@ TOOLS = [
         "name": "find_best_opportunities",
         "description": (
             "Screen the markets for seasonal RESEARCH CANDIDATES right now, ranked by "
-            "Sharpe. Use this for 'anything good in <market>', 'best setups this month', "
-            "and explicit stock/ETF opportunity screens. It returns historical evidence "
-            "for comparison; it does not determine what a person should buy or trade."
+            "Sharpe unless rank_by says otherwise. Use this for 'anything good in <market>', "
+            "'best setups this month', and explicit stock/ETF opportunity screens. It returns "
+            "historical evidence for comparison; it does not determine what a person should "
+            "buy or trade. AI SCORES: when the user asks to rank or filter by AIS, AI Win% "
+            "(AI probability), PredR (predicted return/profit) or 'AI ranked', pass rank_by "
+            "and/or min_ai_win_prob/min_pred_return. Each returned row then carries an 'ai' "
+            "block when TradeWave scored it (eligible plan, US stocks/ETFs, 10-90 day windows "
+            "entering within five days). The result's 'ai_scores' field says whether AI values "
+            "were delivered; when it says they were not, tell the user so and NEVER present the "
+            "historical average return as a predicted return."
         ),
         "input_schema": {
             "type": "object",
@@ -85,6 +93,13 @@ TOOLS = [
                 "years": {"type": "integer", "description": "lookback 1-99 (default 10)"},
                 "min_winning_years": {"type": "integer"},
                 "limit": {"type": "integer"},
+                "rank_by": {
+                    "type": "string",
+                    "enum": ["sharpe", "win_rate", "avg_return", "ai_win_prob", "ais", "pred_return"],
+                    "description": "ranking key; ai_win_prob = AI Win%, ais = AI Score, pred_return = PredR",
+                },
+                "min_ai_win_prob": {"type": "number", "description": "0..1 minimum AI Win%"},
+                "min_pred_return": {"type": "number", "description": "percent, minimum PredR (AI predicted return)"},
             },
         },
     },
@@ -96,7 +111,9 @@ TOOLS = [
             "or a period preset; pe_cycle/years are the lookback knobs. Use for 'analyze GLD', "
             "'is AAPL seasonal now', 'explain this pattern over 20 years'. For recurring "
             "weakness, set direction=short and describe the result as a weak-period study, "
-            "never as a sell or short recommendation."
+            "never as a sell or short recommendation. Gold: XAUUSD is spot gold (Forex), GC is "
+            "COMEX gold futures, GLD is the gold ETF; a bare XAU means spot gold. When the "
+            "result carries 'detector_note' or 'symbol_note', say that note first."
         ),
         "input_schema": {
             "type": "object",
@@ -186,7 +203,8 @@ TOOLS = [
 _ALLOWED = {
     "find_best_opportunities": ("/scan", [
         "markets", "window", "direction", "min_win_rate", "min_days", "max_days",
-        "min_avg_return", "min_sharpe", "pe_cycle", "years", "min_winning_years", "limit"]),
+        "min_avg_return", "min_sharpe", "pe_cycle", "years", "min_winning_years", "limit",
+        "rank_by"]),
     "analyze_symbol": ("/analyze/{symbol}", [
         "market", "direction", "days_out", "entry_date", "pe_cycle", "years", "period", "reverse"]),
     "get_symbol_patterns": ("/securities/{symbol}/patterns", [
@@ -212,7 +230,19 @@ def _get(path, params, user_id):
         log.warning("tara gateway GET %s failed: %s", path, e)
         return {"error": "gateway unreachable"}
     if r.status_code != 200:
-        return {"error": "gateway %s" % r.status_code}
+        failure = {"error": "gateway %s" % r.status_code}
+        try:
+            detail = r.json().get("error")
+        except (AttributeError, ValueError):
+            detail = None
+        if isinstance(detail, dict):
+            # The gateway's code/message distinguish "no detected setup enters today"
+            # from an outage; without them every failure read as "could not retrieve".
+            if detail.get("code"):
+                failure["code"] = str(detail["code"])[:40]
+            if detail.get("message"):
+                failure["message"] = str(detail["message"])[:300]
+        return failure
     try:
         return r.json()
     except ValueError:
@@ -275,7 +305,15 @@ def _mini(item):
     for k in ("entry_date", "hold_days"):
         if setup.get(k) is not None:
             out[k] = setup[k]
+    if isinstance(item.get("ai"), dict):
+        out["ai"] = item["ai"]                  # TradeWave's own AI values for this row
     return out
+
+
+# Result-level notices that change how the rows must be described. They survive every
+# trimming step: dropping them is how a substitution becomes silent.
+_RESULT_NOTICE_KEYS = ("ai_scores", "threshold_adjusted", "detector_note", "symbol_note",
+                       "pattern_list_note", "date_lock_note", "lookback_note")
 
 
 # Tara (the in-app BRIEF assistant) receives the SAME gateway PatternCards as the public
@@ -366,6 +404,9 @@ def _bounded_json(out):
                     mini = {k: [_mini(it) for it in v[:n]],
                             "_truncated": ("showing the top %d of %d - more are in the "
                                            "opportunity table" % (min(n, len(v)), len(v)))}
+                    for notice in _RESULT_NOTICE_KEYS:
+                        if out.get(notice) is not None:
+                            mini[notice] = out[notice]
                     s = json.dumps(mini)
                     if len(s) <= _TOOL_RESULT_CAP:
                         return s
@@ -691,27 +732,106 @@ _VIEW_SYMBOL_TOKEN = (
     r"(?!(?:chart|graph|viewer|screen|trades?|picks?|ideas?|setups?|ones?)\b)"
     r"[A-Za-z][A-Za-z0-9.\-]{0,14}"
 )
+# Ordinary English words (and TradeWave UI nouns) that are never a ticker when the
+# user types them in lower or sentence case. "show me my usage", "open settings" and
+# "show me 100 year pattern" are not requests to chart MY, SETTINGS or ME. A token the
+# user wrote in capitals inside mixed-case text ("show me ALL", "what about Z") is
+# still accepted as a ticker; see _plausible_ticker_token.
+_COMMON_ENGLISH_WORDS = frozenset("""
+a about above account accounts across actual actually add after again against ago ai all
+almost alone along already also always am among an analysis and annual another answer any
+anyone anything are area around as ask at available average avg away back bad bar bars
+based basic be bearish because been before being below best better between big bigger
+biggest bill billing both bottom bullish but button buy by calendar call can cancel
+cannot card cards chance change changes chart charts check choose click close column
+columns come compare comparison could count current cycle daily data date dates day days
+definition detail details did difference different do does doing done down download each
+earnings easy either else end enough entry even ever every everything exact example
+exit explain export far fast few field fields filter filters find first five fit fits
+for four free from full gain gains get give go going good got graph great group guide
+had hard has have he help her here high higher highest him his history hold holding
+home how however i idea ideas if in index info information instead into is it its just
+keep kind know last later latest least left less let like limit limits line lines list
+lists little live long look loss losses lot low lower lowest made main make many market
+markets max may maybe me mean means median menu might min mine more most much must my
+name near need never new news next no none not nothing now number numbers of off often
+ok okay old on once one ones only open option options or other others our out over
+overview own page panel part past pattern patterns pe pick picks plan plans please
+point popup portfolio possible predicted price prices pricing probability profit
+profits projection quick rank ranking rate rates ratio read ready real really recent
+record report reports rest result results return returns right risk row rows same
+save say score scores screen search season seasonal seasonality second section see
+seen sell set settings setup setups several sharpe she short should show side simple
+since six size small so some someone something soon stat statistics stats step steps
+still stock stocks stop strong such summary sure table take tell ten than that the
+their them then there these they thing things think this those three through ticker
+tickers time times tip tips to today together tomorrow too tool tools top total trade
+trades trading trend trends trial try two type under until up upcoming upgrade us
+usage use used user using value values very video view viewer want was watch watchlist
+watchlists wave waves way we week weekly weeks well were what when where whether which
+while who whole why will win window windows wins with within without won work works
+worst would year yearly years yes yesterday yet you your yours
+""".split())
+
+
+def _plausible_ticker_token(token, text):
+    """Whether one word of the user's message can be read as a ticker.
+
+    Capitals inside mixed-case text are an explicit ticker ("show me ALL"). A word
+    typed in lower or sentence case, or anything in an all-capitals message, is a
+    ticker only when it is not an ordinary English word.
+    """
+
+    token = str(token or "")
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9.\-]{0,14}", token):
+        return False
+    source = str(text or "")
+    shouting = not re.search(r"[a-z]", source)
+    if token.isupper() and not shouting and token != "I":
+        return True                 # includes one-letter tickers: "show me A", "load F"
+    return token.lower() not in _COMMON_ENGLISH_WORDS
+
+
 _DIRECT_VIEW_REQUEST_RE = re.compile(
     r"(?:"
     r"\b(?:load|reload|pull\s+up)\b"
     r"|\b(?:show|open)\s+(?:me\s+)?(?:the\s+)?(?:another|something\s+good|"
     r"this\s+(?:setup|pattern)|that\s+(?:setup|pattern)|"
     r"(?!(?:how|what|why|where|guide|help|price|trend|bar|graph|chart|viewer)\b)"
-    r"[A-Za-z][A-Za-z0-9.\-]{0,14})\b"
+    r"(?P<t1>[A-Za-z][A-Za-z0-9.\-]{0,14}))\b"
     r"|\bput\b.{0,40}\b(?:on|in)\s+(?:the|your)\s+(?:chart|viewer)\b"
-    r"|\b(?:can|could|may)\s+i\s+(?:see|view)\s+(?:the\s+)?"
+    r"|\b(?:can|could|may)\s+i\s+(?:see|view)\s+(?:the\s+)?(?P<t2>"
     + _VIEW_SYMBOL_TOKEN +
-    r"\b"
-    r"|\bpull\s+(?:me\s+)?"
+    r")\b"
+    r"|\bpull\s+(?:me\s+)?(?P<t3>"
     + _VIEW_SYMBOL_TOKEN +
-    r"\s+up\b"
-    r"|\bdisplay\s+(?:me\s+)?(?:the\s+)?"
+    r")\s+up\b"
+    r"|\bdisplay\s+(?:me\s+)?(?:the\s+)?(?P<t4>"
     + _VIEW_SYMBOL_TOKEN +
-    r"\b"
-    r"|\btake\s+me\s+to\s+(?:the\s+)?"
+    r")\b"
+    r"|\btake\s+me\s+to\s+(?:the\s+)?(?P<t5>"
     + _VIEW_SYMBOL_TOKEN +
-    r"\b"
+    r")\b"
     r")",
+    re.IGNORECASE,
+)
+
+
+def _direct_view_match_is_actionable(match, text):
+    """A show/open/display match counts only when its object can be a symbol."""
+
+    for name in ("t1", "t2", "t3", "t4", "t5"):
+        token = match.group(name)
+        if token is not None:
+            return _plausible_ticker_token(token, text)
+    return True
+
+
+# Verbs that can only mean "change what is on the chart". "show", "open", "see" and
+# "display" also introduce ordinary questions, so a clean prose answer to them is not
+# a failed chart action (see _soft_view_request_answered).
+_HARD_VIEW_VERB_RE = re.compile(
+    r"\b(?:load|reload|pull\s+(?:\w+\s+)?up|put|switch|change|set|chart\s+it)\b",
     re.IGNORECASE,
 )
 _VIEW_KNOB_REQUEST_RE = re.compile(
@@ -1479,6 +1599,21 @@ def response_violates_investor_contract(text, investor_intent):
     return False
 
 
+def reply_gives_direct_advice(text):
+    """A reply that tells the user what to do or forecasts a result, whatever the intent.
+
+    response_violates_investor_contract only inspects turns the investor classifier
+    recognised. An advice-shaped question it does not recognise ("is AAPL a buy",
+    "buy or sell?") must be held to the same no-directive, no-forecast rule.
+    """
+
+    plain = re.sub(r"<[^>]*>", " ", text or "")
+    advice_scan = _NEGATED_DIRECT_ADVICE_RE.sub(" ", plain)
+    return bool(
+        _DIRECT_INVESTMENT_ADVICE_RE.search(advice_scan) or _INVESTMENT_FORECAST_RE.search(plain)
+    )
+
+
 def _unsupported_live_data_request(text):
     """Return True for live criteria Tara's seasonal tools cannot verify.
 
@@ -1544,6 +1679,9 @@ def _latest_user_view_intent(messages):
             ):
                 for match in matcher.finditer(content):
                     if _overlaps(match, negative_spans) or _overlaps(match, lists):
+                        continue
+                    if matcher is _DIRECT_VIEW_REQUEST_RE and not _direct_view_match_is_actionable(
+                            match, content):
                         continue
                     events.append((match.start(), match.end(), intent))
 
@@ -1631,6 +1769,29 @@ def _non_actionable_read_allows_no_view_action(
         _user_mentions_symbol(latest_user_text, symbol)
         for symbol in non_actionable_symbols
     )
+
+
+def _soft_view_request_answered(candidate, view_intent, actions, latest_user_text,
+                                current_view=None):
+    """Accept a clean prose answer to a "show me ..." turn that needed no chart action.
+
+    "Show me my usage and which plan fits" and "show my probability for the next
+    3 months" were classified as chart commands, and the guard replaced the model's
+    real answer with "I couldn't send the complete chart action" (production triage
+    2026-11-17). The guard exists to stop a reply from CLAIMING or PROMISING a chart
+    change that was never queued; it must not discard an answer that makes no such
+    claim. Explicit actuation verbs (load, pull up, switch, set ...) stay strict.
+    """
+
+    if view_intent != "chart" or actions or not isinstance(candidate, str):
+        return False
+    if not candidate.strip():
+        return False
+    if _HARD_VIEW_VERB_RE.search(latest_user_text or ""):
+        return False
+    if _contains_internal_tool_markup(candidate) or _contains_view_promise(candidate):
+        return False
+    return not _view_completion_violation(candidate, actions, current_view)
 
 
 def _protocol_correction(reason, action_queued=False):
@@ -1733,6 +1894,16 @@ def _card_headline_stats(card):
             ma = _HL_AVG_RE.search(h)
             return int(mw.group(1)), int(mw.group(2)), (float(ma.group(1)) if ma else None)
     st = card.get("stats") if isinstance(card.get("stats"), dict) else card
+    # The engine's own completed-year counts beat rate x REQUESTED lookback: a symbol
+    # with 8 years of history asked for 10 must read "4 of 8", not "5 of 10".
+    history = card.get("history") if isinstance(card.get("history"), dict) else {}
+    wins, tested = history.get("wins"), history.get("years_tested")
+    if (
+        isinstance(wins, int) and isinstance(tested, int)
+        and not isinstance(wins, bool) and 0 <= wins <= tested and tested > 0
+    ):
+        avg = st.get("avg_return_pct")
+        return wins, tested, (avg if isinstance(avg, (int, float)) and not isinstance(avg, bool) else None)
     wr = st.get("historical_win_rate")
     yrs = st.get("years") or card.get("years")
     try:
@@ -1785,23 +1956,19 @@ def loaded_pattern_suitability_response(text, current_view=None):
     if not isinstance(text, str) or not _PERSONAL_TRADE_DECISION_RE.search(text):
         return None
 
+    # Evidence first, one short boundary last (TW-TASK-0031).
     boundary = (
         "TradeWave cannot tell you whether to go long or short or whether a trade "
-        "is suitable for you. "
-    )
-    disclaimer = (
-        "<br><br><i>Past performance does not guarantee future results. "
-        "Always manage your risk.</i>"
+        "is suitable for you; that decision is yours. "
+        "<i>" + DISCLAIMER_TEXT + "</i>"
     )
     view = current_view if isinstance(current_view, dict) else {}
     symbol = str(view.get("symbol") or "").strip().upper()
     if view.get("view_ready") is not True or not _VS_SYMBOL_RE.fullmatch(symbol):
         return (
-            boundary
-            + "There is no confirmed loaded pattern to summarize. Load a historical setup, "
-              "and I can explain its exact direction, win/loss record, average result, Sharpe "
-              "ratio, and downside evidence without choosing the trade for you."
-            + disclaimer
+            "No pattern is loaded yet. Load a historical setup and I can give you its exact "
+            "direction, win/loss record, average result, Sharpe ratio and downside evidence."
+            "<br><br>" + boundary
         )
 
     direction_value = str(view.get("direction") or "").strip().lower()
@@ -1857,12 +2024,11 @@ def loaded_pattern_suitability_response(text, current_view=None):
     else:
         evidence_text = "."
     return (
-        boundary
-        + "The confirmed <b>%s</b> study is a historical <b>%s</b> pattern%s%s "
-          "That is evidence for this exact historical setup, not today's market direction or a "
-          "forecast. Review its losing years and MAE/drawdown before deciding."
+        "The loaded <b>%s</b> study is a historical <b>%s</b> pattern%s%s "
+        "That is evidence for this exact historical setup, not today's market direction or a "
+        "forecast; its losing years and MAE show the downside."
         % (symbol, direction, exact_window, evidence_text)
-        + disclaimer
+        + "<br><br>" + boundary
     )
 
 
@@ -2375,21 +2541,31 @@ def _question_symbol(text, current_view=None):
         r"(?<![A-Za-z0-9.\-])([A-Z][A-Z0-9.\-]{0,14})(?![A-Za-z0-9.\-])",
         value,
     ):
-        if token not in _QUESTION_SYMBOL_STOPWORDS and len(token) > 1:
+        if (
+            token not in _QUESTION_SYMBOL_STOPWORDS
+            and len(token) > 1
+            and _plausible_ticker_token(token, value)
+        ):
             return token
+    # Lower-case tickers ("when is aapl weak"). Every candidate is checked, so when
+    # "show me 100 year pattern" backtracks into capturing "me" it is rejected as an
+    # ordinary English word instead of becoming the symbol ME.
     patterns = (
         r"\b(?:buy|enter|invest\s+in)\s+(?:the\s+)?([A-Za-z][A-Za-z0-9.\-]{0,14})\b",
         r"\bwhen\s+is\s+([A-Za-z][A-Za-z0-9.\-]{0,14})\b",
         r"\bhow\s+did\s+([A-Za-z][A-Za-z0-9.\-]{0,14})\b",
-        r"\bshow(?:\s+me)?\s+([A-Za-z][A-Za-z0-9.\-]{0,14})\b",
+        r"\bshow\s+(?:me\s+)?(?:the\s+)?([A-Za-z][A-Za-z0-9.\-]{0,14})\b",
     )
     for pattern in patterns:
-        match = re.search(pattern, value, re.IGNORECASE)
-        if not match:
-            continue
-        token = match.group(1).upper()
-        if token not in _QUESTION_SYMBOL_STOPWORDS and len(token) > 1:
-            return token
+        for match in re.finditer(pattern, value, re.IGNORECASE):
+            raw = match.group(1)
+            token = raw.upper()
+            if (
+                token not in _QUESTION_SYMBOL_STOPWORDS
+                and len(token) > 1
+                and _plausible_ticker_token(raw, value)
+            ):
+                return token
     if re.search(r"\b(?:this|current|loaded)\s+(?:stock|security|ticker|symbol|chart)\b", value, re.I):
         view = current_view if isinstance(current_view, dict) else {}
         symbol = str(view.get("symbol") or "").strip().upper()
@@ -2447,6 +2623,10 @@ _CANONICAL_INDEX_SYMBOLS = frozenset({
 
 
 def _resolve_question_symbol(symbol, question, token, current_view=None):
+    if str(symbol).upper() in _SPOT_METAL_NAMES:
+        alias = _usd_pair_alias(symbol, token)
+        if alias:
+            return {"status": "ok", "alias_of": str(symbol).upper(), **alias}
     status, payload = _loopback_json(
         "/ResolveSymbol/%s" % quote(str(symbol).upper()), token, timeout=(5, 15)
     )
@@ -2816,68 +2996,88 @@ def build_best_waves_command(
     except (TypeError, ValueError):
         years = 10
     years = min(max(years, 1), 99)
-    status, feature_status, raw_rows, effective_years = _best_waves_rows(
-        resolution["market"], resolution["symbol"], years, pe_cycle, user_token
-    )
-    if effective_years is not None:
-        years = effective_years
-    if status == 403:
-        return {
-            "reply": "<b>%s is outside this account's available markets.</b> I cannot scan its Best Waves."
-            % html.escape(resolution["symbol"]),
-            "spec": None,
-        }
-    if status != 200 or raw_rows is None:
-        return {
-            "reply": "I could not retrieve %s's verified Best Waves, so I have not changed the chart."
-            % html.escape(resolution["symbol"]),
-            "spec": None,
-        }
     direction = "Long" if is_buy else "Short"
     current = today or _market_today()
+    requested_setting = _best_waves_setting_label(years, pe_cycle)
+    # The loaded view's lookback is the first choice, but it is often a setting that has
+    # no Best Waves list at all (the 100-Year Pattern's 24 PE+2 samples). Rather than
+    # dead-end there, fall back to the standard 10 consecutive years, then to the
+    # 5-year list (a small sample, labelled as such), and say which one was used.
+    settings = [(years, pe_cycle)]
+    for fallback_setting in ((10, "cons"), (5, "cons")):
+        if fallback_setting not in settings:
+            settings.append(fallback_setting)
+    tried_labels = []
     candidates = []
-    for row in raw_rows if isinstance(raw_rows, list) else []:
-        if not isinstance(row, list) or len(row) < 7 or str(row[3]).lower() != direction.lower():
-            continue
-        try:
-            entry = datetime.date.fromisoformat(str(row[0])[:10])
-            display_days = int(row[2]) + 1
-            end = entry + datetime.timedelta(days=display_days - 1)
-            sharpe = float(row[4])
-            avg = float(row[5])
-            median = float(row[6])
-        except (TypeError, ValueError):
-            continue
-        if is_buy:
-            if not current - datetime.timedelta(days=7) <= entry <= datetime.date(current.year, 12, 31):
-                continue
-            if end < current:
-                continue
-        candidates.append({
-            "entry": entry,
-            "end": end,
-            "days_out": display_days,
-            "sharpe": sharpe,
-            "avg": avg,
-            "median": median,
-        })
-    if not candidates:
-        purpose = "upcoming Long" if is_buy else "Short"
-        setting = _best_waves_setting_label(years, pe_cycle)
-        feature_note = (
-            "Best Waves data is not available for this symbol and setting."
-            if feature_status == "feature_not_available"
-            else "No pattern passed TradeWave's Best Waves threshold for this request."
+    feature_status = None
+    fallback_used = False
+    for attempt, (try_years, try_cycle) in enumerate(settings):
+        tried_labels.append(_best_waves_setting_label(try_years, try_cycle))
+        status, feature_status, raw_rows, effective_years = _best_waves_rows(
+            resolution["market"], resolution["symbol"], try_years, try_cycle, user_token
         )
-        return {
-            "reply": (
-                "<b>No qualifying %s Best Wave was found for %s at the %s setting.</b> "
-                "%s On desktop paid plans, the Best Waves dropdown above the bar chart is "
-                "hidden or empty when nothing qualifies."
-                % (purpose, html.escape(resolution["symbol"]), setting, feature_note)
-            ),
-            "spec": None,
-        }
+        if attempt == 0:
+            if status == 403:
+                return {
+                    "reply": "<b>%s is outside this account's available markets.</b> I cannot scan its Best Waves."
+                    % html.escape(resolution["symbol"]),
+                    "spec": None,
+                }
+            if status != 200 or raw_rows is None:
+                return {
+                    "reply": "I could not retrieve %s's verified Best Waves, so I have not changed the chart."
+                    % html.escape(resolution["symbol"]),
+                    "spec": None,
+                }
+        elif status != 200 or raw_rows is None:
+            break
+        found = []
+        for row in raw_rows if isinstance(raw_rows, list) else []:
+            if not isinstance(row, list) or len(row) < 7 or str(row[3]).lower() != direction.lower():
+                continue
+            try:
+                entry = datetime.date.fromisoformat(str(row[0])[:10])
+                display_days = int(row[2]) + 1
+                end = entry + datetime.timedelta(days=display_days - 1)
+                sharpe = float(row[4])
+                avg = float(row[5])
+                median = float(row[6])
+            except (TypeError, ValueError):
+                continue
+            if is_buy:
+                if not current - datetime.timedelta(days=7) <= entry <= datetime.date(current.year, 12, 31):
+                    continue
+                if end < current:
+                    continue
+            found.append({
+                "entry": entry,
+                "end": end,
+                "days_out": display_days,
+                "sharpe": sharpe,
+                "avg": avg,
+                "median": median,
+            })
+        if found:
+            candidates = found
+            years = effective_years if effective_years is not None else try_years
+            pe_cycle = try_cycle
+            fallback_used = attempt > 0
+            break
+    if not candidates:
+        symbol_html = html.escape(resolution["symbol"])
+        tried = " or ".join(tried_labels)
+        if is_buy:
+            finding = (
+                "<b>No qualifying upcoming Long Best Wave for %s</b> at %s: none of its "
+                "Best Waves starts between now and year end." % (symbol_html, tried)
+            )
+        else:
+            finding = (
+                "<b>No qualifying weak (Short) Best Wave for %s</b> at %s: no pattern passed "
+                "TradeWave's Best Waves win-rate and consistency criteria, so %s has no "
+                "strongly repeating weak window on that lookback." % (symbol_html, tried, symbol_html)
+            )
+        return {"reply": finding, "spec": None}
     if is_buy:
         selected = max(
             candidates,
@@ -2918,12 +3118,19 @@ def build_best_waves_command(
         "This account did not return the exact requested chart, so I have not claimed that it loaded."
     )
     setting_label = _best_waves_setting_label(years, pe_cycle)
+    fallback_text = ""
+    if fallback_used:
+        skipped = " or ".join(tried_labels[:-1])
+        fallback_text = " I used %s because no qualifying wave is listed at %s.%s" % (
+            setting_label, skipped,
+            " A %d-year sample is small; treat it as a lead, not a record." % years
+            if years < 10 else "",
+        )
     reply = (
-        "<b>%s</b><br>%s Across the exact %s Best Waves setting, average "
-        "direction-adjusted return was %s, median was %s, and Sharpe Ratio was %.2f.<br><br>"
-        "%s On desktop paid plans, open the <b>Best Waves</b> dropdown above the bar chart "
-        "to see every qualifying wave for %s. If no wave passes the minimum criteria, the list "
-        "is empty or hidden. This is historical timing research, not a recommendation to buy or short."
+        "<b>%s</b><br>%s Across the %s Best Waves setting, average "
+        "direction-adjusted return was %s, median was %s, and Sharpe Ratio was %.2f.%s<br><br>"
+        "%s The <b>Best Waves</b> dropdown above the bar chart (desktop, paid plans) lists "
+        "every qualifying wave for %s. Historical timing research, not a recommendation."
     ) % (
         heading,
         lead,
@@ -2931,10 +3138,95 @@ def build_best_waves_command(
         _fmt_pct(selected["avg"]),
         _fmt_pct(selected["median"]),
         selected["sharpe"],
+        fallback_text,
         action_text,
         symbol_html,
     )
-    return {"reply": reply, "spec": spec}
+    return {"reply": reply, "spec": spec, "fallback_used": fallback_used}
+
+
+# TradeWave has no sector tags. "Tech stocks" is answered from the NASDAQ 100 and
+# labelled as a tech-heavy index; any other sector is answered from the S&P 500 with
+# a plain statement that the list is not sector-filtered, plus that sector's ETF.
+_SECTOR_STOCK_NOUN = r"(?:stocks?|names|companies|shares|equities|tickers|plays)"
+_SECTOR_SCREENS = (
+    (r"tech(?:nology)?|software|semiconductors?|chips?|big\s+tech|faang", "technology", "XLK", "1"),
+    (r"energy|oil(?:\s+(?:and|&)\s+gas)?", "energy", "XLE", None),
+    (r"financials?|banks?|banking", "financial", "XLF", None),
+    (r"health\s*care|healthcare|pharma(?:ceuticals?)?|biotech", "health care", "XLV", None),
+    (r"utilit(?:y|ies)", "utilities", "XLU", None),
+    (r"industrials?", "industrial", "XLI", None),
+    (r"materials?", "materials", "XLB", None),
+    (r"consumer\s+staples|staples", "consumer staples", "XLP", None),
+    (r"consumer\s+discretionary|retail(?:ers)?", "consumer discretionary", "XLY", None),
+    (r"real\s+estate|reits?", "real estate", "XLRE", None),
+    (r"communication(?:s)?(?:\s+services)?|telecoms?|media", "communication services", "XLC", None),
+)
+_NAMED_UNIVERSE_RE = re.compile(
+    r"\b(?:s\s*&\s*p|sp\s*500|nasdaq|ndx|dow|djia|russell|wilshire|etfs?|"
+    r"futures|commodit(?:y|ies)|crypto\w*|forex)\b",
+    re.IGNORECASE,
+)
+
+
+def build_sector_screen_command(message, user_token, *, investor_intent=None,
+                                table_market=None, today=None, years_cap=None):
+    """Answer "which <sector> stocks ..." honestly: TradeWave has no sector tags.
+
+    Returns {'reply', 'actions', 'trace'} or None. The screen itself is the engine
+    screen in tara_research; this only chooses the universe and says which one was
+    used, so "tech" is never silently answered with an unlabelled S&P 500 list.
+    """
+
+    text = str(message or "").strip()
+    if not text or not user_token:
+        return None
+    if investor_intent not in {None, "seasonal_stock", "weak_stock", "seasonal_current"}:
+        return None
+    if _NAMED_UNIVERSE_RE.search(text) or _explicit_ticker(text):
+        return None
+    for pattern, sector, etf, proxy_market in _SECTOR_SCREENS:
+        phrase = re.search(
+            r"\b(?:%s)(?:\s+sector)?\s+%s\b" % (pattern, _SECTOR_STOCK_NOUN), text, re.IGNORECASE
+        )
+        if not phrase:
+            continue
+        universe = "NASDAQ 100" if proxy_market else "S&P 500"
+        rewritten = text[:phrase.start()] + universe + " stocks" + text[phrase.end():]
+        try:
+            import tara_research        # lazy: tara_research imports this module
+            screen_kwargs = {"today": today, "table_market": table_market}
+            if years_cap is not None:
+                screen_kwargs["years_cap"] = years_cap     # the plan's lookback limit
+            command = tara_research.build_screen_command(rewritten, user_token, **screen_kwargs)
+        except Exception:               # noqa: BLE001 - fall back to the normal path
+            log.exception("tara sector screen failed")
+            return None
+        if not command or not command.get("reply"):
+            return None
+        if proxy_market:
+            note = (
+                "<b>Screened on the NASDAQ 100, a tech-heavy index.</b> TradeWave has no "
+                "sector tags, so this is not a pure %s list; some names below are not %s "
+                "companies." % (sector, sector)
+            )
+        else:
+            note = (
+                "<b>TradeWave has no sector tags, so I cannot filter to %s stocks.</b> "
+                "This is the whole S&amp;P 500 screen. For the sector itself, ask "
+                "\"analyze %s\" (its sector ETF)." % (sector, etf)
+            )
+        section = '<div class="tara-analysis-section">%s</div>' % note
+        reply = command["reply"]
+        opening = '<div class="tara-analysis">'
+        if reply.startswith(opening):
+            reply = opening + section + reply[len(opening):]
+        else:
+            reply = note + "<br><br>" + reply
+        trace = dict(command.get("trace") or {})
+        trace.update({"event": "sector_proxy_screen", "sector": sector, "universe": universe})
+        return {"reply": reply, "actions": command.get("actions") or [], "trace": trace}
+    return None
 
 
 def _append_market_switch(actions, target):
@@ -2999,6 +3291,58 @@ def _filter_result_symbols(out, allowed):
     return filtered
 
 
+def _attach_win_records(out, market, token, years):
+    """Add the engine's completed-year win record to opportunity-table screen rows.
+
+    The table feed carries average return and Sharpe only, so the same screen showed
+    win counts on some days and not others. Each row's record is read from the
+    engine's own ChartData4 statistics for that exact window; nothing is computed here.
+    """
+
+    cards = _cards_from_result(out)[:5]
+    try:
+        lookback = int(years)
+    except (TypeError, ValueError):
+        lookback = 0
+    if lookback <= 0:
+        lookback = 12                                 # the React opp-table default
+    if not cards or not token:
+        return
+    try:
+        import tara_research            # lazy: tara_research imports this module
+        echo_matches = tara_research._echo_matches
+    except Exception:                   # noqa: BLE001 - without the check, show no record
+        log.exception("tara echo check unavailable; win records skipped")
+        return
+
+    def record(card):
+        setup = card.get("setup") if isinstance(card.get("setup"), dict) else {}
+        status, payload = _chart_data4(
+            market, card.get("symbol"), setup.get("entry_date"), setup.get("hold_days"),
+            str(lookback), token, direction=card.get("direction") or "long",
+        )
+        stats = payload.get("stats") if status == 200 and isinstance(payload, dict) else None
+        # A date-locked or capped plan gets a DIFFERENT study than the one asked for
+        # (today's window, fewer years). Its record must not be shown against this row.
+        if not echo_matches(payload, card.get("symbol"), setup.get("entry_date"),
+                            setup.get("hold_days"), years=lookback):
+            return None
+        wins, losses = _stat_number(stats, "Num Winners"), _stat_number(stats, "Num Losers")
+        if wins is None or losses is None or wins + losses <= 0:
+            return None
+        return {"wins": int(wins), "years_tested": int(wins + losses)}
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+            records = list(pool.map(record, cards))
+    except Exception:                                 # noqa: BLE001 - enrichment only
+        log.exception("tara screen win-record enrichment failed")
+        return
+    for card, history in zip(cards, records):
+        if history and not card.get("history"):
+            card["history"] = history
+
+
 def _investor_screen_result(intent, user_id, opp_table, table_market,
                             user_token, opp_table_years):
     """Run one deterministic candidate screen for the investor funnel.
@@ -3010,6 +3354,16 @@ def _investor_screen_result(intent, user_id, opp_table, table_market,
     """
     target = "11" if intent in {"seasonal_etf", "weak_etf"} else "2"
     direction = "short" if intent in {"weak_etf", "weak_stock"} else "long"
+    # The gateway fallback below runs as the all-markets chatbot principal, so the
+    # caller's plan is applied first: a stock screen moves to the broadest stock index
+    # the plan includes (Explorer: Dow 30) and anything else stops at a plan boundary.
+    scope = _plan_scope(user_token)
+    if scope["markets"] is not None and target not in scope["markets"]:
+        fallback = next(
+            (m for m in ("2", "1", "0") if target == "2" and m in scope["markets"]), None)
+        if fallback is None:
+            return {"plan_boundary": _plan_markets_boundary([target], scope)}, target
+        target = fallback
     inp = {
         "markets": target,
         "direction": direction,
@@ -3028,9 +3382,13 @@ def _investor_screen_result(intent, user_id, opp_table, table_market,
             if str((row or {}).get("symbol") or "").upper()
             in _BEGINNER_ETF_RESEARCH_UNIVERSE
         ]
+    if scope["row_cap"]:
+        inp["limit"] = min(inp["limit"], scope["row_cap"])
     screen_rows = _filter_table_rows(source_rows, inp) if source_rows else []
     if screen_rows:
-        return _rows_to_scan_cards(screen_rows, target), target
+        out = _rows_to_scan_cards(screen_rows, target)
+        _attach_win_records(out, target, user_token, opp_table_years)
+        return out, target
 
     # Loopback can be unavailable (for example no browser token). The gateway
     # scan remains a valid fallback for stocks. For ETFs, request a wider set
@@ -3099,9 +3457,11 @@ def _investor_candidate_line(card, weak=False):
     return "<b>%s</b> — %s." % (symbol, "; ".join(pieces) if pieces else "historical candidate")
 
 
-def _investor_screen_response(intent, out, user_text):
+def _investor_screen_response(intent, out, user_text, market=None):
     weak = intent in {"weak_etf", "weak_stock"}
     etf = intent in {"seasonal_etf", "weak_etf"}
+    if isinstance(out, dict) and out.get("plan_boundary"):
+        return html.escape(str(out["plan_boundary"]), quote=False)
     candidates = _cards_from_result(out)[:5]
     if not candidates:
         if etf:
@@ -3115,46 +3475,32 @@ def _investor_screen_response(intent, out, user_text):
             "invent a candidate. I haven't changed the chart; please try the screen again."
         )
 
+    if market is None and isinstance(out, dict):
+        market = out.get("market")          # the screen records which index it read
+    stock_universe = {"0": "Dow 30 stock", "1": "NASDAQ 100 stock"}.get(str(market), "S&P 500 stock")
+    universe = "broad, unleveraged ETF" if etf else stock_universe
     if weak:
         heading = (
-            "These are historical weak-period research candidates, not sell or short "
-            "recommendations. The list is ranked by the strength of the short-direction "
-            "seasonal record:"
+            "<b>Historically weak %s windows starting now</b>, ranked by the strength of the "
+            "short-direction record (research candidates, not sell or short recommendations):"
+            % universe
         )
     else:
-        universe = "curated broad, unleveraged ETF" if etf else "S&P 500 stock"
         heading = (
-            "TradeWave's %s screen found these bullish historical seasonal research "
-            "candidates, not personal recommendations:" % universe
+            "<b>Bullish %s seasonal windows starting now</b>, ranked by Sharpe (research "
+            "candidates, not recommendations):" % universe
         )
     lines = [line for line in (
         _investor_candidate_line(card, weak=weak) for card in candidates
     ) if line]
+    # One short closing line. The ~70-word fixed disclaimer that used to follow every
+    # screen buried the list (production triage 2026-11-17).
     footer = []
     if re.search(r"(?:\$\s*[\d,.]+|\bi\s+(?:have|got)\s+[\d,.]+)", user_text or "", re.I):
         footer.append("Your dollar amount was not used to rank the patterns or assign a position size.")
     if etf:
-        footer.append(
-            "The starter universe is intended to exclude leveraged, inverse, and single-stock "
-            "ETFs, but TradeWave does not verify current fees, holdings, liquidity, or fund documents."
-        )
-    else:
-        footer.append(
-            "TradeWave does not check company fundamentals, valuation, breaking news, or portfolio fit."
-        )
-    footer.append(
-        "The research advantage is a repeatable calendar-window test across completed years, "
-        "rather than a financial-news headline or a forecast."
-    )
-    if not any(isinstance(card.get("history"), dict) and card.get("history") for card in candidates):
-        footer.append(
-            "This screening feed has average return and Sharpe; a symbol deep dive adds its winning "
-            "and losing years before any decision."
-        )
-    footer.append(
-        "Past patterns may not repeat. Name a candidate to inspect its full evidence, or ask for "
-        "that ticker's historically weak window."
-    )
+        footer.append("Leveraged, inverse and single-stock ETFs are left out of this starter list.")
+    footer.append("Historical seasonal records only; name a ticker to see its full evidence.")
     return heading + "<br>" + "<br>".join(lines) + "<br><br>" + " ".join(footer)
 
 
@@ -3359,13 +3705,733 @@ def _enforce_named_symbol_action(
         actions.append({"type": "set_view", "spec": spec})
 
 
+# ---------------------------------------------------------------------------
+# TW-TASK-0031: read-tool recoveries. Each one keeps the TradeWave engine as the
+# only source of numbers and tells the user exactly what was substituted.
+# ---------------------------------------------------------------------------
+
+# Markets the engine scores with AI (US stocks and ETFs). Mirrors apiserver tiers.ML_MARKETS.
+_AI_SCORE_MARKETS = frozenset({"0", "1", "2", "3", "4", "11"})
+DISCLAIMER_TEXT = (
+    "Past performance and model estimates do not guarantee future results. "
+    "TradeWave provides research context, not individualized recommendations."
+)
+
+
+def _verified_claims():
+    """Claims the chat route VERIFIED for this request, or None when there are none.
+
+    The plan gate must never read a token itself: the request body can carry any
+    token, forged or borrowed, next to the one the route actually authenticated (a
+    level-1 token in the query string with a body token claiming level 6). The only
+    trusted source is ``g.chatbot_jwt``, which ``check_for_token`` sets after checking
+    the signature, audience and issuer.
+    """
+
+    try:
+        from flask import g, has_request_context
+        if not has_request_context():
+            return None
+        claims = getattr(g, "chatbot_jwt", None)
+    except Exception:               # noqa: BLE001 - no trusted claims means no access
+        return None
+    return claims if isinstance(claims, dict) else None
+
+
+_NO_ACCESS_SCOPE = {"markets": frozenset(), "ai": False, "row_cap": None, "level": None,
+                    "date_locked": frozenset()}
+
+
+def _plan_scope(_token=None):
+    """What this caller's plan allows: markets, AI scores, row cap, date-locked markets.
+
+    Tara reaches the gateway as the internal chatbot principal, which is scoped to every
+    market and to AI scoring. The user's own plan therefore has to be applied here, from
+    the same config the engine uses (level_access_hierarchy, ml_score_access_*), before
+    any gateway call. ``markets`` None means unrestricted (admin/service accounts only).
+
+    The plan comes from the route's verified claims and from nothing else. The token
+    argument is accepted for call-site compatibility and is deliberately ignored. No
+    verified claims, or a level the config does not know, means no market and no AI.
+    """
+
+    claims = _verified_claims()
+    if not claims:
+        return dict(_NO_ACCESS_SCOPE)
+    if claims.get("is_admin") or claims.get("is_service_account"):
+        return {"markets": None, "ai": True, "row_cap": None, "level": "admin",
+                "date_locked": frozenset()}
+    level = str(claims.get("user_level", ""))
+    markets = set(getattr(config, "level_access_hierarchy", {}).get(level, []))
+    if getattr(config, "ml_score_access_mode", "level") == "list":
+        ai = str(claims.get("user", "")) in getattr(config, "ml_score_userids", [])
+    else:
+        ai = level in getattr(config, "ml_score_access_levels", [])
+    row_cap = getattr(config, "max_opportunities_loggedin_free", None) if level == "1" else None
+    locked = set(getattr(config, "level_access_hierarchy_free_registered", {}).get(level, []))
+    return {"markets": markets, "ai": ai and bool(markets), "row_cap": row_cap, "level": level,
+            "date_locked": locked}
+
+
+def _market_label(market_id):
+    name = str(config.available_resources.get(str(market_id), "market %s" % market_id))
+    return name.title().replace("Etfs", "ETFs").replace("Nasdaq", "NASDAQ")
+
+
+def _requested_market_ids(markets_param):
+    """Market ids named in a scan's ``markets`` argument (ids or catalog names)."""
+
+    if markets_param in (None, ""):
+        return []
+    names = {
+        re.sub(r"[^a-z0-9]", "", str(name).lower()): market_id
+        for market_id, name in config.available_resources.items()
+    }
+    found = []
+    for part in str(markets_param).split(","):
+        part = part.strip()
+        if part in _VS_MARKETS:
+            found.append(part)
+            continue
+        squashed = re.sub(r"[^a-z0-9]", "", part.lower())
+        match = names.get(squashed) or next(
+            (market_id for name, market_id in names.items()
+             if squashed and (name.startswith(squashed) or squashed.startswith(name))), None)
+        found.append(match or "?")
+    return found
+
+
+def _plan_markets_boundary(blocked, scope):
+    allowed = sorted(scope["markets"], key=lambda value: int(value))
+    included = ", ".join(_market_label(m) for m in allowed) or "no markets"
+    return (
+        "%s %s not included in your plan, so I have not screened %s. Your plan covers %s. "
+        "Plans are at tradewave.ai/pricing."
+        % (" and ".join(_market_label(m) for m in blocked),
+           "is" if len(blocked) == 1 else "are",
+           "it" if len(blocked) == 1 else "them", included)
+    )
+
+
+def _apply_plan_to_scan(inp, scope):
+    """Clamp a scan to the caller's plan. Returns (inp, boundary_text_or_None)."""
+
+    if scope["markets"] is None:
+        return inp, None
+    inp = dict(inp)
+    asked = _requested_market_ids(inp.get("markets"))
+    allowed = [m for m in asked if m in scope["markets"]]
+    blocked = [m for m in asked if m != "?" and m not in scope["markets"]]
+    if asked and not allowed and blocked:
+        return inp, _plan_markets_boundary(blocked, scope)
+    chosen = allowed or sorted(scope["markets"], key=lambda value: int(value))
+    if not chosen:
+        return inp, "Your plan does not include any market I can screen."
+    inp["markets"] = ",".join(chosen)
+    if allowed and blocked:
+        inp["_plan_dropped"] = (
+            "%s %s not included in your plan, so this screen covers %s only."
+            % (" and ".join(_market_label(m) for m in blocked),
+               "is" if len(blocked) == 1 else "are",
+               " and ".join(_market_label(m) for m in allowed))
+        )
+    if scope["row_cap"]:
+        try:
+            inp["limit"] = min(int(inp.get("limit") or scope["row_cap"]), scope["row_cap"])
+        except (TypeError, ValueError):
+            inp["limit"] = scope["row_cap"]
+    return inp, None
+
+
+def _ai_plan_block(inp, scope):
+    """Why AI scores cannot be used for this scan under the caller's plan, or None."""
+
+    if not scope["ai"]:
+        return (
+            "AI scores (AIS, AI Win%, PredR) are not included in your plan, so this list is "
+            "ranked by Sharpe on the historical record. They are part of the Analyst and "
+            "Strategist plans: tradewave.ai/pricing."
+        )
+    asked = [m for m in _requested_market_ids(inp.get("markets")) if m != "?"]
+    if asked and not any(m in _AI_SCORE_MARKETS for m in asked):
+        return (
+            "AI scores cover US stocks and ETFs only, so this list is ranked by Sharpe on the "
+            "historical record."
+        )
+    return None
+
+
+# ISO 4217 precious-metal codes. Traders say "XAU" for spot gold; TradeWave lists the
+# spot pair (XAUUSD) in Forex, while a bare XAU also collides with an unrelated index
+# and a Toronto stock.
+_SPOT_METAL_NAMES = {"XAU": "gold", "XAG": "silver", "XPT": "platinum", "XPD": "palladium"}
+
+
+def _usd_pair_alias(symbol, token):
+    """Resolve a bare currency/metal code to its listed USD pair, or return None."""
+
+    code = str(symbol or "").strip().upper()
+    if not re.fullmatch(r"[A-Z]{3,4}", code) or code.endswith("USD"):
+        return None
+    pair = code + "USD"
+    status, payload = _loopback_json(
+        "/ResolveSymbol/%s" % quote(pair), token, timeout=(5, 15)
+    )
+    if status != 200 or not isinstance(payload, dict):
+        return None
+    matches = [item for item in payload.get("matches", []) if isinstance(item, dict)]
+    if len(matches) != 1:
+        return None
+    market = str(matches[0].get("resourceID") or "")
+    if market not in _VS_MARKETS:
+        return None
+    return {
+        "symbol": pair,
+        "market": market,
+        "label": str(matches[0].get("label") or ""),
+        "name": str(matches[0].get("name") or ""),
+    }
+
+
+def _metal_spot_alias(inp, token):
+    """The spot pair for a bare metal code, unless the caller named a market that
+    really lists the bare code (XAU is also an index in market 5)."""
+
+    code = str((inp or {}).get("symbol") or "").strip().upper()
+    if code not in _SPOT_METAL_NAMES:
+        return None
+    alias = _usd_pair_alias(code, token)
+    if not alias:
+        return None
+    market = str((inp or {}).get("market") or "").strip()
+    if market and market != alias["market"]:
+        status, payload = _loopback_json(
+            "/ResolveSymbol/%s" % quote(code), token, timeout=(5, 15)
+        )
+        listed = {
+            str(item.get("resourceID") or "")
+            for item in (payload or {}).get("matches", []) if isinstance(item, dict)
+        } if status == 200 else set()
+        if market in listed:
+            return None
+    return alias
+
+
+def _alias_note(original, alias):
+    metal = _SPOT_METAL_NAMES.get(str(original).upper())
+    described = ("spot %s, " % metal) if metal else ""
+    return "%s was read as %s%s (%s)." % (
+        str(original).upper(), described, alias["symbol"],
+        alias.get("name") or alias.get("label") or "TradeWave listing",
+    )
+
+
+def _add_turn_note(turn_notes, key, text, marker):
+    """Queue one sentence the final reply must contain (deduplicated by key)."""
+
+    if isinstance(turn_notes, list) and not any(note.get("key") == key for note in turn_notes):
+        turn_notes.append({"key": key, "text": text, "marker": marker})
+
+
+def _apply_turn_notes(final_text, turn_notes):
+    """Prepend any queued substitution notice the model's prose left out.
+
+    A recovery (alias, no detected pattern, adjusted threshold, missing AI scores) is
+    only honest when the user is told about it. The model usually says so; this makes
+    it certain without rewriting an answer that already did.
+    """
+
+    text = final_text or ""
+    if re.match(r"\s*I couldn't (?:send|complete|resolve)\b", text):
+        # A failed turn carries no result to annotate - but when the reason is the
+        # caller's plan, that reason is the answer, not a generic "try again".
+        reasons = [note["text"] for note in turn_notes or []
+                   if note.get("key") in {"date_locked", "plan_boundary"}]
+        return " ".join(reasons) if reasons else text
+    missing = []
+    for note in turn_notes or []:
+        plain = re.sub(r"<[^>]*>", " ", text)
+        if not re.search(note["marker"], plain, re.IGNORECASE):
+            missing.append(note["text"])
+    if not missing:
+        return text
+    return " ".join(missing) + ("<br><br>" + text if text.strip() else "")
+
+
+def _is_no_detected_setup(out):
+    if not isinstance(out, dict) or not out.get("error"):
+        return False
+    return (
+        out.get("code") == "not_found"
+        and "no seasonal setup" in str(out.get("message") or "").lower()
+    )
+
+
+_DEFAULT_PLAIN_WINDOW_DAYS = 30
+
+
+def _analyze_with_recoveries(inp, user_id, user_token, turn_notes):
+    """analyze_symbol with two recoveries: a USD-pair alias and a plain-window study.
+
+    1. A bare metal/currency code (XAU) is read as its listed USD pair (XAUUSD).
+    2. When TradeWave's detector lists NO qualifying pattern for the symbol (ROKU:
+       short, volatile history), the engine can still study any exact window. Tara
+       then reports the plain window starting today and says clearly that it is not
+       a detected pattern, instead of "could not retrieve".
+    """
+
+    inp = dict(inp or {})
+    original = str(inp.get("symbol") or "").strip().upper()
+    alias = None
+    alias = _metal_spot_alias(inp, user_token)
+    if alias:
+        # The model often pairs "XAU" with the Forex or commodities market; only a
+        # market that really lists the bare code (the XAU index) keeps it.
+        inp["symbol"], inp["market"] = alias["symbol"], alias["market"]
+    out = run_tool("analyze_symbol", inp, user_id)
+    if (
+        alias is None
+        and isinstance(out, dict) and out.get("error")
+        and not inp.get("market")
+        and not _is_no_detected_setup(out)
+    ):
+        # Unknown bare code: try its USD pair before giving up.
+        alias = _usd_pair_alias(original, user_token)
+        if alias:
+            inp["symbol"], inp["market"] = alias["symbol"], alias["market"]
+            out = run_tool("analyze_symbol", inp, user_id)
+    pinned = bool(inp.get("entry_date") or inp.get("period") or inp.get("reverse"))
+    detector_note = None
+    if _is_no_detected_setup(out) and not pinned:
+        try:
+            days = int(inp.get("days_out") or _DEFAULT_PLAIN_WINDOW_DAYS)
+        except (TypeError, ValueError):
+            days = _DEFAULT_PLAIN_WINDOW_DAYS
+        days = min(max(days, 2), 367)
+        retry = dict(inp)
+        retry["entry_date"] = _market_today().isoformat()
+        retry["days_out"] = days
+        plain = run_tool("analyze_symbol", retry, user_id)
+        plain_card = plain.get("card") if isinstance(plain, dict) else None
+        if isinstance(plain_card, dict) and _card_headline_stats(_brief_card(plain_card)):
+            symbol = str(inp.get("symbol") or original).upper()
+            side = " %s" % inp["direction"] if inp.get("direction") in ("long", "short") else ""
+            detector_note = (
+                "TradeWave's pattern detector lists no qualifying%s seasonal pattern for %s "
+                "starting now, so this is the plain %d-day window from today, not a detected "
+                "pattern." % (side, symbol, days)
+            )
+            out = plain
+            out["detector_note"] = detector_note
+            out["other_setups"] = []
+            _add_turn_note(
+                turn_notes, "no_detected_pattern", html.escape(detector_note, quote=False),
+                r"no\s+(?:qualifying|detected)|not\s+a\s+detected|does\s+not\s+(?:list|have)|"
+                r"(?:doesn't|didn't|did\s+not)\s+(?:list|detect|find)",
+            )
+    if alias and isinstance(out, dict):
+        note = _alias_note(original, alias)
+        out["symbol_note"] = note
+        _add_turn_note(
+            turn_notes, "symbol_alias", html.escape(note, quote=False),
+            re.escape(alias["symbol"]),
+        )
+    return out, inp
+
+
+_DATE_LOCK_TEXT = (
+    "Your plan's start date is locked to today, so this is the window that starts today. "
+    "Custom start dates are part of the paid plans: tradewave.ai/pricing."
+)
+
+
+def _keep_symbol_read_on_todays_date(inp, out, user_id, user_token, turn_notes):
+    """On a date-locked plan a symbol study always starts today.
+
+    The viewer and the engine serve a date-locked market only at today's start date, so
+    a setup that starts on another day could never be shown: the chart would display a
+    different window from the one Tara described. The same hold length is re-read from
+    today, and the reply says the date is locked.
+    """
+
+    scope = _plan_scope(user_token)
+    card = out.get("card") if isinstance(out, dict) else None
+    if not scope.get("date_locked") or not isinstance(card, dict):
+        return out
+    if _card_market_id(card) not in scope["date_locked"]:
+        return out
+    today = _market_today().isoformat()
+    if _card_entry_date(card) == today:
+        return out
+    days = _card_days_out(card) or _DEFAULT_PLAIN_WINDOW_DAYS
+    retry_inp = {k: v for k, v in (inp or {}).items() if k not in {"period", "reverse"}}
+    retry_inp.update({"entry_date": today, "days_out": days, "market": _card_market_id(card)})
+    retry = run_tool("analyze_symbol", retry_inp, user_id)
+    retry_card = retry.get("card") if isinstance(retry, dict) else None
+    if (
+        isinstance(retry_card, dict)
+        and _card_entry_date(retry_card) == today
+        and _card_headline_stats(_brief_card(retry_card))
+    ):
+        locked = _briefify(retry)
+        locked["other_setups"] = []
+        locked["date_lock_note"] = _DATE_LOCK_TEXT
+        _add_turn_note(
+            turn_notes, "date_locked", html.escape(_DATE_LOCK_TEXT, quote=False),
+            r"locked\s+to\s+today",
+        )
+        return locked
+    boundary = (
+        "Your plan's start date is locked to today, and I could not read today's window for "
+        "this symbol, so I have not changed the chart. Custom start dates are part of the "
+        "paid plans: tradewave.ai/pricing."
+    )
+    _add_turn_note(
+        turn_notes, "date_locked", html.escape(boundary, quote=False), r"locked\s+to\s+today",
+    )
+    return {"error": "start_date_locked", "ok": False, "message": boundary,
+            "instruction": "Tell the user exactly this and give no statistics."}
+
+
+def _is_hundred_year_spec(spec):
+    """Whether a view spec is exactly The 100-Year Pattern, by the engine's own rule."""
+
+    try:
+        import featured_patterns
+        return bool(featured_patterns.is_hundred_year_view_spec(spec, today=_market_today()))
+    except Exception:               # noqa: BLE001 - unknown means not exempt
+        return False
+
+
+def _date_lock_rejects_view(cleaned, current_view, table_market, user_token):
+    """An update_view whose start date a date-locked plan cannot load, else None."""
+
+    entry = (cleaned or {}).get("entry_date")
+    if not entry:
+        return None
+    scope = _plan_scope(user_token)
+    if not scope.get("date_locked"):
+        return None
+    market = str(
+        cleaned.get("market")
+        or ((current_view or {}).get("market") if isinstance(current_view, dict) else "")
+        or table_market or ""
+    )
+    if _is_hundred_year_spec(cleaned):
+        return None                 # the public 100-Year Pattern study loads on every plan
+    if market in scope["date_locked"] and str(entry) != _market_today().isoformat():
+        return (
+            "this plan's start date is locked to today; a different start date cannot be "
+            "loaded. Say that custom start dates are part of the paid plans "
+            "(tradewave.ai/pricing) and do not queue this view."
+        )
+    return None
+
+
+def _result_market_ids(out):
+    found = set()
+    if isinstance(out, dict):
+        items = [out.get("card")] + [row for key in _LIST_KEYS for row in (out.get(key) or [])]
+        for item in items:
+            market = _card_market_id(item) if isinstance(item, dict) else ""
+            if market:
+                found.add(market)
+    return found
+
+
+def _keep_symbol_read_in_plan(name, inp, out, user_id, user_token, turn_notes):
+    """A symbol read must come from a market the caller's plan includes.
+
+    The gateway resolves a bare ticker as the all-markets chatbot principal (AAPL ->
+    S&P 500). For a plan without that market the same ticker is re-read in the plan's
+    own stock indexes (AAPL is also in the Dow 30); if none lists it, the reply is a
+    plan boundary with no statistics.
+    """
+
+    scope = _plan_scope(user_token)
+    if scope["markets"] is None:
+        return out
+    blocked = sorted(_result_market_ids(out) - scope["markets"], key=lambda value: int(value))
+    explicit = str((inp or {}).get("market") or "").strip()
+    if explicit in _VS_MARKETS and explicit not in scope["markets"]:
+        blocked = blocked or [explicit]
+    if not blocked:
+        return out
+    if not explicit or explicit not in scope["markets"]:
+        for market in ("2", "1", "0"):
+            if market not in scope["markets"]:
+                continue
+            retry = run_tool(name, dict(inp, market=market), user_id)
+            if isinstance(retry, dict) and not retry.get("error") and (
+                    _result_market_ids(retry) and _result_market_ids(retry) <= scope["markets"]):
+                return _briefify(retry)
+    boundary = _plan_markets_boundary(blocked, scope).replace(
+        "so I have not screened", "so I have not analyzed this symbol in")
+    _add_turn_note(
+        turn_notes, "plan_boundary", html.escape(boundary, quote=False),
+        r"(?:not|n['\u2019]t)\s+included\s+in\s+your\s+plan",
+    )
+    return {"error": "market_not_in_plan", "ok": False, "message": boundary,
+            "instruction": "Tell the user exactly this and give no statistics."}
+
+
+_AI_RANK_KEYS = {"ai_win_prob": "ml_win_prob", "ais": "ml_score", "pred_return": "pred_return_pct"}
+_AI_RANK_LABELS = {"ai_win_prob": "AI Win%", "ais": "AIS", "pred_return": "PredR"}
+_AI_SCAN_ASK_RE = re.compile(
+    r"\b(?:ais|ai[-\s]+(?:scores?|win|probabilit\w+|rank\w*|ordered|sorted|based)|"
+    r"predr|pred(?:icted|iction)?\w*\s+(?:profits?|returns?|gains?)|"
+    r"(?:by|on|using|with)\s+ai\b|ai\s+\w{0,12}\s*(?:results|list|picks))",
+    re.IGNORECASE,
+)
+_PRED_RETURN_ASK_RE = re.compile(
+    r"\b(?:predr|pred(?:icted|iction)?\w*\s+(?:profits?|returns?|gains?))\b", re.IGNORECASE
+)
+_SCAN_FETCH_FOR_AI = 15
+
+
+def _ai_scan_request(inp, latest_user_text):
+    """The AI ranking/filters of a scan, from the tool input or the user's own words."""
+
+    rank = str(inp.get("rank_by") or "").strip().lower()
+    request = {
+        "rank": rank if rank in _AI_RANK_KEYS else None,
+        "min_ai_win_prob": _numeric_stat(inp.get("min_ai_win_prob")),
+        "min_pred_return": _numeric_stat(inp.get("min_pred_return"), percent=True),
+    }
+    text = latest_user_text or ""
+    if request["rank"] is None and request["min_ai_win_prob"] is None and request["min_pred_return"] is None:
+        if not _AI_SCAN_ASK_RE.search(text):
+            return None
+        request["rank"] = "pred_return" if _PRED_RETURN_ASK_RE.search(text) else "ai_win_prob"
+    if request["rank"] is None:
+        request["rank"] = "pred_return" if request["min_pred_return"] is not None else "ai_win_prob"
+    if request["min_ai_win_prob"] is not None and request["min_ai_win_prob"] > 1:
+        request["min_ai_win_prob"] = request["min_ai_win_prob"] / 100.0
+    return request
+
+
+def _rounded(value, digits):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return round(float(value), digits) if digits else int(round(float(value)))
+
+
+def _result_rows(out):
+    for key in _LIST_KEYS:
+        if isinstance(out, dict) and isinstance(out.get(key), list):
+            return key, out[key]
+    return None, []
+
+
+def _scan_with_ai_scores(inp, request, user_id, turn_notes):
+    """Run the gateway scan with TradeWave's AI scores and rank/filter on them.
+
+    The gateway returns the engine's own AIS / AI Win% / PredR for eligible setups;
+    Tara only sorts and filters those values. When no row carries a score the rows
+    stay in their historical Sharpe order and the result (and the reply) says so.
+    """
+
+    try:
+        limit = int(inp.get("limit") or 5)
+    except (TypeError, ValueError):
+        limit = 5
+    limit = min(max(limit, 1), 15)
+    gateway_inp = {
+        key: value for key, value in inp.items()
+        if key not in {"rank_by", "min_ai_win_prob", "min_pred_return"}
+    }
+    gateway_inp["rank_by"] = "ml"
+    gateway_inp["limit"] = max(limit, _SCAN_FETCH_FOR_AI)
+    raw = run_tool("find_best_opportunities", gateway_inp, user_id)
+    key, raw_rows = _result_rows(raw)
+    out = _briefify(raw)
+    if key is None or not isinstance(out, dict):
+        return out
+    rows = []
+    reason = ""
+    for raw_card, card in zip(raw_rows, out.get(key) or []):
+        ml = raw_card.get("ml") if isinstance(raw_card, dict) else None
+        if isinstance(ml, dict) and ml.get("ml_win_prob") is not None:
+            # Display rounding only (the table shows the same precision); ranking and
+            # filtering below use the engine's unrounded values.
+            card["ai"] = {
+                "ais": _rounded(ml.get("ml_score"), 1),
+                "ai_win_prob_pct": _rounded(
+                    ml["ml_win_prob"] * 100 if isinstance(ml.get("ml_win_prob"), (int, float)) else None, 0),
+                "pred_return_pct": _rounded(ml.get("pred_return_pct"), 1),
+                "pred_mfe_pct": _rounded(ml.get("pred_mfe_pct"), 1),
+            }
+            card["_ml"] = ml
+        elif not reason and isinstance(raw_card, dict):
+            reason = str(raw_card.get("tier_notes") or "")[:200]
+        rows.append(card)
+    scored = [card for card in rows if card.get("ai")]
+    label = _AI_RANK_LABELS[request["rank"]]
+    unscored = len(rows) - len(scored)
+    if not scored:
+        for card in rows:
+            card.pop("_ml", None)
+        out[key] = rows[:limit]
+        out["ai_scores"] = {
+            "delivered": False,
+            "reason": reason or "no AI score was returned for these setups",
+            "ranked_by": "sharpe (historical)",
+            "instruction": (
+                "Say AI scores were not available for these setups and why, that the list is "
+                "ranked by Sharpe on the historical record, and that the averages are "
+                "historical, not predicted returns."
+            ),
+        }
+        _add_turn_note(
+            turn_notes, "ai_scores_missing",
+            "<b>AI scores were not available for these setups</b>, so this list is ranked by "
+            "Sharpe on the historical record; the averages shown are historical, not "
+            "predicted returns. AI scores cover eligible plans on US stocks and ETFs, for "
+            "10-90 day windows entering within five days.",
+            r"\bAI\b[^.]{0,120}\b(?:unavailable|not\s+available|n't\s+available|not\s+returned|"
+            r"not\s+expose|not\s+deliver|could\s*n[o']t)",
+        )
+        return out
+
+    kept = scored
+    if request["min_ai_win_prob"] is not None:
+        kept = [c for c in kept if (c["_ml"].get("ml_win_prob") or 0) >= request["min_ai_win_prob"]]
+    if request["min_pred_return"] is not None:
+        kept = [
+            c for c in kept
+            if c["_ml"].get("pred_return_pct") is not None
+            and c["_ml"]["pred_return_pct"] >= request["min_pred_return"]
+        ]
+    field = _AI_RANK_KEYS[request["rank"]]
+    kept.sort(
+        key=lambda c: (
+            c["_ml"].get(field) if c["_ml"].get(field) is not None else float("-inf"),
+            c["_ml"].get("ml_score") or 0,
+        ),
+        reverse=True,
+    )
+    for card in rows:
+        card.pop("_ml", None)
+        # Keep every requested row inside the tool-result size cap: drop the link blob
+        # and the best/worst-year detail, which a ranked AI list does not narrate.
+        market_id = _card_market_id(card)
+        if market_id:
+            card["market"] = market_id          # the id grounds a later chart action
+        card.pop("wave_viewer", None)
+        if isinstance(card.get("history"), dict):
+            card["history"] = {
+                k: v for k, v in card["history"].items() if k in ("years_tested", "wins", "losses")
+            }
+    filtered = request["min_ai_win_prob"] is not None or request["min_pred_return"] is not None
+    out[key] = kept[:limit]
+    # The gateway can only fetch by AI Win%, and scores a bounded number of rows. Both
+    # limits are stated in the reply itself, never left for the model to mention: a
+    # PredR/AIS ranking or an AI filter is "among the rows this scan returned", and an
+    # unscored row was not checked - it is not a row that failed the filter.
+    scope_bits = [
+        "AI scope: %s among the %d setups this scan returned (its highest AI Win%% rows)"
+        % ("filtered and ranked by %s" % label if filtered else "ranked by %s" % label, len(rows))
+    ]
+    if unscored:
+        scope_bits.append(
+            "%d of those %d carried an AI score; the other %d could not be scored%s and "
+            "were not checked" % (
+                len(scored), len(rows), unscored,
+                (" (%s)" % reason.rstrip(".")) if reason else "")
+        )
+    if filtered and not kept:
+        scope_bits.append(
+            "none of the %d scored setups met the AI filter%s" % (
+                len(scored),
+                ", which is not the same as no setup qualifying" if unscored else "")
+        )
+    scope_text = "; ".join(scope_bits) + "."
+    out["ai_scores"] = {
+        "delivered": True,
+        "ranked_by": label,
+        "rows_returned": len(rows),
+        "rows_scored": len(scored),
+        "rows_unscored_not_checked": unscored,
+        "rows_meeting_ai_filters": len(kept),
+        "scope": scope_text,
+        "instruction": (
+            "These rows are ranked by %s using TradeWave's own AI values in each row's 'ai' "
+            "block (ais, ai_win_prob_pct, pred_return_pct, pred_mfe_pct). State the AI values "
+            "you rank or filter on next to each name, labelled as model estimates, and keep "
+            "them separate from the historical win record and average. Never say that no "
+            "setup qualifies when rows were unscored." % label
+        ),
+    }
+    if request["rank"] != "ai_win_prob" or filtered or unscored:
+        _add_turn_note(
+            turn_notes, "ai_scope", html.escape(scope_text, quote=False),
+            r"among\s+the\s+%d\s+setups\s+this\s+scan\s+returned" % len(rows),
+        )
+    if out.get("note"):
+        out.pop("note", None)
+    return out
+
+
+def _nearest_supported_threshold(inp, out):
+    """For an out-of-band "N of Y winning years" screen, the nearest supported floor.
+
+    TradeWave precomputes its detection lists only at or above a per-market win
+    floor, so "5 of 7" can be below what exists. Returns (market, years, asked,
+    floor) or None.
+    """
+
+    if not isinstance(out, dict) or _result_rows(out)[1]:
+        return None
+    try:
+        years = int(inp.get("years"))
+        asked = int(inp.get("min_winning_years"))
+    except (TypeError, ValueError):
+        return None
+    market = _single_market_id(inp.get("markets"))
+    if market is None or not 1 <= asked <= years:
+        return None
+    try:
+        import tara_research            # lazy: tara_research imports this module
+        floor = tara_research._band_floor(market, years)
+    except Exception:                   # noqa: BLE001 - recovery is best effort
+        log.exception("tara band floor lookup failed")
+        return None
+    if not isinstance(floor, int) or floor <= asked:
+        return None
+    return market, years, asked, floor
+
+
+_NAMED_SECURITY_OVERRIDE = (
+    "\n\nNAMED INVESTMENT QUESTION OVERRIDE: The user selected a security and asked whether "
+    "to buy, sell, hold, or invest in it. Analyze and load the exact historical seasonal "
+    "evidence, but do NOT answer the suitability question yes or no. Start by saying "
+    "TradeWave cannot determine whether the security fits this user, then state the "
+    "historical setup, losing-year risk, and capability limits. Never tell them to buy, "
+    "sell, hold, allocate an amount, or expect a return."
+)
+
+
+def _with_system_note(system, note):
+    """Append a per-turn instruction to the system prompt in either of its shapes.
+
+    The prompt is a list of segmented blocks in production (a plain string only in
+    older callers and tests). Concatenating a string onto that list raised TypeError,
+    so every "should I buy NVDA?" turn ended in "Sorry, something went wrong". The
+    note goes in a new trailing block, leaving the cached stable prefix untouched.
+    """
+
+    if isinstance(system, list):
+        return list(system) + [{"type": "text", "text": note.strip()}]
+    return (system or "") + note
+
+
 def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
                        table_market=None, opp_table=None, user_token=None,
                        user_years_cap=None,
                        opp_table_years=None, full_history_request=None,
                        named_symbol_override=None, named_symbol_lookback=None,
                        current_view=None, view_intent=None, latest_user_text="",
-                       non_actionable_symbols=None):
+                       non_actionable_symbols=None, turn_notes=None):
     """Execute one provider-neutral Tara tool call through the established safety path."""
 
     inp = _apply_full_history_request(name, inp, full_history_request)
@@ -3467,6 +4533,16 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
                 "ok": False,
                 "error": "the user negated or is diagnosing a view action; do not change the view",
             }
+        date_lock = _date_lock_rejects_view(cleaned, current_view, table_market, user_token)
+        if date_lock:
+            _add_turn_note(
+                turn_notes, "date_locked",
+                "Your plan's start date is locked to today, so I have not loaded a different "
+                "start date on the chart. Custom start dates are part of the paid plans: "
+                "tradewave.ai/pricing.",
+                r"locked\s+to\s+today",
+            )
+            return {"ok": False, "error": date_lock}
         if cleaned and _view_spec_is_grounded(
             cleaned, card_list, current_view=current_view
         ):
@@ -3489,7 +4565,46 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
             ),
         }
 
+    ai_request = (
+        _ai_scan_request(inp, latest_user_text) if name == "find_best_opportunities" else None
+    )
+    plan_boundary = None
     if name == "find_best_opportunities":
+        scope = _plan_scope(user_token)
+        inp, plan_boundary = _apply_plan_to_scan(inp, scope)
+        dropped = inp.pop("_plan_dropped", None)
+        if dropped:
+            _add_turn_note(
+                turn_notes, "plan_partial", html.escape(dropped, quote=False),
+                r"(?:not|n['\u2019]t)\s+included\s+in\s+your\s+plan",
+            )
+        if plan_boundary is None and ai_request is not None:
+            ai_block = _ai_plan_block(inp, scope)
+            if ai_block:
+                # Not entitled (or not a scored market): run the ordinary historical
+                # screen and say why there are no AI values. Never call the scorer.
+                inp = {k: v for k, v in inp.items()
+                       if k not in {"rank_by", "min_ai_win_prob", "min_pred_return"}}
+                ai_request = None
+                _add_turn_note(
+                    turn_notes, "ai_not_in_plan", html.escape(ai_block, quote=False),
+                    r"AI\b[^.]{0,80}(?:(?:not|n['\u2019]t)\s+included|US\s+stocks\s+and\s+ETFs\s+only)",
+                )
+    if plan_boundary is not None:
+        out = {"error": "market_not_in_plan", "ok": False, "message": plan_boundary,
+               "instruction": "Tell the user exactly this and do not name any symbols."}
+        _add_turn_note(
+            turn_notes, "plan_boundary", html.escape(plan_boundary, quote=False),
+            r"(?:not|n['\u2019]t)\s+included\s+in\s+your\s+plan",
+        )
+    elif name == "find_best_opportunities" and ai_request is not None:
+        # AI ranking/filtering needs the gateway's scored cards; the opp-table rows carry
+        # no AI values, and substituting a historical average for PredR is never allowed.
+        target = _single_market_id(inp.get("markets"))
+        out = _scan_with_ai_scores(inp, ai_request, user_id, turn_notes)
+        if target is not None and table_market != target and _result_rows(out)[1]:
+            _append_market_switch(actions, target)
+    elif name == "find_best_opportunities":
         # Screen from OppList4 (the opp-table data path) so the answer == the on-screen table;
         # /scan is a different path that names different tickers (see _opplist4_rows note).
         target = _single_market_id(inp.get("markets"))
@@ -3507,11 +4622,73 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
             out = _rows_to_scan_cards(screen_rows, target)
         else:
             out = _briefify(run_tool(name, inp, user_id))  # multi-market / blocking / loopback-failed
+            adjusted = _nearest_supported_threshold(inp, out)
+            if adjusted:
+                market, years, asked, floor = adjusted
+                retry = dict(inp)
+                retry["min_winning_years"] = floor
+                out = _briefify(run_tool(name, retry, user_id))
+                label = str(config.available_resources.get(market, "this market")).title()
+                note = (
+                    "TradeWave's detector only lists %s patterns that won at least %d of the "
+                    "last %d years, so a %d-of-%d screen does not exist. These are the "
+                    "%d-of-%d-or-better results, the nearest supported threshold."
+                    % (label, floor, years, asked, years, floor, years)
+                )
+                if isinstance(out, dict):
+                    out.pop("lookback_note", None)
+                    out["threshold_adjusted"] = {
+                        "asked_min_winning_years": asked,
+                        "used_min_winning_years": floor,
+                        "years": years,
+                        "say_this": note,
+                    }
+                _add_turn_note(
+                    turn_notes, "threshold_adjusted", html.escape(note, quote=False),
+                    r"at\s+least\s+%d\s+of\s+(?:the\s+last\s+)?%d|%d[-\s]of[-\s]%d[-\s]or[-\s]better"
+                    % (floor, years, floor, years),
+                )
             if target is not None and table_market != target:
                 _append_market_switch(actions, target)
+    elif name == "analyze_symbol":
+        raw, inp = _analyze_with_recoveries(inp, user_id, user_token, turn_notes)
+        out = _briefify(raw)
+    elif name == "get_symbol_patterns":
+        asked = str(inp.get("symbol") or "").strip().upper()
+        alias = _metal_spot_alias(inp, user_token)
+        if alias:
+            inp = dict(inp, symbol=alias["symbol"], market=alias["market"])
+        out = _briefify(run_tool(name, inp, user_id))
+        if (
+            isinstance(out, dict) and out.get("error")
+            and "not available for" in str(out.get("message") or "")
+        ):
+            # The per-symbol pattern grid covers five markets. For the others (ETFs,
+            # Forex All, indices, crypto ...) the symbol's current setup is still
+            # available, which answers the question better than "no patterns".
+            single, _used = _analyze_with_recoveries(
+                {key: inp[key] for key in ("symbol", "market", "pe_cycle", "years") if key in inp},
+                user_id, user_token, turn_notes,
+            )
+            if isinstance(single, dict) and isinstance(single.get("card"), dict):
+                out = _briefify(single)
+                out["pattern_list_note"] = (
+                    "TradeWave has no full pattern list for symbols in this market; this is "
+                    "the symbol's current top setup. Say so in one clause."
+                )
+        if alias and isinstance(out, dict):
+            note = _alias_note(asked, alias)
+            out["symbol_note"] = note
+            _add_turn_note(
+                turn_notes, "symbol_alias", html.escape(note, quote=False),
+                re.escape(alias["symbol"]),
+            )
     else:
         out = _briefify(run_tool(name, inp, user_id))
 
+    if name in {"analyze_symbol", "get_symbol_patterns"}:
+        out = _keep_symbol_read_in_plan(name, inp, out, user_id, user_token, turn_notes)
+        out = _keep_symbol_read_on_todays_date(inp, out, user_id, user_token, turn_notes)
     _index_cards(out, cards, card_list)
     if (
         name in {"analyze_symbol", "get_symbol_patterns"}
@@ -3557,6 +4734,7 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
         "",
     )
     non_actionable_symbols = set()
+    turn_notes = []
 
     def trace(event, **fields):
         if isinstance(protocol_trace, list) and len(protocol_trace) < 24:
@@ -3597,7 +4775,8 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
             market=target,
             candidates=len(_cards_from_result(out)),
         )
-        return _investor_screen_response(investor_intent, out, latest_user_text), actions
+        return _investor_screen_response(
+            investor_intent, out, latest_user_text, market=target), actions
 
     if investor_intent == "weak_symbol":
         symbol = _explicit_ticker(latest_user_text)
@@ -3623,15 +4802,9 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
         ), []
 
     if investor_intent == "named_security":
-        system = system + (
-            "\n\nNAMED INVESTMENT QUESTION OVERRIDE: The user selected a security and asked whether "
-            "to buy, sell, hold, or invest in it. Analyze and load the exact historical seasonal "
-            "evidence, but do NOT answer the suitability question yes or no. Start by saying "
-            "TradeWave cannot determine whether the security fits this user, then state the "
-            "historical setup, losing-year risk, and capability limits. Never tell them to buy, "
-            "sell, hold, allocate an amount, or expect a return."
-        )
+        system = _with_system_note(system, _NAMED_SECURITY_OVERRIDE)
 
+    soft_view_nudged = False
     for round_index in range(_MAX_TOOL_ROUNDS):
         resp = send_claude_messages(convo, model=model, system=system,
                                     cache_system=True, cache_ttl=cache_ttl,
@@ -3669,8 +4842,15 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
                     latest_user_text,
                     non_actionable_symbols,
                 )
+                and not (
+                    soft_view_nudged
+                    and _soft_view_request_answered(
+                        candidate, view_intent, actions, latest_user_text, current_view
+                    )
+                )
             ):
                 reason = "missing_view_action"
+                soft_view_nudged = True
             if reason:
                 protocol_failures += 1
                 # Do not log the model text: it can contain the user's prompt,
@@ -3756,6 +4936,7 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
                 view_intent=view_intent,
                 latest_user_text=latest_user_text,
                 non_actionable_symbols=non_actionable_symbols,
+                turn_notes=turn_notes,
             )
             trace(
                 "tool_result",
@@ -3778,6 +4959,9 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
             actions,
             latest_user_text,
             non_actionable_symbols,
+        )
+        and not _soft_view_request_answered(
+            final_text, view_intent, actions, latest_user_text, current_view
         )
     ):
         trace("protocol_violation", reason="incomplete_view_action")
@@ -3858,7 +5042,7 @@ def run_chat_with_tools(messages, system, user_id, model, cache_ttl="5m",
                 "I couldn't complete that chart request safely, so I haven't changed the chart. "
                 "Please try again."
             )
-    return final_text, actions
+    return _apply_turn_notes(final_text, turn_notes), actions
 
 
 def run_chat_with_openai_tools(messages, system, user_id, model,
@@ -3894,6 +5078,7 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
         "",
     )
     non_actionable_symbols = set()
+    turn_notes = []
 
     def trace(event, **fields):
         if isinstance(protocol_trace, list) and len(protocol_trace) < 24:
@@ -3933,7 +5118,8 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
             market=target,
             candidates=len(_cards_from_result(out)),
         )
-        return _investor_screen_response(investor_intent, out, latest_user_text), actions
+        return _investor_screen_response(
+            investor_intent, out, latest_user_text, market=target), actions
 
     if investor_intent == "weak_symbol":
         symbol = _explicit_ticker(latest_user_text)
@@ -3953,14 +5139,7 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
         ), []
 
     if investor_intent == "named_security":
-        system = system + (
-            "\n\nNAMED INVESTMENT QUESTION OVERRIDE: The user selected a security and asked whether "
-            "to buy, sell, hold, or invest in it. Analyze and load the exact historical seasonal "
-            "evidence, but do NOT answer the suitability question yes or no. Start by saying "
-            "TradeWave cannot determine whether the security fits this user, then state the "
-            "historical setup, losing-year risk, and capability limits. Never tell them to buy, "
-            "sell, hold, allocate an amount, or expect a return."
-        )
+        system = _with_system_note(system, _NAMED_SECURITY_OVERRIDE)
 
     input_items = build_responses_input(messages, system=system)
     cache_key = prompt_cache_key(user_id)
@@ -4007,6 +5186,7 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
                     view_intent=view_intent,
                     latest_user_text=latest_user_text,
                     non_actionable_symbols=non_actionable_symbols,
+                    turn_notes=turn_notes,
                 )
             except OpenAIAPIError:
                 # Feed a bounded, narration-safe error back to the model rather than executing
@@ -4050,6 +5230,9 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
             actions,
             latest_user_text,
             non_actionable_symbols,
+        )
+        and not _soft_view_request_answered(
+            final_text, view_intent, actions, latest_user_text, current_view
         )
     ):
         trace("protocol_violation", reason="incomplete_view_action")
@@ -4103,7 +5286,7 @@ def run_chat_with_openai_tools(messages, system, user_id, model,
                 "I couldn't complete that chart request safely, so I haven't changed the chart. "
                 "Please try again."
             )
-    return final_text, actions
+    return _apply_turn_notes(final_text, turn_notes), actions
 
 
 # --------------------------------------------------------------------------

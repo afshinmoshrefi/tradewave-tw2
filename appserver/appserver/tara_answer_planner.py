@@ -171,15 +171,178 @@ _AI_HORIZON_DAY_PATTERN = re.compile(
     re.I,
 )
 
-_ADVICE_PATTERNS = re.compile(
-    r"\b(?:should i|should we|"
-    r"would you(?!\s+(?:please\s+)?(?:analy[sz]e|evaluate|assess|review)\b)|"
-    r"would you take|do you recommend|recommend(?:ation)?|"
-    r"buy (?:this|it|the (?:stock|setup|pattern|trade))|sell (?:this|it|the (?:stock|setup|pattern|trade))|short it|"
-    r"take (?:it|this|the trade)|enter (?:it|this|the trade)|put money|position size|"
-    r"good trade|how good is (?:this|the) trade|worth (?:it|trading|taking)|trade it)\b",
+# A personal trade-decision request ("should I buy this?", "would you take it?").
+# Bare "should I" is NOT advice: "how should I read Win%", "should I use 10 or 20
+# years", "what should I be looking at" and "when should I get out" are ordinary
+# questions that deserve their real answer (production triage 2026-11-17: the old
+# bare match replaced those answers with a ~250-word canned block).
+_TRADE_DECISION_VERB = (
+    r"(?:buy|sell|short|trade|take|enter|invest|hold|keep|"
+    r"go\s+(?:long|short|in|for\s+it)|get\s+in(?:to)?|jump\s+in(?:to)?|"
+    r"pull\s+the\s+trigger|open\s+(?:a\s+)?position|act\s+on|follow|"
+    r"do\s+(?:it|this|the\s+trade))"
+)
+_TRADE_DECISION_ASK_PATTERN = re.compile(
+    r"\b(?:should|shall|would|could|can|may|do)\s+(?:i|we)\s+"
+    r"(?:(?:really|just|still|now|actually|even|then)\s+)?"
+    + _TRADE_DECISION_VERB + r"\b",
     re.I,
 )
+# An interrogative in the same clause turns the modal into an information request
+# ("when should I buy", "how should I trade a short pattern", "what should I buy").
+_OPEN_QUESTION_WORD_PATTERN = re.compile(
+    r"\b(?:how|when|where|what|which|why|who)\b", re.I
+)
+_ADVICE_PATTERNS = re.compile(
+    r"\b(?:"
+    r"would\s+you\s+(?:personally\s+)?(?:take|buy|sell|short|trade|enter|hold|invest)\b|"
+    r"(?:do|would|can)\s+you\s+(?:recommend|suggest|advise)\s+"
+    r"(?:this|it|that|the\s+(?:trade|setup|pattern|stock|etf)|buying|selling|"
+    r"shorting|taking|entering|trading|holding|"
+    r"(?:that\s+)?(?:i|we)\s+" + _TRADE_DECISION_VERB + r"\b)|"
+    r"(?:is|was)\s+(?:this|it|that)\s+(?:a\s+|your\s+)?recommend(?:ation|ed)\b|"
+    r"buy (?:this|it|the (?:stock|setup|pattern|trade))|sell (?:this|it|the (?:stock|setup|pattern|trade))|short it|"
+    r"take (?:it|this|the trade)|enter (?:it|this|the trade)|put (?:my |our |any |some |more )?money|"
+    r"position siz(?:e|ing)|how much\b.{0,25}\b(?:invest|risk|buy|allocate|put)\b|"
+    r"good trade|how good is (?:this|the) trade|worth (?:it|trading|taking|buying)|trade it)\b",
+    re.I,
+)
+
+
+# Stops, position size, allocation and "pick one for me" are advice however the
+# question is worded: "what stop loss should I use", "how many shares should I buy",
+# "what would you do", "recommend me a stock". The interrogative exemption below is
+# only for reading and timing questions.
+# Each alternative needs a personal-trade context (should I / for me / my trade / use,
+# set, place), because the bare words are ordinary vocabulary: "what is a stop",
+# "recommend me a tutorial", "how many shares outstanding does AAPL have" and "what
+# would you do to change the years" are not requests for a trade instruction.
+_INSTRUCTION_CONTEXT = (
+    r"(?:should|shall|would\s+you|do\s+i|can\s+i|could\s+i|for\s+(?:me|this|it|that)\b|"
+    r"my\s+(?:trade|position|account|portfolio|entry)|\b(?:use|set|place|put)\b|a\s+good\b)"
+)
+_TRADE_INSTRUCTION_PATTERN = re.compile(
+    r"(?:"
+    # stops and take-profits, with a personal context on either side
+    r"\b(?:stop[-\s]?loss(?:es)?|trailing\s+stops?|take[-\s]?profits?|"
+    r"(?:my|a|your)\s+(?:(?:good|tight|wide|reasonable|sensible|safe)\s+)?stops?\b(?!\s+(?:button|sign|icon|video))|\bstops?\s+(?:at|levels?|price|orders?))\b"
+    r"[^.?!]{0,60}" + _INSTRUCTION_CONTEXT + r"|"
+    + _INSTRUCTION_CONTEXT + r"[^.?!]{0,60}\b(?:stop[-\s]?loss(?:es)?|trailing\s+stops?|"
+    r"take[-\s]?profits?|(?:my|a|your)\s+(?:(?:good|tight|wide|reasonable|sensible|safe)\s+)?stops?\b(?!\s+(?:button|sign|icon|video))|"
+    r"stops?\s+(?:at|levels?|price|orders?)\b)|"
+    # targets
+    r"\b(?:price|profit)?\s*targets?\s+should\s+(?:i|we)\b|"
+    r"\bshould\s+(?:i|we)\b[^.?!]{0,30}\btargets?\b|"
+    # size
+    r"\bhow\s+many\s+(?:shares|contracts|units|lots|coins)\b[^.?!]{0,25}"
+    r"\b(?:should|do\s+i|can\s+i|to\s+(?:buy|sell|get|trade)|for\s+me)\b|"
+    r"\bhow\s+much\b.{0,30}\b(?:invest|risk|buy|allocate|put|bet)\b|"
+    r"\bhow\s+(?:big|large)\b.{0,25}\b(?:position|trade|bet|stake)\b|"
+    r"\b(?:what|which)\s+(?:position\s+)?(?:size|percent(?:age)?|portion|allocation)\b.{0,40}"
+    r"\b(?:invest|risk|buy|allocate|put|position|portfolio|account)\b|"
+    r"\bposition\s+siz(?:e|ing)\b[^.?!]{0,40}" + _INSTRUCTION_CONTEXT + r"|"
+    + _INSTRUCTION_CONTEXT + r"[^.?!]{0,40}\bposition\s+siz(?:e|ing)\b|"
+    r"\b(?:how|what|should)\b.{0,30}\ballocat(?:e|ion)\b.{0,30}\b(?:portfolio|account|capital|money)\b|"
+    # a personal pick
+    r"\bwhat\s+would\s+you\s+(?:buy|sell|trade|pick|choose)\b|"
+    r"\bwhat\s+would\s+you\s+do\s*(?:[?.!]|$|here\b|now\b|with\s+(?:this|it|that)\b|"
+    r"in\s+my\s+(?:place|position|shoes)|if\s+you\s+were\s+me)|"
+    r"\bwhat\s+should\s+i\s+do\s*(?:[?.!]|$|here\b|now\b|with\s+(?:this|it|that|my)\b)|"
+    r"\brecommend\s+(?:me|us)\s+(?:a|an|some|one|the|any)?\s*(?:\w+\s+){0,2}?"
+    r"(?:stocks?|etfs?|trades?|tickers?|symbols?|picks?|setups?|patterns?|securit(?:y|ies)|"
+    r"funds?|investments?|something\s+to\s+(?:buy|trade))\b|"
+    r"\b(?:pick|choose)\s+(?:one|a\s+(?:stock|trade))\s+for\s+me\b|"
+    r"\bwhat(?:'s|\s+is)\s+your\s+pick\b"
+    r")",
+    re.I,
+)
+
+# A definition or how-it-works question is never a request for advice.
+_DEFINITION_FORM_PATTERN = re.compile(
+    r"^\s*(?:so\s+|ok\s+|and\s+)?(?:"
+    r"what(?:'s|\s+is|\s+are)\s+(?!your\b|my\b|a\s+good\b|the\s+best\b)(?:an?\s+|the\s+)?"
+    r"[\w%&-]+(?:\s+[\w%&-]+){0,2}|"
+    r"what\s+(?:does|do)\s+.{1,50}\s+mean|"
+    r"(?:define|explain|meaning\s+of|tell\s+me\s+what)\s+.{1,70}"
+    r")\s*[?.!]*\s*$",
+    re.I,
+)
+_DEFINITION_BLOCKERS = re.compile(
+    r"\b(?:should|shall|would\s+you|for\s+me|whether\s+to|recommend)\b", re.I
+)
+# Buying a subscription, entering a symbol and leaving full screen use trade verbs
+# about things that are not securities. Those verb phrases are removed before any
+# advice test so they cannot count.
+_NON_TRADE_OBJECT = (
+    r"(?:subscriptions?|plans?|membership|upgrades?|annual|yearly|monthly|trial|promo(?:\s+code)?|"
+    r"coupons?|codes?|discounts?|refunds?|invoices?|data|licen[cs]es?|books?|courses?|tutorials?|"
+    r"guides?|videos?|symbols?|tickers?|dates?|years?|numbers?|values?|names?|passwords?|emails?|"
+    r"full\s*screen|fullscreen|mouse|cursor|pointer|buttons?|keys?|windows?|popups?|panels?|"
+    r"menus?|pages?|tabs?|screens?|views?|modes?|animations?|watchlists?|settings?|filters?|"
+    r"columns?|rows?|tables?|markets?|support|analyst|strategist|navigator|explorer|tradewave)"
+)
+_NON_TRADE_PHRASE_PATTERN = re.compile(
+    r"\b(?:buy|sell|trade|invest(?:\s+in)?|hold|enter|exit|get\s+(?:in|out)(?:\s+of)?|cover|"
+    r"take|add\s+to)\s+(?:back\s+)?(?:(?:a|an|the|my|your|our|this|that|more|another|"
+    r"into|in|to|of|for)\s+){0,3}(?:\w+\s+){0,1}?" + _NON_TRADE_OBJECT + r"\b",
+    re.I,
+)
+_COMMERCE_CONTEXT_PATTERN = re.compile(
+    r"\b(?:subscriptions?|plans?|membership|upgrad\w+|pricing|annual|yearly|monthly|promo|"
+    r"coupons?|refunds?|analyst|strategist|navigator|explorer|support)\b",
+    re.I,
+)
+
+
+def _trade_question_text(message: Any) -> str:
+    """The message with its non-trade verb phrases removed, or '' for a definition."""
+
+    text = str(message or "")
+    if _DEFINITION_FORM_PATTERN.match(text) and not _DEFINITION_BLOCKERS.search(text):
+        return ""
+    text = _NON_TRADE_PHRASE_PATTERN.sub(" ", text)
+    if _COMMERCE_CONTEXT_PATTERN.search(str(message or "")):
+        text = re.sub(r"\bworth\s+it\b", " ", text, flags=re.I)
+    return text
+
+
+DISCLAIMER_TEXT = (
+    "Past performance and model estimates do not guarantee future results. "
+    "TradeWave provides research context, not individualized recommendations."
+)
+_DISCLAIMER_LINE = "<i>" + DISCLAIMER_TEXT + "</i>"
+
+
+def is_trade_instruction_request(message: Any) -> bool:
+    """A request for a stop, a size, an allocation or a personal pick."""
+
+    return bool(_TRADE_INSTRUCTION_PATTERN.search(_trade_question_text(message)))
+
+
+def _is_trade_advice_request(message: Any) -> bool:
+    """True only for a request to decide a personal buy/sell/hold/enter action."""
+
+    text = _trade_question_text(message)
+    if not text.strip():
+        return False
+    if _ADVICE_PATTERNS.search(text) or _TRADE_INSTRUCTION_PATTERN.search(text):
+        return True
+    for match in _TRADE_DECISION_ASK_PATTERN.finditer(text):
+        clause_start = max(
+            (text.rfind(mark, 0, match.start()) for mark in ".?!;,:\n"), default=-1
+        )
+        clause = text[clause_start + 1:match.start()]
+        if _OPEN_QUESTION_WORD_PATTERN.search(clause):
+            continue
+        # "can we trade futures here" asks what TradeWave covers; "can I buy this" asks
+        # for a decision. A permission modal needs a trade object right after the verb.
+        if match.group(0).lower().startswith(("can", "could", "may")) and not re.match(
+                r"\s*(?:this|it|that|these|those|now|in\b|more\b|[?.!]|$)", text[match.end():], re.I):
+            continue
+        return True
+    return False
+
+
 _SPECIFIC_YEAR_PATTERN = re.compile(r"\b(?:19|20)\d{2}\b")
 
 _HUNDRED_YEAR_PATTERN_QUESTIONS = (
@@ -217,6 +380,9 @@ _EXPLICIT_AI_SYMBOL_PATTERN = re.compile(
     r"([A-Z][A-Z0-9.$^-]{0,10})\b"
 )
 _NON_SYMBOL_PATTERN_WORDS = {
+    # "Should I trade this" must not read the pronoun as a ticker named I.
+    "A",
+    "I",
     "AI",
     "CURRENT",
     "LOADED",
@@ -267,9 +433,24 @@ _PLAIN_EXCURSION_FALSE_POSITIVE_PATTERN = re.compile(
     re.I,
 )
 
+# Recency of the loaded RECORD. A bare "recent"/"latest" is not enough: "recent
+# projections", "latest news" and "the most recent earnings" are about something
+# else and must not be answered with the record's recent-years block.
+_RECENCY_SUBJECT = (
+    r"(?:years?|seasons?|results?|records?|performance|history|returns?|trades?|"
+    r"occurrences?|observations?|samples?|windows?|cycles?|behaviou?r|track\s+record|"
+    r"wins?|loss(?:es)?|ones?)"
+)
 _RECENCY_PATTERNS = (
-    re.compile(r"\b(?:recent|lately|latest|last (?:three|four|five|3|4|5) years?)\b", re.I),
-    re.compile(r"\b(?:holding up|still work(?:ing)?|weaken(?:ed|ing)?|improv(?:ed|ing)?)\b", re.I),
+    re.compile(r"\b(?:recent|latest|last\s+few|past\s+few)\s+(?:\w+\s+)?" + _RECENCY_SUBJECT + r"\b", re.I),
+    re.compile(r"\b(?:recently|lately|in\s+recent\s+(?:years|times))\b", re.I),
+    re.compile(r"\b(?:last|past) (?:two|three|four|five|2|3|4|5) years?\b", re.I),
+    re.compile(r"\b(?:holding up|still work(?:s|ing)?|weaken(?:ed|ing)?|improv(?:ed|ing)?)\b", re.I),
+)
+_RECENCY_OTHER_SUBJECT_PATTERN = re.compile(
+    r"\b(?:project(?:ion|ions|ed|s)?|forecast(?:s|ed)?|predict(?:ion|ions|ed|s)?|"
+    r"news|headlines?|earnings|price\s+targets?)\b",
+    re.I,
 )
 _RISK_PATTERNS = (
     re.compile(r"\b(?:what(?:'s| is) the catch|downside|risk|weakness|failure|when it loses)\b", re.I),
@@ -468,7 +649,7 @@ def is_pattern_analysis_question(message: Any, wave_viewer: Any) -> bool:
     """
 
     text = str(message or "").strip()
-    if not text or _ADVICE_PATTERNS.search(text) or _SPECIFIC_YEAR_PATTERN.search(text):
+    if not text or _is_trade_advice_request(text) or _SPECIFIC_YEAR_PATTERN.search(text):
         return False
     wv = wave_viewer if isinstance(wave_viewer, Mapping) else {}
     symbol = str(wv.get("symbol") or "").strip().upper()
@@ -1063,7 +1244,11 @@ def build_mcp_product_reply(message: Any) -> Optional[str]:
 def is_pattern_recency_question(message: Any, wave_viewer: Any) -> bool:
     """Whether the user is asking how the loaded record has held up lately."""
 
-    return _has_loaded_pattern(wave_viewer) and _matches_any(message, _RECENCY_PATTERNS)
+    return (
+        _has_loaded_pattern(wave_viewer)
+        and _matches_any(message, _RECENCY_PATTERNS)
+        and not _RECENCY_OTHER_SUBJECT_PATTERN.search(str(message or ""))
+    )
 
 
 def is_pattern_risk_question(message: Any, wave_viewer: Any) -> bool:
@@ -1081,7 +1266,7 @@ def is_pattern_consistency_question(message: Any, wave_viewer: Any) -> bool:
 def is_pattern_advice_question(message: Any, wave_viewer: Any) -> bool:
     """Recognize advice wording so Tara can provide evidence without recommending a trade."""
 
-    return _has_loaded_pattern(wave_viewer) and bool(_ADVICE_PATTERNS.search(str(message or "")))
+    return _has_loaded_pattern(wave_viewer) and _is_trade_advice_request(message)
 
 
 def needs_pattern_ai_context(message: Any, wave_viewer: Any) -> bool:
@@ -1539,7 +1724,7 @@ def build_hundred_year_pattern_command(
         "in <a href=\"https://www.amazon.com/dp/B0FCX61K4Y\" target=\"_blank\" "
         "rel=\"noopener\">The 100-Year Pattern</a>.</div>",
     ]
-    if _ADVICE_PATTERNS.search(str(message or "")):
+    if _is_trade_advice_request(message):
         lines.append(
             "<div class=\"tara-analysis-section tara-analysis-scope\">Past performance "
             "and model estimates do not guarantee future results. TradeWave provides "
@@ -3865,34 +4050,65 @@ def _analysis_compact_context_line(
     return "<b>What matters now:</b> " + issue + "."
 
 
+def _runnable_next_check(facts: Mapping[str, Any], screen: Mapping[str, Any]) -> Optional[str]:
+    """Pick one follow-up that Tara can actually perform when the user asks for it.
+
+    Each suggestion quotes the ask that runs it (a year question, a lookback change,
+    a lower-panel switch, or a Best Waves lookup). Studies no TradeWave tool computes -
+    earnings/no-earnings cohorts, a projection-accuracy record, nearby-window grids -
+    are never offered: a suggested check that dead-ends on the next turn is worse
+    than no suggestion (production triage 2026-11-17).
+    """
+
+    symbol = html.escape(str(facts.get("symbol") or "this symbol"))
+    avg_return = facts.get("avg_trade_return_pct")
+    avg_without_best = facts.get("avg_without_best_year_pct")
+    best_year = facts.get("best_year")
+    if (
+        avg_return is not None and avg_return > 0
+        and avg_without_best is not None and avg_without_best <= 0
+        and best_year is not None
+    ):
+        return (
+            f'ask "what happened in {best_year}?" - the positive average depends on that one year'
+        )
+    if _recent_slice_is_weaker(facts):
+        return 'ask "show the full history" to compare this window on the longest lookback'
+    if screen.get("selected_window_path") == "supports" and screen.get("full_history_window_path") == "against":
+        return 'ask "open the Trend Chart" to compare the selected and full-history curves across the window'
+    if facts.get("earnings_in_window"):
+        return (
+            'ask "open the price chart" - its E markers show where past earnings fell in each '
+            "year and the estimated next date inside this window"
+        )
+    if facts.get("trend_score_available") is False:
+        return 'ask "open the price chart" for recent direction; no current Trend score is available'
+    if facts.get("trend_alignment") == "against":
+        expected_move = "down" if facts.get("direction") == "short" else "up"
+        return (
+            f'ask "open the price chart" to see whether price has started moving {expected_move} '
+            "with the seasonal setup"
+        )
+    if int(facts.get("sample_size") or 0) < 10:
+        return 'ask "show the full history" - more completed years, if this symbol has them, steady the read'
+    if facts.get("selection_origin") == "scanner":
+        if facts.get("direction") == "short":
+            return f'ask "when is {symbol} historically weak?" to see whether its other weak windows tell the same story'
+        return f'ask "when is the best time to buy {symbol}?" to see whether its other strong windows tell the same story'
+    worst_mae_year = facts.get("worst_mae_year")
+    if worst_mae_year is not None:
+        return f'ask "what happened in {worst_mae_year}?" to see how the worst path developed'
+    worst_year = facts.get("worst_year")
+    if worst_year is not None:
+        return f'ask "what happened in {worst_year}?" to see the weakest year in detail'
+    return None
+
+
 def _analysis_compact_next_check_line(
     facts: Mapping[str, Any], screen: Mapping[str, Any]
 ) -> Optional[str]:
-    avg_return = facts.get("avg_trade_return_pct")
-    avg_without_best = facts.get("avg_without_best_year_pct")
-    if avg_return is not None and avg_return > 0 and avg_without_best is not None and avg_without_best <= 0:
-        check = "inspect the standout year beside the median year and nearby window definitions"
-    elif _recent_slice_is_weaker(facts):
-        check = "compare this exact window on recent and full-history lookbacks"
-    elif screen.get("selected_window_path") == "supports" and screen.get("full_history_window_path") == "against":
-        check = "inspect both normalized curves across the exact entry-to-exit window"
-    elif facts.get("earnings_in_window"):
-        check = "compare historical occurrences with and without earnings inside the window"
-    elif facts.get("trend_score_available") is False:
-        check = "use the Price Chart for recent direction until a current Trend score is available"
-    elif facts.get("trend_alignment") == "against":
-        expected_move = "downward" if facts.get("direction") == "short" else "upward"
-        check = (
-            f"use the Price Chart to verify that recent movement is not yet moving {expected_move} "
-            "with the seasonal setup"
-        )
-    elif int(facts.get("sample_size") or 0) < 10:
-        check = "increase the history depth if this symbol has enough completed data"
-    elif facts.get("selection_origin") == "scanner":
-        check = "compare nearby start dates and hold lengths before treating the scanner peak as stable"
-    elif facts.get("worst_mae_year") is not None:
-        check = f"inspect {facts['worst_mae_year']} with MFE and MAE shown to see how the worst path developed"
-    else:
+    check = _runnable_next_check(facts, screen)
+    if not check:
         return None
     return "<b>Next check:</b> " + check + "."
 
@@ -4184,45 +4400,12 @@ def _historical_only_line() -> str:
 def _analysis_next_check_line(
     facts: Mapping[str, Any], screen: Mapping[str, Any]
 ) -> Optional[str]:
-    """Suggest one evidence check targeted to the record's largest uncertainty."""
+    """Suggest one evidence check Tara can run, targeted to the largest uncertainty."""
 
-    n = int(facts.get("sample_size") or 0)
-    if _recent_slice_is_weaker(facts):
-        return (
-            "<b>Best next check:</b> compare this exact window on the latest non-overlapping slice, "
-            "the earlier sample, and the full available history."
-        )
-    if screen.get("selected_window_path") == "supports" and screen.get("full_history_window_path") == "against":
-        return (
-            "<b>Best next check:</b> compare the selected and full-history curves around the entry and exit; "
-            "their disagreement is the main uncertainty in this read."
-        )
-    if facts.get("earnings_in_window"):
-        return (
-            "<b>Best next check:</b> compare years with and without an earnings event in the window; "
-            "the current occurrence contains an estimated earnings date."
-        )
-    if (
-        facts.get("avg_trade_return_pct") is not None
-        and facts.get("avg_trade_return_pct") > 0
-        and facts.get("avg_without_best_year_pct") is not None
-        and facts.get("avg_without_best_year_pct") <= 0
-    ):
-        return (
-            "<b>Best next check:</b> inspect the standout best year beside a typical year; the positive average "
-            "does not survive removing that outlier."
-        )
-    if n and n < 10:
-        return (
-            "<b>Best next check:</b> increase the history depth if the symbol allows it; the current sample is too "
-            "small for a stable read."
-        )
-    if facts.get("worst_year") is not None:
-        return (
-            f"<b>Best next check:</b> inspect {facts['worst_year']} on the historical Price Chart to see how this "
-            "pattern failed, not just how much it lost."
-        )
-    return None
+    check = _runnable_next_check(facts, screen)
+    if not check:
+        return None
+    return "<b>Best next check:</b> " + check + "."
 
 
 def _analysis_read_line(facts: Mapping[str, Any]) -> str:
@@ -4600,6 +4783,13 @@ def build_rank_reply(
     return "<br>".join(lines)
 
 
+def _first_sentence(line: Optional[str]) -> Optional[str]:
+    if not line:
+        return None
+    head, sep, _rest = line.partition(". ")
+    return head + "." if sep else line
+
+
 def build_advice_safe_reply(
     message: Any,
     wave_viewer: Any,
@@ -4607,7 +4797,7 @@ def build_advice_safe_reply(
     *,
     current_year: Optional[int] = None,
 ) -> Optional[str]:
-    """Answer a loaded-pattern advice ask with useful evidence, not a recommendation."""
+    """Answer a personal trade-decision ask: evidence first, one short boundary last."""
 
     if not is_pattern_advice_question(message, wave_viewer):
         return None
@@ -4615,19 +4805,376 @@ def build_advice_safe_reply(
     if not facts.get("symbol") or not facts.get("sample_size"):
         return None
     screen = normalize_screen_context(screen_context)
+    ai_line = _analysis_ai_context_line(facts, wave_viewer)
+    if ai_line and "AI Win Probability" in ai_line:
+        ai_line = _first_sentence(ai_line)
+    else:
+        ai_line = None
+    instruction_line = None
+    if is_trade_instruction_request(message):
+        instruction_line = (
+            "<b>Stops and size:</b> TradeWave has no stop levels, position sizes or "
+            "allocations, and I won't suggest any."
+        )
+        mae = facts.get("median_mae_pct")
+        worst_mae = facts.get("worst_mae_pct")
+        if mae is not None and worst_mae is not None:
+            instruction_line += (
+                " For context, past years moved a median "
+                + _pct(mae, signed=True, decimals=2)
+                + " against this setup, and "
+                + _pct(worst_mae, signed=True, decimals=2)
+                + " at worst (MAE)."
+            )
     lines = [
-        "<b>I can evaluate the evidence, but I can't decide whether you should take the trade.</b>",
         _analysis_compact_read_line(facts),
-        _analysis_ai_context_line(facts, wave_viewer),
-        _analysis_chart_context_line(facts, screen),
-        _analysis_payoff_and_path_line(facts),
-        _analysis_occurrence_line(facts),
+        ai_line,
         _analysis_compact_context_line(facts, screen),
-        _analysis_cycle_context_line(facts, screen),
-        _analysis_compact_next_check_line(facts, screen),
-        _analysis_scope_line(facts),
+        instruction_line,
+        _first_sentence(_analysis_occurrence_line(facts)),
+        "<b>Your call:</b> this is historical evidence, not a forecast or recommendation. "
+        "Whether to take the trade is your decision; I can't make it for you.",
+        _DISCLAIMER_LINE,
     ]
     return _render_analysis_sections(lines)
+
+
+# Any wording that asks Tara what to do with money. This is deliberately broader than
+# _is_trade_advice_request (which decides ROUTING): it only decides whether the reply
+# must end with the required disclaimer, so "which stock should I buy now" and "should
+# I hold through earnings" count even though they are answered by other paths.
+_SHAPED_VERB = (
+    r"(?:buy|sell|short|invest|take\s+profits?|get\s+(?:in|out)|go\s+(?:long|short)|"
+    r"add\s+to|hold|trade)"
+)
+_ADVICE_SHAPED_PATTERN = re.compile(
+    # "should I/we/my wife ... buy|sell|hold ..." - a decision the user wants made
+    r"\b(?:should|shall|must)\s+(?:i|we|my\s+\w+|someone)\s+(?:\w+\s+){0,3}?" + _SHAPED_VERB + r"\b|"
+    r"\b(?:do\s+you\s+think|think)\s+(?:i|we)\s+should\s+(?:\w+\s+){0,2}?" + _SHAPED_VERB + r"\b|"
+    # "can/could/would I buy this ..." needs a trade object, not just the verb
+    r"\b(?:can|could|would|may)\s+(?:i|we)\s+(?:\w+\s+){0,2}?(?:buy|sell|short|invest\s+in|get\s+in)\s+"
+    r"(?:this|it|that|these|now|here|in\b|more\b)|"
+    # "is AAPL a buy", "is this a good trade", "is it a buy right now" - the noun ends the clause
+    r"\b(?:is|was)\s+(?:it|this|that|now|[A-Za-z][A-Za-z0-9.\-]{0,9})\s+(?:a\s+|an\s+)?"
+    r"(?:(?:good|great|bad|safe|smart|solid|better)\s+)?(?:buy|sell|short|trade|investment|entry)"
+    r"(?:\s+(?:right\s+now|now|today|here|at\s+this\s+(?:price|level)|or\s+(?:a\s+)?(?:sell|hold|buy)))?"
+    r"\s*[?.!]*\s*$|"
+    r"\bwould\s+(?:this|it|that)\s+be\s+(?:a\s+)?(?:good|smart|safe|bad)\s+(?:buy|sell|trade|entry|investment)\b|"
+    r"\bwhich\s+(?:one\s+)?is\s+the\s+better\s+(?:buy|sell|trade|investment)\b|"
+    r"\b(?:good|right|bad|best)\s+(?:time|moment|idea)\s+to\s+(?:buy|sell|short|invest|get\s+in(?:to)?|get\s+out)\b|"
+    r"\btoo\s+late\s+to\s+(?:buy|sell|short|invest|get\s+in|enter)\b|"
+    r"\bsafe\s+to\s+(?:buy|hold|sell|short)\b|"
+    r"\bworth\s+(?:buying|selling|shorting|holding|a\s+shot)\b|"
+    r"\b(?:buy|sell|hold)\s+(?:now\s+)?or\s+(?:sell|hold|buy|wait)\b|"
+    r"\b(?:go|be|stay|i|we)\s+long\s+or\s+short\b|\blong\s+or\s+short\s*[?.!]*\s*$|"
+    r"\bwhether\s+to\s+(?:buy|sell|short|hold|trade|invest|go)\b|"
+    r"\b(?:what|which)\s+(?:stocks?|etfs?|one|ones)\b[^.?!]{0,25}\bshould\b[^.?!]{0,15}\b(?:buy|trade|invest|go\s+with)\b|"
+    r"\bwhat\s+should\s+(?:i|we)\b[^.?!]{0,25}\b(?:buy|invest\s+in|trade)\b|"
+    r"\bwhich\s+should\s+(?:i|we)\s+(?:go\s+with|buy|pick|choose)\b|"
+    r"\b(?:tell|give)\s+me\s+(?:what|which)\s+to\s+(?:buy|sell|trade)\b|"
+    r"\bthoughts\s+on\s+(?:buying|selling|shorting)\b|"
+    r"\bwould\s+you\s+(?:recommend|get\s+(?:in|out)|buy|sell|short)\b|"
+    r"\benough\s+to\s+(?:buy|sell|short)\b",
+    re.I,
+)
+
+
+def is_advice_shaped_question(message: Any) -> bool:
+    """Whether a reply to this message must carry the required disclaimer.
+
+    Broader than _is_trade_advice_request (which decides ROUTING), but only for a
+    question about a trade: definitions and UI or subscription wording never count.
+    """
+
+    text = _trade_question_text(message)
+    return bool(
+        text.strip()
+        and (_is_trade_advice_request(text) or _ADVICE_SHAPED_PATTERN.search(text))
+    )
+
+
+_EQUIVALENT_DISCLAIMER_PATTERN = re.compile(
+    r"past\s+performance\b[^.]{0,80}\b(?:guarantee|indicat\w+|predict\w*|assur\w+)", re.I
+)
+_FAILED_REPLY_PATTERN = re.compile(
+    r"^\s*(?:sorry\b|i\s+couldn['\u2019]t\b|i\s+could\s+not\b)|temporarily\s+unavailable|"
+    r"something\s+went\s+wrong|please\s+try\s+(?:again|that)",
+    re.I,
+)
+_ENGLISH_MARKERS = re.compile(
+    r"\b(?:the|is|are|was|of|and|to|in|this|that|for|not|with|it|on|you|years?)\b", re.I
+)
+
+
+def _plain_reply(reply: str) -> str:
+    text = html.unescape(re.sub(r"<[^>]+>", " ", reply)).replace("\u00a0", " ")
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def ensure_required_disclaimer(message: Any, reply: Any) -> Any:
+    """Append the exact required disclaimer to a reply to an advice-shaped question.
+
+    One floor for every path - the deterministic builders, the investor funnel, the
+    contract fallbacks and the model. It adds nothing when the reply already carries
+    the sentence or an equivalent one, when the turn failed (an error message is not
+    advice), or when the reply is not in English (the model prompt asks for the
+    disclaimer in the user's language; an English sentence is not bolted on).
+    """
+
+    if not isinstance(reply, str) or not reply.strip():
+        return reply
+    reply = re.sub(r"</(i|b)\s*$", r"</\1>", reply.rstrip())     # a model's cut-off closing tag
+    if not is_advice_shaped_question(message):
+        return reply
+    plain = _plain_reply(reply)
+    if DISCLAIMER_TEXT in plain or _EQUIVALENT_DISCLAIMER_PATTERN.search(plain):
+        return reply
+    if _FAILED_REPLY_PATTERN.search(plain) and len(plain.split()) < 40:
+        return reply
+    words = plain.split()
+    if len(words) >= 6 and len(_ENGLISH_MARKERS.findall(plain)) * 8 < len(words):
+        return reply
+    return reply + "<br><br>" + _DISCLAIMER_LINE
+
+
+def build_trade_instruction_boundary_reply(message: Any, wave_viewer: Any) -> Optional[str]:
+    """Stops, sizing and "pick one for me" when no pattern is loaded to give evidence on."""
+
+    if _has_loaded_pattern(wave_viewer) or not is_trade_instruction_request(message):
+        return None
+    return (
+        "I can show you what TradeWave's history says, for example \"best S&amp;P 500 setups "
+        "this week\" or \"analyze AAPL\", and you can compare the records yourself."
+        "<br><br>TradeWave has no stop levels, position sizes or allocations, and I can't "
+        "choose a trade for you. This is not a forecast or recommendation."
+        "<br><br>" + _DISCLAIMER_LINE
+    )
+
+
+_EXIT_TIMING_PATTERNS = (
+    re.compile(
+        r"\b(?:when|where|what\s+(?:date|day|price|level|point))\b[^.?!]{0,60}"
+        r"\b(?:get\s+out|exit|sell|close(?:\s+(?:out|it|the\s+trade))?|"
+        r"take\s+(?:my\s+|the\s+)?profits?|cash\s+out|cover)\b",
+        re.I,
+    ),
+    re.compile(r"\b(?:exit|sell|selling|closing)\s+(?:date|day|point|price|level|target)\b", re.I),
+    re.compile(r"\b(?:price|profit)\s+targets?\b|\btarget\s+price\b", re.I),
+    re.compile(
+        r"\bwhen\s+(?:does|do|will|is)\s+(?:this|it|that|the)"
+        r"(?:\s+(?:pattern|window|trade|setup|wave))?\s+"
+        r"(?:end|exit|close|finish|over|expire)\b",
+        re.I,
+    ),
+)
+
+
+def is_exit_timing_question(message: Any, wave_viewer: Any) -> bool:
+    """Whether the user asks when or where the loaded window is exited."""
+
+    return _has_loaded_pattern(wave_viewer) and _matches_any(message, _EXIT_TIMING_PATTERNS)
+
+
+def build_exit_timing_reply(
+    message: Any,
+    wave_viewer: Any,
+    *,
+    current_year: Optional[int] = None,
+) -> Optional[str]:
+    """State the loaded window's exit date plainly; TradeWave has no price targets."""
+
+    if not is_exit_timing_question(message, wave_viewer):
+        return None
+    facts = canonical_pattern_facts(wave_viewer, current_year=current_year)
+    start_date = str(facts.get("start_date") or "")
+    end_date = str(facts.get("occurrence_end_date") or "") or (
+        _inclusive_end_date(start_date, str(facts.get("days") or "")) or ""
+    )
+    end_text = _month_day_year(end_date)
+    if not facts.get("symbol") or not end_text:
+        return None
+    symbol = html.escape(str(facts["symbol"]))
+    direction = "short" if facts.get("direction") == "short" else "long"
+    start_md = _month_day(str(facts.get("occurrence_start_date") or start_date))
+    days = html.escape(str(facts.get("days") or ""))
+    lead = f"<b>The historical window exits on {end_text}.</b> {symbol} {direction}"
+    if start_md and days:
+        lead += f" runs {start_md} to {_month_day(end_date)} ({days} calendar days, entry day is day 1)"
+    lead += "."
+    status = facts.get("occurrence_status")
+    if status == "active":
+        remaining = int(facts.get("calendar_days_remaining") or 0)
+        lead += (
+            " It ends today." if remaining == 0
+            else f" It is active now with {remaining} calendar day{'' if remaining == 1 else 's'} left."
+        )
+    elif status == "upcoming":
+        until = int(facts.get("days_until_start") or 0)
+        lead += f" It starts in {until} calendar day{'' if until == 1 else 's'}."
+    lines = [
+        lead,
+        "TradeWave measures a fixed calendar window, so the exit is a date, not a price: "
+        "it has no price targets or stop levels.",
+    ]
+    n = int(facts.get("sample_size") or 0)
+    if n:
+        wins = int(facts.get("profitable_years") or 0)
+        record = f"Held to that date, it was profitable in {wins} of {_observation_label(facts, n)}"
+        average = facts.get("avg_trade_return_pct")
+        if average is not None:
+            record += ", average " + _pct(average, signed=True, decimals=2)
+        mfe = facts.get("median_mfe_pct")
+        mae = facts.get("median_mae_pct")
+        if mfe is not None and mae is not None:
+            record += (
+                "; inside the window the median best move was "
+                + _pct(mfe, signed=True, decimals=2)
+                + " (MFE) and the median move against it "
+                + _pct(mae, signed=True, decimals=2)
+                + " (MAE)"
+            )
+        lines.append(record + ".")
+    if re.search(r"[$\u20ac\u00a3]\s?\d|\b\d+(?:\.\d+)?\s*(?:dollars|usd)\b", str(message or ""), re.I):
+        lines.append(
+            "These percentages are measured from each year's own entry, so they do not "
+            "depend on the price you enter at."
+        )
+    lines.append("<b>Scope:</b> This is not a forecast or recommendation; when to exit is your decision.")
+    lines.append(_DISCLAIMER_LINE)
+    return _render_analysis_sections(lines)
+
+
+_EARNINGS_SPLIT_PATTERN = re.compile(
+    r"\b(?:with(?:out)?|excluding|exclude|except|outside|around|inside|during|vs\.?|versus|no)\b"
+    r"[^.?!]{0,40}\bearnings\b|"
+    r"\bearnings\b[^.?!]{0,40}\b(?:split|cohorts?|years|versus|vs\.?|filter(?:ed)?|effect|impact)\b",
+    re.I,
+)
+
+
+def build_earnings_split_reply(
+    message: Any,
+    wave_viewer: Any,
+    *,
+    current_year: Optional[int] = None,
+) -> Optional[str]:
+    """Say what TradeWave has on earnings and what it cannot compute, consistently.
+
+    TradeWave does carry earnings DATES (past markers and an estimated next date on the
+    Price Chart). It has no study that splits a pattern's years by whether earnings fell
+    inside the window, so Tara must neither attempt one nor claim there is no earnings
+    data at all.
+    """
+
+    if not _has_loaded_pattern(wave_viewer) or not _EARNINGS_SPLIT_PATTERN.search(str(message or "")):
+        return None
+    facts = canonical_pattern_facts(wave_viewer, current_year=current_year)
+    if not facts.get("symbol"):
+        return None
+    symbol = html.escape(str(facts["symbol"]))
+    lines = [
+        f"<b>TradeWave cannot split {symbol}'s history into with-earnings and "
+        "without-earnings years.</b> No TradeWave study groups a window's years by "
+        "whether an earnings report fell inside it, and I won't estimate one.",
+    ]
+    estimate = str(facts.get("next_earnings_est") or "")[:10]
+    estimate_text = _month_day_year(estimate) if estimate else None
+    if estimate_text and facts.get("earnings_in_window"):
+        dated = f"The estimated next earnings date, {estimate_text}, falls inside this window. "
+    elif estimate_text:
+        dated = f"The estimated next earnings date is {estimate_text}, outside this window. "
+    else:
+        dated = ""
+    lines.append(
+        "<b>What it does have:</b> " + dated
+        + "The Price Chart marks each past earnings date (E) and the estimated next one "
+        "(Est), on the current chart and on each historical year, so you can see year by "
+        'year whether earnings landed in the window. Ask "open the price chart" to see them.'
+    )
+    n = int(facts.get("sample_size") or 0)
+    if n:
+        wins = int(facts.get("profitable_years") or 0)
+        lines.append(
+            f"The full record stays as it is: profitable in {wins} of "
+            f"{_observation_label(facts, n)}, earnings years included."
+        )
+    return _render_analysis_sections(lines)
+
+
+_WATCHLIST_HOWTO_PATTERN = re.compile(
+    r"\b(?:create|creating|make|making|build|set\s*up|start|new|add|adding|put|save)\b"
+    r"[^.?!]{0,50}\bwatch[-\s]?lists?\b|"
+    r"\bhow\b[^.?!]{0,50}\bwatch[-\s]?lists?\b|"
+    r"\bwatch[-\s]?lists?\b[^.?!]{0,30}\bhow\b",
+    re.I,
+)
+_WATCHLIST_RESEARCH_PATTERN = re.compile(
+    r"\b(?:scan|screen|analy[sz]e|rank|which|entering|seasonal|buy\s+zone)\b", re.I
+)
+
+
+def build_watchlist_howto_reply(message: Any) -> Optional[str]:
+    """Give the watchlist steps in the reply; opening the guide alone is not an answer.
+
+    Tara has no action that creates or edits a watchlist, so the knowledge base's four
+    steps go in the message itself and the guide opens alongside them.
+    """
+
+    text = str(message or "")
+    if not _WATCHLIST_HOWTO_PATTERN.search(text) or _WATCHLIST_RESEARCH_PATTERN.search(text):
+        return None
+    return (
+        "<b>I can't create or edit a watchlist for you, but it takes four short steps:</b><br>"
+        "1) Click the Watchlist icon (the list icon beside the Settings gear, upper-left toolbar).<br>"
+        "2) Type a name, select a Securities Group, and click Add.<br>"
+        "3) Type each symbol in the symbol input and click Add Symbol.<br>"
+        "4) Select the watchlist in the dropdown to make it active; its symbols then appear "
+        "as quick picks below the symbol box.<br><br>"
+        "Watchlists are a paid feature (Navigator 1 list, Analyst 10, Strategist 50). "
+        "I just opened the Watchlist guide for you. "
+        '<a href="#" data-action="open-watchlist-popup" style="font-size:0.85em">[reopen guide]</a>'
+        '<span data-action="open-watchlist-popup" style="display:none"></span>'
+    )
+
+
+_MEDIAN_DEFINITION_PATTERN = re.compile(
+    r"\b(?:what(?:'s|\s+is|\s+does)|define|explain|meaning\s+of|how\s+is|what\s+do\s+you\s+mean\s+by)\b"
+    r"[^.?!]{0,40}\bmedian(?:\s+(?:gain|return|profit|trade))?\b",
+    re.I,
+)
+
+
+def build_median_definition_reply(
+    message: Any,
+    wave_viewer: Any = None,
+    *,
+    current_year: Optional[int] = None,
+) -> Optional[str]:
+    """Define Median Gain as the engine computes it: the median of ALL completed years.
+
+    The engine takes the median of every completed year's return for the window
+    (winning and losing years together); it is not the middle of the gains only.
+    """
+
+    if not _MEDIAN_DEFINITION_PATTERN.search(str(message or "")):
+        return None
+    reply = (
+        "<b>Median Gain is the middle value of every completed year's return for the "
+        "window, winning and losing years together.</b> Half the years finished above it "
+        "and half below, so it can be negative. It is not limited to the profitable years; "
+        "compare it with the average to see whether a few large years are doing the work."
+    )
+    if _has_loaded_pattern(wave_viewer):
+        facts = canonical_pattern_facts(wave_viewer, current_year=current_year)
+        median = facts.get("median_trade_return_pct")
+        average = facts.get("avg_trade_return_pct")
+        if median is not None and average is not None and facts.get("symbol"):
+            reply += (
+                f" For the loaded {html.escape(str(facts['symbol']))} window the median is "
+                f"{_pct(median, signed=True, decimals=2)} and the average "
+                f"{_pct(average, signed=True, decimals=2)}."
+            )
+    return reply
 
 
 def build_deterministic_reply(
@@ -4643,6 +5190,10 @@ def build_deterministic_reply(
     tooltip_help = build_tooltip_help_reply(message)
     if tooltip_help is not None:
         return tooltip_help
+
+    watchlist_howto = build_watchlist_howto_reply(message)
+    if watchlist_howto is not None:
+        return watchlist_howto
 
     mcp_product = build_mcp_product_reply(message)
     if mcp_product is not None:
@@ -4684,6 +5235,11 @@ def build_deterministic_reply(
                    else build_metric_definitions_reply(message))
     if definitions is not None:
         return definitions
+    median_definition = build_median_definition_reply(
+        message, wave_viewer, current_year=current_year
+    )
+    if median_definition is not None:
+        return median_definition
 
     overview = build_screen_overview_reply(
         message,
@@ -4740,6 +5296,16 @@ def build_deterministic_reply(
     )
     if strategy is not None:
         return strategy
+    exit_timing = build_exit_timing_reply(
+        message, wave_viewer, current_year=current_year
+    )
+    if exit_timing is not None:
+        return exit_timing
+    earnings_split = build_earnings_split_reply(
+        message, wave_viewer, current_year=current_year
+    )
+    if earnings_split is not None:
+        return earnings_split
     advice = build_advice_safe_reply(
         message,
         wave_viewer,
@@ -4748,6 +5314,9 @@ def build_deterministic_reply(
     )
     if advice is not None:
         return advice
+    instruction_boundary = build_trade_instruction_boundary_reply(message, wave_viewer)
+    if instruction_boundary is not None:
+        return instruction_boundary
     return build_pattern_analysis_reply(
         message,
         wave_viewer,

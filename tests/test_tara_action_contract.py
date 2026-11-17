@@ -282,7 +282,7 @@ def test_best_time_to_buy_uses_highest_ranked_future_long_best_wave(monkeypatch)
     }
     assert "is upcoming" in command["reply"]
     assert "Best Waves</b> dropdown above the bar chart" in command["reply"]
-    assert "empty or hidden" in command["reply"]
+    assert "empty or hidden" not in command["reply"]
 
 
 def test_best_time_to_buy_matches_loaded_pe2_best_waves_setting(monkeypatch):
@@ -380,7 +380,8 @@ def test_best_waves_empty_result_is_an_answer_not_a_chart_failure(monkeypatch):
 
     assert command["spec"] is None
     assert "No qualifying upcoming Long Best Wave" in command["reply"]
-    assert "No pattern passed" in command["reply"]
+    assert "starts between now and year end" in command["reply"]
+    assert "dropdown" not in command["reply"]
 
 
 def _text_response(text):
@@ -780,7 +781,9 @@ def test_loaded_personal_direction_question_uses_historical_boundary():
     assert "average pattern result of +4.2%" in text
     assert "Sharpe ratio of 1.4" in text
     assert "not today's market direction or a forecast" in text
-    assert "Past performance does not guarantee future results" in text
+    assert text.endswith(
+        "<i>Past performance and model estimates do not guarantee future results. "
+        "TradeWave provides research context, not individualized recommendations.</i>")
 
 
 def test_personal_direction_boundary_does_not_replace_factual_direction_question():
@@ -1001,9 +1004,9 @@ def test_etf_investor_screen_filters_complex_products_and_never_loads_winner(mon
     assert actions == []
     assert "SPY" in text and "VTI" in text
     assert "TQQQ" not in text
-    assert "not personal recommendations" in text
+    assert "research candidates, not recommendations" in text
     assert "dollar amount was not used" in text
-    assert "leveraged, inverse, and single-stock" in text
+    assert "Leveraged, inverse and single-stock ETFs are left out" in text
 
 
 def test_stock_investor_screen_switches_market_only(monkeypatch):
@@ -1983,7 +1986,7 @@ def test_chat_action_receipt_round_trip_writes_joined_audits(
 @pytest.mark.parametrize("question, marker", [
     ("Filter out any seasonal setups that have an upcoming earnings release during the next month.", "earnings-exclusion"),
     ("Show me the detrended year-by-year seasonal chart for SPX over the last 20 years.", "not a detrended chart"),
-    ("Add the top AAPL seasonal setup for next week to my calendar with entry and exit reminders.", "Google Calendar setup"),
+    ("Add the top AAPL seasonal setup for next week to my calendar with entry and exit reminders.", "click Remind me in the Gain-Loss Bar Chart toolbar"),
 ])
 def test_research_capability_boundary_precedes_scan_and_chart_shortcuts(audit_app, monkeypatch, question, marker):
     def unexpected(*args, **kwargs):
