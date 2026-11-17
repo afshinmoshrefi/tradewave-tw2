@@ -2311,14 +2311,15 @@ rule is: answer only what was unambiguously asked, otherwise return `None` so th
   is presented on its first session). "This week" means the days still ahead (the coming week when
   asked on a weekend). The detector is read at the market's band FLOOR from
   `apiserver/market_bands.json` (S&P 500 at 10 years = at least 8 winning years); a win-rate
-  ranking reads the strictest bands first. A hold length is passed as OppList4's `day_range`
+  ranking reads CONSECUTIVE bands from "won every year" downward (never skipping one) until the
+  pool fills or the read budget ends, and then states the lowest record it covers. A hold length is passed as OppList4's `day_range`
   (engine days = display days - 1; `0-0` means NO filter in the engine, so a 1-day hold is not
   screened). Only the short-listed rows are verified with `ChartData4` (`comparison_direction`
   pinned), and the printed record, average and Sharpe are that response's values. Defaults: 10-year
-  lookback, 10 rows, 31-day entry window, current calendar year only. Bounds per message: 3 bands,
+  lookback, 10 rows, 31-day entry window, current calendar year only. Bounds per message: 6 bands,
   40 engine reads, 3 concurrent loopbacks per process (`_ENGINE_SLOTS`). Not screened (returns
   `None`): an unparsed month/quarter/year/season/weekday, negated or two-sided direction wording,
-  "lowest/worst" rankings, election-cycle screens, sector words, explicit tickers.
+  "lowest/worst" rankings, vaguely bearish wording ("worst", "losers", "avoid") with no explicit side, election-cycle screens, sector words, explicit tickers.
 - **Dated symbol studies** ("analyze Apple from now to year end over the last 20 years"): one
   `ChartData4` call with no direction override, so the reply matches what the Wave Viewer shows
   after the signed `set_view`. MFE/MAE labels follow the engine's `Trade Dir`.

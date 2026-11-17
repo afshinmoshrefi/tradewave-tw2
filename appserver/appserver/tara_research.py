@@ -42,7 +42,7 @@ log = logging.getLogger("tara_research")
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _FANOUT_WORKERS = 3          # per process; four gunicorn processes share one 16-slot pool
-_MAX_TIERS = 3
+_MAX_TIERS = 6               # win-rate bands read for one message, within the read budget
 _MAX_ENGINE_CALLS = 40       # detector tables + verification studies for one message
 _MAX_SCREEN_DAYS = 31
 _DEFAULT_LOOKBACK = 10
@@ -211,8 +211,18 @@ _BEAR_EXPLICIT_RE = re.compile(r"\b(?:bearish|short(?:s|ing|[-\s]side|[-\s]direc
 _BULL_EXPLICIT_RE = re.compile(r"\b(?:bullish|long(?:s|[-\s]side|[-\s]direction)?)\b", re.I)
 _BEAR_SOFT_RE = re.compile(
     r"\b(?:weak(?:est|ness)?|declin\w+|sell[-\s]?offs?|downside|falls|fell|falling|drops|dropping|"
+    r"go(?:es|ing)?\s+down|went\s+down|los(?:e|es|ing)\s+(?:value|ground|money)|"
+    r"negative\s+(?:seasonal\s+|historical\s+|average\s+)*(?:returns?|performance|bias|seasonality)|"
+    r"under[-\s]?perform\w*|sink(?:s|ing)?|sank|slid(?:e|es|ing)?|tank(?:s|ed|ing)?|slump\w*|"
+    r"plung\w+|tumbl\w+|sell\s+candidates?|"
     r"(?:historically|tend(?:s)?\s+to|usually|typically|often|generally)\s+(?:fall|drop|decline))\b",
     re.I)
+# Wording that may well mean "bearish" but is not specific enough to pick a side: the screen
+# is left to the normal path unless the text also says bullish or bearish outright.
+_VAGUE_BEAR_RE = re.compile(
+    r"\b(?:worst|bad|poor(?:ly|est)?|lag(?:s|ging|gards?)?|down|lower|red|crash\w*|dip(?:s|ping)?|"
+    r"struggl\w+|hurt|pain|danger\w*|risk(?:y|iest)|avoid\w*|stay\s+away|losers?|losing|loss(?:es)?|"
+    r"sell|selling|pullbacks?|corrections?|drawdowns?|trouble|vulnerable)\b", re.I)
 _BULL_SOFT_RE = re.compile(
     r"\b(?:rise|rises|rising|rose|rally|rallies|strong(?:est|er)?|upside|gains?|go(?:es)?\s+up)\b", re.I)
 _BARE_FALL_RE = re.compile(r"\b(?:fall|drop|decline)\b", re.I)
@@ -313,8 +323,11 @@ def _universe(text):
     return chosen[1], chosen[2]
 
 
-def _explicit_tickers(text):
+def _explicit_tickers(text, allow_single=False):
     """Upper-case ticker tokens the user typed.
+
+    One-letter tickers (F, T, V) are read only when ``allow_single`` is set, which the
+    comparison path does because "compare F and GM" names two securities.
 
     An ordinary English word in capitals (IT, ALL, NOW) counts only when it is marked as a
     security: a leading ``$`` or a following "stock"/"shares"/"ticker". Currency pairs and
@@ -333,7 +346,7 @@ def _explicit_tickers(text):
         token = match.group(2).rstrip(".-")
         marked = bool(match.group(1)) or bool(re.match(
             r"\s+(?:stock|shares|ticker|symbol)\b", masked[match.end():], re.I))
-        if len(token) < 2 and not marked:
+        if len(token) < 2 and not marked and not (allow_single and token not in {"A", "I"}):
             continue
         if token in _TICKER_STOPWORDS and not marked:
             continue
@@ -352,7 +365,7 @@ def _direction(text):
     if bear and bull:
         return None
     if bull:
-        return "long"
+        return None if _BEAR_SOFT_RE.search(cleaned) else "long"
     if bear:
         return "short"
     soft_bear, soft_bull = bool(_BEAR_SOFT_RE.search(cleaned)), bool(_BULL_SOFT_RE.search(cleaned))
@@ -362,6 +375,8 @@ def _direction(text):
         return "short"
     if _BARE_FALL_RE.search(cleaned):
         return None                  # "this fall", "drop the least": not a direction request
+    if _VAGUE_BEAR_RE.search(cleaned):
+        return None                  # never default a possibly-bearish question to a bullish list
     return "long"
 
 
@@ -455,6 +470,12 @@ _UNPARSED_DATE_RE = re.compile(
     re.I)
 
 
+# Index names carry numbers that are not calendar years (Russell 2000).
+_INDEX_NUMBER_RE = re.compile(
+    r"\b(?:russell|wilshire|s\s*&\s*p|sp|nasdaq|dow(?:\s+jones)?|ftse|nikkei|stoxx|tsx)\s*-?\s*\d{2,4}\b",
+    re.I)
+
+
 def _add_weekdays(day, count):
     while count > 1:
         day += datetime.timedelta(days=1)
@@ -541,7 +562,7 @@ def _entry_window(text, today):
             last = datetime.date(today.year, month, calendar.monthrange(today.year, month)[1])
             window = (first, last, "in " + first.strftime("%B"))
             rest = _mask(rest, monthly.start(), monthly.end())
-    if _UNPARSED_DATE_RE.search(rest):
+    if _UNPARSED_DATE_RE.search(_INDEX_NUMBER_RE.sub(" ", rest)):
         return None
     if window is None:
         window = (today, today, "today")
@@ -762,8 +783,11 @@ def _echo_matches(payload, market_symbol, entry_date, days_out, years=None, pe_c
     if not isinstance(echo, dict):
         return False
     try:
+        echoed_entry = str(echo.get("entry_date"))
+        if str(entry_date).endswith("-01-01") and echoed_entry == str(entry_date)[:4] + "-01-02":
+            echoed_entry = str(entry_date)      # the engine's own January 1 -> January 2 rule
         same = (str(echo.get("symbol") or "").upper() == str(market_symbol).upper()
-                and str(echo.get("entry_date")) == str(entry_date)
+                and echoed_entry == str(entry_date)
                 and int(echo.get("days_out")) == int(days_out))
         if years is not None:
             same = same and int(echo.get("years")) == int(years)
@@ -830,7 +854,7 @@ def _screen_line(index, row, direction):
     win_pct = ("%.0f%%" % row["win_pct"])
     if direction == "short":
         record = "fell in %d of %d years (%s)" % (row["wins"], row["n"], win_pct)
-        avg = "avg move %s" % tg._fmt_pct(-row["avg"])
+        avg = "avg short-side return %s" % tg._fmt_pct(row["avg"])
     else:
         record = "profitable in %d of %d years (%s)" % (row["wins"], row["n"], win_pct)
         avg = "avg return %s" % tg._fmt_pct(row["avg"])
@@ -894,10 +918,10 @@ def build_screen_command(message, user_token, *, today=None, table_market=None, 
     tier_budget = max(1, min(_MAX_TIERS, (_MAX_ENGINE_CALLS - pool_target) // table_count))
     tiers = [wanted]
     if request["rank"] == "win_rate":
-        tiers = list(range(request["year1"], wanted - 1, -1))
-        if len(tiers) > tier_budget:
-            # Strictest bands first, then the widest band so a sparse top never reads as "none".
-            tiers = tiers[:tier_budget - 1] + [wanted]
+        # CONSECUTIVE bands from the strictest down, so no win-rate level is ever skipped:
+        # every name that won at least `reached` years is in the pool. When the read budget
+        # ends before the pool fills, the reply says how far down the ranking reaches.
+        tiers = list(range(request["year1"], wanted - 1, -1))[:tier_budget]
     pool, screened, failed, statuses, reached, raw_counts = {}, 0, 0, [], wanted, []
     for tier in tiers:
         reached = tier
@@ -963,12 +987,17 @@ def build_screen_command(message, user_token, *, today=None, table_market=None, 
                 "<b>I can't give a full %s %s screen on this plan.</b> %s Nothing %s in that "
                 "limited view matched, which says nothing about the full market."
                 % (_esc(label), side, " ".join(limits), side)), "actions": [], "trace": trace}
+        deeper = ""
+        if request["rank"] == "win_rate" and reached > wanted:
+            deeper = (" A win-rate screen reads the detector's %d strictest band%s; ask for the "
+                      "best by Sharpe Ratio to include records down to %d of %d."
+                      % (len(tiers), "" if len(tiers) == 1 else "s", wanted, request["year1"]))
         return {"reply": (
             "<b>No %s %s seasonal windows matched.</b> TradeWave's detector found no "
-            "%s pattern that starts %s (%s) and won at least %d of the last %d years%s "
+            "%s pattern that starts %s (%s) and won at least %d of the last %d years%s%s "
             "Widen the dates, lower the win-rate floor, or drop a filter and I will run it again."
             % (_esc(label), side, side, request["window_label"], dates, reached,
-               request["year1"], ("." + hold_text) if hold_text else ".")),
+               request["year1"], ("." + hold_text) if hold_text else ".", deeper)),
             "actions": [], "trace": trace}
 
     interpretation = ""
@@ -982,11 +1011,20 @@ def build_screen_command(message, user_token, *, today=None, table_market=None, 
         "%s %s seasonal windows starting %s (%s)</span> %sTop %d by %s over a %d-year lookback.%s%s%s</div>"
         % (_esc(label), side, request["window_label"], dates, advice, len(shown), rank_text,
            request["year1"], hold_text,
-           (" A short-direction win means the security fell during the window."
+           (" A short-direction win means the security fell during the window; "
+            "returns are short-side, so positive means it fell."
             if request["direction"] == "short" else ""), interpretation))
     lines = "<br>".join(
         _screen_line(index, row, request["direction"]) for index, row in enumerate(shown, 1))
     scope_bits = list(limits)
+    if request["rank"] == "win_rate" and reached > wanted:
+        scope_bits.append(
+            "This win-rate ranking covers every pattern that won at least %d of the last %d "
+            "years%s; names with a lower record are not ranked here." % (
+                reached, request["year1"],
+                "" if len(shown) >= request["limit"] else
+                " - the %d found in the detector's %d strictest band%s, which is as far as one "
+                "screen reads" % (len(shown), len(tiers), "" if len(tiers) == 1 else "s")))
     scope_bits.append(
         "TradeWave's detector listed %d %s pattern%s for these dates that won at least %d of "
         "the last %d years; each record above is the engine's completed-year result."
@@ -1155,8 +1193,8 @@ def _find_securities(text, token, current_view=None, allow_names=True):
                     add(match.start(), symbol, "11", sector)
                     break
         masked = _SECTOR_RE.sub(lambda m: " " * len(m.group(0)), masked)
-    for ticker in _explicit_tickers(text):
-        position = text.find(ticker)
+    for ticker in _explicit_tickers(text, allow_single=bool(_COMPARE_RE.search(text))):
+        position = re.search(r"(?<![A-Za-z0-9])\$?%s(?![A-Za-z0-9])" % re.escape(ticker), text).start()
         add(position, ticker)
         masked = re.sub(r"(?<![A-Za-z0-9])\$?%s(?![A-Za-z0-9])" % re.escape(ticker),
                         lambda m: " " * len(m.group(0)), masked)
@@ -1234,7 +1272,7 @@ def _parse_period(text, today):
     ("December 2022" is one year, not a seasonal study) and trading-day counts.
     """
 
-    if re.search(r"\b(?:19|20)\d{2}\b", text) or re.search(
+    if re.search(r"\b(?:19|20)\d{2}\b", _INDEX_NUMBER_RE.sub(" ", text)) or re.search(
             r"\b(?:trading|business)\s+days?\b", text, re.I):
         return None
     try:
@@ -1554,10 +1592,9 @@ def build_window_study_command(message, current_view, user_token, *, today=None,
     if study["direction"] == "short":
         record = (
             "TradeWave reads this window as a short-direction pattern: %s fell in %d of %d "
-            "completed %s (%s). Short-side results: average %s (the underlying averaged %s), "
-            "median %s, Sharpe Ratio %s."
+            "completed %s (%s). Short-side results (a positive figure means the underlying "
+            "fell): average %s, median %s, Sharpe Ratio %s."
             % (symbol, study["wins"], study["n"], cohort, win_pct, tg._fmt_pct(study["avg"]),
-               tg._fmt_pct(-study["avg"]) if study["avg"] is not None else "unavailable",
                tg._fmt_pct(study["median"]),
                "%.2f" % study["sharpe"] if study["sharpe"] is not None else "unavailable"))
     else:
@@ -1624,7 +1661,7 @@ def build_comparison_command(message, current_view, user_token, *, today=None,
         if item.get("error"):
             return {"reply": tg._resolution_boundary(item["error"]), "actions": [], "trace": trace}
     # Tickers the user typed define the comparison; a sector word beside them is context.
-    named = _explicit_tickers(text)
+    named = _explicit_tickers(text, allow_single=True)
     sector_notes = []
     if len([item for item in securities if item["symbol"] in named]) >= 2:
         implied = [item for item in securities if item["symbol"] not in named]
@@ -1788,6 +1825,7 @@ _EXTREME_HIGH = (r"(?:peak(?:ed|s|ing)?|top(?:ped|s)?\s+out|topped|"
                  r"hit(?:s|ting)?\s+(?:its\s+|the\s+|a\s+)?high|highs?\s+(?:date|point|day)|"
                  r"mfe(?:\s+(?:date|point|day))?|maximum\s+favou?rable\s+excursion)")
 _EXTREME_TAIL_GUARD = (r"(?!\s+(?:win|sharpe|returns?|rate|risk|average|avg|probab\w*|price|"
+                       r"season\w*|time|period|months?|quarter|conviction|confidence|quality|"
                        r"volume|year|years|score|percent\w*))")
 _WHEN_WORDS = (r"(?:when|what\s+(?:date|day|month|time(?:\s+of\s+year)?)|which\s+(?:date|day|month)|"
                r"latest|earliest|how\s+(?:late|early|soon)|on\s+what\s+(?:date|day)|"
@@ -1978,6 +2016,8 @@ def build_research_command(message, current_view, user_token, *, investor_intent
         if not (compare or study_shape):
             return None
         securities = _find_securities(text, user_token, current_view)
+        if compare and len(securities) < 2:
+            return None              # one side did not resolve: never answer for the other alone
         if compare or (len(securities) >= 2 and study_shape):
             command = build_comparison_command(
                 text, current_view, user_token, today=today, years_cap=years_cap,

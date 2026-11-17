@@ -140,7 +140,7 @@ def test_bearish_week_screen_returns_a_ranked_list_for_the_whole_week(engine, me
     assert len(set(symbols)) == 10
     for line in lines:
         assert re.search(r"fell in \d+ of \d+ years \(\d+%\)", line)
-        assert "Sharpe" in line and "avg move -" in line
+        assert "Sharpe" in line and re.search(r"avg short-side return \+\d", line)
         assert re.search(r"starts (?:Tue Nov 17|Wed Nov 18|Thu Nov 19|Fri Nov 20)", line)
     sharpes = [float(re.search(r"Sharpe (-?\d+\.\d+)", line).group(1)) for line in lines]
     assert sharpes == sorted(sharpes, reverse=True)
@@ -791,10 +791,10 @@ def test_two_day_hold_range_reaches_the_detector(engine):
     "rank S&P 500 stocks by win rate for the next 31 days",
 ])
 def test_fanout_is_bounded(engine, message):
-    """S2: one message reads at most three bands and forty engine responses in total."""
+    """S2: one message reads a bounded number of bands and forty engine responses in total."""
 
     ask(message)
-    assert len({call["year2"] for call in engine["opplist"]}) <= research._MAX_TIERS == 3
+    assert len({call["year2"] for call in engine["opplist"]}) <= research._MAX_TIERS == 6
     assert len(engine["opplist"]) + len(engine["chart"]) <= research._MAX_ENGINE_CALLS == 40
 
 
@@ -1085,3 +1085,196 @@ def test_excursion_day_number_counts_the_window_start_as_day_one(chart_engine):
         start = datetime.date(row["year"], 3, 3)
         assert row["low_day"] == (datetime.date.fromisoformat(row["low_date"]) - start).days + 1
         assert row["high_day"] == (datetime.date.fromisoformat(row["high_date"]) - start).days + 1
+
+
+
+# ===========================================================================
+# Re-review regressions (2026-11-17, second round)
+# ===========================================================================
+
+@pytest.mark.parametrize("message", [
+    "which S&P 500 stocks go down this week historically",
+    "which S&P 500 stocks have negative seasonal returns this week",
+    "which S&P 500 stocks underperform this week seasonally",
+    "which S&P 500 stocks historically sink this week",
+    "which S&P 500 stocks tend to slide this week seasonally",
+    "which S&P 500 stocks tank this week historically",
+    "show me seasonal sell candidates in the S&P 500 this week",
+])
+def test_bearish_wording_outside_the_basic_vocabulary_is_a_short_screen(message):
+    """R1: these used to return a bullish list."""
+
+    request = research._screen_request(message, TODAY, None)
+    assert request is not None and request["direction"] == "short", message
+
+
+@pytest.mark.parametrize("message", [
+    "what are the worst S&P 500 stocks seasonally this week",
+    "which S&P 500 stocks do poorly this week seasonally",
+    "which S&P 500 stocks are seasonal losers this week",
+    "which S&P 500 stocks should be avoided this week seasonally",
+    "which S&P 500 stocks are historically down this week",
+    "which bullish S&P 500 stocks tend to sink this week",
+])
+def test_possibly_bearish_wording_never_defaults_to_a_bullish_list(engine, message):
+    assert ask(message) is None
+    assert engine["opplist"] == []
+
+
+def _synthetic_band_engine(monkeypatch, rows_by_band):
+    """A stand-in detector: which symbols each min-winning-years band lists (routing only)."""
+
+    calls = []
+
+    def opplist(market, day, year1, year2, day_range, token):
+        calls.append((day.isoformat(), int(year1), int(year2)))
+        return 200, [[day.isoformat(), symbol, "9", "Long", "1.00", 2.0]
+                     for symbol in rows_by_band.get(int(year2), []) if day == TODAY]
+
+    def chart(market, symbol, entry_date, days_out, years_value, token, **params):
+        wins = max(band for band, symbols in rows_by_band.items()
+                   if isinstance(band, int) and symbol in symbols)
+        total = int(years_value)
+        return 200, {
+            "request": {"symbol": symbol, "entry_date": entry_date, "days_out": int(days_out),
+                        "years": total, "pe_cycle": "cons"},
+            "stats": {"Num Winners": str(wins), "Num Losers": str(total - wins),
+                      "Percent Profitable": "%s%%" % rows_by_band["pct"][wins],
+                      "Avg Profit - All": "2.0%", "Median Profit": "2.0%", "Sharpe Ratio": "1.0"},
+            "ChartData4": []}
+
+    monkeypatch.setattr(research, "_engine_opplist", opplist)
+    monkeypatch.setattr(research, "_engine_chart", chart)
+    return calls
+
+
+def test_win_rate_ranking_reads_consecutive_bands_and_never_skips_one(monkeypatch):
+    """R2: bands 30, 29, 24 were read, so a 27-of-30 name was missed below 25-of-30 names."""
+
+    bands = {30: [], 29: ["AAA"], 28: ["AAA", "BBB"], 27: ["AAA", "BBB", "PEP"],
+             24: ["AAA", "BBB", "PEP", "LOW1", "LOW2"],
+             "pct": {29: "96.67", 28: "93.33", 27: "90.0", 24: "80.0"}}
+    calls = _synthetic_band_engine(monkeypatch, bands)
+    command = ask("which nasdaq stocks have the highest win rate this week over the last 30 years")
+    read = sorted({band for _day, _year1, band in calls}, reverse=True)
+    assert read == [30, 29, 28, 27, 26, 25], "bands must be consecutive from the strictest"
+    symbols = [row["symbol"] for row in command["rows"]]
+    assert symbols == ["AAA", "BBB", "PEP"]           # the 27-of-30 name is found, in order
+    assert "LOW1" not in symbols                      # nothing below the last band read is ranked
+    reply = text_of(command)
+    assert "covers every pattern that won at least 25 of the last 30 years" in reply
+    assert "strictest bands, which is as far as one screen reads" in reply
+    assert "names with a lower record are not ranked here" in reply
+
+
+def test_long_window_win_rate_ranking_discloses_its_single_band(monkeypatch):
+    bands = {10: ["AAA"], 9: ["AAA", "BBB"], 8: ["AAA", "BBB", "CCC"],
+             "pct": {10: "100.0", 9: "90.0", 8: "80.0"}}
+    calls = _synthetic_band_engine(monkeypatch, bands)
+    command = ask("rank S&P 500 stocks by win rate for the next 31 days")
+    assert {band for _day, _year1, band in calls} == {10}
+    assert [row["symbol"] for row in command["rows"]] == ["AAA"]
+    reply = text_of(command)
+    assert "covers every pattern that won at least 10 of the last 10 years" in reply
+    assert "1 strictest band," in reply
+
+
+def test_empty_strict_bands_are_not_reported_as_no_patterns_at_all(monkeypatch):
+    bands = {8: ["AAA"], "pct": {8: "80.0"}}
+    _synthetic_band_engine(monkeypatch, bands)
+    command = ask("rank S&P 500 stocks by win rate for the next 31 days")
+    reply = text_of(command)
+    assert "won at least 10 of the last 10 years" in reply
+    assert "ask for the best by Sharpe Ratio to include records down to 8 of 10" in reply
+
+
+def test_win_rate_ranking_that_reaches_the_floor_needs_no_caveat(engine):
+    command = ask("which S&P500 stocks have the highest seasonal win rate over the next 10 days")
+    assert len(command["rows"]) == 10
+    assert "as far as one screen reads" not in text_of(command)
+
+
+@pytest.mark.parametrize("message,known,expected_calls", [
+    ("compare the performance of F and GM in Q4", {"F", "GM"}, {"F", "GM"}),
+    ("how has T performed vs VZ in december", {"T", "VZ"}, {"T", "VZ"}),
+])
+def test_one_letter_tickers_are_read_in_a_comparison(engine, monkeypatch, message, known, expected_calls):
+    """R3: 'compare F and GM' answered for GM alone."""
+
+    monkeypatch.setattr(tara_gateway, "_resolve_question_symbol",
+                        lambda symbol, question, token, view=None: (
+                            {"status": "ok", "symbol": symbol, "market": "2", "name": symbol}
+                            if symbol in known else {"status": "not_found", "symbol": symbol}))
+    monkeypatch.setattr(tara_gateway, "_symbol_max_available_years", lambda *args: 30)
+    found = [item["symbol"] for item in research._find_securities(message, "t")]
+    assert set(found) == known and len(found) == 2
+    ask(message)
+    assert {call["symbol"] for call in engine["chart"]} == expected_calls
+
+
+@pytest.mark.parametrize("message", [
+    "compare apple and samsung performance in Q4",
+    "compare the performance of AAPL and ZZZZQ in Q4",
+    "how has apple performed vs the competition in december",
+    "compare apple performance in Q4",
+])
+def test_comparison_with_an_unresolved_side_is_never_a_single_symbol_study(engine, message):
+    assert ask(message) is None
+    assert engine["chart"] == []
+
+
+def test_single_letters_are_not_tickers_outside_a_comparison():
+    assert research._explicit_tickers("how has T performed in Q4") == []
+    assert research._explicit_tickers("compare F and GM", allow_single=True) == ["F", "GM"]
+    assert research._explicit_tickers("is A or I a ticker", allow_single=True) == []
+
+
+@pytest.mark.parametrize("text", [
+    "analyze AAPL returns vs the russell 2000 in Q4", "analyze the Russell 2000 in Q4",
+    "analyze the wilshire 5000 in Q4", "analyze the S&P 500 in Q4", "analyze the nasdaq 100 in Q4",
+    "analyze the dow 30 in Q4",
+])
+def test_index_names_with_numbers_are_not_calendar_years(text):
+    assert research._parse_period(text, TODAY) is not None
+    assert research._parse_period(text + " 2019", TODAY) is None
+
+
+def test_russell_named_screen_is_not_blocked_by_the_year_guard():
+    request = research._screen_request(
+        "which russell 1000 stocks are bullish this week, like the russell 2000", TODAY, None)
+    assert request is not None and request["market"] == "3"
+
+
+@pytest.mark.parametrize("message", [
+    "when is the high season for this pattern",
+    "when is the low season for this chart",
+    "when is the high probability period for this pattern",
+])
+def test_high_season_is_not_a_high_date_question(engine, message):
+    assert research._extreme_request(message) is None
+    assert ask(message, LOADED_AAPL) is None and engine["chart"] == []
+
+
+def test_january_first_detector_rows_match_the_engine_january_second_echo():
+    payload = {"request": {"symbol": "AAA", "entry_date": "2026-01-02", "days_out": 20,
+                           "years": 10, "pe_cycle": "cons"}}
+    assert research._echo_matches(payload, "AAA", "2026-01-01", 20, 10, "cons")
+    assert not research._echo_matches(payload, "AAA", "2026-01-03", 20, 10, "cons")
+    assert not research._echo_matches(payload, "AAA", "2026-01-01", 21, 10, "cons")
+    payload["request"]["entry_date"] = "2026-11-17"                 # a date-locked plan's answer
+    assert not research._echo_matches(payload, "AAA", "2026-01-01", 20, 10, "cons")
+
+
+def test_short_side_figures_are_engine_values_never_negated(engine):
+    command = ask("Analyze AAPL's historical return from January 1 to March 31 over the last 15 years.")
+    stats = chart_payload(engine["chart"][0])["stats"]
+    reply = text_of(command)
+    assert "the underlying averaged" not in reply
+    assert "a positive figure means the underlying fell" in reply
+    assert "average %s" % tara_gateway._fmt_pct(float(stats["Avg Profit - All"].rstrip("%"))) in reply
+
+    screen = ask("find s&p500 stocks entering seasonaly bearish patterns this week")
+    by_symbol = {call["symbol"]: call for call in engine["chart"]}
+    for line, row in zip(ranked_lines(screen), screen["rows"]):
+        engine_avg = float(chart_payload(by_symbol[row["symbol"]])["stats"]["Avg Profit - All"].rstrip("%"))
+        assert "avg short-side return %s" % tara_gateway._fmt_pct(engine_avg) in line
