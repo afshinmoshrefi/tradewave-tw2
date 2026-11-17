@@ -2299,6 +2299,41 @@ weak-period question, then preflights the selected row with `ChartData4`. A mism
 request produces no action or success claim, and an empty selector is reported as no qualifying
 Best Wave at that setting.
 
+**Engine-answered research requests (TW-TASK-0030, 2026-11-17).** `appserver/appserver/tara_research.py`
+(`build_research_command`, called from `chatbot.chat()` after the suitability boundary and before
+every other shortcut or model route) answers five request classes directly from engine output,
+through loopback calls made with the user's own token so plan entitlements apply unchanged:
+- **Index screens and ranked screens** ("S&P 500 stocks entering bearish patterns this week",
+  "highest win rate over the next 10 days", top-N, hold-length, win-rate/Sharpe/average filters).
+  `OppList4` is keyed to ONE entry date, so a window is screened by calling it once per weekday in
+  the window (a Monday table already carries Saturday and Sunday patterns; a weekend-dated pattern
+  is presented on its first session). The detector is read at the market's band FLOOR from
+  `apiserver/market_bands.json` (S&P 500 at 10 years = at least 8 winning years) so the list is not
+  limited to the React table's stricter default; a win-rate ranking walks the bands from "won every
+  year" downward. A hold length is passed as OppList4's `day_range` (engine days = display days - 1).
+  Only the short-listed rows are then verified with `ChartData4` (`comparison_direction` pinned),
+  and the printed record, average and Sharpe are that response's values. Default lookback 10 years,
+  default list 10, entry window capped at 31 days and at December 31.
+- **Dated symbol studies** ("analyze Apple from now to year end over the last 20 years"): one
+  `ChartData4` call with no direction override, so the reply matches what the Wave Viewer shows
+  after the signed `set_view`; the action is built from the response's effective `request` echo
+  (for example a January 1 entry is moved to January 2 by the engine).
+- **Same-window comparisons** (2 to 4 symbols, sector words map to the SPDR sector ETFs): every
+  symbol is fetched with `comparison_direction=long` and `report_completed_years=N`, where N is the
+  lookback all symbols share, so the ENGINE computes each record on the same completed years. If
+  the completed-year cohorts differ, no comparison is stated.
+- **Date of a pattern's low or high** (the 100-Year Pattern or the loaded pattern): `ChartData4`
+  accepts the opt-in query parameter `excursion_dates=1`, which adds `entry_trade_date`,
+  `exit_trade_date`, `high_date` and `low_date` to every yearly row - the dates of the same
+  extremes the MFE/MAE percentages are measured from. The parameter has its own redis key suffix;
+  requests without it return the unchanged legacy rows.
+Company names resolve only on an exact match with the engine's own security list
+(`GetListSymbols`); an unreachable engine returns `None` so the turn falls through to the normal
+path. Root cause this replaced: `_ensure_load_named` (tara_gateway.py) rewrites any model reply
+whose numbers differ from the ONE loaded setup's headline, which collapsed multi-symbol and
+multi-statistic answers to a single announce line. The gateway `/v1/scan` still fetches OppList4
+only at a window's first date; it is unchanged here.
+
 **Segmented prompt loading + verified loaded-pattern analysis (2026-07-31).** The previous prompt
 path appended the entire roughly 89,000-character `chatbot_knowledge.txt` plus up to 30 opportunity rows,
 every yearly row, and every `ChartData4.stats` field to every model call. Worse, Anthropic caching
