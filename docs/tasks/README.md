@@ -50,3 +50,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0029](TW-TASK-0029.md) | fixed on branch | Tara knowledge base cleanup: act-versus-click consistency, verified UI facts, account links, research-workflow tone |
 | [TW-TASK-0030](TW-TASK-0030.md) | fixed on branch, awaiting dev activation | Five failed Tara research questions: engine-answered screens, win-rate ranking, dated studies, comparisons and pattern low dates |
 | [TW-TASK-0031](TW-TASK-0031.md) | fixed on branch, awaiting dev activation | Tara production failure classes: non-chart "show" asks, AI-score scans, advice hijack, sector words, ROKU and gold, ME ticker, how-to steps, next checks, band thresholds, Best Waves fallback |
+| [TW-TASK-0034](TW-TASK-0034.md) | in-progress | Plan to raise Tara on Claude Haiku 5.5 from 65% to at least 80% helpful: failure clusters, judge audit, measured levers |
