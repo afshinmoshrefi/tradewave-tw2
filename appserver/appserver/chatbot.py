@@ -44,6 +44,8 @@ from tara_gateway import (
     build_hundred_year_security_command,
     classify_investor_intent,
     classify_view_intent,
+    build_sector_screen_command,
+    reply_gives_direct_advice,
     guided_next_questions,
     investor_guidance_response,
     loaded_pattern_suitability_response,
@@ -62,6 +64,8 @@ from tara_answer_planner import (
     build_bottom_slide_command,
     build_excursion_overlay_command,
     build_deterministic_reply,
+    ensure_required_disclaimer,
+    is_advice_shaped_question,
     build_hundred_year_pattern_command,
     build_current_table_pick_command,
     build_opportunity_row_load_command,
@@ -153,6 +157,7 @@ def check_for_token(func):
         # Stash for the wrapped route - resolve user_id once, here.
         from flask import g
         g.chatbot_jwt = data
+        g.chatbot_token = token          # the exact token that was verified above
         g.chatbot_user_id = str(data.get('user') or data.get('sub') or data.get('user_id') or 'unknown')
         return func(*args, **kwargs)
     return wrapped
@@ -1077,6 +1082,9 @@ def _finalize_chat_response(user_id, turn_id, question, reply, wave_viewer,
                             protocol_trace=None, provider='unknown',
                             analysis_report=None):
     """Audit and return one consistent Tara response envelope."""
+    # Every answer leaves through here, so this is where an advice-shaped question is
+    # guaranteed its required disclaimer whichever path produced the reply.
+    reply = ensure_required_disclaimer(question, reply)
     prepared_actions = _prepare_audited_actions(user_id, turn_id, actions or [])
     if _write_question_audit(
         user_id,
@@ -1121,7 +1129,7 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
         "DO NOT AUTO-LOAD ON THESE - answer first, load only if asked: a pure DEFINITION ('what is this?', 'what is a seasonal pattern?'), a GREETING ('hi'), a capability ask ('what can you do?'), or a LIST / 'best setups' / 'strongest setups' / 'top N' / 'only high win-rate ones' / 'which <group> stocks' ask. For a definition/greeting/capability: 1-2 plain sentences + offer one concrete next move ('want today's pick or the best setups now?'), and fire NO set_view. For a LIST ask: up to 5 one-liners (symbol + one stat each) + 'Want me to pull one up?' and do NOT LOAD A PATTERN (no symbol set_view). EXCEPTION: a 'which <group> stocks' ask MAY fire a market-only update_view to switch the opportunity table to that group when it is not already there, so your named rows match the screen - switching the table's group is not loading a pattern. A plural 'setups' or any quality floor (high win-rate, only the best ones) is ALWAYS a list - emit up to 5 named one-liners and load no pattern, even if the phrasing sounds singular. Auto-loading a PATTERN (a symbol into the chart) on any of these is a fail. Single-pick / named-symbol / 'show me something good' asks DO load (rule A).",
         "ANSWER THE QUESTION TOO, NOT JUST LOAD: Loading the chart does not replace answering. A yes/no ('is NVDA seasonal in July?') gets a direct yes/no + one real stat from the tool. A 'why is this the pick' gets the actual reason (top Sharpe / strongest seasonal edge / forward-tested record). A specific-year question ('how did 2022 do?') is answered directly from yearly_results - never say you can't see the chart or tell the user to read the bars. A proof/skeptic question ('does this actually work / is it just backtested?') gets ~2 confident sentences from the forward-tested record (made-in-advance picks scored later), not a definitions lecture. If a specific-year question names a symbol/window that is NOT yet loaded (e.g. 'how did NVDA's July setup do in 2022', 'show me the price chart for 2008'), first fire set_view to LOAD that pattern so its yearly_results populate, then answer that year from the data. If you genuinely lack the year's number, say so in one line and offer to load it - NEVER write 'find the 20XX bar' or 'click the bar'.",
         "MISSING-PROJECTION WHY-QUESTION ('why is there no projection line', 'where did the projection go'): if the loaded view uses a PE cycle phase OTHER than the current year's phase, the projection is hidden BY DESIGN - the view shows the next matching FUTURE cycle year, and a future window has no current price to anchor a forward projection to. This is an ANALYTICAL question: answer that reason in 1-2 sentences and STOP. Firing ANY set_view/update_view this turn, changing the user's PE mode uninvited, or reciting the Settings enable-steps is a HARD FAIL - the user chose that PE slice on purpose. End with one short offer ('Want me to flip back to consecutive so the projection returns?') and fire update_view with pe_cycle ONLY after the user says yes. If the PE mode is NOT the cause, check the viewed chart before reciting enable-steps: on a PAST year's historical chart the projection is hidden by design - point the user to the Current button in the price chart title bar (one line); for a pattern whose window already ENDED this year (completed trade) there is no live price to project from - say so in one line and offer to load a live pattern. Give the Settings enable-steps ONLY when the mode is consecutive (or the current year's own phase), the live/current-year chart is showing, and the projection is still absent.",
-        "WHEN THERE IS NO DRIVING ACTION (documented UI gaps - slide/tab switch, click a year bar, highlight a year, open watchlist/portfolio): do NOT fall back to 'click a row'. Either answer from the data you already have (e.g. name the worst year + its loss from yearly_results), or point precisely to where it lives in ONE line ('Wave Stats is the second lower-viewer dot' / 'Price Chart is the final lower-viewer dot'), or open the matching guide popup. One honest sentence beats a manual procedure. For how-to questions that HAVE a dedicated guide (watchlist, getting started), open that guide and give a one-line answer - never paste the full step list. Never emit a set_view with a placeholder/empty symbol.",
+        "WHEN THERE IS NO DRIVING ACTION (documented UI gaps - click a year bar, highlight a year, open watchlist/portfolio): do NOT fall back to 'click a row'. Either answer from the data you already have (e.g. name the worst year + its loss from yearly_results), or point precisely to where it lives in ONE line ('Wave Stats is the second lower-viewer dot' / 'Price Chart is the final lower-viewer dot'), or open the matching guide popup. One honest sentence beats a manual procedure. Switching the lower viewer is NOT a gap: Tara has an action for it (update_view with bottom_slide=trend_chart, wave_stats, ai_scores, or price_chart), so do it instead of describing dots. For Getting Started, open that guide and give a one-line answer. For creating a watchlist or adding symbols to one, Tara has no action: put the short numbered steps from the knowledge base in the reply AND open the Watchlist guide - opening the guide alone is not an answer. Never emit a set_view with a placeholder/empty symbol.",
         "PRICING / TIERS (ground in the knowledge base, stay brief - never recite the full tier wall): one or two sentences. Free Explorer exists (Dow 30, top-5 results, start date locked to today); paid unlocks more. If asked which tier for a capability, state the specific gate from the KB: custom start dates begin at Navigator for Dow/NASDAQ/S&P; Analyst adds all U.S. stocks + ETFs and ML scoring; Strategist adds all 15 markets. Point to tradewave.ai/pricing. Do not invent numbers or features not in the knowledge base. For a vague 'is it free?' give only: yes, there is a free Explorer tier (Dow 30, top-5 results, start date locked); paid unlocks more - point to tradewave.ai/pricing. Do NOT volunteer per-tier dollar amounts or portfolio/track limits unless the user names a tier or capability.",
         "BLANK / ERROR / OUT-OF-SCOPE: If the message is empty or you hit a tool/rate-limit error, never dead-end - reply with one warm line offering a concrete starting move ('Want today's AI pick, a market scan, or a symbol loaded?'). Stay confident; do not expose 'system overloaded' as the whole answer. A pure KNOB command for the current view (change years to N, switch to PE+X) needs no data tool - fire update_view with only that field and state what was requested without claiming completion. A NEW SYMBOL command (load <symbol>, pull up <sym>) MUST first call analyze_symbol to resolve one real setup, then copy its exact symbol + market id + entry_date + hold_days (as days_out), plus any requested knobs, into update_view; if that read fails, do not queue a partial/stale setup and say honestly that the chart was not changed. On a should-I-trade / 'does it make money' / 'is it a good trade' ask: never give a buy, sell, long, or short verdict. State the exact historical direction and evidence, distinguish it from today's market direction and a forecast, mention losing-year or MAE risk, and append the disclaimer. Do not fire a new view action when the exact pattern is already confirmed in the viewer.",
         "FORMAT: Your output is rendered as HTML. Use <br> for line breaks. Use <b> for bold. When listing items, put each on its own line with <br> between them, INCLUDING a <br> after the LAST item; then put any closing sentence or question (e.g. 'Want me to pull one up?') on its own line after a <br><br> - never let it run onto the last list item. Never output a wall of text with no line breaks. NEVER use the em-dash character (—) anywhere in a reply - write ' - ' (spaced hyphen) instead; date ranges may use the en-dash.",
@@ -1163,9 +1171,9 @@ def build_system_prompt(wave_viewer, opportunities, opp_table_length=None,
         "  Final slide: Price Chart. Shows current price chart by default. When user clicks a year bar in the Gain-Loss Bar Chart, automatically switches to the historical price chart for that year with entry/exit arrows and a shaded trade window.",
         "",
         "<b>Securities Groups (markets) - map a sector or group name to its market id when scanning:</b>",
-        "- Technology / tech stocks -> NASDAQ 100 (market 1). Blue chips / mega caps -> DOW 30 (market 0). Broad large-cap US -> S&P 500 (market 2). Broader US (small + mid cap) -> Russell 1000 (market 3) or Wilshire 5000 (market 4).",
+        "- Technology / tech stocks -> NASDAQ 100 (market 1), and SAY it is the NASDAQ 100, a tech-heavy index, not a pure technology list: TradeWave has no sector tags. Blue chips / mega caps -> DOW 30 (market 0). Broad large-cap US -> S&P 500 (market 2). Broader US (small + mid cap) -> Russell 1000 (market 3) or Wilshire 5000 (market 4).",
         "- ETFs -> market 11. Indices -> market 5 (common) or 6 (all). Futures / commodities (oil, gold, natural gas, grains) -> market 7. Forex / currencies -> market 8 (all) or 9 (liquid). Government bonds -> market 10. Crypto -> market 16. UK / London -> market 12. Canada / Toronto -> market 13.",
-        "Sectors inside a broad index (energy, financials, healthcare, etc.): scan the closest stock market (usually S&P 500 = market 2, or NASDAQ 100 = market 1 for tech/growth) and name the matching tickers from the results.",
+        "Sectors inside a broad index (energy, financials, healthcare, etc.): TradeWave has no sector tags, so say plainly that the scan covers the whole index (usually S&P 500 = market 2), never imply the list is sector-filtered, and offer the sector's ETF (for example XLE, XLF, XLV) for a sector-level read.",
         "Scope note: a user's plan may only include some markets - if a scan returns an upgrade nudge for an out-of-scope market, say so briefly and offer what IS in scope; never invent results.",
     ]
 
@@ -2283,6 +2291,10 @@ def chat():
         opp_table_pe_cycle = None
     elif opp_table_pe_cycle not in {'cons', 'pe0', 'pe1', 'pe2', 'pe3'}:
         opp_table_pe_cycle = None
+    # Loopback engine calls must run as the caller the route authenticated. The body
+    # token is not that: the decorator prefers the query-string token, so a request can
+    # carry a verified low-plan token there and any other token in the body.
+    user_token = getattr(g, "chatbot_token", None)
     if not isinstance(user_token, str) or len(user_token) > 4096:
         user_token = None
 
@@ -2435,7 +2447,7 @@ def chat():
             )
 
         # Bind catalog access to the token actually authenticated by the decorator.
-        authenticated_token = request.args.get('token') or incoming_data.get('token')
+        authenticated_token = getattr(g, "chatbot_token", None)
         list_command = build_security_list_command(
             user_message, authenticated_token, g.chatbot_jwt, _loopback_json,
             config.level_access_hierarchy,
@@ -2540,6 +2552,31 @@ def chat():
             })
             return finish(
                 best_waves_command["reply"],
+                actions,
+                messages_or_text=investor_messages,
+            )
+
+        # "Which tech stocks ..." names a sector, and TradeWave has no sector tags. Answer
+        # from the documented proxy universe and say which one was used, instead of the
+        # unlabelled S&P 500 screen the investor funnel would otherwise return.
+        sector_command = build_sector_screen_command(
+            user_message,
+            user_token,
+            investor_intent=investor_intent,
+            table_market=opp_table_market,
+            years_cap=research_years_cap,
+        )
+        if sector_command is not None:
+            actions = []
+            for sector_action in sector_command.get("actions") or []:
+                cleaned = _validate_view_spec(sector_action.get("spec"))
+                if cleaned:
+                    actions.append({"type": "set_view", "spec": cleaned})
+            sector_trace = dict(sector_command.get("trace") or {})
+            sector_trace['action_queued'] = bool(actions)
+            protocol_trace.append(sector_trace)
+            return finish(
+                sector_command["reply"],
                 actions,
                 messages_or_text=investor_messages,
             )
@@ -2944,7 +2981,9 @@ def chat():
         # Deterministic floor: guarantee a stat on a loaded-pattern strength question
         # (Haiku at temp 0 occasionally punts with a bare "loaded" and no number).
         bot_reply = _ensure_strength_answered(user_message, wave_viewer, bot_reply)
-        if response_violates_investor_contract(bot_reply, investor_intent):
+        if response_violates_investor_contract(bot_reply, investor_intent) or (
+            is_advice_shaped_question(user_message) and reply_gives_direct_advice(bot_reply)
+        ):
             protocol_trace.append({
                 'event': 'protocol_violation',
                 'reason': 'unsafe_investor_response',

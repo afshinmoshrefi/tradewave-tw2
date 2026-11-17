@@ -72,6 +72,19 @@ _TOPIC_ROUTES: Sequence[Tuple[re.Pattern[str], Tuple[str, ...]]] = (
                 r"\brank\b.{0,80}\bseasonal opportunities\b|"
                 r"\bstrongest\b.{0,80}\bbullish seasonal window\b", re.I),
      ("Research Requests: Screening and Ranking",)),
+    # Account actions and common "what just happened" questions had no route, so the
+    # model answered them from general knowledge instead of the documented playbooks.
+    (re.compile(r"\b(?:cancel(?:l?ing|l?ation)?|unsubscribe|refunds?|invoices?|receipts?|"
+                r"billing|payment (?:method|card)|credit card|renew(?:al|s)?)\b", re.I),
+     ("Account & Profile",)),
+    (re.compile(r"\b(?:why|what|how come)\b.{0,50}\b(?:chart|view|screen|panel|pattern|bottom)\b"
+                r".{0,25}\bchang(?:e|ed|ing)\b|"
+                r"\bmy\s+(?:chart|view|screen)\b.{0,25}\bchang(?:e|ed|ing)\b|"
+                r"\b(?:chart|view|screen)\s+(?:just\s+|suddenly\s+)?changed\b", re.I),
+     ("Common Navigation Playbooks", "UI Accuracy Rules (Cause and Effect)")),
+    (re.compile(r"\bwatch[-\s]lists?\b", re.I), ("Watchlist",)),
+    (re.compile(r"\bmedian\b", re.I),
+     ("Lower Panel Views (below the Gain-Loss Bar Chart)",)),
     (
         re.compile(r"\b(?:toolbar (?:titles?|headings?)|show toolbar titles|headings? above (?:the )?(?:bar chart )?controls|labels? above (?:the )?(?:bar chart )?controls)\b", re.I),
         ("Bar Chart Toolbar Titles",),
@@ -399,9 +412,9 @@ def research_capability_reply(message: Any) -> str:
             and re.search(r"\b(?:calendar(?!\s+days?\b)|reminders?)\b", text, re.I)):
         return (
             "I can't create calendar events or entry/exit reminders directly. "
-            "For a saved pattern, use Portfolio Manager's notification icon to open "
-            "Google Calendar setup and complete the prompts there; I can help research "
-            "the setup and verify its dates first."
+            "With the pattern loaded, click Remind me in the Gain-Loss Bar Chart toolbar: "
+            "it saves the pattern and adds Google Calendar reminders for its start and end "
+            "dates. I can help research the setup and verify its dates first."
         )
     return ""
 
