@@ -54,6 +54,10 @@ class AnthropicAPIError(Exception):
     pass
 
 
+class AnthropicConfigurationError(RuntimeError):
+    """A deployment/configuration failure that must never select a fallback."""
+
+
 def _prepare_system(system, cache_system=False, cache_ttl='5m'):
     """Normalize a string or ordered text blocks for Anthropic's system field.
 
@@ -126,6 +130,10 @@ def send_claude_messages(messages, model=CLAUDE_MODEL_DEFAULT, system=None,
     `return_raw=True`: return the full response.json() instead of content[0].text. Required
     whenever `tools` is used (content[0] may be a tool_use block, not text).
     """
+    if not ANTHROPIC_API_KEY:
+        # Same rule as the OpenAI adapter: a missing credential is a deployment failure,
+        # never a reason to answer on the other provider without anyone noticing.
+        raise AnthropicConfigurationError('Anthropic credential is not configured')
     headers = {
         'x-api-key':         ANTHROPIC_API_KEY,
         'anthropic-version': ANTHROPIC_VERSION,

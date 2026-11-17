@@ -2176,8 +2176,10 @@ always covers the top Gain-Loss chart, the active lower slide (including visible
 Price Chart), and the left table when visible. Explicit analysis of the already-loaded pattern is
 also deterministic as of 2026-07-31 (details below); other open-ended questions use the selected
 model provider with compact verified facts appended last to its system prompt. The release-owned
-policy is identical in every environment: OpenAI `gpt-5.6-luna` is primary and Haiku 4.5 is a
-classified runtime fallback only.
+policy is identical in every environment. Since TW-TASK-0033 (owner decision 2026-11-17) the
+primary is Anthropic `claude-haiku-5-5` and OpenAI `gpt-5.6-luna` is the classified runtime
+fallback only (`tara_runtime_policy.ACTIVE_POLICY = "haiku55"`; Luna-primary and Sonnet 5.5-primary
+are the other reviewed rows of `POLICIES`).
 
 The direction contract is essential: `ChartData4[].pct[0]` and the bars are the UNDERLYING price
 move, not direction-adjusted trade P&L. Green/up means the security rose; red/down means it fell.
@@ -2489,7 +2491,25 @@ Model policy: `tara_runtime_policy.ACTIVE_POLICY` names one row of `POLICIES` (`
 and `portfolio_scenarios` dispatch on the provider, the other provider becomes the fallback, and
 `AI_tools_appserver.send_claude_messages` sends the Claude 5 request shape (adaptive thinking,
 `output_config.effort`, no sampling parameters, no caching beta header) for `claude-*-5*` ids only.
-`tests/test_tara_runtime_policy.py` pins the active policy and must change in the same commit.
+`tests/test_tara_runtime_policy.py` and `tests/test_tara_openai_canary.py` pin the active policy
+and must change in the same commit. **Active policy: `haiku55`** (Haiku 5.5 primary, Luna fallback;
+owner decision 2026-11-17; `POLICY_VERSION` `tara-model-policy-v3`). Switching back to Luna or up to
+Sonnet 5.5 is the same one line.
+
+Claude-primary specifics: the stable prefix (about 70.9K Claude tokens) is cached with the 1-hour
+TTL (`chatbot.CACHE_TTL`, `cache_control` on the first system block only); a fallback Claude keeps
+5 minutes. Measured on Haiku 5.5: a cold question costs about $0.015 (one 1-hour cache write) and a
+warm one about $0.002; the 1-hour write costs $0.005 more than a 5-minute write and saves a $0.009
+rewrite every time traffic pauses for 5 to 60 minutes, which is the normal case at current volume.
+A Claude refusal (`stop_reason: refusal`) or an empty first answer raises `ProviderNoAnswer` and the
+turn is retried on the fallback provider through the same plan gate and disclaimer floor. A missing
+`ANTHROPIC_TOKEN` raises `AnthropicConfigurationError` and is never masked by a fallback, like a
+missing `OPENAI_KEY`. Every reply passes `normalize_reply_markup` (Markdown to the `<b>`/`<i>`/`<br>`
+subset) in `_finalize_chat_response`. Activation: `ops/activate_tara_release.sh` reads the expected
+`provider=... model=...` from the release's own policy for its live gate and still aborts on any
+fallback; `ops/smoke_tara_model_bound.py` expects the policy's primary provider;
+`ops/verify_tara_release.py --check-credentials` requires `OPENAI_KEY`, `ANTHROPIC_TOKEN` and
+`TARA_GATEWAY_KEY` for every policy.
 
 Measured with the real tool-enabled prompt and representative loaded/screen questions, model-bound
 system content fell from roughly 117K-121K characters to 31K-34K characters (about 72%-74% smaller;
@@ -2684,7 +2704,7 @@ Other short Tara answers retain their compact normal message rendering.
 
 **GPT-5.6 Luna release policy (2026-08-04).** Deterministic planner answers still run first and never
 enter a provider route. Every remaining model-bound turn starts on the tracked primary provider and
-model: OpenAI `gpt-5.6-luna`. `tara_model_router.py` contains no authenticated-user bucket,
+model (OpenAI `gpt-5.6-luna` when this was written; since TW-TASK-0033 the primary is `claude-haiku-5-5` and Luna is the fallback, see the 2026-11-17 paragraph above). `tara_model_router.py` contains no authenticated-user bucket,
 percentage canary, or environment default. `TARA_OPENAI_CANARY_PERCENT` is retired and absent during
 normal operation. Missing `OPENAI_KEY` or an invalid tracked primary policy fails deployment
 preflight and does not silently select another model. `openai_tools_appserver.py` uses the stateless

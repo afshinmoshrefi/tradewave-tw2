@@ -174,7 +174,10 @@ def apply_overlay(tree, policy="luna", claude_effort="low"):
     text = policy_path.read_text(encoding="utf-8")
     if "ACTIVE_POLICY" not in text:
         return apply_overlay_legacy(tree)
-    text = _replace(text, 'ACTIVE_POLICY = "luna"\n', 'ACTIVE_POLICY = "%s"\n' % policy, "active policy")
+    import re as _re
+    if not _re.search(r'^ACTIVE_POLICY = "\w+"$', text, _re.M):
+        raise SystemExit("overlay anchor not found (active policy)")
+    text = _re.sub(r'^ACTIVE_POLICY = "\w+"$', 'ACTIVE_POLICY = "%s"' % policy, text, count=1, flags=_re.M)
     text = _replace(text, 'CLAUDE_EFFORT = "low"\n', 'CLAUDE_EFFORT = "%s"\n' % claude_effort, "claude effort")
     policy_path.write_text(text, encoding="utf-8")
     (app / "tara_eval_usage.py").write_text(USAGE_MODULE, encoding="utf-8")
@@ -226,6 +229,17 @@ def apply_overlay(tree, policy="luna", claude_effort="low"):
     path.write_text(text, encoding="utf-8")
 
 
+def _tree_policy(tree):
+    """The policy the checked-out ref itself ships (no flag = behave exactly like the ref)."""
+    import re as _re
+    path = tree / "appserver" / "appserver" / "tara_runtime_policy.py"
+    try:
+        match = _re.search(r'^ACTIVE_POLICY = "(\w+)"$', path.read_text(encoding="utf-8"), _re.M)
+    except OSError:
+        match = None
+    return match.group(1) if match else "luna"
+
+
 def _flask(cmd, **kw):
     return subprocess.run(["sudo", "-u", "flask"] + cmd, **kw)
 
@@ -263,7 +277,9 @@ def start(args):
             if result.returncode:
                 raise SystemExit("git worktree add failed")
         policy = args.policy or (
-            POLICY_BY_MODEL.get(args.claude_model, "haiku55") if args.provider == "anthropic" else "luna")
+            POLICY_BY_MODEL.get(args.claude_model, "haiku55") if args.provider == "anthropic" else None)
+        if policy is None:
+            policy = "luna" if args.provider_given else _tree_policy(tree)
         apply_overlay(tree, policy=policy, claude_effort=args.claude_effort)
         subprocess.run(["chown", "-R", "flask:flask", str(tree / "appserver" / "appserver")], check=True)
     eval_dir = tree / ".eval"
@@ -353,7 +369,7 @@ def main():
     p_start.add_argument("--ref", default="origin/main")
     p_start.add_argument("--from-tree", default="",
                          help="copy this working tree instead of checking out --ref (uncommitted work)")
-    p_start.add_argument("--provider", choices=["openai", "anthropic"], default="openai")
+    p_start.add_argument("--provider", choices=["openai", "anthropic"], default=None)
     p_start.add_argument("--claude-model", default="claude-haiku-5-5")
     p_start.add_argument("--claude-effort", default="low")
     p_start.add_argument("--openai-effort", default="low")
@@ -367,6 +383,9 @@ def main():
     p_stop.add_argument("--remove", action="store_true")
     p_stop.set_defaults(func=stop)
     args = parser.parse_args()
+    args.provider_given = getattr(args, "provider", None) is not None
+    if getattr(args, "provider", None) is None:
+        args.provider = "openai"
     if getattr(args, "port", 5091) in (5000, 5500, 8088):
         raise SystemExit("refusing a live service port")
     return args.func(args)

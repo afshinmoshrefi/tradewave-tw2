@@ -84,9 +84,10 @@ def test_check_for_token_stashes_decoded_claims():
 
 
 def test_provider_selection_is_release_owned_and_has_no_user_bucket():
-    assert select_tara_provider() == OPENAI_PROVIDER
-    assert PRIMARY_MODEL == "gpt-5.6-luna"
-    assert FALLBACK_MODEL == "claude-haiku-4-5-20251001"
+    # Owner decision 2026-11-17 (TW-TASK-0033): Haiku 5.5 is the primary, Luna the fallback.
+    assert select_tara_provider() == "anthropic"
+    assert PRIMARY_MODEL == "claude-haiku-5-5"
+    assert FALLBACK_MODEL == "gpt-5.6-luna"
     assert "canary" not in json.dumps(public_policy()).lower()
 
 
@@ -532,28 +533,24 @@ def test_missing_openai_credential_is_configuration_failure_not_api_fallback(mon
         openai_tools.send_openai_response([{"role": "user", "content": "hello"}])
 
 
-def test_chat_route_retries_haiku_when_luna_fails(monkeypatch, caplog):
+def test_chat_route_retries_luna_when_haiku_fails(monkeypatch, caplog):
     from flask import Flask, g
     import chatbot as chatbot_module
 
     seen = {}
     monkeypatch.setattr(chatbot_module, "build_deterministic_reply", lambda *args, **kwargs: None)
     monkeypatch.setattr(chatbot_module, "build_system_prompt", lambda *args, **kwargs: [])
-    monkeypatch.setattr(
-        chatbot_module,
-        "select_tara_provider",
-        lambda *args, **kwargs: OPENAI_PROVIDER,
-    )
+    # The release primary (Haiku 5.5) fails; the turn is retried on the Luna fallback.
     monkeypatch.setattr(chatbot_module, "TARA_TOOLS_ENABLED", True)
 
-    def fail_openai(*args, **kwargs):
-        raise openai_tools.OpenAIAPIError("simulated provider failure")
+    def fail_primary(*args, **kwargs):
+        raise RuntimeError("simulated provider failure")
 
-    monkeypatch.setattr(chatbot_module, "run_chat_with_openai_tools", fail_openai)
+    monkeypatch.setattr(chatbot_module, "run_chat_with_tools", fail_primary)
     monkeypatch.setattr(
         chatbot_module,
-        "run_chat_with_tools",
-        lambda *args, **kwargs: ("Haiku recovered the turn.", []),
+        "run_chat_with_openai_tools",
+        lambda *args, **kwargs: ("Luna recovered the turn.", []),
     )
     monkeypatch.setattr(
         chatbot_module,
@@ -576,14 +573,14 @@ def test_chat_route_retries_haiku_when_luna_fails(monkeypatch, caplog):
         response = chatbot_module.chat.__wrapped__()
 
     payload = response.get_json()
-    assert payload["reply"] == "Haiku recovered the turn."
+    assert payload["reply"] == "Luna recovered the turn."
     assert payload["actions"] == []
     assert len(payload["turn_id"]) == 32
     assert isinstance(payload["suggestions"], list)
-    assert seen == {"provider": "anthropic_fallback", "response": "Haiku recovered the turn."}
-    assert "primary_provider=openai" in caplog.text
-    assert "primary_model=gpt-5.6-luna" in caplog.text
-    assert "fallback_model=claude-haiku-4-5-20251001" in caplog.text
+    assert seen == {"provider": "openai_fallback", "response": "Luna recovered the turn."}
+    assert "primary_provider=anthropic" in caplog.text
+    assert "primary_model=claude-haiku-5-5" in caplog.text
+    assert "fallback_model=gpt-5.6-luna" in caplog.text
     assert "category=adapter_error" in caplog.text
     assert "simulated provider failure" not in caplog.text
 

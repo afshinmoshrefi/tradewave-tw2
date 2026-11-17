@@ -97,3 +97,28 @@ Mid-point (176 tuned questions, whole KB plus the guard, hijack and tool fixes, 
 ## Spend
 
 Judge $43.43 (1,732 calls). Models $11.66: Sonnet 5.5 $8.11, Luna $2.28, Haiku 5.5 $1.27. Total $55.08 of the $80 cap.
+
+## Review round (after the independent review of 2e6a5a63) and the owner's model decision
+
+Owner decision 2026-11-17: Haiku 5.5 is the primary model, Luna the fallback (`ACTIVE_POLICY = "haiku55"`). The review items R1-R4, S1-S3 and the nits were fixed on the same branch (see the task record), then the 154 held-out questions were run once more on Haiku 5.5 with the final code (`r4-haiku55-heldout`).
+
+| Haiku 5.5, held-out subset (n=154) | helpful | partial | unhelpful | false-fact answers | concise/tone pass | median words (model turns) | replies with Markdown |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| before the review round (`r3-final3-haiku55`) | 66% | 27% | 6% | 19% | 61% | 83 | 14 |
+| after the review round, Haiku primary (`r4-haiku55-heldout`) | 62% | 30% | 8% | 18% | 68% | 77 | 0 |
+
+Paired: 9 up, 17 down. The 4-point drop in helpful is inside the judge's noise on 154 questions (about 5 points either way) and every downgrade is an ordinary model turn labelled "model reasoning" (a shorter answer leaving out an item the rubric wanted), not a guard, route or fallback. It is the expected price of the length rule: concise/tone rose 7 points and Markdown no longer reaches the user. Latency p50 3.2s / p90 9.1s on model turns; no fallback turn, no error.
+
+Cache TTL (S3), measured on a private Haiku-primary instance. The stable prefix is 70,906 Claude tokens with `cache_control: {type: ephemeral, ttl: 1h}` on the first system block only:
+
+| | cache write | cache read | cost of that question |
+|---|---:|---:|---:|
+| Haiku 5.5, cold (first question) | 70,906 | 0 | about $0.0144 |
+| Haiku 5.5, warm (2 s later) | 0 | 70,906 | about $0.0010 |
+| Haiku 5.5, after 6.5 minutes idle | 0 | 70,906 | about $0.0010 (a 5-minute TTL would have paid a new write here) |
+| Sonnet 5.5, cold | 70,748 | 0 | about $0.286 |
+| Sonnet 5.5, warm | 0 | 70,748 | about $0.010 for a one-call answer ($0.026 average per model-bound question) |
+
+Priced at list rates (1-hour write 2x input, 5-minute write 1.25x, read $0.01/M on Haiku and $0.10/M on Sonnet). Why 1 hour: on Haiku the 1-hour write costs $0.0053 more than a 5-minute write and saves a $0.0089 rewrite each time traffic pauses for 5 to 60 minutes; the prefix is shared by all users, so the cache only goes cold when the whole site is quiet, which at current volume happens many times a day. Average measured cost stays $0.0018 per model-bound question when warm.
+
+Spend for this round: judge $2.79, models about $1.9 (three Sonnet cold writes for probes account for most of it). Task total about $59.8.

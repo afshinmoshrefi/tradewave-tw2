@@ -4905,6 +4905,46 @@ _SHAPED_VERB = (
     r"(?:buy|sell|short|invest|take\s+profits?|get\s+(?:in|out)|go\s+(?:long|short)|"
     r"add\s+to|hold|trade)"
 )
+# A verdict asked for in one word ("is this pattern a buy?", "buy or pass?", "bullish
+# enough to go in? yes or no") is the same request for a recommendation.
+_VERDICT_ASK_PATTERN = re.compile(
+    r"\b(?:is|was|isn['\u2019]?t)\s+(?:this|that|it|the)\s*(?:pattern|setup|trade|stock|etf|one|"
+    r"window|opportunity)?\s+(?:a\s+|an\s+)?(?:(?:good|strong|clear|solid)\s+)?"
+    r"(?:buy|sell|go|pass|hold)\b"
+    r"|\b(?:buy|sell|go(?:\s+in)?|enter|trade\s+it)\s+or\s+"
+    r"(?:pass|skip|wait|avoid|not|sell|hold|stay\s+out)\b"
+    r"|\b(?:pass|skip)\s+or\s+(?:buy|play|trade|go)\b"
+    r"|\b(?:enough|ready|safe|ok(?:ay)?|good)\s+to\s+(?:go\s+in|get\s+in|jump\s+in|enter|buy|"
+    r"pull\s+the\s+trigger)\b"
+    r"|\b(?:go|get|jump)\s+in\b[^.?!]{0,40}\b(?:yes\s+or\s+no|one\s+word)\b"
+    r"|\b(?:yes\s+or\s+no|one[-\s]word|thumbs\s+up\s+or\s+down)\b[^.?!]{0,60}\b"
+    r"(?:buy|sell|short|trade|go\s+in|get\s+in|enter|take\s+it|worth\s+it)\b"
+    r"|\b(?:buy|sell|short|trade|go\s+in|get\s+in|enter|take\s+it|worth\s+it|bullish|bearish)\b"
+    r"[^.!]{0,60}\b(?:yes\s+or\s+no|one[-\s]word|thumbs\s+up\s+or\s+down)\b",
+    re.I,
+)
+_BARE_VERDICT_PATTERN = re.compile(
+    r"^\W*(?:yes|no|yep|yeah|nope|buy|sell|pass|hold|short|long|skip|wait|avoid|go(?:\s+(?:in|long|short|for\s+it))?|"
+    r"stay\s+out|bullish|bearish|do\s+it|don['\u2019]?t)\b[\s\W]*(?:(?:it|this|that|now|in|on\s+this)\b[\s\W]*){0,2}$",
+    re.I,
+)
+
+
+def reply_is_bare_verdict(message: Any, reply: Any) -> bool:
+    """A yes/no/buy/sell/pass with nothing behind it, given to a question about a trade."""
+
+    if not isinstance(reply, str) or not is_advice_shaped_question(message):
+        return False
+    plain = _plain_reply(reply)
+    plain = plain.replace(DISCLAIMER_TEXT, " ")
+    plain = _EQUIVALENT_DISCLAIMER_PATTERN.sub(" ", plain) if plain.strip() else plain
+    if len(plain.split()) < 3 and not _BARE_VERDICT_PATTERN.match(plain.strip() or "x"):
+        # Nothing but the disclaimer (or nothing at all) is not an answer either.
+        return not _FAILED_REPLY_PATTERN.search(_plain_reply(reply))
+    first = re.split(r"(?<=[.!?])\s+", plain.strip(), maxsplit=1)[0] if plain.strip() else ""
+    return bool(first) and bool(_BARE_VERDICT_PATTERN.match(first)) and len(plain.split()) <= 12
+
+
 _ADVICE_SHAPED_PATTERN = re.compile(
     # "should I/we/my wife ... buy|sell|hold ..." - a decision the user wants made
     r"\b(?:should|shall|must)\s+(?:i|we|my\s+\w+|someone)\s+(?:\w+\s+){0,3}?" + _SHAPED_VERB + r"\b|"
@@ -4947,7 +4987,8 @@ def is_advice_shaped_question(message: Any) -> bool:
     text = _trade_question_text(message)
     return bool(
         text.strip()
-        and (_is_trade_advice_request(text) or _ADVICE_SHAPED_PATTERN.search(text))
+        and (_is_trade_advice_request(text) or _ADVICE_SHAPED_PATTERN.search(text)
+             or _VERDICT_ASK_PATTERN.search(text))
     )
 
 
@@ -5266,6 +5307,27 @@ _SECOND_QUESTION_RE = re.compile(
     r"(?:can|could|is|are|do|does|did|how|why|what|when|where|which|should|would|will|also)\b",
     re.I,
 )
+
+
+_SECOND_REQUEST_RE = re.compile(
+    r"\b(?:and|also|then|plus)\s+(?:please\s+)?(?:tell|explain|show|describe|what|why|how|is|are|"
+    r"does|do|can|turn|switch|open|load|compare|give|list|analy[sz]e)\b",
+    re.I,
+)
+
+
+def is_multi_part_request(message: Any) -> bool:
+    """A turn that asks for two things ("switch to the price chart and tell me ...").
+
+    A one-action deterministic command answers only its own half, so these go to the
+    model, which can fire the view action AND answer the rest.
+    """
+
+    text = str(message or "").strip()
+    if not text:
+        return False
+    second = _SECOND_QUESTION_RE.search(text) or _SECOND_REQUEST_RE.search(text)
+    return bool(second and second.start() >= 8)
 
 
 def question_exceeds_canned_scope(message: Any) -> bool:

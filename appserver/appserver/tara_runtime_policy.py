@@ -10,7 +10,7 @@ dispatches on the provider, so no other file changes.  ``tests/test_tara_runtime
 pins the active policy on purpose; update it in the same commit as the switch.
 """
 
-POLICY_VERSION = "tara-model-policy-v2"
+POLICY_VERSION = "tara-model-policy-v3"
 
 # (primary provider, primary model, fallback provider, fallback model)
 POLICIES = {
@@ -19,7 +19,7 @@ POLICIES = {
     "sonnet55": ("anthropic", "claude-sonnet-5-5", "openai", "gpt-5.6-luna"),
 }
 
-ACTIVE_POLICY = "luna"
+ACTIVE_POLICY = "haiku55"
 
 PRIMARY_PROVIDER, PRIMARY_MODEL, FALLBACK_PROVIDER, FALLBACK_MODEL = POLICIES[ACTIVE_POLICY]
 

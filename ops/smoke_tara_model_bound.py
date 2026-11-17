@@ -4,6 +4,7 @@
 import datetime
 import json
 import os
+import sys
 from pathlib import Path
 
 import jwt
@@ -70,11 +71,17 @@ def main():
             if entry.get("user_id") == USER_ID and entry.get("question") == MESSAGE:
                 provider = entry.get("provider")
                 break
-    if provider != "openai":
-        raise SystemExit(f"FAIL: expected live provider=openai, got {provider!r}")
+    # The expected provider is the release policy's primary; a fallback answer
+    # ("<provider>_fallback") fails the smoke.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "appserver" / "appserver"))
+    import tara_runtime_policy as policy
+    policy.validate_policy()
+    if provider != policy.PRIMARY_PROVIDER:
+        raise SystemExit(
+            f"FAIL: expected live provider={policy.PRIMARY_PROVIDER}, got {provider!r}")
     print(f"tara-model-http={response.status_code}")
-    print("tara-model-provider=openai")
-    print("tara-model=gpt-5.6-luna")
+    print(f"tara-model-provider={policy.PRIMARY_PROVIDER}")
+    print(f"tara-model={policy.PRIMARY_MODEL}")
     print("tara-model-actions=none")
 
 

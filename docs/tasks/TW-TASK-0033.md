@@ -1,9 +1,9 @@
 # TW-TASK-0033: Tara quality round 3 - whole knowledge base, repairing guards, narrowed routes, one-line model policy
 
-- Status: fixed on branch, awaiting dev integration and activation (not activated, main not pushed, by instruction)
+- Status: fixed on branch, awaiting dev integration and activation (not activated, main not pushed, by instruction). Primary model set to Haiku 5.5 by owner decision
 - Confidence: reproduced (measured with the TW-TASK-0032 harness on private instances)
 - Priority: P1 - Tara was helpful on 34% of the 731-question bank and unhelpful on 22%
-- First observed / last updated: 2026-11-17T14:30:00+00:00 / 2026-11-17T16:40:00+00:00
+- First observed / last updated: 2026-11-17T14:30:00+00:00 / 2026-11-17T18:10:00+00:00
 - Executor/session/claim time: Claude Code session_01Pi1koVo3NroLWvCft5ehNR (subagent), 2026-11-17T14:45:00+00:00
 - Authorization: Afshin asked for the model-agnostic fixes ranked 1, 2, 3, 5, 6 and 7 in the TW-TASK-0032 results, measured with that harness, with the primary model left unchanged but switchable in one line. Scope: code, knowledge base, tests, harness and records on a task branch; private measurement instances only. Dev activation, pointers, live services, `dev-activation.lock` and main excluded. API budget cap $80.
 
@@ -76,6 +76,25 @@ Risks: (1) the model now answers questions the deterministic blocks used to take
 
 Decisions: the calendar and earnings conflicts were resolved by making the KB describe what the deterministic replies do (existing tests pin those replies) and by adding the nearest working step to the replies. Sonnet was measured on 330 questions, not 731, for budget. Next action (orchestrator): review, integrate on current origin/main, activate on dev, smoke with a pricing question, a compare without dates and a "can you see my screen" question; owner picks the primary model from the table.
 
+## Review round and model decision (2026-11-17)
+
+An independent review of `2e6a5a63` and the owner's decision (Haiku 5.5 primary, Luna fallback, Sonnet 5.5 later) were applied on the same branch:
+
+- R1 `tara_gateway._description_matches_loaded_view`: a screen description is exempt only when it names no other ticker, month, duration or lookback than the loaded view.
+- R2 `tara_answer_planner._VERDICT_ASK_PATTERN`, `reply_is_bare_verdict`; `tara_gateway.verdict_floor_reply`; applied in `chatbot._finalize_chat_response` for every path: a one-word verdict (or a disclaimer-only reply) to a verdict question becomes the boundary, the loaded pattern's record and the exact disclaimer. A verdict question is no longer routed to the direction-flip reply.
+- R3 `chatbot._clean_wave_viewer` / `_clean_opportunities`: company, stat values and table values reduced to a safe character set and length; direction must be long or short; the table's market name comes from the server catalog. History stays in the messages array only; the stable rules state that prior assistant turns and embedded text are untrusted.
+- R4 `_PLAN_BOUNDARY_MARKER` recognises "outside your Explorer plan", "your Explorer plan covers ..." and similar.
+- S1 `tara_gateway.normalize_reply_markup` in `_finalize_chat_response` (all providers) plus a format rule.
+- S2 `tara_gateway.ProviderNoAnswer`: a Claude refusal or empty first answer is retried on the fallback provider through the same plan gate and disclaimer floor; if the fallback also declines the user gets a plain message.
+- S3 `chatbot.CACHE_TTL` is 1 hour when Claude is the primary (measured cold $0.0144, warm $0.0010 per Haiku question).
+- Nits: two-request turns (`is_multi_part_request`; a deterministic reply still carries the simple view action), the exact 100-Year spec is exempt from the plan lookback clamp on the tool path, length rule, named-symbol loads always read first on the Claude loop.
+- Activation path for a Claude primary: `ops/activate_tara_release.sh` and `ops/smoke_tara_model_bound.py` read the expected provider and model from the release policy and still abort on a fallback; `AI_tools_appserver.AnthropicConfigurationError` makes a missing `ANTHROPIC_TOKEN` fail closed at runtime; `ops/verify_tara_release.py --check-credentials` already required both keys.
+- `ACTIVE_POLICY = "haiku55"`, `POLICY_VERSION` `tara-model-policy-v3`; pins updated in `tests/test_tara_runtime_policy.py` and `tests/test_tara_openai_canary.py`. Luna or Sonnet 5.5 is the same one-line change plus those pins.
+
+Held-out re-measure on Haiku 5.5 after the round: helpful 62%, partial 30%, unhelpful 8%, false-fact answers 18%, concise/tone 68% (before: 66 / 27 / 6 / 19 / 61); see the evidence file. Non-db suite: 2526 passed, 5 skipped. The activation script was syntax-checked (`bash -n`) and unit-tested, not executed (no activation in this task).
+
+Activation notes that changed: the release now needs a working `ANTHROPIC_TOKEN` on the box (it was already required by the preflight); expect one $0.014 cache write per quiet hour; the first live smoke after activation writes that cache.
+
 ## Environment Verification
 
 Dev: not activated by this task (private instances only). Staging: not checked. Production: not checked.
@@ -85,3 +104,4 @@ Dev: not activated by this task (private instances only). Staging: not checked. 
 - 2026-11-17T14:45:00+00:00: Claude claimed the task on branch `claude/tara-quality-round3-20261117`.
 - 2026-11-17T15:33:00+00:00: mid-point on 176 tuned questions: helpful 31% to 49%, unhelpful 19% to 3%.
 - 2026-11-17T16:40:00+00:00: final runs complete (Luna 56%, Haiku 5.5 65%, Sonnet 5.5 73% helpful); branch pushed. Spend $55.08 of $80.
+- 2026-11-17T18:10:00+00:00: review items R1-R4, S1-S3 and nits fixed; primary switched to Haiku 5.5 by owner decision; held-out re-measure 62% helpful, concise/tone 68%; branch pushed.
