@@ -46,3 +46,5 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0027](TW-TASK-0027.md) | verified on dev | Learn section expanded for search: 19 new guides, two YouTube videos, categories and structured data |
 
 | [TW-TASK-0028](TW-TASK-0028.md) | verified on dev | Michael's 20 Tara research questions: grounded knowledge, routing and capability boundaries |
+
+| [TW-TASK-0029](TW-TASK-0029.md) | fixed on branch | Tara knowledge base cleanup: act-versus-click consistency, verified UI facts, account links, research-workflow tone |
