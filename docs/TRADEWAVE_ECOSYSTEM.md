@@ -2502,7 +2502,8 @@ AI-entitlement, date-lock and disclaimer sentences and engine links are restored
 the suitability boundary, the investor funnel, replies that are only a plan / AI-entitlement / date-lock
 notice, table row loads and one-action view commands. The engine replies inside both provider loops
 (investor screens, weak-symbol study, live-data boundary, exclusion-report notice) go through the same
-path (`_intent_prelude`). `tara_gateway.DRAFT_REWRITE_ENABLED = False` restores the engine replies
+path (`_intent_prelude`). `tara_gateway.DRAFT_REWRITE_ENABLED` is **False by default** (independent
+review of 8ff5a607: the rewrite stays off until its redesign is re-reviewed), which sends the engine replies
 exactly; `tests/conftest.py` runs the older route tests that way and `@pytest.mark.tara_draft_rewrite`
 turns the rewrite on.
 

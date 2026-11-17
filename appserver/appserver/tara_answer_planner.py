@@ -5092,10 +5092,18 @@ def is_advice_shaped_question(message: Any) -> bool:
     return bool(
         text.strip()
         and (_is_trade_advice_request(text) or _ADVICE_SHAPED_PATTERN.search(text)
-             or _VERDICT_ASK_PATTERN.search(text))
+             or _VERDICT_ASK_PATTERN.search(text) or _PRICE_LEVEL_ASK_PATTERN.search(text))
     )
 
 
+# "what exit price gives the best result", "which stop level works best": a request for a
+# price level to act on is advice-shaped whether or not a pattern is loaded.
+_PRICE_LEVEL_ASK_PATTERN = re.compile(
+    r"\b(?:what|which|where|when)\b[^.?!]{0,30}\b(?:exit|entry|stop(?:[-\s]loss)?|target|sell|buy)"
+    r"\s+(?:price|level|point)s?\b"
+    r"|\b(?:best|optimal|ideal)\s+(?:exit|entry|stop(?:[-\s]loss)?|target)\s+(?:price|level|point)\b",
+    re.I,
+)
 _EQUIVALENT_DISCLAIMER_PATTERN = re.compile(
     r"past\s+performance\b[^.]{0,80}\b(?:guarantee|indicat\w+|predict\w*|assur\w+)", re.I
 )

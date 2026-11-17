@@ -1,6 +1,6 @@
 # TW-TASK-0035: Tara on Claude Haiku 5.5 - steps 1 to 6 of the Haiku-80 plan
 
-- Status: fixed on branch, awaiting dev activation (not activated, main not pushed, by instruction). Measured: tuned 75.9% to 79.9% helpful, held-out 70.5% to 75.0% (two-run means), unhelpful 2.1% tuned and 2.6% held-out, false-fact answers down on both
+- Status: phase A fixed on branch and ready for dev activation with the engine-draft rewrite OFF (`tara_gateway.DRAFT_REWRITE_ENABLED = False`, the default since the independent review of 8ff5a607 found the rewrite's number guard too weak); phase B (rewrite redesign) in progress and stays off until re-reviewed. Figures below were measured with the rewrite ON at 8ff5a607. Measured: tuned 75.9% to 79.9% helpful, held-out 70.5% to 75.0% (two-run means), unhelpful 2.1% tuned and 2.6% held-out, false-fact answers down on both
 - Confidence: reproduced (measured with the TW-TASK-0032 harness, judge v3 and the TW-TASK-0036 bank, on a private instance)
 - Priority: P1 - the owner chose Haiku 5.5 for cost; the target is at least 80% helpful, at most 3% unhelpful, no more false facts
 - First observed / last updated: 2026-11-17T19:25:00+00:00 / 2026-11-17T21:30:00+00:00
@@ -86,3 +86,4 @@ Dev: not activated (by instruction); measured on a private instance on port 5087
 - 2026-11-17T19:25:00+00:00, Claude Code session_01Pi1koVo3NroLWvCft5ehNR: claimed; branch and worktree created from origin/main e2294724; plan branch merged.
 - 2026-11-17T20:05:00+00:00, same session: coordinator relayed the TW-TASK-0036 referee result; branch merged; all measurements from here use judge v3 and the revised bank; five KB-versus-code items verified and fixed.
 - 2026-11-17T21:30:00+00:00, same session: steps 1 to 6 implemented and measured; final full-bank and held-out runs recorded in the results file; branch pushed.
+- 2026-11-17T21:50:00+00:00, same session: independent review of 8ff5a607 returned NO-GO with the rewrite on and GO with it off. Phase A: rewrite off by default; rendered rows print the engine's Sharpe (not the one-decimal headline copy) and say "avg short-side return" on short rows; "10 to 20 day holds" is a range; a price-level ask gets the exact disclaimer with or without a loaded pattern; a bare coin code or name is read as the listed crypto pair and an empty symbol read is explained as what happened. Phase B (rewrite may only add a lead sentence; every draft statistic stays verbatim) follows on the same branch.

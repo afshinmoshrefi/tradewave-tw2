@@ -319,7 +319,7 @@ def _mini(item):
 
 # Result-level notices that change how the rows must be described. They survive every
 # trimming step: dropping them is how a substitution becomes silent.
-_RESULT_NOTICE_KEYS = ("ai_scores", "threshold_adjusted", "detector_note", "symbol_note",
+_RESULT_NOTICE_KEYS = ("ai_scores", "threshold_adjusted", "detector_note", "symbol_note", "read_note",
                        "pattern_list_note", "date_lock_note", "lookback_note")
 
 
@@ -4675,6 +4675,17 @@ def _is_no_detected_setup(out):
 _DEFAULT_PLAIN_WINDOW_DAYS = 30
 
 
+def _is_empty_read(out):
+    """A symbol read that came back as a card with no record and no statistics at all."""
+
+    card = out.get("card") if isinstance(out, dict) else None
+    if not isinstance(card, dict) or out.get("error"):
+        return False
+    stats = card.get("stats") if isinstance(card.get("stats"), dict) else {}
+    return _card_headline_stats(card) is None and all(
+        stats.get(key) is None for key in ("avg_return_pct", "historical_win_rate", "sharpe_ratio"))
+
+
 def _analyze_with_recoveries(inp, user_id, user_token, turn_notes):
     """analyze_symbol with two recoveries: a USD-pair alias and a plain-window study.
 
@@ -4705,6 +4716,22 @@ def _analyze_with_recoveries(inp, user_id, user_token, turn_notes):
         if alias:
             inp["symbol"], inp["market"] = alias["symbol"], alias["market"]
             out = run_tool("analyze_symbol", inp, user_id)
+    if alias is None and not inp.get("market") and _is_empty_read(out) and (
+            crypto := _crypto_pair_alias(original, user_token)):
+        # A bare coin code (BTC) is not a stock: the stock lookup comes back with a card
+        # that has no statistics. Read the listed crypto pair instead and say so.
+        alias = crypto
+        inp["symbol"], inp["market"] = alias["symbol"], alias["market"]
+        out = run_tool("analyze_symbol", inp, user_id)
+    if _is_empty_read(out):
+        # Say what happened. An empty card is "TradeWave has no study for this symbol
+        # here", never "it has no completed years yet".
+        out = dict(out)
+        out["read_note"] = (
+            "TradeWave returned no statistics for %s on these dates: the symbol was not found "
+            "with usable history in the market that was searched. Say exactly that; do not say "
+            "it has no completed years, and do not quote a record for it."
+            % str(inp.get("symbol") or original).upper())
     pinned = bool(inp.get("entry_date") or inp.get("period") or inp.get("reverse"))
     detector_note = None
     if _is_no_detected_setup(out) and not pinned:
@@ -5650,10 +5677,18 @@ def _scan_row_line(index, card):
             "fell" if direction == "short" else "profitable", wins, years))
     avg = _numeric_stat(stats.get("avg_return_pct"), percent=True) if isinstance(stats, dict) else None
     if avg is not None:
-        pieces.append("avg %+.1f%%" % avg)
-    sharpe = _card_sharpe(card)
+        # Same wording as the research route: a short row's figure is the short-side return.
+        pieces.append(("avg short-side return %+.1f%%" if direction == "short"
+                       else "avg return %+.1f%%") % avg)
+    # The engine's own Sharpe, at the precision it was given. The headline carries a
+    # one-decimal copy (1.4 for 1.43), which must never be printed as 1.40.
+    sharpe = _numeric_stat(stats.get("sharpe_ratio")) if isinstance(stats, dict) else None
     if sharpe is not None:
         pieces.append("Sharpe %.2f" % sharpe)
+    else:
+        headline_sharpe = _card_sharpe(card)
+        if headline_sharpe is not None:
+            pieces.append("Sharpe %s" % ("%.2f" % headline_sharpe).rstrip("0").rstrip("."))
     ai = card.get("ai") if isinstance(card.get("ai"), dict) else {}
     for key, label, pattern in (("ai_win_prob_pct", "AI Win%", "%s%%"), ("ais", "AIS", "%s"),
                                 ("pred_return_pct", "PredR", "%s%%")):
@@ -5835,7 +5870,7 @@ def _draft_row_block(draft):
 # --------------------------------------------------------------------------
 # Release-owned switch (no environment override). False sends every engine route's reply
 # exactly as the engine wrote it, which is also what every guard failure falls back to.
-DRAFT_REWRITE_ENABLED = True
+DRAFT_REWRITE_ENABLED = False
 _DRAFT_REWRITE_MAX_CHARS = 1100
 _DRAFT_FREE_INTEGERS = frozenset({"0", "1", "2", "3"})
 _DRAFT_NUMBER_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")

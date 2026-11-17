@@ -271,8 +271,9 @@ def test_scan_result_carries_a_rendered_list_and_its_token_expands():
     rendered = out["rendered_list"]
     assert rendered["token"] == "[[TW_LIST_1]]" and rendered["rows_available"] == 2
     assert lists[0][0] == ("1. <b>HLT</b> long - Nov 18 to Feb 15 (90 days); profitable in "
-                           "10 of 10 years; avg +13.1%; Sharpe 3.14")
+                           "10 of 10 years; avg return +13.1%; Sharpe 3.14")
     assert "fell in 12 of 12 years" in lists[0][1] and "Dec 2 to Dec 19 (18 days)" in lists[0][1]
+    assert "avg short-side return +4.1%" in lists[0][1]          # same wording as the research route
     text = tg._expand_rendered_lists("Two setups:<br>[[TW_LIST_1:1]]<br>[[TW_LIST_7]]end", lists)
     assert lists[0][0] in text and lists[0][1] not in text and "TW_LIST" not in text
 
@@ -525,3 +526,102 @@ def test_sector_screen_uses_a_stock_group_the_plan_includes(monkeypatch):
     asked.clear()
     tg.build_sector_screen_command("Which tech stocks tend to rise this time of year?", "t")
     assert asked == ["Which NASDAQ 100 stocks tend to rise this time of year?"]
+
+
+# ---------------------------------------------------------------------------
+# Review of 8ff5a607 (phase A): rendered values are the engine's values
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("symbol,direction,wins,years,avg,sharpe,headline_sharpe", [
+    ("FICO", "long", 10, 10, 4.4, 1.43, "1.4"),
+    ("MAR", "long", 10, 10, 12.2, 1.84, "1.8"),
+    ("GOOGL", "long", 9, 10, 9.5, 1.48, "1.5"),
+    ("AMCR", "short", 8, 10, 2.1, 0.06, "0.1"),
+])
+def test_rendered_row_fields_equal_the_engine_values(symbol, direction, wins, years, avg, sharpe,
+                                                    headline_sharpe):
+    card = {
+        "symbol": symbol, "direction": direction,
+        "headline": "%s %s - Won %d/%d years, avg %+.1f%%, Sharpe %s." % (
+            symbol, direction, wins, years, avg, headline_sharpe),
+        "stats": {"avg_return_pct": avg, "sharpe_ratio": sharpe,
+                  "historical_win_rate": wins / years, "years": str(years)},
+        "setup": {"entry_date": "2026-11-17", "hold_days": 19},
+    }
+    line = re.sub(r"<[^>]+>", "", tg._scan_row_line(1, card))
+    assert line.startswith("1. %s %s - Nov 17 to Dec 5 (19 days); " % (symbol, direction))
+    assert "%s in %d of %d years" % ("fell" if direction == "short" else "profitable", wins, years) in line
+    assert ("avg short-side return %+.1f%%" if direction == "short" else "avg return %+.1f%%") % avg in line
+    # The engine's Sharpe at the engine's precision - never the headline's one-decimal copy.
+    assert line.endswith("Sharpe %.2f" % sharpe)
+    assert "Sharpe %s0" % headline_sharpe not in line or "%.2f" % sharpe == headline_sharpe + "0"
+
+
+def test_headline_only_sharpe_is_not_padded_to_two_decimals():
+    card = {"symbol": "XYZ", "direction": "long", "headline": "XYZ long - Won 9/10 years, avg +3.0%, Sharpe 1.4.",
+            "stats": {"avg_return_pct": 3.0}, "setup": {"entry_date": "2026-11-17", "hold_days": 19}}
+    assert tg._scan_row_line(1, card).endswith("Sharpe 1.4")
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("which russell 1000 stocks have bearish 10 to 20 day holds starting next week?", (10, 20)),
+    ("best nasdaq setups with 5-10 day windows", (5, 10)),
+    ("top dow stocks, 20-day holds", (20, 20)),
+    ("hold for at least 10 days", (10, 367)),
+])
+def test_hold_range_is_a_range(text, expected):
+    assert research._hold_filter(text) == expected
+
+
+@pytest.mark.parametrize("question", [
+    "what exit price gives the best result",
+    "which stop level works best here",
+    "what is the best entry price for this",
+])
+def test_price_level_asks_get_the_exact_disclaimer_with_or_without_a_pattern(question):
+    assert planner.is_advice_shaped_question(question)
+    reply = planner.ensure_required_disclaimer(
+        question, "TradeWave measures a fixed calendar window, so the exit is a date, not a price.")
+    assert reply.endswith(planner.DISCLAIMER_TEXT) or tg.DISCLAIMER_TEXT in reply
+    assert not planner.is_advice_shaped_question("what does exit price mean")
+
+
+def test_empty_symbol_read_is_explained_as_what_happened(monkeypatch):
+    empty = {"card": {"symbol": "ZZZ", "direction": "long",
+                      "headline": "ZZZ long - no high-conviction seasonal edge right now.",
+                      "stats": {"avg_return_pct": None, "historical_win_rate": None,
+                                "sharpe_ratio": None, "years": "10"},
+                      "setup": {"entry_date": "2026-10-01", "hold_days": 92}}}
+    coin = {"card": {"symbol": "BTC-USD", "direction": "long",
+                     "headline": "BTC-USD long - Won 5/10 years, avg +46.5%",
+                     "stats": {"avg_return_pct": 46.5, "sharpe_ratio": 0.5, "years": "10"},
+                     "setup": {"entry_date": "2026-10-01", "hold_days": 92}}}
+    calls = []
+
+    def run_tool(name, inp, user_id):
+        calls.append(dict(inp))
+        return coin if inp.get("symbol") == "BTC-USD" else empty
+
+    monkeypatch.setattr(tg, "run_tool", run_tool)
+    monkeypatch.setattr(tg, "_metal_spot_alias", lambda inp, token: None)
+    monkeypatch.setattr(tg, "_crypto_pair_alias", lambda symbol, token: (
+        {"symbol": "BTC-USD", "market": "16", "label": "CRYPTO CURRENCIES", "name": "Bitcoin"}
+        if symbol == "BTC" else None))
+    notes = []
+    out, used = tg._analyze_with_recoveries({"symbol": "BTC", "period": "Q4"}, "u", "t", notes)
+    assert used["symbol"] == "BTC-USD" and used["market"] == "16"
+    assert out["card"]["symbol"] == "BTC-USD" and "read as BTC-USD" in out["symbol_note"]
+    out, _used = tg._analyze_with_recoveries({"symbol": "ZZZ", "period": "Q4"}, "u", "t", [])
+    assert "returned no statistics for ZZZ" in out["read_note"]
+    assert "do not say it has no completed years" in out["read_note"]
+    assert "read_note" in tg._RESULT_NOTICE_KEYS
+
+
+def test_coin_names_resolve_to_the_listed_pair():
+    named = {symbol: market for _pattern, symbol, market in research._NAMED_SECURITIES}
+    assert named["BTC-USD"] == "16" and named["ETH-USD"] == "16"
+
+
+def test_rewrite_is_off_by_default_until_re_reviewed():
+    source = (ROOT / "appserver/appserver/tara_gateway.py").read_text(encoding="utf-8")
+    assert "\nDRAFT_REWRITE_ENABLED = False\n" in source

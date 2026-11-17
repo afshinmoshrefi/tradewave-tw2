@@ -593,6 +593,13 @@ def _hold_filter(text):
     if match:
         low, high = sorted((int(match.group(1)), int(match.group(2))))
         return low, high
+    # "10 to 20 day holds", "5-10 day windows": a range, not the last number alone.
+    match = re.search(
+        r"\b(\d{1,3})\s*(?:-|to|and)\s*(\d{1,3})\s*-?\s*(?:calendar\s*-?\s*)?days?\s+"
+        r"(?:holds?|holding|windows?|patterns?|trades?|setups?)\b", lower)
+    if match:
+        low, high = sorted((int(match.group(1)), int(match.group(2))))
+        return low, high
     low = high = None
     match = re.search(
         r"\b(?:min(?:imum)?|at\s+least)\s+hold(?:ing)?(?:\s+(?:period|time|of))?\s+(\d{1,3})\s*d|"
@@ -1102,6 +1109,8 @@ _NAMED_SECURITIES = (
     (r"(?:crude\s+)?oil(?:\s+futures)?|crude(?:\s+futures)?", "CL", "7"),
     (r"silver(?:\s+futures)?", "SI", "7"),
     (r"natural\s+gas(?:\s+futures)?", "NG", "7"),
+    (r"bitcoin", "BTC-USD", "16"),
+    (r"ethereum", "ETH-USD", "16"),
 )
 _NAME_SUFFIXES = {
     "inc", "incorporated", "corp", "corporation", "co", "company", "ltd", "plc", "sa",
