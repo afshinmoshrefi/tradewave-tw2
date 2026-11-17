@@ -364,6 +364,10 @@ def _brief_card(c):
     return out
 
 
+_TRACK_RECORD_KEYS = ("count", "judged_count", "pending_count", "win_count", "win_rate",
+                      "avg_return_pct", "note")
+
+
 def _briefify(out):
     """Reduce a gateway read-tool result to the BRIEF shape Tara should narrate: keep
     symbol + headline + slim setup + key stats; drop the research-agent scaffolding and the
@@ -371,6 +375,13 @@ def _briefify(out):
     if not isinstance(out, dict):
         return out
     t = {k: v for k, v in out.items() if k not in ("track_record", "view", "as_of", "featured_date")}
+    # The daily pick's LIVE forward-tested record is engine-provided evidence the user
+    # asks about ("does the pick work?"); keep its summary figures, never the raw blob.
+    record = out.get("track_record")
+    if isinstance(record, dict):
+        live = {key: record[key] for key in _TRACK_RECORD_KEYS if record.get(key) is not None}
+        if live.get("judged_count") or live.get("count"):
+            t["live_track_record"] = live
     if isinstance(t.get("card"), dict):
         t["card"] = _brief_card(t["card"])
     if "symbol" in t and "headline" in t:          # the result itself IS a card
@@ -5513,7 +5524,13 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
     if name == "find_best_opportunities" and isinstance(out, dict) and not out.get("error"):
         if out.get("source") == "opportunity_table":
             # The table feed has no win record; read the engine's own for the shown rows.
-            _attach_win_records(out, out.get("market"), user_token, opp_table_years)
+            record_years = opp_table_years
+            if isinstance(user_years_cap, int) and user_years_cap > 0:
+                try:
+                    record_years = min(int(opp_table_years or 12), user_years_cap)
+                except (TypeError, ValueError):
+                    record_years = user_years_cap
+            _attach_win_records(out, out.get("market"), user_token, record_years)
         _register_rendered_list(out, rendered_lists)
     _index_cards(out, cards, card_list)
     if (
@@ -5689,6 +5706,53 @@ def _expand_rendered_lists(text, rendered_lists, draft_rows=None):
     return re.sub(r"^(?:\s*<br\s*/?>\s*)+|(?:\s*<br\s*/?>\s*)+$", "", expanded.strip(), flags=re.I)
 
 
+_TYPED_ROW_RE = re.compile(
+    r"\s*(?:\d{1,2}[.)]\s*|[\u2022\-\u2013*]\s*)?(?:<b>\s*)?([A-Z][A-Z0-9.\-=^]{0,14})(?![A-Za-z0-9])")
+
+
+def _enforce_rendered_rows(text, rendered_lists, draft_rows=None):
+    """Put the engine's rows where the model typed its own version of them.
+
+    When a reply has two or more list lines that each start with a symbol of a list the
+    engine rendered this turn, those lines are replaced by the engine rows for the same
+    symbols, in the engine's order. The model keeps its choice of rows; the dates, the
+    record, the averages and the order are the engine's.
+    """
+
+    by_symbol = {}
+    for rows in ([list(draft_rows)] if draft_rows else []) + list(rendered_lists or ()):
+        for position, row in enumerate(rows):
+            match = re.search(r"<b>\s*([A-Z][A-Z0-9.\-=^]{0,14})\s*</b>", row)
+            if match:
+                by_symbol.setdefault(match.group(1), (len(by_symbol), row))
+    if len(by_symbol) < 2 or not text:
+        return text
+    engine_rows = {row for _order, row in by_symbol.values()}
+    pieces = re.split(r"(<br\s*/?>)", text, flags=re.I)
+    typed = []
+    for index in range(0, len(pieces), 2):
+        piece = pieces[index]
+        if piece.strip() in engine_rows:
+            return text                       # the reply already shows engine rows
+        match = _TYPED_ROW_RE.match(piece)
+        if match and match.group(1) in by_symbol and re.search(r"\d", piece):
+            typed.append((index, match.group(1)))
+    if len(typed) < 2:
+        return text
+    wanted = sorted({symbol for _index, symbol in typed}, key=lambda symbol: by_symbol[symbol][0])
+    slots = [index for index, _symbol in typed]
+    for slot in slots:
+        pieces[slot] = by_symbol[wanted.pop(0)][1] if wanted else None
+    kept = []
+    for index, piece in enumerate(pieces):
+        if piece is None:
+            if kept and re.fullmatch(r"<br\s*/?>", kept[-1], flags=re.I):
+                kept.pop()
+            continue
+        kept.append(piece)
+    return "".join(kept)
+
+
 def _draft_row_block(draft):
     """(draft with the rows replaced by a token, row lines) for an engine draft with a list.
 
@@ -5806,8 +5870,9 @@ def draft_is_rewritable(reply, actions=None):
         return False
     if any(action.get("type") != "set_view" for action in actions or []):
         return False
-    if len(plain.split()) < 70 and _DRAFT_LOCKED_SENTENCE_RE.search(plain):
-        return False
+    if (len(plain.split()) < 70 and "%" not in plain
+            and _DRAFT_LOCKED_SENTENCE_RE.search(plain)):
+        return False                    # a notice with no engine statistics in it
     return True
 
 
@@ -5922,8 +5987,12 @@ def _accept_draft_rewrite(reply, actions, draft, seed_actions, evidence, number_
     """Return (reply, actions) for an accepted rewrite, or None to send the draft."""
 
     text = (reply or "").strip()
-    if not text or re.match(r"\s*I couldn't (?:send|complete|resolve)\b", _plain_text(text)):
+    if not text or re.search(r"\bI couldn't (?:send|complete|resolve)\b", _plain_text(text)):
+        # The loop ended on a fail-closed message; the engine's own answer is better.
         trace("draft_rewrite_rejected", reason="no_answer")
+        return None
+    if "TradeWave cannot determine whether this security is suitable for you" in _plain_text(text):
+        trace("draft_rewrite_rejected", reason="advice")      # the contract fallback replaced it
         return None
     _shown, rows = _draft_row_block(draft)
     engine_rows = set(rows) | set(known_rows or ())
@@ -6557,9 +6626,11 @@ def _claude_tool_turn(messages, system, user_id, model, cache_ttl="5m",
     return _finish_draft_or_reply(
         draft, seed_actions, evidence, number_sources, investor_intent, latest_user_text,
         trace, turn_notes, _finish_tool_reply(
-        _expand_rendered_lists(
-            final_text, rendered_lists,
-            _draft_row_block(draft)[1] if draft is not None else None),
+        _enforce_rendered_rows(
+            _expand_rendered_lists(
+                final_text, rendered_lists,
+                _draft_row_block(draft)[1] if draft is not None else None),
+            rendered_lists, _draft_row_block(draft)[1] if draft is not None else None),
         actions, cards, card_list,
         view_intent=view_intent,
         latest_user_text=latest_user_text,
@@ -6756,9 +6827,11 @@ def _openai_tool_turn(messages, system, user_id, model,
     return _finish_draft_or_reply(
         draft, seed_actions, evidence, number_sources, investor_intent, latest_user_text,
         trace, turn_notes, _finish_tool_reply(
-        _expand_rendered_lists(
-            final_text, rendered_lists,
-            _draft_row_block(draft)[1] if draft is not None else None),
+        _enforce_rendered_rows(
+            _expand_rendered_lists(
+                final_text, rendered_lists,
+                _draft_row_block(draft)[1] if draft is not None else None),
+            rendered_lists, _draft_row_block(draft)[1] if draft is not None else None),
         actions, cards, card_list,
         view_intent=view_intent,
         latest_user_text=latest_user_text,
