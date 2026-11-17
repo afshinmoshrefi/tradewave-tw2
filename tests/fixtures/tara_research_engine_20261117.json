@@ -1,0 +1,13106 @@
+{
+"levels": {
+"L1": {
+"chart": {
+"0|AAPL|2026-01-01|90|10|": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "23.33,23.4,-1.55",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-1.23,5.85,-11.34",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-7.71,0.0,-23.6",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "21.95,22.8,-4.05",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "11.73,21.53,-5.7",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "10.17,19.19,-0.29",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "1.8,4.42,-17.62",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "-2.8,5.23,-5.5",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "7.39,14.07,-3.79",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-1.25,7.91,-8.99",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"cut_off_year": 0,
+"days_out": 90,
+"entry_date": "2026-11-17",
+"market": "0",
+"pe_cycle": "cons",
+"symbol": "AAPL",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-3.25%",
+"Avg Profit": "12.73%",
+"Avg Profit - All": "6.34%",
+"Median Profit": "4.6%",
+"Num Losers": "4",
+"Num Winners": "6",
+"Percent Profitable": "60.0%",
+"Sharpe Ratio": "0.51",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"0|CAT|2026-11-17|63|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "1.43,4.98,-1.92",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "24.02,27.26,0.0",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "9.13,13.04,-7.85",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "2.29,4.85,-3.5",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "13.49,16.44,-0.7",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "13.25,13.52,-5.72",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "9.71,13.04,-2.12",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "11.39,18.23,-4.45",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "4.0,7.19,-9.02",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "14.21,18.77,-2.71",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 63,
+"entry_date": "2026-11-17",
+"market": "0",
+"pe_cycle": "cons",
+"symbol": "CAT",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "10.29%",
+"Avg Profit - All": "10.29%",
+"Median Profit": "10.55%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.43",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"0|CSCO|2026-11-17|27|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "1.8,1.96,-3.09",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "6.27,6.88,0.0",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "3.76,7.41,-3.52",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "0.33,1.99,-3.88",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "5.64,7.23,-2.65",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "3.26,4.84,-10.01",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "6.55,8.84,0.0",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "4.04,4.06,-0.44",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "2.29,5.1,-1.68",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "0.6,3.91,-3.16",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 27,
+"entry_date": "2026-11-17",
+"market": "0",
+"pe_cycle": "cons",
+"symbol": "CSCO",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "3.45%",
+"Avg Profit - All": "3.45%",
+"Median Profit": "3.51%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.42",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"0|GOOGL|2026-11-17|78|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "4.08,10.28,-4.17",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "8.04,15.65,-3.24",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "11.1,11.19,-4.84",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "12.33,13.69,-3.24",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "8.94,10.66,-3.84",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-0.03,2.36,-15.91",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "9.54,9.65,-13.73",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "5.22,13.65,-5.48",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "14.92,17.35,-6.62",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "20.66,21.06,-2.39",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 78,
+"entry_date": "2026-11-17",
+"market": "0",
+"pe_cycle": "cons",
+"symbol": "GOOGL",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-0.03%",
+"Avg Profit": "10.54%",
+"Avg Profit - All": "9.48%",
+"Median Profit": "9.24%",
+"Num Losers": "1",
+"Num Winners": "9",
+"Percent Profitable": "90.0%",
+"Sharpe Ratio": "1.48",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"0|UNH|2026-11-17|18|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "4.97,8.22,-1.47",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "5.84,10.79,-0.15",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "5.03,8.57,-2.92",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "2.34,3.69,-0.62",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-0.27,0.57,-6.52",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "2.82,3.19,-2.88",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "4.15,7.31,0.0",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "2.58,3.79,-1.42",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "3.59,5.63,-2.18",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "4.05,6.52,-4.99",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 18,
+"entry_date": "2026-11-17",
+"market": "0",
+"pe_cycle": "cons",
+"symbol": "UNH",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-0.27%",
+"Avg Profit": "3.93%",
+"Avg Profit - All": "3.51%",
+"Median Profit": "3.82%",
+"Num Losers": "1",
+"Num Winners": "9",
+"Percent Profitable": "90.0%",
+"Sharpe Ratio": "1.9",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"0|V|2026-11-17|87|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "6.62,7.09,-7.28",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "7.88,15.53,-2.93",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "4.48,8.13,-9.77",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "13.51,16.96,-0.73",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "0.13,4.59,-8.5",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "9.75,15.02,-7.3",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "8.69,11.05,-4.2",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "10.43,12.27,-1.59",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "12.54,12.99,-2.67",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "1.28,10.09,-2.38",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 87,
+"entry_date": "2026-11-17",
+"market": "0",
+"pe_cycle": "cons",
+"symbol": "V",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "7.53%",
+"Avg Profit - All": "7.53%",
+"Median Profit": "8.28%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.47",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|AAPL|2026-01-01|90|10|": {
+"payload": {
+"ChartData4": [],
+"request": null,
+"stats": {}
+},
+"status": 403
+},
+"5|SPX|2026-09-27|295|pe2-24|excursion_dates=1": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"entry_trade_date": "1930-09-29",
+"exit_trade_date": "1931-07-20",
+"high_date": "1930-10-01",
+"high_day": 5,
+"low_date": "1931-06-02",
+"low_day": 249,
+"pct": "-23.41,2.86,-35.38",
+"year": 1930
+},
+{
+"completed": true,
+"entry_trade_date": "1934-09-27",
+"exit_trade_date": "1935-07-18",
+"high_date": "1935-07-17",
+"high_day": 294,
+"low_date": "1935-03-14",
+"low_day": 169,
+"pct": "16.12,16.23,-12.2",
+"year": 1934
+},
+{
+"completed": true,
+"entry_trade_date": "1938-09-27",
+"exit_trade_date": "1939-07-18",
+"high_date": "1938-10-10",
+"high_day": 14,
+"low_date": "1939-04-11",
+"low_day": 197,
+"pct": "10.65,26.57,-5.19",
+"year": 1938
+},
+{
+"completed": true,
+"entry_trade_date": "1942-09-28",
+"exit_trade_date": "1943-07-19",
+"high_date": "1943-07-14",
+"high_day": 291,
+"low_date": "1942-09-29",
+"low_day": 3,
+"pct": "41.17,42.18,-0.45",
+"year": 1942
+},
+{
+"completed": true,
+"entry_trade_date": "1946-09-27",
+"exit_trade_date": "1947-07-18",
+"high_date": "1947-02-11",
+"high_day": 138,
+"low_date": "1947-05-19",
+"low_day": 235,
+"pct": "4.9,6.82,-8.87",
+"year": 1946
+},
+{
+"completed": true,
+"entry_trade_date": "1950-09-27",
+"exit_trade_date": "1951-07-18",
+"high_date": "1951-05-03",
+"high_day": 219,
+"low_date": "1950-12-04",
+"low_day": 69,
+"pct": "12.73,17.52,-2.11",
+"year": 1950
+},
+{
+"completed": true,
+"entry_trade_date": "1954-09-27",
+"exit_trade_date": "1955-07-18",
+"high_date": "1955-07-06",
+"high_day": 283,
+"low_date": "1954-10-29",
+"low_day": 33,
+"pct": "30.22,32.74,-2.61",
+"year": 1954
+},
+{
+"completed": true,
+"entry_trade_date": "1958-09-29",
+"exit_trade_date": "1959-07-20",
+"high_date": "1959-07-08",
+"high_day": 285,
+"low_date": "1958-09-29",
+"low_day": 3,
+"pct": "18.13,20.37,0.0",
+"year": 1958
+},
+{
+"completed": true,
+"entry_trade_date": "1962-09-27",
+"exit_trade_date": "1963-07-18",
+"high_date": "1963-06-03",
+"high_day": 250,
+"low_date": "1962-10-24",
+"low_day": 28,
+"pct": "22.81,27.74,-5.77",
+"year": 1962
+},
+{
+"completed": true,
+"entry_trade_date": "1966-09-27",
+"exit_trade_date": "1967-07-18",
+"high_date": "1967-05-09",
+"high_day": 225,
+"low_date": "1966-10-10",
+"low_day": 14,
+"pct": "19.72,21.96,-7.45",
+"year": 1966
+},
+{
+"completed": true,
+"entry_trade_date": "1970-09-28",
+"exit_trade_date": "1971-07-19",
+"high_date": "1971-04-28",
+"high_day": 214,
+"low_date": "1970-11-19",
+"low_day": 54,
+"pct": "17.9,25.85,-2.0",
+"year": 1970
+},
+{
+"completed": true,
+"entry_trade_date": "1974-09-27",
+"exit_trade_date": "1975-07-18",
+"high_date": "1975-07-15",
+"high_day": 292,
+"low_date": "1974-10-04",
+"low_day": 8,
+"pct": "43.52,48.72,-6.13",
+"year": 1974
+},
+{
+"completed": true,
+"entry_trade_date": "1978-09-27",
+"exit_trade_date": "1979-07-18",
+"high_date": "1978-10-12",
+"high_day": 16,
+"low_date": "1978-10-30",
+"low_day": 34,
+"pct": "0.03,4.5,-9.85",
+"year": 1978
+},
+{
+"completed": true,
+"entry_trade_date": "1982-09-27",
+"exit_trade_date": "1983-07-18",
+"high_date": "1983-06-22",
+"high_day": 269,
+"low_date": "1982-09-30",
+"low_day": 4,
+"pct": "32.62,38.81,-2.82",
+"year": 1982
+},
+{
+"completed": true,
+"entry_trade_date": "1986-09-29",
+"exit_trade_date": "1987-07-20",
+"high_date": "1987-07-17",
+"high_day": 294,
+"low_date": "1986-09-29",
+"low_day": 3,
+"pct": "35.44,36.83,0.0",
+"year": 1986
+},
+{
+"completed": true,
+"entry_trade_date": "1990-09-27",
+"exit_trade_date": "1991-07-18",
+"high_date": "1991-04-17",
+"high_day": 203,
+"low_date": "1990-10-11",
+"low_day": 15,
+"pct": "28.04,30.0,-2.15",
+"year": 1990
+},
+{
+"completed": true,
+"entry_trade_date": "1994-09-27",
+"exit_trade_date": "1995-07-18",
+"high_date": "1995-07-17",
+"high_day": 294,
+"low_date": "1994-12-09",
+"low_day": 74,
+"pct": "20.87,21.84,-4.15",
+"year": 1994
+},
+{
+"completed": true,
+"entry_trade_date": "1998-09-28",
+"exit_trade_date": "1999-07-19",
+"high_date": "1999-07-19",
+"high_day": 296,
+"low_date": "1998-10-08",
+"low_day": 12,
+"pct": "34.23,35.44,-11.95",
+"year": 1998
+},
+{
+"completed": true,
+"entry_trade_date": "2002-09-27",
+"exit_trade_date": "2003-07-18",
+"high_date": "2003-07-14",
+"high_day": 291,
+"low_date": "2002-10-10",
+"low_day": 14,
+"pct": "20.06,22.73,-7.1",
+"year": 2002
+},
+{
+"completed": true,
+"entry_trade_date": "2006-09-27",
+"exit_trade_date": "2007-07-18",
+"high_date": "2007-07-16",
+"high_day": 293,
+"low_date": "2006-10-03",
+"low_day": 7,
+"pct": "15.68,16.41,-0.71",
+"year": 2006
+},
+{
+"completed": true,
+"entry_trade_date": "2010-09-27",
+"exit_trade_date": "2011-07-18",
+"high_date": "2011-05-02",
+"high_day": 218,
+"low_date": "2010-10-04",
+"low_day": 8,
+"pct": "14.3,20.0,-0.9",
+"year": 2010
+},
+{
+"completed": true,
+"entry_trade_date": "2014-09-29",
+"exit_trade_date": "2015-07-20",
+"high_date": "2015-05-20",
+"high_day": 236,
+"low_date": "2014-10-15",
+"low_day": 19,
+"pct": "7.61,7.93,-7.95",
+"year": 2014
+},
+{
+"completed": true,
+"entry_trade_date": "2018-09-27",
+"exit_trade_date": "2019-07-18",
+"high_date": "2019-07-15",
+"high_day": 292,
+"low_date": "2018-12-26",
+"low_day": 91,
+"pct": "2.78,3.56,-19.47",
+"year": 2018
+},
+{
+"completed": true,
+"entry_trade_date": "2022-09-27",
+"exit_trade_date": "2023-07-18",
+"high_date": "2023-07-18",
+"high_day": 295,
+"low_date": "2022-10-13",
+"low_day": 17,
+"pct": "24.89,25.09,-4.27",
+"year": 2022
+},
+{
+"completed": false,
+"entry_trade_date": "2026-09-28",
+"exit_trade_date": "2026-11-16",
+"high_date": "2026-10-06",
+"high_day": 10,
+"low_date": "2026-11-05",
+"low_day": 40,
+"pct": "-3.48,2.09,-4.34",
+"year": 2026
+}
+],
+"request": {
+"cut_off_year": 0,
+"days_out": 295,
+"entry_date": "2026-09-27",
+"market": "5",
+"pe_cycle": "pe2",
+"symbol": "SPX",
+"years": 24
+},
+"stats": {
+"Avg Loss": "-23.41%",
+"Avg Profit": "20.63%",
+"Avg Profit - All": "18.79%",
+"Median Profit": "18.92%",
+"Num Losers": "1",
+"Num Winners": "23",
+"Percent Profitable": "95.83%",
+"Sharpe Ratio": "1.06",
+"Trade Dir": "long"
+}
+},
+"status": 200
+}
+},
+"opplist": {
+"0|2026-11-17|10|8|-": {
+"rows": [
+[
+"2026-11-17",
+"UNH",
+"17",
+"Long",
+"1.9",
+3.51
+],
+[
+"2026-11-17",
+"GOOGL",
+"77",
+"Long",
+"1.48",
+9.48
+],
+[
+"2026-11-17",
+"V",
+"86",
+"Long",
+"1.47",
+7.53
+],
+[
+"2026-11-17",
+"CAT",
+"62",
+"Long",
+"1.43",
+10.29
+],
+[
+"2026-11-17",
+"CSCO",
+"26",
+"Long",
+"1.42",
+3.45
+]
+],
+"status": 200
+},
+"2|2026-11-17|10|8|-": {
+"rows": [],
+"status": 403
+}
+},
+"resolve": {
+"AAPL": {
+"matches": [
+{
+"label": "S&P 500 STOCKS",
+"name": "Apple Inc.",
+"resourceID": "2"
+},
+{
+"label": "TORONTO STOCKS",
+"name": "Apple CDR (CAD Hedged)",
+"resourceID": "13"
+}
+],
+"status": "ambiguous",
+"symbol": "AAPL"
+}
+},
+"years": {
+"2|AAPL|cons": 45
+}
+},
+"L2": {
+"chart": {
+"2|AAPL|2026-11-17|45|15|": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "7.31,8.39,-3.73",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "-5.93,5.1,-11.4",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "8.17,10.9,-0.96",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "-3.17,5.05,-6.78",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "-7.42,5.48,-7.8",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "5.34,7.34,-1.55",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-0.54,4.14,-2.17",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-15.13,0.0,-21.13",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "9.94,10.06,-4.05",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "11.14,16.25,-5.7",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "15.69,18.66,-0.29",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-13.79,1.31,-16.49",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "1.5,5.23,-1.18",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "9.82,14.07,-1.01",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "1.65,7.91,-0.8",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"cut_off_year": 0,
+"days_out": 45,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "AAPL",
+"years": 15
+},
+"stats": {
+"Avg Loss": "-7.66%",
+"Avg Profit": "7.84%",
+"Avg Profit - All": "1.64%",
+"Median Profit": "1.65%",
+"Num Losers": "6",
+"Num Winners": "9",
+"Percent Profitable": "60.0%",
+"Sharpe Ratio": "0.12",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|AJG|2026-11-19|271|15|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "23.51,30.56,-2.14",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "21.68,30.01,-4.74",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "0.32,6.15,-7.63",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "2.3,6.13,-6.61",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "14.07,16.88,-17.33",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "17.06,18.52,-4.02",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "10.91,12.77,-5.46",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "16.37,20.29,-12.46",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "16.95,19.9,-28.95",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "24.55,33.78,-2.31",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "17.77,17.98,-9.58",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "15.92,17.1,-10.39",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "16.44,18.58,-11.13",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "1.28,20.55,-5.6",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "0.6,9.54,-22.87",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 271,
+"entry_date": "2026-11-19",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "AJG",
+"years": 15
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "13.32%",
+"Avg Profit - All": "13.32%",
+"Median Profit": "16.37%",
+"Num Losers": "0",
+"Num Winners": "15",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.24",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|BF-B|2026-11-18|10|15|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "2.2,2.32,-2.31",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "3.68,6.05,-0.84",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "0.76,1.51,-1.31",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "3.16,3.43,-0.82",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "0.33,1.2,-1.66",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "1.88,2.53,-0.48",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "1.0,1.1,-0.68",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "0.36,0.48,-2.7",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "6.43,6.85,-0.14",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "2.41,3.85,-0.63",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "2.05,3.8,0.0",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "3.07,4.51,0.0",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "0.17,1.47,-1.58",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "3.19,8.02,-1.14",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "4.66,6.03,-2.42",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 10,
+"entry_date": "2026-11-18",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "BF-B",
+"years": 15
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "2.36%",
+"Avg Profit - All": "2.36%",
+"Median Profit": "2.2%",
+"Num Losers": "0",
+"Num Winners": "15",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.29",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|CBRE|2026-11-18|15|15|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "9.27,13.5,-5.23",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "5.45,8.07,-1.91",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "6.32,7.23,-2.79",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "0.6,2.58,-1.3",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "2.3,4.83,-0.42",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "4.98,5.16,-0.28",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "1.33,2.8,-2.4",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "1.49,2.43,-4.06",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "0.84,3.48,-2.37",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "6.4,7.33,-2.7",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "0.31,5.41,-5.0",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "5.25,7.34,-0.81",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "5.2,5.36,-1.91",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "4.31,7.03,-1.93",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "6.16,9.23,0.0",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 15,
+"entry_date": "2026-11-18",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "CBRE",
+"years": 15
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "4.01%",
+"Avg Profit - All": "4.01%",
+"Median Profit": "4.98%",
+"Num Losers": "0",
+"Num Winners": "15",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.44",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|CHD|2026-11-18|10|15|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "0.32,1.17,-2.87",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "2.51,3.14,-0.55",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "0.14,0.76,-1.34",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "3.34,3.45,-0.42",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "2.66,3.31,0.0",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "0.16,1.14,-0.63",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "0.94,1.3,-0.31",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "2.14,2.34,-1.26",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "3.2,3.72,-0.4",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "0.31,1.53,-2.99",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "2.77,3.87,0.0",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "4.02,4.27,-0.24",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "4.16,4.19,-0.16",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "0.06,2.91,-0.61",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "2.74,2.91,-1.31",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 10,
+"entry_date": "2026-11-18",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "CHD",
+"years": 15
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "1.96%",
+"Avg Profit - All": "1.96%",
+"Median Profit": "2.51%",
+"Num Losers": "0",
+"Num Winners": "15",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.25",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|DE|2026-11-20|85|15|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "22.66,23.07,-2.97",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "9.86,11.77,-4.57",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "3.39,8.86,-2.74",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "5.39,7.04,-1.12",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "4.5,6.72,-6.33",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "20.69,22.24,-0.5",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "16.72,26.07,0.0",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "19.87,20.6,-1.73",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "0.29,4.13,-8.2",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "21.4,23.45,-3.1",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "11.25,14.83,-3.68",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "1.16,8.91,-2.11",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "2.76,7.29,-6.5",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "18.13,20.43,-0.1",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "26.0,31.93,-4.29",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 85,
+"entry_date": "2026-11-20",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "DE",
+"years": 15
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "12.27%",
+"Avg Profit - All": "12.27%",
+"Median Profit": "11.25%",
+"Num Losers": "0",
+"Num Winners": "15",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.27",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|DPZ|2026-11-17|22|15|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "5.97,7.52,-5.97",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "2.27,4.26,-1.44",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "4.05,4.86,-1.05",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "4.81,5.86,-0.43",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "7.53,8.56,-0.17",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "1.83,6.84,0.0",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "2.94,6.26,-5.65",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "1.25,12.94,-4.11",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "0.62,5.05,-0.69",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "0.58,2.56,-1.29",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "0.51,3.39,-3.83",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "2.24,7.71,-0.82",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "6.04,11.65,-1.39",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "2.89,7.74,-2.7",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "3.42,7.15,-1.87",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 22,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "DPZ",
+"years": 15
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "3.13%",
+"Avg Profit - All": "3.13%",
+"Median Profit": "2.89%",
+"Num Losers": "0",
+"Num Winners": "15",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.33",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|FICO|2026-11-17|20|15|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "8.76,12.16,-2.65",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "1.17,4.02,-1.27",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "3.43,4.22,-1.14",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "0.8,3.37,-0.85",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "4.84,9.62,-0.3",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "1.74,3.41,-1.99",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "1.88,4.13,-0.27",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "5.1,11.59,-3.63",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "2.7,4.6,-0.51",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "4.94,5.32,-2.59",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "10.12,10.94,-5.43",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "3.9,8.69,-3.13",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "6.65,10.48,-0.45",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "4.38,5.62,-1.76",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "0.01,4.25,-3.27",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 20,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "FICO",
+"years": 15
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "4.03%",
+"Avg Profit - All": "4.03%",
+"Median Profit": "3.9%",
+"Num Losers": "0",
+"Num Winners": "15",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.33",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|IBKR|2026-11-18|19|15|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "3.12,4.21,-3.96",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "6.7,7.83,-0.42",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "4.73,6.3,-0.25",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "2.76,3.2,-3.15",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "2.68,4.19,-1.18",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "0.09,0.58,-4.43",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "6.81,8.74,-0.78",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "4.62,16.73,-5.58",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "2.8,8.25,-1.52",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "1.35,5.93,-1.33",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "1.14,5.2,-1.35",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "4.88,7.71,-0.35",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "1.3,3.5,-8.17",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "2.38,5.92,-1.13",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "4.14,6.42,-6.83",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 19,
+"entry_date": "2026-11-18",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "IBKR",
+"years": 15
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "3.3%",
+"Avg Profit - All": "3.3%",
+"Median Profit": "2.8%",
+"Num Losers": "0",
+"Num Winners": "15",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.56",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|MA|2026-11-20|356|15|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "33.92,38.5,-4.38",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "55.76,56.23,-0.78",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "14.41,16.5,-7.66",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "19.83,21.02,-11.33",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "5.87,10.36,-20.93",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "42.2,44.54,-6.07",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "33.87,51.32,-5.98",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "48.9,57.69,-8.11",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "17.94,29.23,-29.83",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "11.36,24.61,-3.17",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "5.59,24.63,-13.32",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "17.31,24.33,-0.54",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "31.85,32.82,-0.02",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "8.51,17.93,-9.02",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "25.42,29.83,-11.72",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 356,
+"entry_date": "2026-11-20",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "MA",
+"years": 15
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "24.85%",
+"Avg Profit - All": "24.85%",
+"Median Profit": "19.83%",
+"Num Losers": "0",
+"Num Winners": "15",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.33",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|NKE|2026-11-18|20|15|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "3.77,5.51,-3.19",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "2.8,4.16,-1.41",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "1.53,2.14,-1.49",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "1.3,3.41,-0.17",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "4.88,7.57,-0.32",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "2.32,2.66,-2.02",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "2.62,3.4,-1.2",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "1.43,9.26,-4.14",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "2.87,3.93,-2.79",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "5.62,5.7,-1.29",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "0.14,3.74,-2.73",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "3.08,7.24,-1.73",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "8.35,10.55,-0.91",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "4.2,8.95,-2.91",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "2.33,7.35,-1.73",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 20,
+"entry_date": "2026-11-18",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "NKE",
+"years": 15
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "3.15%",
+"Avg Profit - All": "3.15%",
+"Median Profit": "2.8%",
+"Num Losers": "0",
+"Num Winners": "15",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.45",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|PFE|2026-11-19|12|15|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "5.85,5.85,-4.27",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "3.65,3.89,-0.87",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "0.54,2.65,-0.16",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "2.69,3.94,-1.05",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "1.49,2.94,-4.03",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "1.81,2.53,-2.98",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "2.57,3.2,-0.08",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "4.64,4.71,-3.19",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "1.67,3.24,-1.73",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "5.86,7.21,-0.47",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "5.77,9.65,-0.98",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "4.05,4.05,0.0",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "1.63,2.57,-1.13",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "2.87,5.38,-1.79",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "1.57,4.38,-2.41",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 12,
+"entry_date": "2026-11-19",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "PFE",
+"years": 15
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "3.11%",
+"Avg Profit - All": "3.11%",
+"Median Profit": "2.69%",
+"Num Losers": "0",
+"Num Winners": "15",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.69",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|RSG|2026-11-17|273|15|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "11.14,19.41,-3.62",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "25.35,33.28,-0.18",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "13.55,14.4,-9.91",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "11.25,11.25,-3.62",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "17.34,23.94,-3.24",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "20.13,21.78,-0.37",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "20.21,20.31,-2.99",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "19.21,20.11,-9.89",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "4.47,16.19,-24.73",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "21.73,21.78,-12.09",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "8.14,8.6,-17.1",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "13.23,20.04,-8.24",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "29.21,31.29,-0.51",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "12.02,24.41,-4.47",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "3.49,11.58,-5.84",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 273,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "RSG",
+"years": 15
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "15.36%",
+"Avg Profit - All": "15.36%",
+"Median Profit": "13.55%",
+"Num Losers": "0",
+"Num Winners": "15",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.68",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|SYK|2026-11-20|98|15|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "19.39,21.43,-1.69",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "16.4,20.84,-0.34",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "11.02,14.11,-3.48",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "5.87,9.58,0.0",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "5.94,6.1,-9.79",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "15.76,16.73,-2.85",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "7.45,10.19,-4.85",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "13.36,14.69,-12.77",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "1.26,11.07,-3.49",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "5.83,7.65,-4.89",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "2.37,8.01,-9.3",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "17.27,26.81,-0.33",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "22.16,23.88,-1.21",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "1.43,5.56,-8.56",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "6.8,7.96,-4.16",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 98,
+"entry_date": "2026-11-20",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "SYK",
+"years": 15
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "10.15%",
+"Avg Profit - All": "10.15%",
+"Median Profit": "7.45%",
+"Num Losers": "0",
+"Num Winners": "15",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.33",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|UNH|2026-11-19|16|15|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "8.62,11.39,-2.29",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "1.19,3.86,-1.27",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "3.24,4.72,0.0",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "3.29,5.01,-0.71",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "6.89,8.38,-0.03",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "5.22,8.48,-0.27",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "5.67,10.61,0.0",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "5.03,8.57,-2.92",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "1.86,3.2,-1.09",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "4.2,5.07,-2.33",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "4.91,5.29,-0.91",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "3.77,6.92,0.0",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "2.81,4.02,-1.21",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "5.86,7.94,0.0",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "7.89,10.46,0.0",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 16,
+"entry_date": "2026-11-19",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "UNH",
+"years": 15
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "4.7%",
+"Avg Profit - All": "4.7%",
+"Median Profit": "4.91%",
+"Num Losers": "0",
+"Num Winners": "15",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "2.15",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|V|2026-11-20|198|15|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "25.25,37.69,-2.66",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "21.58,26.85,-0.41",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "7.51,18.87,-1.48",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "9.05,12.75,-2.58",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "0.81,2.12,-17.55",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "18.63,18.67,-7.98",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "21.88,21.94,-3.05",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "24.42,24.7,-8.83",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "10.22,18.07,-26.17",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "13.8,16.67,-5.43",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "9.26,20.59,-4.4",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "10.34,14.4,-2.03",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "10.22,16.62,0.0",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "19.72,21.1,-2.57",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "0.35,10.76,-9.04",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 198,
+"entry_date": "2026-11-20",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "V",
+"years": 15
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "13.54%",
+"Avg Profit - All": "13.54%",
+"Median Profit": "10.34%",
+"Num Losers": "0",
+"Num Winners": "15",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.42",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|ZBRA|2026-11-19|14|15|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "5.84,8.61,-2.79",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "5.61,6.3,-0.78",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "1.34,2.08,-0.37",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "7.07,7.25,-1.04",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "3.36,7.26,-2.01",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "3.87,5.85,0.0",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "0.57,3.21,-0.82",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "7.06,8.35,-5.25",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "6.15,8.5,0.0",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "2.46,6.79,-1.18",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "0.04,2.89,-3.26",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "6.95,7.45,-0.68",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "8.54,10.18,-1.43",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "7.23,7.86,-0.18",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "9.72,10.54,-1.62",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 14,
+"entry_date": "2026-11-19",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "ZBRA",
+"years": 15
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "5.05%",
+"Avg Profit - All": "5.05%",
+"Median Profit": "5.84%",
+"Num Losers": "0",
+"Num Winners": "15",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.66",
+"Trade Dir": "long"
+}
+},
+"status": 200
+}
+},
+"opplist": {
+"2|2026-11-17|15|15|-": {
+"rows": [
+[
+"2026-11-17",
+"RSG",
+"272",
+"Long",
+"1.61",
+15.24
+],
+[
+"2026-11-17",
+"DPZ",
+"21",
+"Long",
+"1.33",
+3.13
+],
+[
+"2026-11-17",
+"FICO",
+"19",
+"Long",
+"1.33",
+4.03
+],
+[
+"2026-11-17",
+"V",
+"247",
+"Long",
+"1.32",
+17.31
+],
+[
+"2026-11-17",
+"SYK",
+"100",
+"Long",
+"1.28",
+10.16
+],
+[
+"2026-11-17",
+"CL",
+"12",
+"Long",
+"1.2",
+1.14
+],
+[
+"2026-11-17",
+"LLY",
+"309",
+"Long",
+"1.18",
+26.83
+],
+[
+"2026-11-17",
+"DE",
+"52",
+"Long",
+"1.09",
+6.98
+],
+[
+"2026-11-17",
+"WM",
+"299",
+"Long",
+"1.07",
+14.65
+],
+[
+"2026-11-17",
+"CDNS",
+"271",
+"Long",
+"1.06",
+23.85
+],
+[
+"2026-11-17",
+"PGR",
+"218",
+"Long",
+"1.04",
+14.58
+],
+[
+"2026-11-17",
+"AJG",
+"238",
+"Long",
+"1.03",
+11.43
+],
+[
+"2026-11-17",
+"JKHY",
+"17",
+"Long",
+"0.86",
+2.67
+],
+[
+"2026-11-17",
+"DRI",
+"358",
+"Long",
+"0.85",
+15.38
+]
+],
+"status": 200
+},
+"2|2026-11-18|15|15|-": {
+"rows": [
+[
+"2026-11-18",
+"IBKR",
+"18",
+"Long",
+"1.56",
+3.3
+],
+[
+"2026-11-18",
+"UNH",
+"16",
+"Long",
+"1.51",
+3.53
+],
+[
+"2026-11-18",
+"NKE",
+"19",
+"Long",
+"1.45",
+3.15
+],
+[
+"2026-11-18",
+"RSG",
+"253",
+"Long",
+"1.44",
+13.76
+],
+[
+"2026-11-18",
+"CBRE",
+"14",
+"Long",
+"1.44",
+4.01
+],
+[
+"2026-11-18",
+"FICO",
+"16",
+"Long",
+"1.32",
+4.54
+],
+[
+"2026-11-18",
+"V",
+"199",
+"Long",
+"1.32",
+13.02
+],
+[
+"2026-11-18",
+"SYK",
+"99",
+"Long",
+"1.3",
+9.86
+],
+[
+"2026-11-18",
+"BF-B",
+"9",
+"Long",
+"1.29",
+2.36
+],
+[
+"2026-11-18",
+"CHD",
+"9",
+"Long",
+"1.25",
+1.97
+],
+[
+"2026-11-18",
+"DPZ",
+"19",
+"Long",
+"1.12",
+2.88
+],
+[
+"2026-11-18",
+"CDNS",
+"270",
+"Long",
+"1.06",
+24.08
+],
+[
+"2026-11-18",
+"AJG",
+"236",
+"Long",
+"1.03",
+11.37
+],
+[
+"2026-11-18",
+"WM",
+"298",
+"Long",
+"1.03",
+14.3
+]
+],
+"status": 200
+},
+"2|2026-11-19|15|15|-": {
+"rows": [
+[
+"2026-11-19",
+"UNH",
+"15",
+"Long",
+"2.15",
+4.7
+],
+[
+"2026-11-19",
+"PFE",
+"11",
+"Long",
+"1.69",
+3.11
+],
+[
+"2026-11-19",
+"ZBRA",
+"13",
+"Long",
+"1.66",
+5.05
+],
+[
+"2026-11-19",
+"RSG",
+"252",
+"Long",
+"1.45",
+13.72
+],
+[
+"2026-11-19",
+"V",
+"198",
+"Long",
+"1.37",
+13.08
+],
+[
+"2026-11-19",
+"AJG",
+"270",
+"Long",
+"1.32",
+13.55
+],
+[
+"2026-11-19",
+"CBRE",
+"13",
+"Long",
+"1.29",
+4.21
+],
+[
+"2026-11-19",
+"IBKR",
+"17",
+"Long",
+"1.29",
+3.1
+],
+[
+"2026-11-19",
+"FICO",
+"15",
+"Long",
+"1.24",
+4.31
+],
+[
+"2026-11-19",
+"MA",
+"357",
+"Long",
+"1.14",
+22.98
+],
+[
+"2026-11-19",
+"OMC",
+"11",
+"Long",
+"1.11",
+2.8
+],
+[
+"2026-11-19",
+"CDNS",
+"269",
+"Long",
+"1.07",
+23.87
+],
+[
+"2026-11-19",
+"WM",
+"298",
+"Long",
+"1.02",
+14.24
+],
+[
+"2026-11-19",
+"BDX",
+"99",
+"Long",
+"0.93",
+6.4
+]
+],
+"status": 200
+},
+"2|2026-11-20|15|15|-": {
+"rows": [
+[
+"2026-11-20",
+"UNH",
+"14",
+"Long",
+"1.85",
+4.33
+],
+[
+"2026-11-20",
+"RSG",
+"251",
+"Long",
+"1.44",
+13.55
+],
+[
+"2026-11-20",
+"V",
+"197",
+"Long",
+"1.42",
+13.54
+],
+[
+"2026-11-20",
+"CBRE",
+"12",
+"Long",
+"1.39",
+4.64
+],
+[
+"2026-11-20",
+"SYK",
+"97",
+"Long",
+"1.33",
+10.15
+],
+[
+"2026-11-20",
+"DE",
+"84",
+"Long",
+"1.27",
+12.27
+],
+[
+"2026-11-20",
+"MA",
+"355",
+"Long",
+"1.23",
+23.82
+],
+[
+"2026-11-20",
+"AJG",
+"246",
+"Long",
+"1.14",
+11.99
+],
+[
+"2026-11-20",
+"CDNS",
+"268",
+"Long",
+"1.12",
+24.44
+],
+[
+"2026-11-20",
+"FICO",
+"14",
+"Long",
+"1.1",
+4.3
+],
+[
+"2026-11-20",
+"SMCI",
+"57",
+"Long",
+"1.06",
+11.27
+],
+[
+"2026-11-20",
+"DPZ",
+"9",
+"Long",
+"1.03",
+3.18
+],
+[
+"2026-11-20",
+"WM",
+"297",
+"Long",
+"1.02",
+14.25
+],
+[
+"2026-11-20",
+"SNPS",
+"249",
+"Long",
+"0.92",
+18.4
+]
+],
+"status": 200
+}
+},
+"resolve": {
+"AAPL": {
+"matches": [
+{
+"label": "S&P 500 STOCKS",
+"name": "Apple Inc.",
+"resourceID": "2"
+},
+{
+"label": "TORONTO STOCKS",
+"name": "Apple CDR (CAD Hedged)",
+"resourceID": "13"
+}
+],
+"status": "ambiguous",
+"symbol": "AAPL"
+}
+},
+"years": {
+"2|AAPL|cons": 45
+}
+},
+"L6": {
+"chart": {
+"11|SPY|2026-11-17|45|10|comparison_direction=long&report_completed_years=10": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "2.67,4.27,-0.32",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "4.02,4.7,-0.0",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-6.58,4.2,-12.63",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "3.66,4.29,-1.57",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "4.12,5.39,-1.79",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "1.81,2.68,-4.11",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-2.55,4.12,-4.5",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "5.87,6.37,-0.06",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-0.02,3.56,-0.9",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "2.74,4.21,-2.23",
+"year": 2025
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 45,
+"entry_date": "2026-11-17",
+"market": "11",
+"pe_cycle": "cons",
+"report_completed_years": 10,
+"symbol": "SPY",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-3.05%",
+"Avg Profit": "3.56%",
+"Avg Profit - All": "1.57%",
+"Median Profit": "2.7%",
+"Num Losers": "3",
+"Num Winners": "7",
+"Percent Profitable": "70.0%",
+"Sharpe Ratio": "0.29",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"11|XLF|2026-10-01|92|10|comparison_direction=long&report_completed_years=10": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "21.58,24.26,-0.52",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "7.51,8.82,-0.84",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-13.44,2.38,-19.87",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "12.87,13.53,-3.5",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "22.93,23.1,-3.57",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "2.85,7.1,-2.0",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "10.37,17.03,-5.1",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "14.89,15.5,-4.65",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "7.67,14.51,-0.91",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "2.94,5.05,-4.33",
+"year": 2025
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 92,
+"entry_date": "2026-10-01",
+"market": "11",
+"pe_cycle": "cons",
+"report_completed_years": 10,
+"symbol": "XLF",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-13.44%",
+"Avg Profit": "11.51%",
+"Avg Profit - All": "9.02%",
+"Median Profit": "9.02%",
+"Num Losers": "1",
+"Num Winners": "9",
+"Percent Profitable": "90.0%",
+"Sharpe Ratio": "0.77",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"11|XLK|2026-10-01|92|10|comparison_direction=long&report_completed_years=10": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "1.96,4.15,-3.86",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "8.44,10.56,-0.27",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-17.76,0.76,-23.61",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "15.28,16.06,-3.13",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "10.51,11.68,-7.09",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "14.93,17.03,-3.09",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "1.91,13.78,-7.75",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "16.43,17.18,-3.74",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "5.74,9.85,-0.54",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "1.32,7.51,-6.02",
+"year": 2025
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 92,
+"entry_date": "2026-10-01",
+"market": "11",
+"pe_cycle": "cons",
+"report_completed_years": 10,
+"symbol": "XLK",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-17.76%",
+"Avg Profit": "8.5%",
+"Avg Profit - All": "5.88%",
+"Median Profit": "7.09%",
+"Num Losers": "1",
+"Num Winners": "9",
+"Percent Profitable": "90.0%",
+"Sharpe Ratio": "0.48",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"11|XLU|2026-10-01|92|10|comparison_direction=long&report_completed_years=10": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "1.53,2.94,-6.16",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "0.06,7.7,-0.99",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "1.71,8.97,-2.34",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "0.83,1.33,-5.08",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "5.42,13.25,-1.02",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "12.93,13.33,-0.16",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "5.41,9.43,-10.5",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "13.77,18.7,-2.53",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-6.28,2.43,-8.26",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-2.31,6.5,-3.81",
+"year": 2025
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 92,
+"entry_date": "2026-10-01",
+"market": "11",
+"pe_cycle": "cons",
+"report_completed_years": 10,
+"symbol": "XLU",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-4.3%",
+"Avg Profit": "5.21%",
+"Avg Profit - All": "3.31%",
+"Median Profit": "1.62%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.37",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"1|ALNY|2026-12-01|36|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-0.55,8.39,-10.89",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-6.98,1.89,-12.93",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-2.98,1.49,-28.5",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-2.2,6.02,-4.28",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-3.64,7.82,-7.78",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-13.81,11.09,-14.08",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "2.47,10.32,-2.26",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "10.48,15.51,-1.49",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-7.85,2.02,-8.7",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-12.48,5.55,-15.56",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 36,
+"entry_date": "2026-12-01",
+"market": "1",
+"pe_cycle": "cons",
+"symbol": "ALNY",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-6.48%",
+"Avg Profit": "6.31%",
+"Avg Profit - All": "3.75%",
+"Median Profit": "3.31%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.47",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"1|AMZN|2026-11-21|10|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-3.77,1.59,-3.81",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "3.27,6.49,0.0",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "11.44,11.82,-0.98",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "2.7,5.19,-0.21",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "2.25,4.2,-0.39",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-1.83,1.71,-2.26",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "4.41,4.41,-1.72",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "1.52,3.72,0.0",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "6.22,7.36,-0.82",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "5.98,6.85,0.0",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 10,
+"entry_date": "2026-11-21",
+"market": "1",
+"pe_cycle": "cons",
+"symbol": "AMZN",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-2.8%",
+"Avg Profit": "4.72%",
+"Avg Profit - All": "3.22%",
+"Median Profit": "2.99%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.73",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"1|BKNG|2026-11-26|10|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-1.66,0.51,-3.81",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-2.18,0.22,-3.36",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "4.43,7.96,-0.7",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "0.89,2.2,-1.85",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "3.71,4.2,-1.6",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "3.33,6.47,-4.56",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "3.61,5.83,0.0",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "0.55,1.82,-1.64",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "1.4,2.21,-1.03",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "6.01,6.06,-0.54",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 10,
+"entry_date": "2026-11-26",
+"market": "1",
+"pe_cycle": "cons",
+"symbol": "BKNG",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-1.92%",
+"Avg Profit": "2.99%",
+"Avg Profit - All": "2.01%",
+"Median Profit": "2.37%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.72",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"1|CTAS|2026-11-22|10|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "0.91,1.52,-0.55",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "6.88,7.51,0.0",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "5.18,6.23,0.0",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "0.71,2.55,-1.53",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "0.23,1.91,-1.16",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-5.87,0.55,-5.97",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "1.57,1.84,-1.99",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "0.62,0.92,-1.32",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "0.4,2.87,-0.12",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "1.8,2.68,-0.2",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 10,
+"entry_date": "2026-11-22",
+"market": "1",
+"pe_cycle": "cons",
+"symbol": "CTAS",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-5.87%",
+"Avg Profit": "2.03%",
+"Avg Profit - All": "1.24%",
+"Median Profit": "0.81%",
+"Num Losers": "1",
+"Num Winners": "9",
+"Percent Profitable": "90.0%",
+"Sharpe Ratio": "0.34",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"1|MCHP|2026-11-21|10|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "1.5,2.47,-0.55",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-5.31,0.42,-6.44",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "2.74,4.6,-1.33",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "3.53,5.58,0.0",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "2.1,2.42,-0.46",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "0.89,3.7,-3.82",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "9.61,9.73,0.0",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "1.13,2.64,-1.66",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "6.44,7.64,-1.2",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "5.92,7.58,-1.28",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 10,
+"entry_date": "2026-11-21",
+"market": "1",
+"pe_cycle": "cons",
+"symbol": "MCHP",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-5.31%",
+"Avg Profit": "3.76%",
+"Avg Profit - All": "2.86%",
+"Median Profit": "2.42%",
+"Num Losers": "1",
+"Num Winners": "9",
+"Percent Profitable": "90.0%",
+"Sharpe Ratio": "0.69",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"1|MNST|2026-11-21|10|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "2.66,4.93,0.0",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "2.28,2.42,-0.65",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "6.51,7.01,-0.61",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "2.41,3.22,-0.75",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "0.84,1.27,-0.94",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-7.0,0.47,-7.49",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "1.74,3.35,-1.77",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "0.64,1.48,-1.13",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "1.85,3.78,-0.19",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "5.43,5.88,-0.04",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 10,
+"entry_date": "2026-11-21",
+"market": "1",
+"pe_cycle": "cons",
+"symbol": "MNST",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-7.0%",
+"Avg Profit": "2.71%",
+"Avg Profit - All": "1.74%",
+"Median Profit": "2.06%",
+"Num Losers": "1",
+"Num Winners": "9",
+"Percent Profitable": "90.0%",
+"Sharpe Ratio": "0.46",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"1|MSTR|2026-12-01|18|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "6.04,7.31,-1.83",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-0.76,2.81,-3.89",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-5.89,1.91,-6.57",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-2.84,1.86,-3.37",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-7.04,7.94,-15.4",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-22.55,0.9,-25.04",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-14.46,7.44,-15.38",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "8.38,13.59,0.0",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-8.06,17.0,-11.12",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-7.69,15.74,-8.16",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 18,
+"entry_date": "2026-12-01",
+"market": "1",
+"pe_cycle": "cons",
+"symbol": "MSTR",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-7.21%",
+"Avg Profit": "8.66%",
+"Avg Profit - All": "5.49%",
+"Median Profit": "6.46%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.58",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"1|NXPI|2026-11-21|10|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "0.57,1.43,-0.25",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-1.67,0.47,-2.45",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "0.28,1.44,-3.36",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "0.44,4.35,-0.67",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "1.61,3.8,-0.75",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "0.67,2.68,-5.24",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "4.14,6.03,-3.7",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "1.82,3.67,-1.22",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "4.03,6.32,-0.76",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "4.25,4.62,-1.53",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 10,
+"entry_date": "2026-11-21",
+"market": "1",
+"pe_cycle": "cons",
+"symbol": "NXPI",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-1.67%",
+"Avg Profit": "1.98%",
+"Avg Profit - All": "1.61%",
+"Median Profit": "1.14%",
+"Num Losers": "1",
+"Num Winners": "9",
+"Percent Profitable": "90.0%",
+"Sharpe Ratio": "0.77",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"1|ODFL|2026-11-22|10|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "3.13,3.2,-0.18",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "3.37,5.35,-0.59",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "4.97,8.47,0.0",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-1.74,3.22,-1.98",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "4.43,4.63,-1.46",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-1.06,2.95,-1.36",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "1.69,2.6,-3.07",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "0.49,1.02,-6.65",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "2.09,3.85,0.0",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "5.55,8.27,-0.01",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 10,
+"entry_date": "2026-11-22",
+"market": "1",
+"pe_cycle": "cons",
+"symbol": "ODFL",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-1.4%",
+"Avg Profit": "3.22%",
+"Avg Profit - All": "2.29%",
+"Median Profit": "2.61%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.88",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"1|PAYX|2026-11-22|10|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "2.05,3.79,-0.71",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "3.39,4.95,-0.6",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "5.58,6.68,0.0",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "0.07,2.52,-0.39",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "1.75,2.21,-0.38",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-5.29,1.02,-5.32",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "2.54,2.89,-3.31",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "4.18,4.36,-1.02",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "0.69,2.05,-0.44",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "0.57,2.35,0.0",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 10,
+"entry_date": "2026-11-22",
+"market": "1",
+"pe_cycle": "cons",
+"symbol": "PAYX",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-5.29%",
+"Avg Profit": "2.31%",
+"Avg Profit - All": "1.55%",
+"Median Profit": "1.9%",
+"Num Losers": "1",
+"Num Winners": "9",
+"Percent Profitable": "90.0%",
+"Sharpe Ratio": "0.49",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"1|PEP|2026-11-24|10|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-0.7,1.06,-2.88",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "2.05,2.69,-0.52",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "2.69,5.3,-0.83",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "1.22,2.11,0.0",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "1.01,2.02,-0.8",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "1.27,1.38,-3.27",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "0.08,1.84,-2.1",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "0.63,1.09,-1.94",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-0.83,1.28,-1.29",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "1.76,3.57,0.0",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 10,
+"entry_date": "2026-11-24",
+"market": "1",
+"pe_cycle": "cons",
+"symbol": "PEP",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-0.76%",
+"Avg Profit": "1.34%",
+"Avg Profit - All": "0.92%",
+"Median Profit": "1.12%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.72",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"1|QCOM|2026-11-21|10|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "2.33,2.6,-0.12",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "0.34,3.91,-0.64",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "5.41,6.84,-1.05",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-3.13,1.39,-3.29",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "2.33,2.55,-1.88",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-0.46,2.98,-3.5",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "5.9,6.0,-1.56",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "2.24,3.47,-1.06",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "4.87,5.09,-1.11",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "2.9,3.51,-0.88",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 10,
+"entry_date": "2026-11-21",
+"market": "1",
+"pe_cycle": "cons",
+"symbol": "QCOM",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-1.8%",
+"Avg Profit": "3.29%",
+"Avg Profit - All": "2.27%",
+"Median Profit": "2.33%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.78",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"1|QCOM|2026-12-01|104|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-8.41,9.48,-18.38",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-7.41,5.21,-10.83",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-4.19,0.86,-16.07",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-20.56,17.54,-20.59",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-12.18,11.51,-17.95",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-19.22,10.22,-19.69",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-7.53,10.35,-15.76",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "30.57,37.65,-1.26",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-2.93,9.14,-7.86",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-22.11,10.33,-22.38",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 104,
+"entry_date": "2026-12-01",
+"market": "1",
+"pe_cycle": "cons",
+"symbol": "QCOM",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-30.57%",
+"Avg Profit": "11.62%",
+"Avg Profit - All": "7.4%",
+"Median Profit": "7.97%",
+"Num Losers": "1",
+"Num Winners": "9",
+"Percent Profitable": "90.0%",
+"Sharpe Ratio": "0.42",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"1|ROP|2026-12-01|9|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "2.18,2.25,-0.37",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-1.59,1.55,-1.89",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-5.21,0.0,-7.87",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-2.7,0.29,-3.0",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-1.05,0.0,-3.74",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "1.79,4.14,0.0",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-3.01,0.19,-3.19",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "-0.07,0.71,-1.64",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-3.55,2.02,-3.79",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-0.66,1.39,-0.98",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 9,
+"entry_date": "2026-12-01",
+"market": "1",
+"pe_cycle": "cons",
+"symbol": "ROP",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-1.98%",
+"Avg Profit": "2.23%",
+"Avg Profit - All": "1.39%",
+"Median Profit": "1.32%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.56",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"1|ROST|2026-11-25|10|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-2.54,0.0,-2.95",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "9.6,10.72,-0.69",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "1.03,9.93,-0.49",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "0.72,3.75,-0.3",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "3.89,3.97,-3.85",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "2.69,4.02,-4.75",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "1.49,3.05,-0.6",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "1.45,2.23,-1.6",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "0.78,2.33,-0.67",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "0.33,1.44,-0.92",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 10,
+"entry_date": "2026-11-25",
+"market": "1",
+"pe_cycle": "cons",
+"symbol": "ROST",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-2.54%",
+"Avg Profit": "2.44%",
+"Avg Profit - All": "1.94%",
+"Median Profit": "1.24%",
+"Num Losers": "1",
+"Num Winners": "9",
+"Percent Profitable": "90.0%",
+"Sharpe Ratio": "0.58",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|AAPL|2026-01-01|14|10|": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-7.8,0.47,-9.48",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "3.31,3.52,-0.34",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "2.28,4.14,-0.17",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-3.07,0.0,-10.08",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "3.66,5.73,-2.53",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-1.75,2.49,-2.34",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-6.71,0.51,-7.6",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "8.69,9.77,-0.25",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-1.08,0.76,-2.95",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-2.45,1.43,-5.79",
+"year": 2025
+},
+{
+"completed": true,
+"pct": "-4.72,0.18,-5.65",
+"year": 2026
+}
+],
+"request": {
+"cut_off_year": 0,
+"days_out": 14,
+"entry_date": "2026-01-02",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "AAPL",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-4.48%",
+"Avg Profit": "3.94%",
+"Avg Profit - All": "0.88%",
+"Median Profit": "1.75%",
+"Num Losers": "4",
+"Num Winners": "7",
+"Percent Profitable": "63.64%",
+"Sharpe Ratio": "0.15",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|AAPL|2026-01-01|90|15|": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "4.55,10.72,-1.08",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "50.43,51.12,-0.47",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "-21.42,0.12,-23.24",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "-1.49,1.28,-10.77",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "14.09,22.68,-4.3",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "4.97,5.38,-12.3",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "24.26,24.95,-0.34",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-2.84,6.96,-12.43",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "21.62,25.72,-10.08",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-19.6,9.2,-29.04",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-4.81,12.12,-10.07",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-4.11,0.51,-17.43",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "33.06,33.16,-0.25",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-8.29,5.79,-9.12",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-8.37,2.63,-14.44",
+"year": 2025
+},
+{
+"completed": true,
+"pct": "-5.59,3.65,-10.18",
+"year": 2026
+}
+],
+"request": {
+"cut_off_year": 0,
+"days_out": 90,
+"entry_date": "2026-01-02",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "AAPL",
+"years": 15
+},
+"stats": {
+"Avg Loss": "-21.85%",
+"Avg Profit": "8.5%",
+"Avg Profit - All": "-4.78%",
+"Median Profit": "2.16%",
+"Num Losers": "7",
+"Num Winners": "9",
+"Percent Profitable": "56.25%",
+"Sharpe Ratio": "-0.3",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|AAPL|2026-11-17|45|10|comparison_direction=long&report_completed_years=10": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "5.34,7.34,-1.55",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-0.54,4.14,-2.17",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-15.13,0.0,-21.13",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "9.94,10.06,-4.05",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "11.14,16.25,-5.7",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "15.69,18.66,-0.29",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-13.79,1.31,-16.49",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "1.5,5.23,-1.18",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "9.82,14.07,-1.01",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "1.65,7.91,-0.8",
+"year": 2025
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 45,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"report_completed_years": 10,
+"symbol": "AAPL",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-9.82%",
+"Avg Profit": "7.87%",
+"Avg Profit - All": "2.56%",
+"Median Profit": "3.5%",
+"Num Losers": "3",
+"Num Winners": "7",
+"Percent Profitable": "70.0%",
+"Sharpe Ratio": "0.2",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|AAPL|2026-11-17|45|20|": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-1.18,8.51,-10.58",
+"year": 2006
+},
+{
+"completed": true,
+"pct": "20.82,23.79,-0.26",
+"year": 2007
+},
+{
+"completed": true,
+"pct": "-3.17,17.54,-10.21",
+"year": 2008
+},
+{
+"completed": true,
+"pct": "1.8,3.36,-8.85",
+"year": 2009
+},
+{
+"completed": true,
+"pct": "7.34,8.71,0.0",
+"year": 2010
+},
+{
+"completed": true,
+"pct": "7.31,8.39,-3.73",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "-5.93,5.1,-11.4",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "8.17,10.9,-0.96",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "-3.17,5.05,-6.78",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "-7.42,5.48,-7.8",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "5.34,7.34,-1.55",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-0.54,4.14,-2.17",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-15.13,0.0,-21.13",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "9.94,10.06,-4.05",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "11.14,16.25,-5.7",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "15.69,18.66,-0.29",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-13.79,1.31,-16.49",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "1.5,5.23,-1.18",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "9.82,14.07,-1.01",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "1.65,7.91,-0.8",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"cut_off_year": 0,
+"days_out": 45,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "AAPL",
+"years": 20
+},
+"stats": {
+"Avg Loss": "-6.29%",
+"Avg Profit": "8.38%",
+"Avg Profit - All": "2.51%",
+"Median Profit": "1.72%",
+"Num Losers": "8",
+"Num Winners": "12",
+"Percent Profitable": "60.0%",
+"Sharpe Ratio": "0.22",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|AAPL|2026-11-17|45|20|comparison_direction=long&report_completed_years=20": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-1.18,8.51,-10.58",
+"year": 2006
+},
+{
+"completed": true,
+"pct": "20.82,23.79,-0.26",
+"year": 2007
+},
+{
+"completed": true,
+"pct": "-3.17,17.54,-10.21",
+"year": 2008
+},
+{
+"completed": true,
+"pct": "1.8,3.36,-8.85",
+"year": 2009
+},
+{
+"completed": true,
+"pct": "7.34,8.71,0.0",
+"year": 2010
+},
+{
+"completed": true,
+"pct": "7.31,8.39,-3.73",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "-5.93,5.1,-11.4",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "8.17,10.9,-0.96",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "-3.17,5.05,-6.78",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "-7.42,5.48,-7.8",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "5.34,7.34,-1.55",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-0.54,4.14,-2.17",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-15.13,0.0,-21.13",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "9.94,10.06,-4.05",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "11.14,16.25,-5.7",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "15.69,18.66,-0.29",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-13.79,1.31,-16.49",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "1.5,5.23,-1.18",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "9.82,14.07,-1.01",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "1.65,7.91,-0.8",
+"year": 2025
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 45,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"report_completed_years": 20,
+"symbol": "AAPL",
+"years": 20
+},
+"stats": {
+"Avg Loss": "-6.29%",
+"Avg Profit": "8.38%",
+"Avg Profit - All": "2.51%",
+"Median Profit": "1.72%",
+"Num Losers": "8",
+"Num Winners": "12",
+"Percent Profitable": "60.0%",
+"Sharpe Ratio": "0.22",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|AAPL|2026-11-17|45|20|excursion_dates=1": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"entry_trade_date": "2006-11-17",
+"exit_trade_date": "2006-12-29",
+"high_date": "2006-11-27",
+"high_day": 11,
+"low_date": "2006-12-27",
+"low_day": 41,
+"pct": "-1.18,8.51,-10.58",
+"year": 2006
+},
+{
+"completed": true,
+"entry_trade_date": "2007-11-19",
+"exit_trade_date": "2007-12-31",
+"high_date": "2007-12-27",
+"high_day": 41,
+"low_date": "2007-11-20",
+"low_day": 4,
+"pct": "20.82,23.79,-0.26",
+"year": 2007
+},
+{
+"completed": true,
+"entry_trade_date": "2008-11-17",
+"exit_trade_date": "2008-12-31",
+"high_date": "2008-12-09",
+"high_day": 23,
+"low_date": "2008-11-21",
+"low_day": 5,
+"pct": "-3.17,17.54,-10.21",
+"year": 2008
+},
+{
+"completed": true,
+"entry_trade_date": "2009-11-17",
+"exit_trade_date": "2009-12-31",
+"high_date": "2009-12-28",
+"high_day": 42,
+"low_date": "2009-12-07",
+"low_day": 21,
+"pct": "1.8,3.36,-8.85",
+"year": 2009
+},
+{
+"completed": true,
+"entry_trade_date": "2010-11-17",
+"exit_trade_date": "2010-12-31",
+"high_date": "2010-12-28",
+"high_day": 42,
+"low_date": "2010-11-17",
+"low_day": 1,
+"pct": "7.34,8.71,0.0",
+"year": 2010
+},
+{
+"completed": true,
+"entry_trade_date": "2011-11-17",
+"exit_trade_date": "2011-12-30",
+"high_date": "2011-12-27",
+"high_day": 41,
+"low_date": "2011-11-25",
+"low_day": 9,
+"pct": "7.31,8.39,-3.73",
+"year": 2011
+},
+{
+"completed": true,
+"entry_trade_date": "2012-11-19",
+"exit_trade_date": "2012-12-31",
+"high_date": "2012-12-03",
+"high_day": 17,
+"low_date": "2012-12-17",
+"low_day": 31,
+"pct": "-5.93,5.1,-11.4",
+"year": 2012
+},
+{
+"completed": true,
+"entry_trade_date": "2013-11-18",
+"exit_trade_date": "2013-12-31",
+"high_date": "2013-12-05",
+"high_day": 19,
+"low_date": "2013-11-21",
+"low_day": 5,
+"pct": "8.17,10.9,-0.96",
+"year": 2013
+},
+{
+"completed": true,
+"entry_trade_date": "2014-11-17",
+"exit_trade_date": "2014-12-31",
+"high_date": "2014-11-25",
+"high_day": 9,
+"low_date": "2014-12-16",
+"low_day": 30,
+"pct": "-3.17,5.05,-6.78",
+"year": 2014
+},
+{
+"completed": true,
+"entry_trade_date": "2015-11-17",
+"exit_trade_date": "2015-12-31",
+"high_date": "2015-11-20",
+"high_day": 4,
+"low_date": "2015-12-31",
+"low_day": 45,
+"pct": "-7.42,5.48,-7.8",
+"year": 2015
+},
+{
+"completed": true,
+"entry_trade_date": "2016-11-17",
+"exit_trade_date": "2016-12-30",
+"high_date": "2016-12-28",
+"high_day": 42,
+"low_date": "2016-12-05",
+"low_day": 19,
+"pct": "5.34,7.34,-1.55",
+"year": 2016
+},
+{
+"completed": true,
+"entry_trade_date": "2017-11-17",
+"exit_trade_date": "2017-12-29",
+"high_date": "2017-12-18",
+"high_day": 32,
+"low_date": "2017-12-06",
+"low_day": 20,
+"pct": "-0.54,4.14,-2.17",
+"year": 2017
+},
+{
+"completed": true,
+"entry_trade_date": "2018-11-19",
+"exit_trade_date": "2018-12-31",
+"high_date": "2018-11-19",
+"high_day": 3,
+"low_date": "2018-12-24",
+"low_day": 38,
+"pct": "-15.13,0.0,-21.13",
+"year": 2018
+},
+{
+"completed": true,
+"entry_trade_date": "2019-11-18",
+"exit_trade_date": "2019-12-31",
+"high_date": "2019-12-27",
+"high_day": 41,
+"low_date": "2019-12-03",
+"low_day": 17,
+"pct": "9.94,10.06,-4.05",
+"year": 2019
+},
+{
+"completed": true,
+"entry_trade_date": "2020-11-17",
+"exit_trade_date": "2020-12-31",
+"high_date": "2020-12-29",
+"high_day": 43,
+"low_date": "2020-11-24",
+"low_day": 8,
+"pct": "11.14,16.25,-5.7",
+"year": 2020
+},
+{
+"completed": true,
+"entry_trade_date": "2021-11-17",
+"exit_trade_date": "2021-12-31",
+"high_date": "2021-12-13",
+"high_day": 27,
+"low_date": "2021-11-18",
+"low_day": 2,
+"pct": "15.69,18.66,-0.29",
+"year": 2021
+},
+{
+"completed": true,
+"entry_trade_date": "2022-11-17",
+"exit_trade_date": "2022-12-30",
+"high_date": "2022-11-18",
+"high_day": 2,
+"low_date": "2022-12-28",
+"low_day": 42,
+"pct": "-13.79,1.31,-16.49",
+"year": 2022
+},
+{
+"completed": true,
+"entry_trade_date": "2023-11-17",
+"exit_trade_date": "2023-12-29",
+"high_date": "2023-12-14",
+"high_day": 28,
+"low_date": "2023-12-04",
+"low_day": 18,
+"pct": "1.5,5.23,-1.18",
+"year": 2023
+},
+{
+"completed": true,
+"entry_trade_date": "2024-11-18",
+"exit_trade_date": "2024-12-31",
+"high_date": "2024-12-26",
+"high_day": 40,
+"low_date": "2024-11-21",
+"low_day": 5,
+"pct": "9.82,14.07,-1.01",
+"year": 2024
+},
+{
+"completed": true,
+"entry_trade_date": "2025-11-17",
+"exit_trade_date": "2025-12-31",
+"high_date": "2025-12-03",
+"high_day": 17,
+"low_date": "2025-11-18",
+"low_day": 2,
+"pct": "1.65,7.91,-0.8",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"cut_off_year": 0,
+"days_out": 45,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "AAPL",
+"years": 20
+},
+"stats": {
+"Avg Loss": "-6.29%",
+"Avg Profit": "8.38%",
+"Avg Profit - All": "2.51%",
+"Median Profit": "1.72%",
+"Num Losers": "8",
+"Num Winners": "12",
+"Percent Profitable": "60.0%",
+"Sharpe Ratio": "0.22",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|AAPL|2026-12-01|31|10|": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "5.78,7.79,-1.13",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-1.06,3.6,-2.68",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-14.65,0.0,-20.68",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "11.16,11.28,-2.98",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "8.12,13.09,-2.09",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "7.77,10.54,-4.23",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-12.39,1.76,-15.13",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "0.67,4.38,-1.98",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "4.52,8.56,-0.29",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-3.97,1.95,-5.7",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"cut_off_year": 0,
+"days_out": 31,
+"entry_date": "2026-12-01",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "AAPL",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-8.02%",
+"Avg Profit": "6.34%",
+"Avg Profit - All": "0.59%",
+"Median Profit": "2.6%",
+"Num Losers": "4",
+"Num Winners": "6",
+"Percent Profitable": "60.0%",
+"Sharpe Ratio": "0.03",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|AJG|2026-11-17|254|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "17.53,17.99,-4.44",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "9.79,12.83,-5.4",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "19.33,20.29,-12.46",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "14.59,19.82,-28.45",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "18.76,32.59,-3.18",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "7.77,14.11,-10.4",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "14.58,17.6,-7.81",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "14.63,16.49,-10.73",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "5.91,20.1,-5.96",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "3.24,3.27,-26.02",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 254,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "AJG",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "12.61%",
+"Avg Profit - All": "12.61%",
+"Median Profit": "14.58%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.75",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|AJG|2026-11-19|252|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "18.06,18.52,-4.02",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "9.73,12.77,-5.46",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "19.33,20.29,-12.46",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "13.78,18.98,-28.95",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "19.82,33.78,-2.31",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "8.75,15.16,-9.58",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "11.37,14.31,-10.39",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "14.11,15.96,-11.13",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "6.31,20.55,-5.6",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "7.64,7.67,-22.87",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 252,
+"entry_date": "2026-11-19",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "AJG",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "12.89%",
+"Avg Profit - All": "12.89%",
+"Median Profit": "12.58%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "2.06",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|ALB|2026-11-19|16|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "2.9,5.82,-0.97",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-4.47,1.8,-4.6",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-6.45,0.75,-6.63",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-5.33,0.54,-6.55",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "10.67,10.68,-0.24",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-11.69,3.57,-15.04",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-6.24,2.18,-6.85",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "-7.96,0.28,-9.24",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-3.61,4.93,-5.02",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-5.2,5.74,-12.01",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 16,
+"entry_date": "2026-11-19",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "ALB",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-6.78%",
+"Avg Profit": "6.37%",
+"Avg Profit - All": "3.74%",
+"Median Profit": "5.26%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.57",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|AMCR|2026-11-17|124|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-5.15,0.0,-9.22",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-1.25,3.78,-4.13",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "7.34,9.7,-12.06",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-25.43,13.06,-40.75",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-2.39,2.82,-11.63",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-3.75,3.92,-10.47",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-5.39,9.52,-8.34",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "0.34,7.95,-5.03",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-1.82,6.84,-7.39",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-6.8,22.41,-7.43",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 124,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "AMCR",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-3.84%",
+"Avg Profit": "6.5%",
+"Avg Profit - All": "4.43%",
+"Median Profit": "3.07%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.37",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|BDX|2026-11-20|74|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "4.47,4.57,-5.85",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "9.41,12.53,-3.08",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "3.7,6.97,-12.56",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "13.53,15.41,-0.13",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "13.11,15.71,-2.47",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "3.6,9.87,-3.79",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "8.7,12.33,-1.43",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "4.14,7.38,-0.6",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "11.87,13.85,-1.42",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "7.08,10.99,-0.07",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 74,
+"entry_date": "2026-11-20",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "BDX",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "7.96%",
+"Avg Profit - All": "7.96%",
+"Median Profit": "7.89%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.81",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|BIIB|2026-11-20|124|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-13.48,0.84,-18.16",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-15.94,19.75,-16.06",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-31.06,7.67,-32.35",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-5.68,31.39,-8.11",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "9.45,21.39,-2.36",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-16.89,5.29,-23.61",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-12.09,3.4,-15.53",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "-5.83,16.6,-6.41",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-9.23,5.96,-17.62",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "9.19,20.35,-4.65",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 124,
+"entry_date": "2026-11-20",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "BIIB",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-9.32%",
+"Avg Profit": "13.78%",
+"Avg Profit - All": "9.16%",
+"Median Profit": "10.66%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.65",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|CBRE|2026-11-17|77|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "7.62,17.23,-0.42",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "7.08,8.93,-2.36",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "5.3,5.43,-14.13",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "10.65,11.47,-2.37",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "5.31,11.92,-6.5",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "0.97,10.39,-6.13",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "14.35,16.17,0.0",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "10.3,20.64,-1.93",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "7.46,10.88,-9.35",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "13.35,15.82,-0.44",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 77,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "CBRE",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "8.24%",
+"Avg Profit - All": "8.24%",
+"Median Profit": "7.54%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.84",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|CBRE|2026-11-20|60|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "6.57,16.0,0.0",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "5.58,6.34,-2.4",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "5.77,6.1,-11.09",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "10.09,11.53,-1.41",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "9.11,16.12,-0.21",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "2.43,12.12,-4.41",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "11.09,14.96,-0.93",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "7.94,20.67,-1.91",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "6.95,7.76,-8.74",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "9.09,14.16,0.0",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 60,
+"entry_date": "2026-11-20",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "CBRE",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "7.46%",
+"Avg Profit - All": "7.46%",
+"Median Profit": "7.44%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "2.67",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|CHTR|2026-11-20|31|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "9.95,11.57,0.0",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-6.5,2.69,-7.64",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-4.77,9.75,-5.02",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-0.6,0.37,-3.88",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-0.11,4.01,-3.32",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-3.23,3.71,-10.32",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-16.18,9.19,-18.1",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "-7.71,0.0,-13.21",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-9.67,4.75,-12.06",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "5.81,10.92,-0.35",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 31,
+"entry_date": "2026-11-20",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "CHTR",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-7.88%",
+"Avg Profit": "6.1%",
+"Avg Profit - All": "3.3%",
+"Median Profit": "4.0%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.39",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|CIEN|2026-11-17|58|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "11.7,14.71,-7.79",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "11.63,13.46,-1.09",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "12.81,14.51,-6.59",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "12.44,16.63,-11.88",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "20.8,25.61,-5.47",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "16.87,26.77,-3.64",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "16.83,21.56,-2.56",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "11.93,12.86,-6.62",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "23.52,37.91,-1.44",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "28.49,36.16,-12.28",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 58,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "CIEN",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "16.7%",
+"Avg Profit - All": "16.7%",
+"Median Profit": "14.82%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "2.74",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|CIEN|2026-11-26|53|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "10.69,17.55,-5.51",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "6.47,7.03,-6.94",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "20.76,22.16,-2.63",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "12.16,16.79,-11.77",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "18.33,24.4,-1.89",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "15.25,28.88,-1.4",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "19.92,24.73,-0.02",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "12.2,12.88,-6.6",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "19.62,29.58,-3.5",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "20.43,30.38,-6.94",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 53,
+"entry_date": "2026-11-26",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "CIEN",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "15.58%",
+"Avg Profit - All": "15.58%",
+"Median Profit": "16.79%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "3.01",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|CPAY|2026-11-17|92|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "10.51,12.77,-6.6",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "11.14,19.61,-0.97",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "18.27,18.36,-9.92",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "7.4,10.51,-5.4",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "1.04,6.0,-10.5",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "5.66,9.94,-13.16",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "14.16,19.5,-6.74",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "16.67,28.21,-0.91",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "6.07,9.94,-8.4",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "24.92,32.03,-1.08",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 92,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "CPAY",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "11.58%",
+"Avg Profit - All": "11.58%",
+"Median Profit": "10.82%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.5",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|CPAY|2026-11-21|88|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "9.34,11.57,-7.6",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "10.38,18.8,-1.23",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "20.18,20.27,-8.47",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "8.57,11.71,-4.37",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "6.33,11.54,-5.82",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "9.09,13.51,-10.34",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "13.48,18.78,-7.3",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "16.79,28.33,-0.82",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "2.99,6.75,-11.06",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "18.59,25.33,-1.01",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 88,
+"entry_date": "2026-11-21",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "CPAY",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "11.57%",
+"Avg Profit - All": "11.57%",
+"Median Profit": "9.86%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.91",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|CSCO|2026-11-21|74|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "4.65,4.92,-3.09",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "12.51,18.15,-0.9",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "6.3,9.47,-10.34",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "4.53,11.29,-3.21",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "10.96,12.48,0.0",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "3.48,17.75,-1.53",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "4.4,6.49,-3.33",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "5.8,10.94,-0.44",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "6.77,9.01,-0.5",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "6.53,7.22,-3.82",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 74,
+"entry_date": "2026-11-21",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "CSCO",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "6.59%",
+"Avg Profit - All": "6.59%",
+"Median Profit": "6.05%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.98",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|CSGP|2026-11-17|32|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-4.7,2.69,-9.94",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-2.46,3.28,-7.1",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-3.79,12.91,-4.67",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-1.88,3.82,-5.09",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-1.03,1.4,-8.08",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-6.32,0.22,-9.06",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-4.45,5.34,-4.66",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "6.67,7.71,-1.21",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-3.52,12.46,-3.53",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-3.16,3.51,-7.46",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 32,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "CSGP",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-6.67%",
+"Avg Profit": "3.48%",
+"Avg Profit - All": "2.46%",
+"Median Profit": "3.34%",
+"Num Losers": "1",
+"Num Winners": "9",
+"Percent Profitable": "90.0%",
+"Sharpe Ratio": "0.6",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|EOG|2026-11-17|12|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "1.22,5.8,0.0",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-1.77,1.16,-2.49",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-1.84,1.76,-5.99",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-0.51,4.28,-2.08",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "2.65,19.95,-3.42",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-1.88,3.72,-5.97",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-5.43,0.29,-6.98",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "-0.29,1.39,-3.95",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-2.4,0.86,-3.98",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-1.49,0.26,-4.59",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 12,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "EOG",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-1.94%",
+"Avg Profit": "1.95%",
+"Avg Profit - All": "1.17%",
+"Median Profit": "1.63%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.48",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|EQT|2026-11-19|18|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "2.99,6.09,-3.3",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-3.62,1.72,-5.04",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "5.39,13.3,-3.34",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-1.9,2.35,-6.82",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-7.4,6.74,-10.27",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-5.24,4.08,-13.79",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-10.69,8.83,-11.57",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "-8.03,2.52,-8.13",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-1.7,8.94,-1.97",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-0.39,5.67,-6.38",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 18,
+"entry_date": "2026-11-19",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "EQT",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-4.19%",
+"Avg Profit": "4.87%",
+"Avg Profit - All": "3.06%",
+"Median Profit": "2.76%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.57",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|FISV|2026-11-21|9|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "1.19,2.48,-0.21",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "0.35,0.56,-0.76",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "2.08,3.4,-0.88",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "1.89,2.59,-1.27",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "2.75,3.31,0.0",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "1.84,4.07,-3.81",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "2.15,4.13,-0.43",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "3.41,3.73,-0.03",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "1.63,2.68,-0.12",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "3.04,4.88,-1.71",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 9,
+"entry_date": "2026-11-21",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "FISV",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "2.03%",
+"Avg Profit - All": "2.03%",
+"Median Profit": "1.98%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "2.17",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|GWW|2026-11-17|8|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "2.55,2.55,-1.67",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "1.18,3.51,-0.44",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "0.93,1.29,-3.31",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "0.94,1.84,-2.62",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "2.46,3.32,-1.27",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "2.44,2.97,-1.39",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "1.73,2.87,-0.15",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "1.26,1.45,-0.75",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "3.72,4.72,-1.07",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "0.7,3.71,-1.84",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 8,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "GWW",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "1.79%",
+"Avg Profit - All": "1.79%",
+"Median Profit": "1.5%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.77",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|HLT|2026-11-17|91|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "17.95,18.71,-0.92",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "14.1,18.89,-0.08",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "14.82,15.37,-7.81",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "11.74,15.28,-1.91",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "9.94,11.93,-4.62",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "9.32,10.15,-10.14",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "10.73,10.82,-10.31",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "16.56,17.74,-1.81",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "7.96,10.51,-4.15",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "19.53,25.56,-0.79",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 91,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "HLT",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "13.26%",
+"Avg Profit - All": "13.26%",
+"Median Profit": "12.92%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "3.13",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|HLT|2026-11-20|88|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "17.67,18.42,0.0",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "13.79,18.57,0.0",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "14.35,14.9,-8.19",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "12.76,16.34,-1.01",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "11.65,13.67,-3.13",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "9.82,10.66,-9.72",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "10.77,10.86,-10.27",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "15.95,17.13,-2.32",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "7.49,10.03,-4.57",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "20.31,26.38,0.0",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 88,
+"entry_date": "2026-11-20",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "HLT",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "13.46%",
+"Avg Profit - All": "13.46%",
+"Median Profit": "13.27%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "3.27",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|IBM|2026-11-20|24|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "3.39,4.41,-2.75",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "2.26,4.88,0.0",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "3.01,8.01,-0.25",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "0.76,2.21,-1.88",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "5.64,9.19,0.0",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "5.25,7.61,-1.64",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "2.65,4.45,-0.69",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "6.01,7.77,-0.54",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "7.56,11.53,0.0",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "6.29,8.59,0.0",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 24,
+"entry_date": "2026-11-20",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "IBM",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "4.28%",
+"Avg Profit - All": "4.28%",
+"Median Profit": "4.32%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.86",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|MAR|2026-11-17|96|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "14.02,18.01,-0.56",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "12.22,19.22,-0.56",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "9.37,9.63,-13.33",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "8.61,13.45,-2.91",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "16.11,18.45,-5.93",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "10.46,18.04,-10.32",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "6.96,13.77,-8.9",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "18.36,22.17,-2.1",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "2.27,9.51,-4.11",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "23.28,31.1,-0.56",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 96,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "MAR",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "12.17%",
+"Avg Profit - All": "12.17%",
+"Median Profit": "11.34%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.84",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|MAR|2026-11-21|92|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "13.84,17.83,-0.34",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "10.05,16.92,-2.48",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "8.36,8.62,-14.12",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "10.42,15.35,-0.11",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "15.82,18.15,-6.17",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "10.68,18.27,-10.14",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "6.59,13.38,-9.22",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "17.25,21.02,-3.02",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "1.33,8.5,-5.0",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "17.61,25.07,-4.67",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 92,
+"entry_date": "2026-11-21",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "MAR",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "11.2%",
+"Avg Profit - All": "11.2%",
+"Median Profit": "10.55%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "2.0",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|MA|2026-11-20|84|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "2.42,5.06,-6.07",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "12.63,18.61,-5.98",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "16.26,17.09,-8.11",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "16.11,17.73,-1.46",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "6.29,11.27,-3.17",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "15.24,24.63,-4.76",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "9.81,15.49,-0.54",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "13.61,14.88,-0.02",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "10.34,12.73,-2.32",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "1.97,11.71,-1.67",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 84,
+"entry_date": "2026-11-20",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "MA",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "10.47%",
+"Avg Profit - All": "10.47%",
+"Median Profit": "11.48%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.79",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|MPWR|2026-11-17|265|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "26.39,33.0,-8.04",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "16.41,17.32,-15.74",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "27.47,35.05,-11.71",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "70.18,77.27,-19.06",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "52.54,56.18,-1.0",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-4.54,2.92,-37.96",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "41.73,59.47,-10.48",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "56.98,65.94,-0.86",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "37.77,42.93,-24.99",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "54.77,91.8,-7.12",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 265,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "MPWR",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-4.54%",
+"Avg Profit": "42.69%",
+"Avg Profit - All": "37.97%",
+"Median Profit": "39.75%",
+"Num Losers": "1",
+"Num Winners": "9",
+"Percent Profitable": "90.0%",
+"Sharpe Ratio": "1.58",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|MSFT|2026-11-17|45|20|comparison_direction=long&report_completed_years=20": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "1.56,2.93,-2.04",
+"year": 2006
+},
+{
+"completed": true,
+"pct": "4.83,8.13,-3.92",
+"year": 2007
+},
+{
+"completed": true,
+"pct": "1.3,10.74,-8.81",
+"year": 2008
+},
+{
+"completed": true,
+"pct": "1.6,5.0,-4.17",
+"year": 2009
+},
+{
+"completed": true,
+"pct": "9.15,11.07,-2.5",
+"year": 2010
+},
+{
+"completed": true,
+"pct": "1.64,2.54,-4.86",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "-0.07,3.89,-1.76",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "1.33,5.58,-3.76",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "-5.49,0.37,-8.65",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "4.74,7.32,0.0",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "2.47,5.71,-3.03",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "3.81,6.19,-2.06",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-2.92,8.41,-10.19",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "5.25,6.49,-2.12",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "3.98,6.21,-2.68",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-0.83,3.11,-6.45",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-0.77,9.2,-3.23",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "1.67,3.91,-1.88",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "1.58,9.94,-1.25",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-4.53,0.0,-8.22",
+"year": 2025
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 45,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"report_completed_years": 20,
+"symbol": "MSFT",
+"years": 20
+},
+"stats": {
+"Avg Loss": "-2.44%",
+"Avg Profit": "3.21%",
+"Avg Profit - All": "1.52%",
+"Median Profit": "1.59%",
+"Num Losers": "6",
+"Num Winners": "14",
+"Percent Profitable": "70.0%",
+"Sharpe Ratio": "0.3",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|ORCL|2026-11-17|44|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-4.47,2.21,-6.48",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-4.72,3.62,-5.66",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-8.88,1.35,-14.43",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-6.21,1.55,-6.35",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "12.75,15.9,-2.73",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-7.68,11.55,-7.98",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "3.21,8.06,-1.44",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "-9.8,2.0,-13.96",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-10.13,6.77,-11.4",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-10.3,6.43,-19.46",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 44,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "ORCL",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-7.98%",
+"Avg Profit": "7.77%",
+"Avg Profit - All": "4.62%",
+"Median Profit": "6.94%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.57",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|PFE|2026-11-17|14|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "1.29,2.02,-3.47",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "2.52,3.14,-0.28",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "4.64,4.71,-3.19",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "2.87,4.46,-0.56",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "6.3,7.66,-0.5",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "5.62,9.49,-1.12",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "3.72,3.72,-1.26",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "1.84,2.77,-0.94",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "3.86,6.4,-1.01",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "0.76,3.55,-3.19",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 14,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "PFE",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "3.34%",
+"Avg Profit - All": "3.34%",
+"Median Profit": "3.3%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.75",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|PFE|2026-11-20|11|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "1.81,2.53,-2.98",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "2.57,3.2,-0.08",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "6.2,6.27,-1.75",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "3.35,4.94,-0.03",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "4.39,5.72,-1.85",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "4.94,8.79,-1.76",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "4.05,4.05,0.0",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "1.63,2.57,-1.13",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "3.53,6.05,-0.64",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "3.57,6.43,0.0",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 11,
+"entry_date": "2026-11-20",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "PFE",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "3.6%",
+"Avg Profit - All": "3.6%",
+"Median Profit": "3.55%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "2.5",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|PGR|2026-11-17|110|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "21.9,23.53,-0.5",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "16.13,17.6,-0.14",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "14.91,17.89,-12.77",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "16.67,22.0,-3.09",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "0.56,7.33,-9.18",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "19.25,25.22,-1.18",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "13.85,14.52,-2.5",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "25.02,25.21,-5.35",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "11.79,14.3,-9.13",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-0.61,5.36,-6.59",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 110,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "PGR",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-0.61%",
+"Avg Profit": "15.56%",
+"Avg Profit - All": "13.95%",
+"Median Profit": "15.52%",
+"Num Losers": "1",
+"Num Winners": "9",
+"Percent Profitable": "90.0%",
+"Sharpe Ratio": "1.53",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|PGR|2026-11-24|100|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "21.28,21.61,-0.54",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "15.79,16.92,0.0",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "19.46,21.21,-10.31",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "11.49,21.54,-3.45",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "5.16,14.96,-2.72",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "11.6,18.79,-3.35",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "10.75,10.82,-5.13",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "16.17,19.06,-8.91",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "9.36,9.43,-12.33",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "0.81,5.49,-6.48",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 100,
+"entry_date": "2026-11-24",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "PGR",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "12.19%",
+"Avg Profit - All": "12.19%",
+"Median Profit": "11.54%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.77",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|PODD|2026-11-20|45|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-1.68,3.37,-15.45",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-3.9,1.66,-6.09",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-3.8,15.56,-5.98",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-4.85,3.9,-7.32",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-5.13,1.34,-11.79",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-7.74,1.55,-16.09",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-1.45,8.89,-2.69",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "7.39,23.34,-1.11",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-0.11,4.95,-4.42",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-9.39,9.35,-10.9",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 45,
+"entry_date": "2026-11-20",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "PODD",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-7.39%",
+"Avg Profit": "4.23%",
+"Avg Profit - All": "3.07%",
+"Median Profit": "3.85%",
+"Num Losers": "1",
+"Num Winners": "9",
+"Percent Profitable": "90.0%",
+"Sharpe Ratio": "0.56",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|QCOM|2026-11-18|117|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-12.01,5.17,-21.59",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-8.01,4.53,-11.4",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "3.2,10.22,-9.58",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-27.61,7.11,-27.63",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-9.66,14.7,-15.6",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-23.56,4.29,-24.01",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-4.72,13.71,-13.2",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "31.56,38.7,-2.97",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-3.8,8.16,-8.69",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-20.7,12.32,-20.98",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 117,
+"entry_date": "2026-11-18",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "QCOM",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-17.38%",
+"Avg Profit": "13.76%",
+"Avg Profit - All": "7.53%",
+"Median Profit": "8.84%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.37",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|SBAC|2026-11-20|50|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "1.35,4.41,-5.77",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-1.68,5.0,-5.83",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-0.89,2.9,-8.05",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-0.3,1.33,-5.55",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-7.68,0.33,-9.74",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-0.36,13.77,-2.0",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-1.43,4.66,-7.77",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "5.63,10.03,-2.05",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-8.78,4.91,-11.66",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-7.11,1.61,-7.75",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 50,
+"entry_date": "2026-11-20",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "SBAC",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-3.49%",
+"Avg Profit": "3.53%",
+"Avg Profit - All": "2.12%",
+"Median Profit": "1.16%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.35",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|STT|2026-11-17|63|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "2.57,6.85,-2.42",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "14.29,18.04,-1.15",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "0.09,8.09,-19.37",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "11.5,17.78,-1.51",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "11.91,15.74,-3.91",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "5.66,9.69,-8.37",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "10.32,13.85,-2.23",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "6.81,13.18,-1.71",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "3.8,6.02,-2.63",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "11.78,22.25,-1.07",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 63,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "STT",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "7.87%",
+"Avg Profit - All": "7.87%",
+"Median Profit": "8.56%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.51",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|TAP|2026-11-17|345|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-18.53,4.72,-18.88",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-27.3,8.32,-28.67",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-15.16,1.91,-23.26",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-33.43,20.56,-36.78",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-2.64,36.23,-4.3",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "7.64,28.81,-10.03",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "10.08,36.63,-7.89",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "-2.76,18.13,-15.3",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-24.35,6.07,-26.8",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-10.67,21.42,-19.57",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 345,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "TAP",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-8.86%",
+"Avg Profit": "16.86%",
+"Avg Profit - All": "11.71%",
+"Median Profit": "12.92%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.54",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|UNH|2026-11-17|18|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "4.97,8.22,-1.47",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "5.84,10.79,-0.15",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "5.03,8.57,-2.92",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "2.34,3.69,-0.62",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-0.27,0.57,-6.52",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "2.82,3.19,-2.88",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "4.15,7.31,0.0",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "2.58,3.79,-1.42",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "3.59,5.63,-2.18",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "4.05,6.52,-4.99",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 18,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "UNH",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-0.27%",
+"Avg Profit": "3.93%",
+"Avg Profit - All": "3.51%",
+"Median Profit": "3.82%",
+"Num Losers": "1",
+"Num Winners": "9",
+"Percent Profitable": "90.0%",
+"Sharpe Ratio": "1.9",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|UNH|2026-11-19|16|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "5.22,8.48,-0.27",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "5.67,10.61,0.0",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "5.03,8.57,-2.92",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "1.86,3.2,-1.09",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "4.2,5.07,-2.33",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "4.91,5.29,-0.91",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "3.77,6.92,0.0",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "2.81,4.02,-1.21",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "5.86,7.94,0.0",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "7.89,10.46,0.0",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 16,
+"entry_date": "2026-11-19",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "UNH",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "4.72%",
+"Avg Profit - All": "4.72%",
+"Median Profit": "4.97%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "2.7",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|VLO|2026-11-17|12|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-0.44,3.28,-1.76",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "1.29,2.21,-0.85",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-1.57,0.01,-5.5",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-4.66,0.0,-5.38",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-0.7,10.66,-8.77",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-7.19,0.65,-9.79",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-2.23,3.08,-4.23",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "0.91,2.49,-2.87",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-2.69,0.47,-4.38",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-0.29,4.05,-4.95",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 12,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "VLO",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-1.1%",
+"Avg Profit": "2.47%",
+"Avg Profit - All": "1.76%",
+"Median Profit": "1.14%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.63",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|VRSK|2026-11-19|31|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-1.96,1.31,-3.4",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "3.75,6.56,0.0",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-10.02,2.85,-10.28",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "3.1,5.4,-0.83",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-1.3,0.3,-6.99",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-3.67,0.67,-6.61",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-3.58,5.13,-4.42",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "-1.88,4.02,-3.8",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-2.02,5.3,-2.63",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-2.84,1.02,-4.96",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 31,
+"entry_date": "2026-11-19",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "VRSK",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-3.42%",
+"Avg Profit": "3.41%",
+"Avg Profit - All": "2.04%",
+"Median Profit": "1.99%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.45",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|WELL|2026-11-18|35|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "4.56,7.54,-2.26",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "-6.67,1.03,-6.87",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-5.5,6.31,-5.66",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-5.86,1.56,-9.51",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-1.82,5.15,-3.62",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-3.7,1.29,-8.06",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-4.79,6.52,-7.61",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "1.59,5.5,-1.97",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-8.31,2.73,-10.04",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-5.98,5.43,-7.41",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 35,
+"entry_date": "2026-11-18",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "WELL",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-3.08%",
+"Avg Profit": "5.33%",
+"Avg Profit - All": "3.65%",
+"Median Profit": "5.14%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.82",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|XOM|2026-11-17|12|10|comparison_direction=short": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "1.45,2.36,-0.47",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "1.78,2.19,-0.29",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-0.97,0.0,-5.71",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-0.57,2.42,-1.75",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-1.4,8.82,-5.46",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-4.23,0.34,-7.42",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-2.87,1.37,-4.94",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "-1.01,0.88,-2.88",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-1.95,2.41,-2.79",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "-1.5,1.53,-2.97",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "short",
+"cut_off_year": 0,
+"days_out": 12,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "XOM",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-1.62%",
+"Avg Profit": "1.81%",
+"Avg Profit - All": "1.13%",
+"Median Profit": "1.2%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.56",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"2|YUM|2026-11-17|27|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "6.35,7.5,0.0",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "4.57,7.24,-0.17",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "6.49,7.25,-2.28",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "2.3,3.4,-0.75",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "1.86,3.98,-0.26",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "4.01,6.06,-3.67",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "6.5,8.21,-0.02",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "3.05,3.32,-2.64",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "2.73,4.68,-2.12",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "4.4,7.09,-3.71",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 27,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "YUM",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "4.23%",
+"Avg Profit - All": "4.23%",
+"Median Profit": "4.2%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "2.24",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|YUM|2026-11-19|29|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "3.29,5.35,0.0",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "5.48,6.98,0.0",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "2.22,7.25,-2.28",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "2.01,3.69,-0.32",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "3.81,3.89,-0.74",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "4.33,6.56,-3.23",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "3.99,7.12,0.0",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "2.32,3.45,-2.99",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "2.45,6.16,-0.73",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "3.74,6.88,-3.9",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 29,
+"entry_date": "2026-11-19",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "YUM",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "3.36%",
+"Avg Profit - All": "3.36%",
+"Median Profit": "3.52%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "2.74",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|ZBRA|2026-11-17|12|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "5.65,7.09,-1.64",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "0.53,1.51,-0.79",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "5.14,5.41,-5.25",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "7.01,9.14,-0.5",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "11.04,11.86,-2.27",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "0.23,1.08,-3.41",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "5.44,7.74,-1.88",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "7.28,7.52,-0.65",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "5.91,6.44,-1.78",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "8.61,9.57,-2.37",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 12,
+"entry_date": "2026-11-17",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "ZBRA",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "5.68%",
+"Avg Profit - All": "5.68%",
+"Median Profit": "5.78%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.68",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"2|ZBRA|2026-11-19|11|10|comparison_direction=long": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "4.48,5.08,0.0",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "0.5,3.21,-0.82",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "5.02,6.71,-5.25",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "6.37,8.5,0.0",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "5.59,6.37,-1.18",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "1.75,2.62,-1.94",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "3.82,6.95,-0.68",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "7.29,8.85,-1.43",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "6.43,6.96,-0.18",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "8.82,10.41,-1.62",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 11,
+"entry_date": "2026-11-19",
+"market": "2",
+"pe_cycle": "cons",
+"symbol": "ZBRA",
+"years": 10
+},
+"stats": {
+"Avg Loss": "0%",
+"Avg Profit": "5.01%",
+"Avg Profit - All": "5.01%",
+"Median Profit": "5.3%",
+"Num Losers": "0",
+"Num Winners": "10",
+"Percent Profitable": "100.0%",
+"Sharpe Ratio": "1.95",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"5|SPX|2026-09-27|295|pe2-24|excursion_dates=1": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"entry_trade_date": "1930-09-29",
+"exit_trade_date": "1931-07-20",
+"high_date": "1930-10-01",
+"high_day": 5,
+"low_date": "1931-06-02",
+"low_day": 249,
+"pct": "-23.41,2.86,-35.38",
+"year": 1930
+},
+{
+"completed": true,
+"entry_trade_date": "1934-09-27",
+"exit_trade_date": "1935-07-18",
+"high_date": "1935-07-17",
+"high_day": 294,
+"low_date": "1935-03-14",
+"low_day": 169,
+"pct": "16.12,16.23,-12.2",
+"year": 1934
+},
+{
+"completed": true,
+"entry_trade_date": "1938-09-27",
+"exit_trade_date": "1939-07-18",
+"high_date": "1938-10-10",
+"high_day": 14,
+"low_date": "1939-04-11",
+"low_day": 197,
+"pct": "10.65,26.57,-5.19",
+"year": 1938
+},
+{
+"completed": true,
+"entry_trade_date": "1942-09-28",
+"exit_trade_date": "1943-07-19",
+"high_date": "1943-07-14",
+"high_day": 291,
+"low_date": "1942-09-29",
+"low_day": 3,
+"pct": "41.17,42.18,-0.45",
+"year": 1942
+},
+{
+"completed": true,
+"entry_trade_date": "1946-09-27",
+"exit_trade_date": "1947-07-18",
+"high_date": "1947-02-11",
+"high_day": 138,
+"low_date": "1947-05-19",
+"low_day": 235,
+"pct": "4.9,6.82,-8.87",
+"year": 1946
+},
+{
+"completed": true,
+"entry_trade_date": "1950-09-27",
+"exit_trade_date": "1951-07-18",
+"high_date": "1951-05-03",
+"high_day": 219,
+"low_date": "1950-12-04",
+"low_day": 69,
+"pct": "12.73,17.52,-2.11",
+"year": 1950
+},
+{
+"completed": true,
+"entry_trade_date": "1954-09-27",
+"exit_trade_date": "1955-07-18",
+"high_date": "1955-07-06",
+"high_day": 283,
+"low_date": "1954-10-29",
+"low_day": 33,
+"pct": "30.22,32.74,-2.61",
+"year": 1954
+},
+{
+"completed": true,
+"entry_trade_date": "1958-09-29",
+"exit_trade_date": "1959-07-20",
+"high_date": "1959-07-08",
+"high_day": 285,
+"low_date": "1958-09-29",
+"low_day": 3,
+"pct": "18.13,20.37,0.0",
+"year": 1958
+},
+{
+"completed": true,
+"entry_trade_date": "1962-09-27",
+"exit_trade_date": "1963-07-18",
+"high_date": "1963-06-03",
+"high_day": 250,
+"low_date": "1962-10-24",
+"low_day": 28,
+"pct": "22.81,27.74,-5.77",
+"year": 1962
+},
+{
+"completed": true,
+"entry_trade_date": "1966-09-27",
+"exit_trade_date": "1967-07-18",
+"high_date": "1967-05-09",
+"high_day": 225,
+"low_date": "1966-10-10",
+"low_day": 14,
+"pct": "19.72,21.96,-7.45",
+"year": 1966
+},
+{
+"completed": true,
+"entry_trade_date": "1970-09-28",
+"exit_trade_date": "1971-07-19",
+"high_date": "1971-04-28",
+"high_day": 214,
+"low_date": "1970-11-19",
+"low_day": 54,
+"pct": "17.9,25.85,-2.0",
+"year": 1970
+},
+{
+"completed": true,
+"entry_trade_date": "1974-09-27",
+"exit_trade_date": "1975-07-18",
+"high_date": "1975-07-15",
+"high_day": 292,
+"low_date": "1974-10-04",
+"low_day": 8,
+"pct": "43.52,48.72,-6.13",
+"year": 1974
+},
+{
+"completed": true,
+"entry_trade_date": "1978-09-27",
+"exit_trade_date": "1979-07-18",
+"high_date": "1978-10-12",
+"high_day": 16,
+"low_date": "1978-10-30",
+"low_day": 34,
+"pct": "0.03,4.5,-9.85",
+"year": 1978
+},
+{
+"completed": true,
+"entry_trade_date": "1982-09-27",
+"exit_trade_date": "1983-07-18",
+"high_date": "1983-06-22",
+"high_day": 269,
+"low_date": "1982-09-30",
+"low_day": 4,
+"pct": "32.62,38.81,-2.82",
+"year": 1982
+},
+{
+"completed": true,
+"entry_trade_date": "1986-09-29",
+"exit_trade_date": "1987-07-20",
+"high_date": "1987-07-17",
+"high_day": 294,
+"low_date": "1986-09-29",
+"low_day": 3,
+"pct": "35.44,36.83,0.0",
+"year": 1986
+},
+{
+"completed": true,
+"entry_trade_date": "1990-09-27",
+"exit_trade_date": "1991-07-18",
+"high_date": "1991-04-17",
+"high_day": 203,
+"low_date": "1990-10-11",
+"low_day": 15,
+"pct": "28.04,30.0,-2.15",
+"year": 1990
+},
+{
+"completed": true,
+"entry_trade_date": "1994-09-27",
+"exit_trade_date": "1995-07-18",
+"high_date": "1995-07-17",
+"high_day": 294,
+"low_date": "1994-12-09",
+"low_day": 74,
+"pct": "20.87,21.84,-4.15",
+"year": 1994
+},
+{
+"completed": true,
+"entry_trade_date": "1998-09-28",
+"exit_trade_date": "1999-07-19",
+"high_date": "1999-07-19",
+"high_day": 296,
+"low_date": "1998-10-08",
+"low_day": 12,
+"pct": "34.23,35.44,-11.95",
+"year": 1998
+},
+{
+"completed": true,
+"entry_trade_date": "2002-09-27",
+"exit_trade_date": "2003-07-18",
+"high_date": "2003-07-14",
+"high_day": 291,
+"low_date": "2002-10-10",
+"low_day": 14,
+"pct": "20.06,22.73,-7.1",
+"year": 2002
+},
+{
+"completed": true,
+"entry_trade_date": "2006-09-27",
+"exit_trade_date": "2007-07-18",
+"high_date": "2007-07-16",
+"high_day": 293,
+"low_date": "2006-10-03",
+"low_day": 7,
+"pct": "15.68,16.41,-0.71",
+"year": 2006
+},
+{
+"completed": true,
+"entry_trade_date": "2010-09-27",
+"exit_trade_date": "2011-07-18",
+"high_date": "2011-05-02",
+"high_day": 218,
+"low_date": "2010-10-04",
+"low_day": 8,
+"pct": "14.3,20.0,-0.9",
+"year": 2010
+},
+{
+"completed": true,
+"entry_trade_date": "2014-09-29",
+"exit_trade_date": "2015-07-20",
+"high_date": "2015-05-20",
+"high_day": 236,
+"low_date": "2014-10-15",
+"low_day": 19,
+"pct": "7.61,7.93,-7.95",
+"year": 2014
+},
+{
+"completed": true,
+"entry_trade_date": "2018-09-27",
+"exit_trade_date": "2019-07-18",
+"high_date": "2019-07-15",
+"high_day": 292,
+"low_date": "2018-12-26",
+"low_day": 91,
+"pct": "2.78,3.56,-19.47",
+"year": 2018
+},
+{
+"completed": true,
+"entry_trade_date": "2022-09-27",
+"exit_trade_date": "2023-07-18",
+"high_date": "2023-07-18",
+"high_day": 295,
+"low_date": "2022-10-13",
+"low_day": 17,
+"pct": "24.89,25.09,-4.27",
+"year": 2022
+},
+{
+"completed": false,
+"entry_trade_date": "2026-09-28",
+"exit_trade_date": "2026-11-16",
+"high_date": "2026-10-06",
+"high_day": 10,
+"low_date": "2026-11-05",
+"low_day": 40,
+"pct": "-3.48,2.09,-4.34",
+"year": 2026
+}
+],
+"request": {
+"cut_off_year": 0,
+"days_out": 295,
+"entry_date": "2026-09-27",
+"market": "5",
+"pe_cycle": "pe2",
+"symbol": "SPX",
+"years": 24
+},
+"stats": {
+"Avg Loss": "-23.41%",
+"Avg Profit": "20.63%",
+"Avg Profit - All": "18.79%",
+"Median Profit": "18.92%",
+"Num Losers": "1",
+"Num Winners": "23",
+"Percent Profitable": "95.83%",
+"Sharpe Ratio": "1.06",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"5|SPX|2026-11-01|181|pe2-24|": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-11.91,6.07,-16.11",
+"year": 1930
+},
+{
+"completed": true,
+"pct": "5.82,9.24,-8.1",
+"year": 1934
+},
+{
+"completed": true,
+"pct": "-17.1,5.27,-20.46",
+"year": 1938
+},
+{
+"completed": true,
+"pct": "22.26,24.05,-2.11",
+"year": 1942
+},
+{
+"completed": true,
+"pct": "-3.25,7.1,-6.5",
+"year": 1946
+},
+{
+"completed": true,
+"pct": "14.67,14.67,-2.86",
+"year": 1950
+},
+{
+"completed": true,
+"pct": "19.66,20.54,0.0",
+"year": 1954
+},
+{
+"completed": true,
+"pct": "11.7,12.82,-1.05",
+"year": 1958
+},
+{
+"completed": true,
+"pct": "22.2,22.86,-0.6",
+"year": 1962
+},
+{
+"completed": true,
+"pct": "16.12,17.28,-2.38",
+"year": 1966
+},
+{
+"completed": true,
+"pct": "24.48,26.45,-1.53",
+"year": 1970
+},
+{
+"completed": true,
+"pct": "18.16,20.18,-13.2",
+"year": 1974
+},
+{
+"completed": true,
+"pct": "5.07,7.33,-5.25",
+"year": 1978
+},
+{
+"completed": true,
+"pct": "19.66,21.38,-1.9",
+"year": 1982
+},
+{
+"completed": true,
+"pct": "17.31,23.54,-4.19",
+"year": 1986
+},
+{
+"completed": true,
+"pct": "22.25,27.44,-0.65",
+"year": 1990
+},
+{
+"completed": true,
+"pct": "9.79,10.07,-5.45",
+"year": 1994
+},
+{
+"completed": true,
+"pct": "20.11,23.39,-0.47",
+"year": 1998
+},
+{
+"completed": true,
+"pct": "1.77,5.92,-12.44",
+"year": 2002
+},
+{
+"completed": true,
+"pct": "8.38,9.52,-0.5",
+"year": 2006
+},
+{
+"completed": true,
+"pct": "14.93,15.72,-0.96",
+"year": 2010
+},
+{
+"completed": true,
+"pct": "3.36,5.36,-2.24",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "7.5,7.63,-14.37",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "8.09,8.8,-4.1",
+"year": 2022
+},
+{
+"completed": false,
+"pct": "-1.65,2.31,-2.53",
+"year": 2026
+}
+],
+"request": {
+"cut_off_year": 0,
+"days_out": 181,
+"entry_date": "2026-11-01",
+"market": "5",
+"pe_cycle": "pe2",
+"symbol": "SPX",
+"years": 24
+},
+"stats": {
+"Avg Loss": "-10.75%",
+"Avg Profit": "13.97%",
+"Avg Profit - All": "10.88%",
+"Median Profit": "13.18%",
+"Num Losers": "3",
+"Num Winners": "21",
+"Percent Profitable": "87.5%",
+"Sharpe Ratio": "0.82",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"5|SPX|2026-11-17|45|pe1-25|": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "6.77,12.34,0.0",
+"year": 1929
+},
+{
+"completed": true,
+"pct": "0.5,3.93,-3.73",
+"year": 1933
+},
+{
+"completed": true,
+"pct": "-7.37,0.26,-10.71",
+"year": 1937
+},
+{
+"completed": true,
+"pct": "-6.36,1.29,-9.81",
+"year": 1941
+},
+{
+"completed": true,
+"pct": "0.99,2.85,-1.98",
+"year": 1945
+},
+{
+"completed": true,
+"pct": "5.2,5.2,0.0",
+"year": 1949
+},
+{
+"completed": true,
+"pct": "2.31,3.05,0.0",
+"year": 1953
+},
+{
+"completed": true,
+"pct": "-0.12,4.2,-1.65",
+"year": 1957
+},
+{
+"completed": true,
+"pct": "-0.1,1.42,-1.06",
+"year": 1961
+},
+{
+"completed": true,
+"pct": "-0.18,0.51,-3.67",
+"year": 1965
+},
+{
+"completed": true,
+"pct": "-4.51,0.61,-8.08",
+"year": 1969
+},
+{
+"completed": true,
+"pct": "-3.14,0.62,-9.59",
+"year": 1973
+},
+{
+"completed": true,
+"pct": "-0.06,2.05,-3.57",
+"year": 1977
+},
+{
+"completed": true,
+"pct": "1.16,5.09,-1.43",
+"year": 1981
+},
+{
+"completed": true,
+"pct": "6.33,7.23,-0.35",
+"year": 1985
+},
+{
+"completed": true,
+"pct": "3.45,3.66,-1.19",
+"year": 1989
+},
+{
+"completed": true,
+"pct": "0.35,1.39,-1.66",
+"year": 1993
+},
+{
+"completed": true,
+"pct": "2.56,4.23,-2.25",
+"year": 1997
+},
+{
+"completed": true,
+"pct": "-0.26,1.96,-3.17",
+"year": 2001
+},
+{
+"completed": true,
+"pct": "0.44,2.66,-0.17",
+"year": 2005
+},
+{
+"completed": true,
+"pct": "0.43,1.81,-2.39",
+"year": 2009
+},
+{
+"completed": true,
+"pct": "3.17,3.23,-1.31",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "3.67,4.5,-0.02",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "1.65,2.56,-4.13",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "2.59,4.1,-2.26",
+"year": 2025
+}
+],
+"request": {
+"cut_off_year": 0,
+"days_out": 45,
+"entry_date": "2026-11-17",
+"market": "5",
+"pe_cycle": "pe1",
+"symbol": "SPX",
+"years": 25
+},
+"stats": {
+"Avg Loss": "-2.46%",
+"Avg Profit": "2.6%",
+"Avg Profit - All": "0.78%",
+"Median Profit": "0.5%",
+"Num Losers": "9",
+"Num Winners": "16",
+"Percent Profitable": "64.0%",
+"Sharpe Ratio": "0.09",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"7|GC|2026-11-17|45|10|": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "-5.47,0.0,-7.61",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "0.81,0.81,-4.58",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "4.51,4.76,-0.97",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "3.3,3.57,-1.28",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "0.46,1.25,-6.48",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-2.26,0.0,-6.19",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "3.35,3.72,-1.4",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "4.08,7.5,-0.6",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "0.71,4.72,-1.09",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "6.32,12.0,-0.9",
+"year": 2025
+},
+{
+"completed": false,
+"pct": "0,0,0",
+"year": 2026
+}
+],
+"request": {
+"cut_off_year": 0,
+"days_out": 45,
+"entry_date": "2026-11-17",
+"market": "7",
+"pe_cycle": "cons",
+"symbol": "GC",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-3.86%",
+"Avg Profit": "2.94%",
+"Avg Profit - All": "1.58%",
+"Median Profit": "2.05%",
+"Num Losers": "2",
+"Num Winners": "8",
+"Percent Profitable": "80.0%",
+"Sharpe Ratio": "0.31",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"8|EURUSD|2026-01-01|90|10|": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "5.07,5.6,-1.12",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "2.55,4.83,-0.14",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "2.39,4.55,-0.81",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "-1.66,1.55,-1.92",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "-2.68,3.03,-4.65",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-3.85,0.81,-4.44",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "-2.85,1.07,-4.99",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "1.18,3.33,-1.82",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-1.87,0.53,-2.26",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "5.32,6.27,-1.27",
+"year": 2025
+},
+{
+"completed": true,
+"pct": "-1.36,2.83,-3.11",
+"year": 2026
+}
+],
+"request": {
+"cut_off_year": 0,
+"days_out": 90,
+"entry_date": "2026-01-02",
+"market": "8",
+"pe_cycle": "cons",
+"symbol": "EURUSD",
+"years": 10
+},
+"stats": {
+"Avg Loss": "-3.3%",
+"Avg Profit": "2.38%",
+"Avg Profit - All": "-0.2%",
+"Median Profit": "1.36%",
+"Num Losers": "5",
+"Num Winners": "6",
+"Percent Profitable": "54.55%",
+"Sharpe Ratio": "-0.36",
+"Trade Dir": "short"
+}
+},
+"status": 200
+},
+"8|EURUSD|2026-10-15|78|23|comparison_direction=long&report_completed_years=23": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "8.29,8.56,-1.53",
+"year": 2003
+},
+{
+"completed": true,
+"pct": "8.7,9.48,-0.07",
+"year": 2004
+},
+{
+"completed": true,
+"pct": "-1.95,0.79,-3.62",
+"year": 2005
+},
+{
+"completed": true,
+"pct": "5.27,7.16,-0.25",
+"year": 2006
+},
+{
+"completed": true,
+"pct": "2.92,5.61,-0.33",
+"year": 2007
+},
+{
+"completed": true,
+"pct": "4.35,9.4,-8.36",
+"year": 2008
+},
+{
+"completed": true,
+"pct": "-3.98,1.64,-4.58",
+"year": 2009
+},
+{
+"completed": true,
+"pct": "-4.94,1.49,-7.85",
+"year": 2010
+},
+{
+"completed": true,
+"pct": "-6.55,2.76,-7.26",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "1.34,1.95,-3.03",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "2.04,2.65,-1.77",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "-5.04,0.26,-5.54",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "-3.61,0.5,-7.26",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "-3.85,2.73,-5.88",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "1.25,1.96,-2.04",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-1.15,0.06,-3.1",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "1.18,1.54,-0.81",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "4.35,5.1,-0.94",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-1.96,0.78,-3.58",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "9.87,10.23,-0.36",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "4.9,5.87,-0.06",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-4.38,0.5,-5.05",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "0.5,1.04,-1.87",
+"year": 2025
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 78,
+"entry_date": "2026-10-15",
+"market": "8",
+"pe_cycle": "cons",
+"report_completed_years": 23,
+"symbol": "EURUSD",
+"years": 23
+},
+"stats": {
+"Avg Loss": "-3.74%",
+"Avg Profit": "4.23%",
+"Avg Profit - All": "0.76%",
+"Median Profit": "1.18%",
+"Num Losers": "10",
+"Num Winners": "13",
+"Percent Profitable": "56.52%",
+"Sharpe Ratio": "-0.02",
+"Trade Dir": "long"
+}
+},
+"status": 200
+},
+"8|GBPUSD|2026-10-15|78|23|comparison_direction=long&report_completed_years=23": {
+"payload": {
+"ChartData4": [
+{
+"completed": true,
+"pct": "6.61,6.61,-0.47",
+"year": 2003
+},
+{
+"completed": true,
+"pct": "6.42,7.86,-0.33",
+"year": 2004
+},
+{
+"completed": true,
+"pct": "-2.68,1.26,-3.57",
+"year": 2005
+},
+{
+"completed": true,
+"pct": "5.25,6.61,-0.04",
+"year": 2006
+},
+{
+"completed": true,
+"pct": "-2.29,4.11,-2.83",
+"year": 2007
+},
+{
+"completed": true,
+"pct": "-15.18,1.24,-17.06",
+"year": 2008
+},
+{
+"completed": true,
+"pct": "-1.22,3.22,-3.17",
+"year": 2009
+},
+{
+"completed": true,
+"pct": "-3.36,2.03,-3.94",
+"year": 2010
+},
+{
+"completed": true,
+"pct": "-2.6,2.14,-2.94",
+"year": 2011
+},
+{
+"completed": true,
+"pct": "0.34,1.22,-1.75",
+"year": 2012
+},
+{
+"completed": true,
+"pct": "3.44,3.95,-0.59",
+"year": 2013
+},
+{
+"completed": true,
+"pct": "-3.22,0.6,-3.71",
+"year": 2014
+},
+{
+"completed": true,
+"pct": "-4.27,0.17,-4.75",
+"year": 2015
+},
+{
+"completed": true,
+"pct": "0.86,4.84,-0.77",
+"year": 2016
+},
+{
+"completed": true,
+"pct": "1.14,1.96,-1.86",
+"year": 2017
+},
+{
+"completed": true,
+"pct": "-3.13,1.01,-4.75",
+"year": 2018
+},
+{
+"completed": true,
+"pct": "3.97,7.12,0.0",
+"year": 2019
+},
+{
+"completed": true,
+"pct": "4.76,5.17,-1.22",
+"year": 2020
+},
+{
+"completed": true,
+"pct": "-1.02,1.21,-3.64",
+"year": 2021
+},
+{
+"completed": true,
+"pct": "7.58,10.72,-1.61",
+"year": 2022
+},
+{
+"completed": true,
+"pct": "4.74,5.54,-0.7",
+"year": 2023
+},
+{
+"completed": true,
+"pct": "-4.22,0.1,-4.52",
+"year": 2024
+},
+{
+"completed": true,
+"pct": "0.54,0.98,-2.93",
+"year": 2025
+}
+],
+"request": {
+"comparison_direction": "long",
+"cut_off_year": 0,
+"days_out": 78,
+"entry_date": "2026-10-15",
+"market": "8",
+"pe_cycle": "cons",
+"report_completed_years": 23,
+"symbol": "GBPUSD",
+"years": 23
+},
+"stats": {
+"Avg Loss": "-3.93%",
+"Avg Profit": "3.8%",
+"Avg Profit - All": "0.11%",
+"Median Profit": "0.34%",
+"Num Losers": "11",
+"Num Winners": "12",
+"Percent Profitable": "52.17%",
+"Sharpe Ratio": "-0.15",
+"Trade Dir": "long"
+}
+},
+"status": 200
+}
+},
+"opplist": {
+"1|2026-11-23|10|10|9-9": {
+"rows": [],
+"status": 200
+},
+"1|2026-11-23|10|8|9-9": {
+"rows": [
+[
+"2026-11-22",
+"ODFL",
+"9",
+"Long",
+"0.88",
+2.29
+],
+[
+"2026-11-21",
+"QCOM",
+"9",
+"Long",
+"0.78",
+2.27
+],
+[
+"2026-11-21",
+"NXPI",
+"9",
+"Long",
+"0.77",
+1.61
+],
+[
+"2026-11-21",
+"AMZN",
+"9",
+"Long",
+"0.73",
+3.22
+],
+[
+"2026-11-21",
+"FTNT",
+"9",
+"Long",
+"0.71",
+2.09
+],
+[
+"2026-11-23",
+"BKR",
+"9",
+"Long",
+"0.7",
+1.57
+],
+[
+"2026-11-21",
+"MCHP",
+"9",
+"Long",
+"0.69",
+2.85
+],
+[
+"2026-11-21",
+"ORLY",
+"9",
+"Long",
+"0.66",
+2.02
+],
+[
+"2026-11-21",
+"ALNY",
+"9",
+"Long",
+"0.64",
+3.34
+],
+[
+"2026-11-21",
+"MSFT",
+"9",
+"Long",
+"0.64",
+2.08
+],
+[
+"2026-11-21",
+"ADI",
+"9",
+"Long",
+"0.63",
+3.5
+],
+[
+"2026-11-23",
+"CTAS",
+"9",
+"Long",
+"0.6",
+1.71
+],
+[
+"2026-11-21",
+"CSX",
+"9",
+"Long",
+"0.59",
+2.54
+],
+[
+"2026-11-23",
+"CMCSA",
+"9",
+"Long",
+"0.58",
+2.34
+]
+],
+"status": 200
+},
+"1|2026-11-23|10|9|9-9": {
+"rows": [
+[
+"2026-11-21",
+"NXPI",
+"9",
+"Long",
+"0.77",
+1.61
+],
+[
+"2026-11-21",
+"MCHP",
+"9",
+"Long",
+"0.69",
+2.85
+],
+[
+"2026-11-22",
+"PAYX",
+"9",
+"Long",
+"0.49",
+1.55
+],
+[
+"2026-11-21",
+"MNST",
+"9",
+"Long",
+"0.46",
+1.74
+],
+[
+"2026-11-22",
+"CTAS",
+"9",
+"Long",
+"0.34",
+1.24
+]
+],
+"status": 200
+},
+"1|2026-11-24|10|10|9-9": {
+"rows": [],
+"status": 200
+},
+"1|2026-11-24|10|8|9-9": {
+"rows": [
+[
+"2026-11-24",
+"PEP",
+"9",
+"Long",
+"0.72",
+0.92
+],
+[
+"2026-11-24",
+"TRI",
+"9",
+"Long",
+"0.22",
+0.5
+],
+[
+"2026-11-24",
+"DXCM",
+"9",
+"Long",
+"0.19",
+1.57
+]
+],
+"status": 200
+},
+"1|2026-11-24|10|9|9-9": {
+"rows": [],
+"status": 200
+},
+"1|2026-11-25|10|10|9-9": {
+"rows": [],
+"status": 200
+},
+"1|2026-11-25|10|8|9-9": {
+"rows": [
+[
+"2026-11-25",
+"CPRT",
+"9",
+"Short",
+"0.43",
+0.98
+],
+[
+"2026-11-25",
+"AMZN",
+"9",
+"Short",
+"0.04",
+0.25
+],
+[
+"2026-11-25",
+"BKNG",
+"9",
+"Long",
+"0.71",
+1.6
+],
+[
+"2026-11-25",
+"PEP",
+"9",
+"Long",
+"0.64",
+1.17
+],
+[
+"2026-11-25",
+"ROST",
+"9",
+"Long",
+"0.58",
+1.94
+],
+[
+"2026-11-25",
+"CSCO",
+"9",
+"Long",
+"0.55",
+1.51
+],
+[
+"2026-11-25",
+"CTAS",
+"9",
+"Long",
+"0.47",
+1.2
+],
+[
+"2026-11-25",
+"DXCM",
+"9",
+"Long",
+"0.16",
+1.29
+],
+[
+"2026-11-25",
+"VRTX",
+"9",
+"Long",
+"0.14",
+1.1
+]
+],
+"status": 200
+},
+"1|2026-11-25|10|9|9-9": {
+"rows": [
+[
+"2026-11-25",
+"ROST",
+"9",
+"Long",
+"0.58",
+1.94
+]
+],
+"status": 200
+},
+"1|2026-11-26|10|10|9-9": {
+"rows": [],
+"status": 200
+},
+"1|2026-11-26|10|8|9-9": {
+"rows": [
+[
+"2026-11-26",
+"WDC",
+"9",
+"Short",
+"0.14",
+0.96
+],
+[
+"2026-11-26",
+"BKNG",
+"9",
+"Long",
+"0.72",
+2.01
+],
+[
+"2026-11-26",
+"ROST",
+"9",
+"Long",
+"0.55",
+1.65
+],
+[
+"2026-11-26",
+"AAPL",
+"9",
+"Long",
+"0.48",
+1.48
+],
+[
+"2026-11-26",
+"CMCSA",
+"9",
+"Long",
+"0.44",
+1.67
+],
+[
+"2026-11-26",
+"DXCM",
+"9",
+"Long",
+"0.09",
+0.65
+]
+],
+"status": 200
+},
+"1|2026-11-26|10|9|9-9": {
+"rows": [],
+"status": 200
+},
+"1|2026-11-27|10|10|9-9": {
+"rows": [],
+"status": 200
+},
+"1|2026-11-27|10|8|9-9": {
+"rows": [
+[
+"2026-11-27",
+"CPRT",
+"9",
+"Short",
+"0.44",
+1.28
+],
+[
+"2026-11-27",
+"AMZN",
+"9",
+"Short",
+"0.09",
+0.57
+],
+[
+"2026-11-27",
+"BKNG",
+"9",
+"Long",
+"0.68",
+1.7
+]
+],
+"status": 200
+},
+"1|2026-11-27|10|9|9-9": {
+"rows": [],
+"status": 200
+},
+"1|2026-12-01|10|8|-": {
+"rows": [
+[
+"2026-12-01",
+"MSTR",
+"17",
+"Short",
+"0.58",
+5.49
+],
+[
+"2026-12-01",
+"ROP",
+"8",
+"Short",
+"0.56",
+1.39
+],
+[
+"2026-12-01",
+"ALNY",
+"35",
+"Short",
+"0.47",
+3.75
+],
+[
+"2026-12-01",
+"QCOM",
+"103",
+"Short",
+"0.42",
+7.4
+],
+[
+"2026-12-01",
+"GOOG",
+"63",
+"Long",
+"1.79",
+8.8
+],
+[
+"2026-12-01",
+"GOOGL",
+"63",
+"Long",
+"1.76",
+8.67
+],
+[
+"2026-12-01",
+"KLAC",
+"243",
+"Long",
+"1.63",
+29.5
+],
+[
+"2026-12-01",
+"MPWR",
+"250",
+"Long",
+"1.57",
+35.9
+],
+[
+"2026-12-01",
+"FTNT",
+"76",
+"Long",
+"1.46",
+18.01
+],
+[
+"2026-12-01",
+"MAR",
+"81",
+"Long",
+"1.39",
+9.85
+],
+[
+"2026-12-01",
+"TER",
+"54",
+"Long",
+"1.39",
+13.72
+],
+[
+"2026-12-01",
+"LIN",
+"187",
+"Long",
+"1.36",
+11.51
+],
+[
+"2026-12-01",
+"ADI",
+"364",
+"Long",
+"1.35",
+20.57
+],
+[
+"2026-12-01",
+"CCEP",
+"77",
+"Long",
+"1.25",
+9.09
+],
+[
+"2026-12-01",
+"CTAS",
+"240",
+"Long",
+"1.15",
+17.91
+],
+[
+"2026-12-01",
+"PCAR",
+"54",
+"Long",
+"1.12",
+8.51
+],
+[
+"2026-12-01",
+"AAPL",
+"331",
+"Long",
+"1.11",
+27.39
+],
+[
+"2026-12-01",
+"AMD",
+"350",
+"Long",
+"1.07",
+58.36
+]
+],
+"status": 200
+},
+"2|2026-11-17|10|10|-": {
+"rows": [
+[
+"2026-11-17",
+"HLT",
+"90",
+"Long",
+"3.13",
+13.26
+],
+[
+"2026-11-17",
+"CIEN",
+"57",
+"Long",
+"2.74",
+16.7
+],
+[
+"2026-11-17",
+"YUM",
+"26",
+"Long",
+"2.24",
+4.23
+],
+[
+"2026-11-17",
+"CBRE",
+"76",
+"Long",
+"1.84",
+8.24
+],
+[
+"2026-11-17",
+"MAR",
+"95",
+"Long",
+"1.84",
+12.17
+],
+[
+"2026-11-17",
+"GWW",
+"7",
+"Long",
+"1.77",
+1.79
+],
+[
+"2026-11-17",
+"PFE",
+"13",
+"Long",
+"1.75",
+3.34
+],
+[
+"2026-11-17",
+"AJG",
+"253",
+"Long",
+"1.75",
+12.61
+],
+[
+"2026-11-17",
+"ZBRA",
+"11",
+"Long",
+"1.68",
+5.68
+],
+[
+"2026-11-17",
+"STT",
+"62",
+"Long",
+"1.51",
+7.87
+],
+[
+"2026-11-17",
+"CPAY",
+"91",
+"Long",
+"1.5",
+11.59
+],
+[
+"2026-11-17",
+"V",
+"86",
+"Long",
+"1.47",
+7.53
+],
+[
+"2026-11-17",
+"RSG",
+"299",
+"Long",
+"1.47",
+16.14
+],
+[
+"2026-11-17",
+"SCHW",
+"79",
+"Long",
+"1.44",
+8.3
+]
+],
+"status": 200
+},
+"2|2026-11-17|10|8|-": {
+"rows": [
+[
+"2026-11-17",
+"WELL",
+"35",
+"Short",
+"0.74",
+3.57
+],
+[
+"2026-11-17",
+"BIIB",
+"126",
+"Short",
+"0.64",
+9.41
+],
+[
+"2026-11-17",
+"VLO",
+"11",
+"Short",
+"0.63",
+1.76
+],
+[
+"2026-11-17",
+"CSGP",
+"31",
+"Short",
+"0.6",
+2.46
+],
+[
+"2026-11-17",
+"ORCL",
+"43",
+"Short",
+"0.57",
+4.62
+],
+[
+"2026-11-17",
+"XOM",
+"11",
+"Short",
+"0.56",
+1.13
+],
+[
+"2026-11-17",
+"TAP",
+"344",
+"Short",
+"0.5",
+11.24
+],
+[
+"2026-11-17",
+"EQT",
+"19",
+"Short",
+"0.49",
+3.31
+],
+[
+"2026-11-17",
+"EOG",
+"11",
+"Short",
+"0.48",
+1.17
+],
+[
+"2026-11-17",
+"AMCR",
+"123",
+"Short",
+"0.37",
+4.43
+],
+[
+"2026-11-17",
+"QCOM",
+"117",
+"Short",
+"0.37",
+7.47
+],
+[
+"2026-11-17",
+"BALL",
+"33",
+"Short",
+"0.33",
+2.56
+],
+[
+"2026-11-17",
+"IT",
+"103",
+"Short",
+"0.28",
+4.97
+],
+[
+"2026-11-17",
+"KIM",
+"35",
+"Short",
+"0.19",
+1.83
+],
+[
+"2026-11-17",
+"HLT",
+"90",
+"Long",
+"3.13",
+13.26
+],
+[
+"2026-11-17",
+"CIEN",
+"57",
+"Long",
+"2.74",
+16.7
+],
+[
+"2026-11-17",
+"YUM",
+"26",
+"Long",
+"2.24",
+4.23
+],
+[
+"2026-11-17",
+"UNH",
+"17",
+"Long",
+"1.9",
+3.51
+],
+[
+"2026-11-17",
+"CBRE",
+"76",
+"Long",
+"1.84",
+8.24
+],
+[
+"2026-11-17",
+"MAR",
+"95",
+"Long",
+"1.84",
+12.17
+],
+[
+"2026-11-17",
+"GWW",
+"7",
+"Long",
+"1.77",
+1.79
+],
+[
+"2026-11-17",
+"PFE",
+"13",
+"Long",
+"1.75",
+3.34
+],
+[
+"2026-11-17",
+"AJG",
+"253",
+"Long",
+"1.75",
+12.61
+],
+[
+"2026-11-17",
+"ZBRA",
+"11",
+"Long",
+"1.68",
+5.68
+],
+[
+"2026-11-17",
+"MPWR",
+"264",
+"Long",
+"1.59",
+37.24
+],
+[
+"2026-11-17",
+"PGR",
+"109",
+"Long",
+"1.53",
+13.95
+],
+[
+"2026-11-17",
+"STT",
+"62",
+"Long",
+"1.51",
+7.87
+],
+[
+"2026-11-17",
+"CPAY",
+"91",
+"Long",
+"1.5",
+11.59
+]
+],
+"status": 200
+},
+"2|2026-11-18|10|10|-": {
+"rows": [
+[
+"2026-11-18",
+"HLT",
+"89",
+"Long",
+"3.14",
+13.11
+],
+[
+"2026-11-18",
+"YUM",
+"25",
+"Long",
+"2.42",
+3.71
+],
+[
+"2026-11-18",
+"CIEN",
+"56",
+"Long",
+"2.28",
+17.2
+],
+[
+"2026-11-18",
+"CBRE",
+"75",
+"Long",
+"2.17",
+8.45
+],
+[
+"2026-11-18",
+"UNH",
+"16",
+"Long",
+"1.96",
+3.76
+],
+[
+"2026-11-18",
+"MAR",
+"94",
+"Long",
+"1.79",
+12.3
+],
+[
+"2026-11-18",
+"AJG",
+"252",
+"Long",
+"1.75",
+12.67
+],
+[
+"2026-11-18",
+"V",
+"85",
+"Long",
+"1.73",
+7.92
+],
+[
+"2026-11-18",
+"CTSH",
+"84",
+"Long",
+"1.72",
+7.7
+],
+[
+"2026-11-18",
+"CSCO",
+"77",
+"Long",
+"1.69",
+5.62
+],
+[
+"2026-11-18",
+"BF-B",
+"10",
+"Long",
+"1.66",
+2.67
+],
+[
+"2026-11-18",
+"CPAY",
+"90",
+"Long",
+"1.65",
+11.91
+],
+[
+"2026-11-18",
+"MA",
+"78",
+"Long",
+"1.58",
+8.9
+],
+[
+"2026-11-18",
+"STT",
+"61",
+"Long",
+"1.53",
+7.96
+]
+],
+"status": 200
+},
+"2|2026-11-18|10|8|-": {
+"rows": [
+[
+"2026-11-18",
+"WELL",
+"34",
+"Short",
+"0.82",
+3.65
+],
+[
+"2026-11-18",
+"BIIB",
+"125",
+"Short",
+"0.63",
+9.22
+],
+[
+"2026-11-18",
+"ORCL",
+"42",
+"Short",
+"0.52",
+4.52
+],
+[
+"2026-11-18",
+"EQT",
+"18",
+"Short",
+"0.47",
+3.0
+],
+[
+"2026-11-18",
+"ALB",
+"16",
+"Short",
+"0.43",
+2.74
+],
+[
+"2026-11-18",
+"EOG",
+"10",
+"Short",
+"0.38",
+0.89
+],
+[
+"2026-11-18",
+"QCOM",
+"116",
+"Short",
+"0.37",
+7.53
+],
+[
+"2026-11-18",
+"CHTR",
+"28",
+"Short",
+"0.35",
+2.97
+],
+[
+"2026-11-18",
+"AMCR",
+"122",
+"Short",
+"0.35",
+4.29
+],
+[
+"2026-11-18",
+"BALL",
+"35",
+"Short",
+"0.3",
+2.66
+],
+[
+"2026-11-18",
+"SBAC",
+"24",
+"Short",
+"0.28",
+1.29
+],
+[
+"2026-11-18",
+"IT",
+"102",
+"Short",
+"0.26",
+4.79
+],
+[
+"2026-11-18",
+"ALLE",
+"31",
+"Short",
+"0.23",
+1.88
+],
+[
+"2026-11-18",
+"ERIE",
+"21",
+"Short",
+"0.17",
+1.48
+],
+[
+"2026-11-18",
+"HLT",
+"89",
+"Long",
+"3.14",
+13.11
+],
+[
+"2026-11-18",
+"YUM",
+"25",
+"Long",
+"2.42",
+3.71
+],
+[
+"2026-11-18",
+"CIEN",
+"56",
+"Long",
+"2.28",
+17.2
+],
+[
+"2026-11-18",
+"CBRE",
+"75",
+"Long",
+"2.17",
+8.45
+],
+[
+"2026-11-18",
+"UNH",
+"16",
+"Long",
+"1.96",
+3.76
+],
+[
+"2026-11-18",
+"EXPE",
+"6",
+"Long",
+"1.8",
+2.29
+],
+[
+"2026-11-18",
+"MAR",
+"94",
+"Long",
+"1.79",
+12.3
+],
+[
+"2026-11-18",
+"AJG",
+"252",
+"Long",
+"1.75",
+12.67
+],
+[
+"2026-11-18",
+"JBHT",
+"6",
+"Long",
+"1.75",
+2.08
+],
+[
+"2026-11-18",
+"V",
+"85",
+"Long",
+"1.73",
+7.92
+],
+[
+"2026-11-18",
+"CTSH",
+"84",
+"Long",
+"1.72",
+7.7
+],
+[
+"2026-11-18",
+"CSCO",
+"77",
+"Long",
+"1.69",
+5.62
+],
+[
+"2026-11-18",
+"KMB",
+"7",
+"Long",
+"1.69",
+1.73
+],
+[
+"2026-11-18",
+"BF-B",
+"10",
+"Long",
+"1.66",
+2.67
+]
+],
+"status": 200
+},
+"2|2026-11-19|10|10|-": {
+"rows": [
+[
+"2026-11-19",
+"HLT",
+"88",
+"Long",
+"3.26",
+13.14
+],
+[
+"2026-11-19",
+"YUM",
+"28",
+"Long",
+"2.73",
+3.36
+],
+[
+"2026-11-19",
+"UNH",
+"15",
+"Long",
+"2.7",
+4.72
+],
+[
+"2026-11-19",
+"CIEN",
+"59",
+"Long",
+"2.47",
+17.07
+],
+[
+"2026-11-19",
+"CBRE",
+"74",
+"Long",
+"2.24",
+8.36
+],
+[
+"2026-11-19",
+"AJG",
+"251",
+"Long",
+"2.06",
+12.89
+],
+[
+"2026-11-19",
+"ZBRA",
+"10",
+"Long",
+"1.95",
+5.01
+],
+[
+"2026-11-19",
+"MAR",
+"93",
+"Long",
+"1.93",
+12.33
+],
+[
+"2026-11-19",
+"PFE",
+"11",
+"Long",
+"1.83",
+3.24
+],
+[
+"2026-11-19",
+"CSCO",
+"76",
+"Long",
+"1.71",
+5.66
+],
+[
+"2026-11-19",
+"V",
+"84",
+"Long",
+"1.65",
+7.92
+],
+[
+"2026-11-19",
+"CPAY",
+"89",
+"Long",
+"1.63",
+11.41
+],
+[
+"2026-11-19",
+"PGR",
+"107",
+"Long",
+"1.63",
+13.86
+],
+[
+"2026-11-19",
+"EXPE",
+"5",
+"Long",
+"1.62",
+2.53
+]
+],
+"status": 200
+},
+"2|2026-11-19|10|8|-": {
+"rows": [
+[
+"2026-11-19",
+"WELL",
+"33",
+"Short",
+"0.74",
+3.62
+],
+[
+"2026-11-19",
+"BIIB",
+"124",
+"Short",
+"0.64",
+9.26
+],
+[
+"2026-11-19",
+"ALB",
+"15",
+"Short",
+"0.57",
+3.74
+],
+[
+"2026-11-19",
+"EQT",
+"17",
+"Short",
+"0.57",
+3.06
+],
+[
+"2026-11-19",
+"ORCL",
+"16",
+"Short",
+"0.56",
+1.99
+],
+[
+"2026-11-19",
+"PODD",
+"45",
+"Short",
+"0.52",
+3.92
+],
+[
+"2026-11-19",
+"VRSK",
+"30",
+"Short",
+"0.45",
+2.04
+],
+[
+"2026-11-19",
+"SBAC",
+"23",
+"Short",
+"0.34",
+1.49
+],
+[
+"2026-11-19",
+"CHTR",
+"26",
+"Short",
+"0.33",
+2.77
+],
+[
+"2026-11-19",
+"BALL",
+"45",
+"Short",
+"0.24",
+2.29
+],
+[
+"2026-11-19",
+"ALLE",
+"30",
+"Short",
+"0.23",
+1.84
+],
+[
+"2026-11-19",
+"KIM",
+"33",
+"Short",
+"0.18",
+1.64
+],
+[
+"2026-11-19",
+"HLT",
+"88",
+"Long",
+"3.26",
+13.14
+],
+[
+"2026-11-19",
+"YUM",
+"28",
+"Long",
+"2.73",
+3.36
+],
+[
+"2026-11-19",
+"UNH",
+"15",
+"Long",
+"2.7",
+4.72
+],
+[
+"2026-11-19",
+"CIEN",
+"59",
+"Long",
+"2.47",
+17.07
+],
+[
+"2026-11-19",
+"CBRE",
+"74",
+"Long",
+"2.24",
+8.36
+],
+[
+"2026-11-19",
+"AJG",
+"251",
+"Long",
+"2.06",
+12.89
+],
+[
+"2026-11-19",
+"ZBRA",
+"10",
+"Long",
+"1.95",
+5.01
+],
+[
+"2026-11-19",
+"MAR",
+"93",
+"Long",
+"1.93",
+12.33
+],
+[
+"2026-11-19",
+"PFE",
+"11",
+"Long",
+"1.83",
+3.24
+],
+[
+"2026-11-19",
+"CSCO",
+"76",
+"Long",
+"1.71",
+5.66
+],
+[
+"2026-11-19",
+"V",
+"84",
+"Long",
+"1.65",
+7.92
+],
+[
+"2026-11-19",
+"CPAY",
+"89",
+"Long",
+"1.63",
+11.41
+],
+[
+"2026-11-19",
+"PGR",
+"107",
+"Long",
+"1.63",
+13.86
+],
+[
+"2026-11-19",
+"MA",
+"77",
+"Long",
+"1.62",
+9.1
+]
+],
+"status": 200
+},
+"2|2026-11-20|10|10|-": {
+"rows": [
+[
+"2026-11-20",
+"HLT",
+"87",
+"Long",
+"3.27",
+13.46
+],
+[
+"2026-11-20",
+"CBRE",
+"59",
+"Long",
+"2.68",
+7.46
+],
+[
+"2026-11-20",
+"PFE",
+"10",
+"Long",
+"2.5",
+3.6
+],
+[
+"2026-11-20",
+"YUM",
+"27",
+"Long",
+"2.47",
+3.37
+],
+[
+"2026-11-20",
+"UNH",
+"14",
+"Long",
+"2.16",
+4.49
+],
+[
+"2026-11-20",
+"CIEN",
+"49",
+"Long",
+"2.15",
+17.49
+],
+[
+"2026-11-20",
+"MAR",
+"92",
+"Long",
+"1.91",
+12.66
+],
+[
+"2026-11-20",
+"IBM",
+"23",
+"Long",
+"1.86",
+4.28
+],
+[
+"2026-11-20",
+"AJG",
+"250",
+"Long",
+"1.85",
+12.89
+],
+[
+"2026-11-20",
+"BDX",
+"73",
+"Long",
+"1.81",
+7.96
+],
+[
+"2026-11-20",
+"CPAY",
+"88",
+"Long",
+"1.79",
+11.99
+],
+[
+"2026-11-20",
+"MA",
+"83",
+"Long",
+"1.79",
+10.47
+],
+[
+"2026-11-20",
+"CSCO",
+"74",
+"Long",
+"1.75",
+6.86
+],
+[
+"2026-11-20",
+"V",
+"83",
+"Long",
+"1.73",
+8.75
+]
+],
+"status": 200
+},
+"2|2026-11-20|10|8|-": {
+"rows": [
+[
+"2026-11-20",
+"WELL",
+"32",
+"Short",
+"0.72",
+3.45
+],
+[
+"2026-11-20",
+"BIIB",
+"123",
+"Short",
+"0.65",
+9.16
+],
+[
+"2026-11-20",
+"PODD",
+"44",
+"Short",
+"0.56",
+3.07
+],
+[
+"2026-11-20",
+"CHTR",
+"30",
+"Short",
+"0.39",
+3.3
+],
+[
+"2026-11-20",
+"SBAC",
+"49",
+"Short",
+"0.35",
+2.13
+],
+[
+"2026-11-20",
+"AMCR",
+"120",
+"Short",
+"0.33",
+4.09
+],
+[
+"2026-11-20",
+"KIM",
+"32",
+"Short",
+"0.16",
+1.51
+],
+[
+"2026-11-20",
+"EQT",
+"21",
+"Short",
+"0.12",
+1.29
+],
+[
+"2026-11-20",
+"TPL",
+"22",
+"Short",
+"0.09",
+1.08
+],
+[
+"2026-11-20",
+"HRL",
+"99",
+"Short",
+"-0.1",
+0.26
+],
+[
+"2026-11-20",
+"HLT",
+"87",
+"Long",
+"3.27",
+13.46
+],
+[
+"2026-11-20",
+"CBRE",
+"59",
+"Long",
+"2.68",
+7.46
+],
+[
+"2026-11-20",
+"PFE",
+"10",
+"Long",
+"2.5",
+3.6
+],
+[
+"2026-11-20",
+"YUM",
+"27",
+"Long",
+"2.47",
+3.37
+],
+[
+"2026-11-20",
+"UNH",
+"14",
+"Long",
+"2.16",
+4.49
+],
+[
+"2026-11-20",
+"CIEN",
+"49",
+"Long",
+"2.15",
+17.49
+],
+[
+"2026-11-20",
+"FISV",
+"6",
+"Long",
+"1.92",
+1.66
+],
+[
+"2026-11-20",
+"MAR",
+"92",
+"Long",
+"1.91",
+12.66
+],
+[
+"2026-11-20",
+"IBM",
+"23",
+"Long",
+"1.86",
+4.28
+],
+[
+"2026-11-20",
+"AJG",
+"250",
+"Long",
+"1.85",
+12.89
+],
+[
+"2026-11-20",
+"BDX",
+"73",
+"Long",
+"1.81",
+7.96
+],
+[
+"2026-11-20",
+"MA",
+"83",
+"Long",
+"1.79",
+10.47
+],
+[
+"2026-11-20",
+"CPAY",
+"88",
+"Long",
+"1.79",
+11.99
+],
+[
+"2026-11-20",
+"CSCO",
+"74",
+"Long",
+"1.75",
+6.86
+]
+],
+"status": 200
+},
+"2|2026-11-23|10|10|-": {
+"rows": [
+[
+"2026-11-21",
+"HLT",
+"86",
+"Long",
+"3.24",
+12.19
+],
+[
+"2026-11-22",
+"CIEN",
+"52",
+"Long",
+"2.87",
+16.6
+],
+[
+"2026-11-21",
+"CBRE",
+"72",
+"Long",
+"2.37",
+8.46
+],
+[
+"2026-11-21",
+"FISV",
+"8",
+"Long",
+"2.17",
+2.03
+],
+[
+"2026-11-21",
+"UNH",
+"13",
+"Long",
+"2.08",
+4.05
+],
+[
+"2026-11-21",
+"MAR",
+"91",
+"Long",
+"2.0",
+11.2
+],
+[
+"2026-11-21",
+"CSCO",
+"73",
+"Long",
+"1.98",
+6.59
+],
+[
+"2026-11-21",
+"CPAY",
+"87",
+"Long",
+"1.92",
+11.57
+],
+[
+"2026-11-21",
+"YUM",
+"26",
+"Long",
+"1.78",
+2.95
+],
+[
+"2026-11-21",
+"ZBRA",
+"7",
+"Long",
+"1.72",
+3.94
+],
+[
+"2026-11-23",
+"T",
+"69",
+"Long",
+"1.7",
+6.27
+],
+[
+"2026-11-21",
+"IBM",
+"21",
+"Long",
+"1.68",
+3.34
+],
+[
+"2026-11-22",
+"BDX",
+"71",
+"Long",
+"1.68",
+7.68
+],
+[
+"2026-11-22",
+"PG",
+"6",
+"Long",
+"1.68",
+0.96
+]
+],
+"status": 200
+},
+"2|2026-11-24|10|10|-": {
+"rows": [
+[
+"2026-11-24",
+"CIEN",
+"50",
+"Long",
+"2.59",
+15.48
+],
+[
+"2026-11-24",
+"HLT",
+"83",
+"Long",
+"2.42",
+10.45
+],
+[
+"2026-11-24",
+"PGR",
+"99",
+"Long",
+"1.77",
+12.19
+],
+[
+"2026-11-24",
+"BDX",
+"69",
+"Long",
+"1.59",
+6.93
+],
+[
+"2026-11-24",
+"AJG",
+"246",
+"Long",
+"1.51",
+12.01
+],
+[
+"2026-11-24",
+"GOOG",
+"70",
+"Long",
+"1.48",
+8.67
+],
+[
+"2026-11-24",
+"GOOGL",
+"70",
+"Long",
+"1.45",
+8.54
+],
+[
+"2026-11-24",
+"KMI",
+"53",
+"Long",
+"1.45",
+5.47
+],
+[
+"2026-11-24",
+"T",
+"68",
+"Long",
+"1.43",
+5.83
+],
+[
+"2026-11-24",
+"CPAY",
+"84",
+"Long",
+"1.42",
+10.22
+],
+[
+"2026-11-24",
+"CSCO",
+"70",
+"Long",
+"1.41",
+5.38
+],
+[
+"2026-11-24",
+"V",
+"237",
+"Long",
+"1.4",
+15.19
+],
+[
+"2026-11-24",
+"LLY",
+"364",
+"Long",
+"1.34",
+36.1
+],
+[
+"2026-11-24",
+"RVTY",
+"70",
+"Long",
+"1.32",
+8.34
+]
+],
+"status": 200
+},
+"2|2026-11-25|10|10|-": {
+"rows": [
+[
+"2026-11-25",
+"HLT",
+"80",
+"Long",
+"3.2",
+9.33
+],
+[
+"2026-11-25",
+"CIEN",
+"49",
+"Long",
+"2.56",
+15.37
+],
+[
+"2026-11-25",
+"CBRE",
+"67",
+"Long",
+"1.99",
+6.14
+],
+[
+"2026-11-25",
+"CSCO",
+"69",
+"Long",
+"1.7",
+5.53
+],
+[
+"2026-11-25",
+"PGR",
+"98",
+"Long",
+"1.7",
+12.06
+],
+[
+"2026-11-25",
+"MPWR",
+"256",
+"Long",
+"1.59",
+35.65
+],
+[
+"2026-11-25",
+"GOOG",
+"69",
+"Long",
+"1.55",
+8.64
+],
+[
+"2026-11-25",
+"AJG",
+"245",
+"Long",
+"1.54",
+12.14
+],
+[
+"2026-11-25",
+"GOOGL",
+"69",
+"Long",
+"1.51",
+8.52
+],
+[
+"2026-11-25",
+"CPAY",
+"83",
+"Long",
+"1.51",
+10.79
+],
+[
+"2026-11-25",
+"KLAC",
+"252",
+"Long",
+"1.5",
+28.64
+],
+[
+"2026-11-25",
+"KMI",
+"52",
+"Long",
+"1.45",
+6.02
+],
+[
+"2026-11-25",
+"FTNT",
+"76",
+"Long",
+"1.45",
+16.22
+],
+[
+"2026-11-25",
+"T",
+"67",
+"Long",
+"1.45",
+5.97
+]
+],
+"status": 200
+},
+"2|2026-11-26|10|10|-": {
+"rows": [
+[
+"2026-11-26",
+"CASY",
+"28",
+"Short",
+"1.35",
+3.91
+],
+[
+"2026-11-26",
+"CIEN",
+"52",
+"Long",
+"3.01",
+15.58
+],
+[
+"2026-11-26",
+"HLT",
+"79",
+"Long",
+"2.94",
+9.61
+],
+[
+"2026-11-26",
+"CBRE",
+"65",
+"Long",
+"1.83",
+5.96
+],
+[
+"2026-11-26",
+"CSCO",
+"68",
+"Long",
+"1.74",
+5.53
+],
+[
+"2026-11-26",
+"NKE",
+"9",
+"Long",
+"1.63",
+3.19
+],
+[
+"2026-11-26",
+"MPWR",
+"255",
+"Long",
+"1.61",
+35.86
+],
+[
+"2026-11-26",
+"KMI",
+"51",
+"Long",
+"1.57",
+6.25
+],
+[
+"2026-11-26",
+"GOOG",
+"68",
+"Long",
+"1.56",
+8.54
+],
+[
+"2026-11-26",
+"GOOGL",
+"68",
+"Long",
+"1.55",
+8.42
+],
+[
+"2026-11-26",
+"BDX",
+"67",
+"Long",
+"1.53",
+6.86
+],
+[
+"2026-11-26",
+"CPAY",
+"82",
+"Long",
+"1.52",
+11.07
+],
+[
+"2026-11-26",
+"FTNT",
+"75",
+"Long",
+"1.52",
+15.83
+],
+[
+"2026-11-26",
+"KLAC",
+"251",
+"Long",
+"1.52",
+28.71
+],
+[
+"2026-11-26",
+"T",
+"75",
+"Long",
+"1.48",
+4.55
+]
+],
+"status": 200
+}
+},
+"resolve": {
+"AAPL": {
+"label": "S&P 500 STOCKS",
+"market": "2",
+"name": "Apple Inc.",
+"status": "ok",
+"symbol": "AAPL"
+},
+"EURUSD": {
+"label": "FOREX ALL",
+"market": "8",
+"name": "EUR/USD",
+"status": "ok",
+"symbol": "EURUSD"
+},
+"GBPUSD": {
+"label": "FOREX ALL",
+"market": "8",
+"name": "UK Pound Sterling/US Dollar FX Spot Rate",
+"status": "ok",
+"symbol": "GBPUSD"
+},
+"GC": {
+"label": "FUTURES & COMMODITIES",
+"market": "7",
+"name": "Gold (COMEX)",
+"status": "ok",
+"symbol": "GC"
+},
+"MSFT": {
+"label": "S&P 500 STOCKS",
+"market": "2",
+"name": "Microsoft Corporation",
+"status": "ok",
+"symbol": "MSFT"
+},
+"SPX": {
+"label": "INDICES COMMON",
+"market": "5",
+"name": "S&P 500",
+"status": "ok",
+"symbol": "SPX"
+},
+"SPY": {
+"label": "ETFs",
+"market": "11",
+"name": "S&P 500 SPDR",
+"status": "ok",
+"symbol": "SPY"
+},
+"XLF": {
+"label": "ETFs",
+"market": "11",
+"name": "S&P 500 Financials Sector SPDR",
+"status": "ok",
+"symbol": "XLF"
+},
+"XLK": {
+"label": "ETFs",
+"market": "11",
+"name": "S&P 500 Technology Sector SPDR",
+"status": "ok",
+"symbol": "XLK"
+},
+"XLU": {
+"label": "ETFs",
+"market": "11",
+"name": "S&P 500 Utilities Sector SPDR",
+"status": "ok",
+"symbol": "XLU"
+}
+},
+"years": {
+"11|SPY|cons": 32,
+"11|XLF|cons": 27,
+"11|XLK|cons": 27,
+"11|XLU|cons": 27,
+"2|AAPL|cons": 45,
+"2|MSFT|cons": 39,
+"5|SPX|pe1": 25,
+"5|SPX|pe2": 24,
+"7|GC|cons": 25,
+"8|EURUSD|cons": 23,
+"8|GBPUSD|cons": 23
+}
+}
+},
+"names": {
+"AAPL": "Apple Inc.",
+"APLE": "Apple Hospitality REIT ",
+"AXP": "American Express Company",
+"DNOW": "NOW Inc.",
+"HAPN": "Happen Inc",
+"HD": "Home Depot Inc",
+"KO": "Coca-Cola Company",
+"MSFT": "Microsoft Corporation",
+"POST": "Post Holdings Inc",
+"SO": "Southern Company"
+},
+"today": "2026-11-17"
+}
