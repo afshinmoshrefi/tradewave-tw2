@@ -213,22 +213,98 @@ _ADVICE_PATTERNS = re.compile(
 # question is worded: "what stop loss should I use", "how many shares should I buy",
 # "what would you do", "recommend me a stock". The interrogative exemption below is
 # only for reading and timing questions.
+# Each alternative needs a personal-trade context (should I / for me / my trade / use,
+# set, place), because the bare words are ordinary vocabulary: "what is a stop",
+# "recommend me a tutorial", "how many shares outstanding does AAPL have" and "what
+# would you do to change the years" are not requests for a trade instruction.
+_INSTRUCTION_CONTEXT = (
+    r"(?:should|shall|would\s+you|do\s+i|can\s+i|could\s+i|for\s+(?:me|this|it|that)\b|"
+    r"my\s+(?:trade|position|account|portfolio|entry)|\b(?:use|set|place|put)\b|a\s+good\b)"
+)
 _TRADE_INSTRUCTION_PATTERN = re.compile(
-    r"\b(?:"
-    r"stop[-\s]?loss(?:es)?|trailing\s+stops?|"
-    r"(?:my|a|your)\s+stops?\b(?!\s+(?:button|sign|icon|video))|"
-    r"\bstops?\s+(?:at|levels?|price|orders?)\b|"
-    r"how\s+many\s+(?:shares|contracts|units|lots|coins)|"
-    r"how\s+much\b.{0,30}\b(?:invest|risk|buy|allocate|put|bet)|"
-    r"(?:what|which)\s+(?:position\s+)?(?:size|percent(?:age)?|portion|allocation)\b.{0,40}"
-    r"\b(?:invest|risk|buy|allocate|put|position|portfolio|account)|"
-    r"position\s+siz(?:e|ing)|allocat(?:e|ion)\b.{0,30}\b(?:portfolio|account|capital|money)|"
-    r"what\s+would\s+you\s+(?:do|buy|sell|trade|pick|choose)|"
-    r"what\s+should\s+i\s+do\b|"
-    r"recommend\s+(?:me|us)\b|(?:pick|choose)\s+(?:one|a\s+(?:stock|trade))\s+for\s+me"
+    r"(?:"
+    # stops and take-profits, with a personal context on either side
+    r"\b(?:stop[-\s]?loss(?:es)?|trailing\s+stops?|take[-\s]?profits?|"
+    r"(?:my|a|your)\s+(?:(?:good|tight|wide|reasonable|sensible|safe)\s+)?stops?\b(?!\s+(?:button|sign|icon|video))|\bstops?\s+(?:at|levels?|price|orders?))\b"
+    r"[^.?!]{0,60}" + _INSTRUCTION_CONTEXT + r"|"
+    + _INSTRUCTION_CONTEXT + r"[^.?!]{0,60}\b(?:stop[-\s]?loss(?:es)?|trailing\s+stops?|"
+    r"take[-\s]?profits?|(?:my|a|your)\s+(?:(?:good|tight|wide|reasonable|sensible|safe)\s+)?stops?\b(?!\s+(?:button|sign|icon|video))|"
+    r"stops?\s+(?:at|levels?|price|orders?)\b)|"
+    # targets
+    r"\b(?:price|profit)?\s*targets?\s+should\s+(?:i|we)\b|"
+    r"\bshould\s+(?:i|we)\b[^.?!]{0,30}\btargets?\b|"
+    # size
+    r"\bhow\s+many\s+(?:shares|contracts|units|lots|coins)\b[^.?!]{0,25}"
+    r"\b(?:should|do\s+i|can\s+i|to\s+(?:buy|sell|get|trade)|for\s+me)\b|"
+    r"\bhow\s+much\b.{0,30}\b(?:invest|risk|buy|allocate|put|bet)\b|"
+    r"\bhow\s+(?:big|large)\b.{0,25}\b(?:position|trade|bet|stake)\b|"
+    r"\b(?:what|which)\s+(?:position\s+)?(?:size|percent(?:age)?|portion|allocation)\b.{0,40}"
+    r"\b(?:invest|risk|buy|allocate|put|position|portfolio|account)\b|"
+    r"\bposition\s+siz(?:e|ing)\b[^.?!]{0,40}" + _INSTRUCTION_CONTEXT + r"|"
+    + _INSTRUCTION_CONTEXT + r"[^.?!]{0,40}\bposition\s+siz(?:e|ing)\b|"
+    r"\b(?:how|what|should)\b.{0,30}\ballocat(?:e|ion)\b.{0,30}\b(?:portfolio|account|capital|money)\b|"
+    # a personal pick
+    r"\bwhat\s+would\s+you\s+(?:buy|sell|trade|pick|choose)\b|"
+    r"\bwhat\s+would\s+you\s+do\s*(?:[?.!]|$|here\b|now\b|with\s+(?:this|it|that)\b|"
+    r"in\s+my\s+(?:place|position|shoes)|if\s+you\s+were\s+me)|"
+    r"\bwhat\s+should\s+i\s+do\s*(?:[?.!]|$|here\b|now\b|with\s+(?:this|it|that|my)\b)|"
+    r"\brecommend\s+(?:me|us)\s+(?:a|an|some|one|the|any)?\s*(?:\w+\s+){0,2}?"
+    r"(?:stocks?|etfs?|trades?|tickers?|symbols?|picks?|setups?|patterns?|securit(?:y|ies)|"
+    r"funds?|investments?|something\s+to\s+(?:buy|trade))\b|"
+    r"\b(?:pick|choose)\s+(?:one|a\s+(?:stock|trade))\s+for\s+me\b|"
+    r"\bwhat(?:'s|\s+is)\s+your\s+pick\b"
     r")",
     re.I,
 )
+
+# A definition or how-it-works question is never a request for advice.
+_DEFINITION_FORM_PATTERN = re.compile(
+    r"^\s*(?:so\s+|ok\s+|and\s+)?(?:"
+    r"what(?:'s|\s+is|\s+are)\s+(?!your\b|my\b|a\s+good\b|the\s+best\b)(?:an?\s+|the\s+)?"
+    r"[\w%&-]+(?:\s+[\w%&-]+){0,2}|"
+    r"what\s+(?:does|do)\s+.{1,50}\s+mean|"
+    r"(?:define|explain|meaning\s+of|tell\s+me\s+what)\s+.{1,70}"
+    r")\s*[?.!]*\s*$",
+    re.I,
+)
+_DEFINITION_BLOCKERS = re.compile(
+    r"\b(?:should|shall|would\s+you|for\s+me|whether\s+to|recommend)\b", re.I
+)
+# Buying a subscription, entering a symbol and leaving full screen use trade verbs
+# about things that are not securities. Those verb phrases are removed before any
+# advice test so they cannot count.
+_NON_TRADE_OBJECT = (
+    r"(?:subscriptions?|plans?|membership|upgrades?|annual|yearly|monthly|trial|promo(?:\s+code)?|"
+    r"coupons?|codes?|discounts?|refunds?|invoices?|data|licen[cs]es?|books?|courses?|tutorials?|"
+    r"guides?|videos?|symbols?|tickers?|dates?|years?|numbers?|values?|names?|passwords?|emails?|"
+    r"full\s*screen|fullscreen|mouse|cursor|pointer|buttons?|keys?|windows?|popups?|panels?|"
+    r"menus?|pages?|tabs?|screens?|views?|modes?|animations?|watchlists?|settings?|filters?|"
+    r"columns?|rows?|tables?|markets?|support|analyst|strategist|navigator|explorer|tradewave)"
+)
+_NON_TRADE_PHRASE_PATTERN = re.compile(
+    r"\b(?:buy|sell|trade|invest(?:\s+in)?|hold|enter|exit|get\s+(?:in|out)(?:\s+of)?|cover|"
+    r"take|add\s+to)\s+(?:back\s+)?(?:(?:a|an|the|my|your|our|this|that|more|another|"
+    r"into|in|to|of|for)\s+){0,3}(?:\w+\s+){0,1}?" + _NON_TRADE_OBJECT + r"\b",
+    re.I,
+)
+_COMMERCE_CONTEXT_PATTERN = re.compile(
+    r"\b(?:subscriptions?|plans?|membership|upgrad\w+|pricing|annual|yearly|monthly|promo|"
+    r"coupons?|refunds?|analyst|strategist|navigator|explorer|support)\b",
+    re.I,
+)
+
+
+def _trade_question_text(message: Any) -> str:
+    """The message with its non-trade verb phrases removed, or '' for a definition."""
+
+    text = str(message or "")
+    if _DEFINITION_FORM_PATTERN.match(text) and not _DEFINITION_BLOCKERS.search(text):
+        return ""
+    text = _NON_TRADE_PHRASE_PATTERN.sub(" ", text)
+    if _COMMERCE_CONTEXT_PATTERN.search(str(message or "")):
+        text = re.sub(r"\bworth\s+it\b", " ", text, flags=re.I)
+    return text
+
 
 DISCLAIMER_TEXT = (
     "Past performance and model estimates do not guarantee future results. "
@@ -240,13 +316,13 @@ _DISCLAIMER_LINE = "<i>" + DISCLAIMER_TEXT + "</i>"
 def is_trade_instruction_request(message: Any) -> bool:
     """A request for a stop, a size, an allocation or a personal pick."""
 
-    return bool(_TRADE_INSTRUCTION_PATTERN.search(str(message or "")))
+    return bool(_TRADE_INSTRUCTION_PATTERN.search(_trade_question_text(message)))
 
 
 def _is_trade_advice_request(message: Any) -> bool:
     """True only for a request to decide a personal buy/sell/hold/enter action."""
 
-    text = str(message or "")
+    text = _trade_question_text(message)
     if not text.strip():
         return False
     if _ADVICE_PATTERNS.search(text) or _TRADE_INSTRUCTION_PATTERN.search(text):
@@ -256,8 +332,14 @@ def _is_trade_advice_request(message: Any) -> bool:
             (text.rfind(mark, 0, match.start()) for mark in ".?!;,:\n"), default=-1
         )
         clause = text[clause_start + 1:match.start()]
-        if not _OPEN_QUESTION_WORD_PATTERN.search(clause):
-            return True
+        if _OPEN_QUESTION_WORD_PATTERN.search(clause):
+            continue
+        # "can we trade futures here" asks what TradeWave covers; "can I buy this" asks
+        # for a decision. A permission modal needs a trade object right after the verb.
+        if match.group(0).lower().startswith(("can", "could", "may")) and not re.match(
+                r"\s*(?:this|it|that|these|those|now|in\b|more\b|[?.!]|$)", text[match.end():], re.I):
+            continue
+        return True
     return False
 
 
@@ -4761,49 +4843,98 @@ def build_advice_safe_reply(
 # _is_trade_advice_request (which decides ROUTING): it only decides whether the reply
 # must end with the required disclaimer, so "which stock should I buy now" and "should
 # I hold through earnings" count even though they are answered by other paths.
+_SHAPED_VERB = (
+    r"(?:buy|sell|short|invest|take\s+profits?|get\s+(?:in|out)|go\s+(?:long|short)|"
+    r"add\s+to|hold|trade)"
+)
 _ADVICE_SHAPED_PATTERN = re.compile(
-    r"\b(?:should|shall|would|could|can|may|do|must)\s+"
-    r"(?:i|we|my\s+\w+|someone)\s+(?:\w+\s+){0,3}?"
-    r"(?:buy|sell|short|trade|invest|hold|enter|exit|take\s+profits?|get\s+(?:in|out)|"
-    r"go\s+(?:long|short)|cover|add\s+to)\b|"
-    r"\b(?:is|was|are)\s+(?:it|this|that|now|[A-Za-z][A-Za-z0-9.\-]{0,9})\s+(?:a\s+|an\s+)?"
-    r"(?:(?:good|great|bad|safe|smart|solid)\s+)?"
-    r"(?:(?:time|moment|idea|opportunity)\s+to\s+(?:buy|sell|short|invest|enter|exit|get\s+in)|"
-    r"buy|sell|short|trade|investment|entry)\b|"
-    r"\bgood\s+(?:time|moment|idea)\s+to\s+(?:buy|sell|short|invest|enter|exit)\b|"
-    r"\bworth\s+(?:buying|selling|shorting|trading|taking|holding|it)\b|"
-    r"\bbuy\s+or\s+sell\b|\blong\s+or\s+short\b|"
+    # "should I/we/my wife ... buy|sell|hold ..." - a decision the user wants made
+    r"\b(?:should|shall|must)\s+(?:i|we|my\s+\w+|someone)\s+(?:\w+\s+){0,3}?" + _SHAPED_VERB + r"\b|"
+    r"\b(?:do\s+you\s+think|think)\s+(?:i|we)\s+should\s+(?:\w+\s+){0,2}?" + _SHAPED_VERB + r"\b|"
+    # "can/could/would I buy this ..." needs a trade object, not just the verb
+    r"\b(?:can|could|would|may)\s+(?:i|we)\s+(?:\w+\s+){0,2}?(?:buy|sell|short|invest\s+in|get\s+in)\s+"
+    r"(?:this|it|that|these|now|here|in\b|more\b)|"
+    # "is AAPL a buy", "is this a good trade", "is it a buy right now" - the noun ends the clause
+    r"\b(?:is|was)\s+(?:it|this|that|now|[A-Za-z][A-Za-z0-9.\-]{0,9})\s+(?:a\s+|an\s+)?"
+    r"(?:(?:good|great|bad|safe|smart|solid|better)\s+)?(?:buy|sell|short|trade|investment|entry)"
+    r"(?:\s+(?:right\s+now|now|today|here|at\s+this\s+(?:price|level)|or\s+(?:a\s+)?(?:sell|hold|buy)))?"
+    r"\s*[?.!]*\s*$|"
+    r"\bwould\s+(?:this|it|that)\s+be\s+(?:a\s+)?(?:good|smart|safe|bad)\s+(?:buy|sell|trade|entry|investment)\b|"
+    r"\bwhich\s+(?:one\s+)?is\s+the\s+better\s+(?:buy|sell|trade|investment)\b|"
+    r"\b(?:good|right|bad|best)\s+(?:time|moment|idea)\s+to\s+(?:buy|sell|short|invest|get\s+in(?:to)?|get\s+out)\b|"
+    r"\btoo\s+late\s+to\s+(?:buy|sell|short|invest|get\s+in|enter)\b|"
+    r"\bsafe\s+to\s+(?:buy|hold|sell|short)\b|"
+    r"\bworth\s+(?:buying|selling|shorting|holding|a\s+shot)\b|"
+    r"\b(?:buy|sell|hold)\s+(?:now\s+)?or\s+(?:sell|hold|buy|wait)\b|"
+    r"\b(?:go|be|stay|i|we)\s+long\s+or\s+short\b|\blong\s+or\s+short\s*[?.!]*\s*$|"
     r"\bwhether\s+to\s+(?:buy|sell|short|hold|trade|invest|go)\b|"
-    r"\bwhat\s+(?:stocks?|etfs?|should\s+i)\b.{0,25}\b(?:buy|invest\s+in|trade)\b|"
-    r"\b(?:tell|give)\s+me\s+(?:what|which)\s+to\s+(?:buy|sell|trade)\b",
+    r"\b(?:what|which)\s+(?:stocks?|etfs?|one|ones)\b[^.?!]{0,25}\bshould\b[^.?!]{0,15}\b(?:buy|trade|invest|go\s+with)\b|"
+    r"\bwhat\s+should\s+(?:i|we)\b[^.?!]{0,25}\b(?:buy|invest\s+in|trade)\b|"
+    r"\bwhich\s+should\s+(?:i|we)\s+(?:go\s+with|buy|pick|choose)\b|"
+    r"\b(?:tell|give)\s+me\s+(?:what|which)\s+to\s+(?:buy|sell|trade)\b|"
+    r"\bthoughts\s+on\s+(?:buying|selling|shorting)\b|"
+    r"\bwould\s+you\s+(?:recommend|get\s+(?:in|out)|buy|sell|short)\b|"
+    r"\benough\s+to\s+(?:buy|sell|short)\b",
     re.I,
 )
 
 
 def is_advice_shaped_question(message: Any) -> bool:
-    """Whether a reply to this message must carry the required disclaimer."""
+    """Whether a reply to this message must carry the required disclaimer.
 
-    text = str(message or "")
+    Broader than _is_trade_advice_request (which decides ROUTING), but only for a
+    question about a trade: definitions and UI or subscription wording never count.
+    """
+
+    text = _trade_question_text(message)
     return bool(
         text.strip()
         and (_is_trade_advice_request(text) or _ADVICE_SHAPED_PATTERN.search(text))
     )
 
 
+_EQUIVALENT_DISCLAIMER_PATTERN = re.compile(
+    r"past\s+performance\b[^.]{0,80}\b(?:guarantee|indicat\w+|predict\w*|assur\w+)", re.I
+)
+_FAILED_REPLY_PATTERN = re.compile(
+    r"^\s*(?:sorry\b|i\s+couldn['\u2019]t\b|i\s+could\s+not\b)|temporarily\s+unavailable|"
+    r"something\s+went\s+wrong|please\s+try\s+(?:again|that)",
+    re.I,
+)
+_ENGLISH_MARKERS = re.compile(
+    r"\b(?:the|is|are|was|of|and|to|in|this|that|for|not|with|it|on|you|years?)\b", re.I
+)
+
+
+def _plain_reply(reply: str) -> str:
+    text = html.unescape(re.sub(r"<[^>]+>", " ", reply)).replace("\u00a0", " ")
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def ensure_required_disclaimer(message: Any, reply: Any) -> Any:
-    """Append the exact required disclaimer to any reply to an advice-shaped question.
+    """Append the exact required disclaimer to a reply to an advice-shaped question.
 
     One floor for every path - the deterministic builders, the investor funnel, the
-    contract fallbacks and the model - so no advice-shaped turn can leave without it.
-    A reply that already ends with it is returned unchanged.
+    contract fallbacks and the model. It adds nothing when the reply already carries
+    the sentence or an equivalent one, when the turn failed (an error message is not
+    advice), or when the reply is not in English (the model prompt asks for the
+    disclaimer in the user's language; an English sentence is not bolted on).
     """
 
-    if not isinstance(reply, str) or not reply.strip() or not is_advice_shaped_question(message):
+    if not isinstance(reply, str) or not reply.strip():
         return reply
-    plain = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", reply)))
-    if DISCLAIMER_TEXT in plain:
+    reply = re.sub(r"</(i|b)\s*$", r"</\1>", reply.rstrip())     # a model's cut-off closing tag
+    if not is_advice_shaped_question(message):
         return reply
-    return reply.rstrip() + "<br><br>" + _DISCLAIMER_LINE
+    plain = _plain_reply(reply)
+    if DISCLAIMER_TEXT in plain or _EQUIVALENT_DISCLAIMER_PATTERN.search(plain):
+        return reply
+    if _FAILED_REPLY_PATTERN.search(plain) and len(plain.split()) < 40:
+        return reply
+    words = plain.split()
+    if len(words) >= 6 and len(_ENGLISH_MARKERS.findall(plain)) * 8 < len(words):
+        return reply
+    return reply + "<br><br>" + _DISCLAIMER_LINE
 
 
 def build_trade_instruction_boundary_reply(message: Any, wave_viewer: Any) -> Optional[str]:

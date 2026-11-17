@@ -265,3 +265,28 @@ def make_user(db_session, _models_module):
 
     yield _make
     # Cleanup happens in db_session teardown.
+
+
+# ---------------------------------------------------------------------
+# Tara plan gate. tara_gateway._plan_scope reads the caller's plan ONLY from
+# the claims the chat route verified (flask.g.chatbot_jwt) and grants nothing
+# without them. Unit tests that call the gateway functions directly have no
+# request, so they run as a Strategist-level caller unless they say otherwise;
+# inside a real request the route's own verified claims are always used.
+# ---------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def _tara_unit_test_plan(monkeypatch):
+    gateway = sys.modules.get("tara_gateway")
+    if gateway is None or not hasattr(gateway, "_verified_claims"):
+        yield
+        return
+    real = gateway._verified_claims
+
+    def claims():
+        verified = real()
+        if verified is not None:
+            return verified
+        return {"user": "unit-test", "user_level": "6"}
+
+    monkeypatch.setattr(gateway, "_verified_claims", claims)
+    yield

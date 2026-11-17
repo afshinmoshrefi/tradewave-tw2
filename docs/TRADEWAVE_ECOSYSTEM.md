@@ -2381,8 +2381,11 @@ found eleven failure classes. The invariants that came out of fixing them:
   row's `ai` block survive `_bounded_json` trimming (`_RESULT_NOTICE_KEYS`).
 - **Plan gate before any gateway call.** Tara reaches the gateway as the internal `chatbot`
   principal, which is scoped to every market and to AI scoring, so the user's plan is applied in
-  `tara_gateway` first (`_plan_scope`, from the browser token's level and the same config the
-  engine uses: `level_access_hierarchy`, `ml_score_access_mode/levels/userids`). A scan of a
+  `tara_gateway` first (`_plan_scope`, from the same config the engine uses:
+  `level_access_hierarchy`, `ml_score_access_mode/levels/userids`). The plan is read ONLY from
+  the claims `check_for_token` verified (`g.chatbot_jwt`); `_plan_scope` never decodes a token,
+  because the body can carry a forged or borrowed one beside the verified query-string token. No
+  verified claims means no market and no AI. Loopback engine calls use `g.chatbot_token`. A scan of a
   market outside the plan returns a plan boundary and names no symbol; an unscoped scan is clamped
   to the plan's markets (and Explorer's row cap); AI ranking is attempted only for a plan with AI
   access on a scored market (0-4 and 11), otherwise the ordinary historical screen runs with a

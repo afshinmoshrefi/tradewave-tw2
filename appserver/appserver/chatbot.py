@@ -157,6 +157,7 @@ def check_for_token(func):
         # Stash for the wrapped route - resolve user_id once, here.
         from flask import g
         g.chatbot_jwt = data
+        g.chatbot_token = token          # the exact token that was verified above
         g.chatbot_user_id = str(data.get('user') or data.get('sub') or data.get('user_id') or 'unknown')
         return func(*args, **kwargs)
     return wrapped
@@ -2290,6 +2291,10 @@ def chat():
         opp_table_pe_cycle = None
     elif opp_table_pe_cycle not in {'cons', 'pe0', 'pe1', 'pe2', 'pe3'}:
         opp_table_pe_cycle = None
+    # Loopback engine calls must run as the caller the route authenticated. The body
+    # token is not that: the decorator prefers the query-string token, so a request can
+    # carry a verified low-plan token there and any other token in the body.
+    user_token = getattr(g, "chatbot_token", None)
     if not isinstance(user_token, str) or len(user_token) > 4096:
         user_token = None
 
@@ -2442,7 +2447,7 @@ def chat():
             )
 
         # Bind catalog access to the token actually authenticated by the decorator.
-        authenticated_token = request.args.get('token') or incoming_data.get('token')
+        authenticated_token = getattr(g, "chatbot_token", None)
         list_command = build_security_list_command(
             user_message, authenticated_token, g.chatbot_jwt, _loopback_json,
             config.level_access_hierarchy,

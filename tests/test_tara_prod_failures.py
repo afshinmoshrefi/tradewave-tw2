@@ -29,14 +29,26 @@ pytestmark = pytest.mark.unit
 TODAY = datetime.date(2026, 11, 17)
 
 
+REAL_VERIFIED_CLAIMS = tara_gateway._verified_claims
+PLAN = {"level": "6"}
+
+
 def _level_token(level, user="tw-task-0031-test"):
-    """A browser-token stand-in carrying only a plan level (the gate reads its claims)."""
+    """Run the rest of this test as a caller on plan ``level``.
+
+    The gate never reads a token, so the level is supplied as the VERIFIED claims a
+    route would have set (see the plan_claims fixture); the returned string is only a
+    loopback-token stand-in.
+    """
+    PLAN["level"] = None if level is None else str(level)
     return jwt.encode({"user": user, "user_level": str(level), "aud": "tw2-appserver",
                        "iss": "tw2-web", "exp": int(time.time()) + 3600},
                       "tw-task-0031-test-secret-xxxxxxxxxxxxxxxxxxxxxxxx", algorithm="HS256")
 
 
 TOKEN6 = _level_token(6)
+_FORGED_L6 = jwt.encode({"user": "x", "user_level": "6"},
+                        "attacker-key-attacker-key-attacker-key!", algorithm="HS256")
 DISCLAIMER = ("Past performance and model estimates do not guarantee future results. "
               "TradeWave provides research context, not individualized recommendations.")
 
@@ -64,6 +76,21 @@ def _loaded(symbol="ATO", direction="long", start="2026-11-17", days="24", retur
         ],
         "stats": dict({"Sharpe Ratio": "1.87", "Sharpe Ratio2": "2.85"}, **(stats or {})),
     }
+
+
+@pytest.fixture(autouse=True)
+def plan_claims(monkeypatch):
+    PLAN["level"] = "6"
+
+    def claims():
+        verified = REAL_VERIFIED_CLAIMS()          # a real request always wins
+        if verified is not None:
+            return verified
+        if PLAN["level"] is None:
+            return None
+        return {"user": "tw-task-0031-test", "user_level": PLAN["level"]}
+
+    monkeypatch.setattr(tara_gateway, "_verified_claims", claims)
 
 
 @pytest.fixture(autouse=True)
@@ -1181,7 +1208,10 @@ def test_unscoped_scan_is_clamped_to_the_plans_markets_and_row_cap(monkeypatch):
 def test_token_without_a_known_level_grants_no_market_and_no_ai():
     scope = tara_gateway._plan_scope(_level_token("unknown"))
     assert scope["markets"] == set() and scope["ai"] is False
-    assert tara_gateway._plan_scope(None)["markets"] is None        # no session: legacy harness
+    _level_token(None)                                  # no verified claims at all
+    for unverified in (None, "token", "garbage", _FORGED_L6):
+        scope = tara_gateway._plan_scope(unverified)
+        assert scope["markets"] == frozenset() and scope["ai"] is False
 
 
 @pytest.mark.parametrize("level, expected_market, heading", [
@@ -1628,3 +1658,269 @@ def _grounded(symbol):
                      "setup": {"entry_date": "2026-11-17", "hold_days": 20},
                      "stats": {"historical_win_rate": 0.9, "avg_return_pct": 3.0, "years": 10},
                      "headline": "%s long - Won 9/10 years, avg +3.0%%." % symbol}}
+
+
+# ---------------------------------------------------------------------------
+# Re-review R1-R4 and nits
+# ---------------------------------------------------------------------------
+
+ORDINARY_QUESTIONS = [
+    "what is a sharpe ratio?", "how do I buy a subscription", "can I buy the annual plan",
+    "should I upgrade to analyst", "how do I sell my subscription back / cancel",
+    "what does hold days mean", "can I hold my mouse over the bar", "is it a good idea to use 20 years",
+    "is this a long or short pattern", "is AAPL a stock or an etf", "what is a short",
+    "how do I enter a symbol", "can I enter a date", "where do I enter my promo code",
+    "should I use 10 or 20 years", "how should I read Win%", "do I need to buy data separately",
+    "is it worth it to upgrade", "is the yearly plan worth it", "would I get a refund if I cancel",
+    "is this a buy signal column", "what stocks does tradewave cover", "what etfs can I trade seasonally",
+    "how much does it cost", "how much history do you have", "can we trade futures patterns here",
+    "do I get AI scores if I invest in the analyst plan", "show me AAPL", "load NVDA",
+    "what is the trade window", "is now included in the window", "what would you call this pattern",
+    "is it a bullish pattern", "explain long or short direction", "what is a stop",
+    "where is the stop button for the animation", "how many shares outstanding does AAPL have",
+    "which size chart is best", "can I exit full screen", "how do I get out of the guide",
+    "should I enter the year as 2020", "is that a trade secret", "what is position sizing",
+    "is NOW a ticker", "is it a good time to call support", "which stocks are seasonally strong",
+    "what should I look at first", "what should I do to add a watchlist",
+    "what would you do to change years", "recommend me a tutorial",
+    "is apple a good investment vehicle name?", "can I cover more markets with strategist",
+    "what would you do to change the years", "explain allocation of my portfolio manager slots",
+    "what should I do next", "what should I do to get started",
+    "my stop button is missing on the animation",
+]
+
+ADVICE_QUESTIONS = [
+    "should I buy NVDA now", "is it a good time to sell my AAPL", "how much should I put in",
+    "should I short TSLA", "what stop loss should I use", "would you buy this",
+    "recommend me a stock to buy", "is AAPL a buy", "buy or sell?", "is now a good entry",
+    "tell me whether to go long or short", "what would you do", "where should I put my stop",
+    "how many shares should I buy", "when should I sell", "what price target should I use",
+    "is this a good trade?", "can I buy this with $5000", "should my wife buy this",
+    "would you recommend it", "do you think I should get in", "is tesla worth buying",
+    "good time to get into gold?", "thoughts on buying NVDA here?", "is it too late to buy",
+    "am I too late to get in", "would this be a smart buy", "which one is the better buy",
+    "what's your pick", "which should I go with", "is it safe to hold",
+    "what's a good stop for this", "what take profit should I set", "what target should I aim for",
+    "how big should my position be", "what percent of my account should go in",
+    "sell now or wait?", "hold or sell?", "is it a buy right now", "bullish enough to buy?",
+    "worth a shot?", "would you get out here",
+]
+
+
+@pytest.mark.parametrize("message", ORDINARY_QUESTIONS)
+def test_ordinary_questions_are_never_advice_shaped(message):
+    assert planner.is_advice_shaped_question(message) is False
+    assert planner.is_trade_instruction_request(message) is False
+    assert planner.is_pattern_advice_question(message, _loaded()) is False
+    assert planner.ensure_required_disclaimer(message, "Here is how that works.") == "Here is how that works."
+
+
+@pytest.mark.parametrize("message", ADVICE_QUESTIONS)
+def test_advice_questions_get_the_disclaimer_floor(message):
+    assert planner.is_advice_shaped_question(message) is True
+    reply = planner.ensure_required_disclaimer(message, "The window won 8 of 10 years.")
+    assert _plain(reply).endswith(DISCLAIMER)
+
+
+@pytest.mark.parametrize("message, wave", [
+    ("what is a stop", None), ("what is position sizing", None), ("recommend me a tutorial", None),
+    ("what would you do to change the years", None), ("how do I buy a subscription", None),
+    ("how many shares outstanding does AAPL have", None), ("can I buy the annual plan", None),
+    ("how do I enter a symbol", None), ("can I exit full screen", None),
+    ("is it worth it to upgrade", None), ("where do I enter my promo code", None),
+    ("what is a stop", "L"), ("recommend me a tutorial", "L"), ("what is position sizing", "L"),
+    ("what should I do next", "L"), ("explain allocation of my portfolio manager slots", None),
+])
+def test_ordinary_questions_reach_their_normal_path_without_a_disclaimer(
+        tmp_path, monkeypatch, message, wave):
+    app = _model_app(tmp_path, monkeypatch, "[[MODEL ANSWER]]")
+    body = _ask(app, message, _loaded() if wave else None)
+    plain = html.unescape(_plain(body["reply"]))
+    assert DISCLAIMER not in plain
+    assert "Stops and size" not in plain and "I can't choose a trade for you" not in plain
+    assert "Whether to take the trade is your decision" not in plain
+
+
+@pytest.mark.parametrize("reply, appended", [
+    ("Evidence here.", True),
+    ("Intro. <i>" + DISCLAIMER + "</i><br>More text.", False),
+    ("Past performance and model estimates don't guarantee future results. TradeWave provides "
+     "research context, not individualised recommendations.", False),
+    ("X <i>Past&nbsp;performance and model estimates do not guarantee future results.</i>", False),
+    ("Remember that past performance is not indicative of future results.", False),
+    ("Sorry, something went wrong on my end. Please try again.", False),
+    ("I couldn't send the complete chart action, so I haven't changed the chart. Please try that load again.", False),
+    ("The historical opportunity screen is temporarily unavailable, so I won't invent a candidate.", False),
+    ("TradeWave no puede decidir por ti. Evidencia histórica: 8 de 10 años.", False),
+    ("TradeWave kann nicht entscheiden, ob du kaufen sollst. Historisch 8 von 10 Jahren.", False),
+])
+def test_disclaimer_floor_appends_once_and_only_where_it_belongs(reply, appended):
+    out = planner.ensure_required_disclaimer("should I buy NVDA now", reply)
+    assert (out != reply) is appended
+    assert out.count(DISCLAIMER) <= 1
+    if appended:
+        assert out == reply + "<br><br><i>" + DISCLAIMER + "</i>"
+
+
+@pytest.mark.parametrize("reply, fixed", [
+    ("Evidence. <i>" + DISCLAIMER + "</i", "Evidence. <i>" + DISCLAIMER + "</i>"),
+    ("<b>NVDA</b> won 8 of 10.</b ", "<b>NVDA</b> won 8 of 10.</b>"),
+    ("Plain answer.", "Plain answer."),
+])
+def test_cut_off_closing_tag_is_repaired(reply, fixed):
+    assert planner.ensure_required_disclaimer("what is Sharpe?", reply) == fixed
+    assert planner.ensure_required_disclaimer("is AAPL a buy", reply).startswith(fixed)
+
+
+# R3: the plan comes from the route's VERIFIED claims, never from a token in the body
+
+def _signed(app, level, user="tw-task-0031-plan"):
+    return jwt.encode({"user": user, "user_level": str(level), "aud": "tw2-appserver",
+                       "iss": "tw2-web", "exp": int(time.time()) + 300},
+                      app.config["SECRET_KEY"], algorithm="HS256")
+
+
+def _screen_app(tmp_path, monkeypatch, fetched, tokens):
+    app = Flask(__name__)
+    app.config["SECRET_KEY"] = "tara-test-secret-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    app.register_blueprint(chatbot.chatbot_bp, url_prefix="/chatbot")
+    monkeypatch.setattr(chatbot, "ACTION_AUDIT_LOG", str(tmp_path / "a.jsonl"))
+    monkeypatch.setattr(chatbot, "QUESTION_LOG", str(tmp_path / "q.jsonl"))
+    monkeypatch.setattr(chatbot, "TARA_TOOLS_ENABLED", True)
+    monkeypatch.setattr(tara_gateway, "_loopback_json", lambda *a, **k: (None, None))
+    monkeypatch.setattr(tara_gateway, "_chart_data4", lambda *a, **k: (None, None))
+    monkeypatch.setattr(tara_gateway, "send_claude_messages",
+                        lambda *a, **k: pytest.fail("deterministic screen reached the model"))
+
+    def rows(market_id, token, years):
+        fetched.append(market_id)
+        tokens.append(token)
+        return [{"date": "2026-11-17", "symbol": "M%sX" % market_id, "days_out": 20,
+                 "direction": "L", "avg_profit": 4.0, "sharpe_ratio": 1.5}]
+
+    monkeypatch.setattr(tara_gateway, "_opplist4_rows", rows)
+    monkeypatch.setattr(tara_gateway, "run_tool",
+                        lambda *a, **k: pytest.fail("fell back to the all-markets gateway"))
+    for name in ("run_chat_with_openai_tools",):
+        if hasattr(chatbot, name):
+            monkeypatch.setattr(chatbot, name, tara_gateway.run_chat_with_tools)
+    return app
+
+
+def _post(app, message, query_token=None, body_token=None):
+    payload = {"message": message, "history": [{"role": "user", "content": message}],
+               "wave_viewer": {}, "opportunities": [], "screen_context": {}, "opp_table_market": "0"}
+    if body_token is not None:
+        payload["token"] = body_token
+    url = "/chatbot/chat" + ("?token=" + query_token if query_token else "")
+    return app.test_client().post(url, json=payload)
+
+
+SCREEN_QUESTION = "Find bullish seasonal stock opportunities now"
+
+
+@pytest.mark.parametrize("placement", ["query_only", "query_plus_forged_body", "query_plus_level6_body"])
+def test_plan_comes_from_the_verified_token_not_the_body(tmp_path, monkeypatch, placement):
+    fetched, tokens = [], []
+    app = _screen_app(tmp_path, monkeypatch, fetched, tokens)
+    level1 = _signed(app, 1)
+    body = {"query_only": None, "query_plus_forged_body": _FORGED_L6,
+            "query_plus_level6_body": _signed(app, 6, user="someone-else")}[placement]
+    response = _post(app, SCREEN_QUESTION, query_token=level1, body_token=body)
+    assert response.status_code == 200
+    reply = response.get_json()["reply"]
+    assert fetched == ["0"]                         # Dow 30 only: the verified level-1 plan
+    assert tokens == [level1]                       # loopback runs as the verified caller
+    assert "Dow 30 stock" in _plain(reply) and "M0X" in reply
+    assert "M2X" not in reply and "M11X" not in reply
+
+
+def test_forged_body_token_alone_is_rejected_by_the_route(tmp_path, monkeypatch):
+    app = _screen_app(tmp_path, monkeypatch, [], [])
+    assert _post(app, SCREEN_QUESTION, body_token=_FORGED_L6).status_code == 401
+
+
+def test_verified_level6_body_token_still_gets_its_own_plan(tmp_path, monkeypatch):
+    fetched, tokens = [], []
+    app = _screen_app(tmp_path, monkeypatch, fetched, tokens)
+    level6 = _signed(app, 6)
+    response = _post(app, SCREEN_QUESTION, body_token=level6)
+    assert response.status_code == 200 and fetched == ["2"] and tokens == [level6]
+
+
+def test_plan_gate_never_parses_a_token(monkeypatch):
+    import jwt as jwt_module
+    monkeypatch.setattr(jwt_module, "decode",
+                        lambda *a, **k: pytest.fail("the plan gate decoded a token"))
+    for level in (1, 6):
+        tara_gateway._plan_scope(_level_token(level))
+    assert not hasattr(tara_gateway, "_token_claims")
+
+
+def test_no_verified_claims_means_no_scan_no_ai_and_no_symbol_read(monkeypatch):
+    monkeypatch.setattr(tara_gateway, "_verified_claims", lambda: None)
+    monkeypatch.setattr(tara_gateway, "run_tool", lambda *a, **k: _market_card("AAPL", "2"))
+    monkeypatch.setattr(tara_gateway, "_opplist4_rows",
+                        lambda *a, **k: pytest.fail("screened without a verified plan"))
+    notes = []
+    out = tara_gateway._execute_tara_tool(
+        "find_best_opportunities", {"markets": "2", "rank_by": "ais"}, "user-1", [], {}, [],
+        turn_notes=notes, user_token="token", latest_user_text="sort by AIS")
+    assert tara_gateway._result_rows(out)[1] == [] and "ai_scores" not in out
+    out = tara_gateway._execute_tara_tool(
+        "analyze_symbol", {"symbol": "AAPL"}, "user-1", [], {}, [],
+        turn_notes=notes, user_token=_FORGED_L6, latest_user_text="analyze AAPL")
+    assert out["error"] == "market_not_in_plan" and "card" not in out
+
+
+# R4: the 100-Year Pattern is public on every plan
+
+def test_date_lock_exempts_the_exact_hundred_year_pattern_spec():
+    import featured_patterns
+    spec = featured_patterns.hundred_year_view_spec(TODAY)
+    _level_token(1)
+    assert tara_gateway._date_lock_rejects_view(spec, {}, "0", "t") is None
+    for change in ({"days_out": 200}, {"entry_date": "2026-10-01"}, {"symbol": "DJI"},
+                   {"pe_cycle": "cons"}, {"years": 10}):
+        altered = dict(spec, **change)
+        locked_market = altered["market"] in tara_gateway._plan_scope()["date_locked"]
+        assert (tara_gateway._date_lock_rejects_view(altered, {}, "0", "t") is not None) is locked_market
+
+
+def test_level1_can_load_the_hundred_year_pattern_through_the_tool_path(monkeypatch):
+    import featured_patterns
+    spec = featured_patterns.hundred_year_view_spec(TODAY)
+    card = {"card": {"symbol": "SPX", "market": {"id": "5", "name": "INDICES"},
+                     "setup": {"entry_date": spec["entry_date"], "hold_days": spec["days_out"]},
+                     "stats": {"historical_win_rate": 0.96, "avg_return_pct": 18.8, "years": 24},
+                     "headline": "SPX long - Won 23/24 years, avg +18.8%."}}
+    monkeypatch.setattr(tara_gateway, "_keep_symbol_read_in_plan", lambda n, i, out, *a: out)
+    monkeypatch.setattr(tara_gateway, "_keep_symbol_read_on_todays_date", lambda i, out, *a: out)
+    text, actions, _ = _run(
+        monkeypatch,
+        [_tool_response("read-1", "analyze_symbol", {"symbol": "SPX", "market": "5"}),
+         _tool_response("view-1", "update_view", spec),
+         _text_response("SPX long - won 23 of 24 years, avg +18.8%.")],
+        "load the SPX midterm study", run_tool=lambda *a, **k: card, user_token=_level_token(1),
+    )
+    assert [action["spec"]["entry_date"] for action in actions] == [spec["entry_date"]]
+    assert "locked to today" not in text
+
+
+@pytest.mark.parametrize("message", ["show me 100 year pattern", "what is the 100 year pattern?"])
+def test_level1_hundred_year_question_still_loads_the_pattern(tmp_path, monkeypatch, message):
+    app = _model_app(tmp_path, monkeypatch, "[[MODEL ANSWER]]")
+    response = _post(app, message, query_token=_signed(app, 1))
+    body = response.get_json()
+    assert body["actions"] and body["actions"][0]["spec"]["symbol"] == "SPX"
+    assert body["actions"][0]["spec"]["days_out"] == 295
+
+
+def test_partly_out_of_plan_scan_says_which_market_was_dropped(monkeypatch):
+    seen = _gate_tool(monkeypatch)
+    out, notes, _ = _scan(1, {"markets": "S&P 500,Dow 30", "min_days": 5}, "best setups",
+                          table_market="0")
+    assert seen[0][1]["markets"] == "0" and "_plan_dropped" not in seen[0][1]
+    assert [note["key"] for note in notes] == ["plan_partial"]
+    assert html.unescape(notes[0]["text"]) == (
+        "S&P 500 Stocks is not included in your plan, so this screen covers Dow 30 Stocks only.")

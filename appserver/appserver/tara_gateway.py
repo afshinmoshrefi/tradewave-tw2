@@ -3718,39 +3718,49 @@ DISCLAIMER_TEXT = (
 )
 
 
-def _token_claims(token):
-    """Claims of the browser token the route already authenticated (no re-verification)."""
+def _verified_claims():
+    """Claims the chat route VERIFIED for this request, or None when there are none.
 
-    if not token:
-        return None
+    The plan gate must never read a token itself: the request body can carry any
+    token, forged or borrowed, next to the one the route actually authenticated (a
+    level-1 token in the query string with a body token claiming level 6). The only
+    trusted source is ``g.chatbot_jwt``, which ``check_for_token`` sets after checking
+    the signature, audience and issuer.
+    """
+
     try:
-        import jwt
-        claims = jwt.decode(str(token), options={"verify_signature": False})
-    except Exception:               # noqa: BLE001
-        # The route authenticates the token before Tara runs, so this is a test
-        # harness placeholder, not a caller: there is no plan to read.
+        from flask import g, has_request_context
+        if not has_request_context():
+            return None
+        claims = getattr(g, "chatbot_jwt", None)
+    except Exception:               # noqa: BLE001 - no trusted claims means no access
         return None
-    return claims if isinstance(claims, dict) else {}
+    return claims if isinstance(claims, dict) else None
 
 
-def _plan_scope(token):
-    """What this caller's plan allows: {'markets': set|None, 'ai': bool, 'row_cap': int|None}.
+_NO_ACCESS_SCOPE = {"markets": frozenset(), "ai": False, "row_cap": None, "level": None,
+                    "date_locked": frozenset()}
+
+
+def _plan_scope(_token=None):
+    """What this caller's plan allows: markets, AI scores, row cap, date-locked markets.
 
     Tara reaches the gateway as the internal chatbot principal, which is scoped to every
     market and to AI scoring. The user's own plan therefore has to be applied here, from
     the same config the engine uses (level_access_hierarchy, ml_score_access_*), before
-    any gateway call. ``markets`` None means unrestricted. With no readable token (unit
-    harnesses, no browser session) nothing can be looked up and the legacy behaviour is
-    kept; a readable token with a missing or unknown level grants no market and no AI.
+    any gateway call. ``markets`` None means unrestricted (admin/service accounts only).
+
+    The plan comes from the route's verified claims and from nothing else. The token
+    argument is accepted for call-site compatibility and is deliberately ignored. No
+    verified claims, or a level the config does not know, means no market and no AI.
     """
 
-    claims = _token_claims(token)
-    if claims is None:
-        return {"markets": None, "ai": True, "row_cap": None, "level": None,
-                "date_locked": set()}
+    claims = _verified_claims()
+    if not claims:
+        return dict(_NO_ACCESS_SCOPE)
     if claims.get("is_admin") or claims.get("is_service_account"):
         return {"markets": None, "ai": True, "row_cap": None, "level": "admin",
-                "date_locked": set()}
+                "date_locked": frozenset()}
     level = str(claims.get("user_level", ""))
     markets = set(getattr(config, "level_access_hierarchy", {}).get(level, []))
     if getattr(config, "ml_score_access_mode", "level") == "list":
@@ -3759,7 +3769,7 @@ def _plan_scope(token):
         ai = level in getattr(config, "ml_score_access_levels", [])
     row_cap = getattr(config, "max_opportunities_loggedin_free", None) if level == "1" else None
     locked = set(getattr(config, "level_access_hierarchy_free_registered", {}).get(level, []))
-    return {"markets": markets, "ai": ai, "row_cap": row_cap, "level": level,
+    return {"markets": markets, "ai": ai and bool(markets), "row_cap": row_cap, "level": level,
             "date_locked": locked}
 
 
@@ -3818,6 +3828,13 @@ def _apply_plan_to_scan(inp, scope):
     if not chosen:
         return inp, "Your plan does not include any market I can screen."
     inp["markets"] = ",".join(chosen)
+    if allowed and blocked:
+        inp["_plan_dropped"] = (
+            "%s %s not included in your plan, so this screen covers %s only."
+            % (" and ".join(_market_label(m) for m in blocked),
+               "is" if len(blocked) == 1 else "are",
+               " and ".join(_market_label(m) for m in allowed))
+        )
     if scope["row_cap"]:
         try:
             inp["limit"] = min(int(inp.get("limit") or scope["row_cap"]), scope["row_cap"])
@@ -4076,6 +4093,16 @@ def _keep_symbol_read_on_todays_date(inp, out, user_id, user_token, turn_notes):
             "instruction": "Tell the user exactly this and give no statistics."}
 
 
+def _is_hundred_year_spec(spec):
+    """Whether a view spec is exactly The 100-Year Pattern, by the engine's own rule."""
+
+    try:
+        import featured_patterns
+        return bool(featured_patterns.is_hundred_year_view_spec(spec, today=_market_today()))
+    except Exception:               # noqa: BLE001 - unknown means not exempt
+        return False
+
+
 def _date_lock_rejects_view(cleaned, current_view, table_market, user_token):
     """An update_view whose start date a date-locked plan cannot load, else None."""
 
@@ -4090,6 +4117,8 @@ def _date_lock_rejects_view(cleaned, current_view, table_market, user_token):
         or ((current_view or {}).get("market") if isinstance(current_view, dict) else "")
         or table_market or ""
     )
+    if _is_hundred_year_spec(cleaned):
+        return None                 # the public 100-Year Pattern study loads on every plan
     if market in scope["date_locked"] and str(entry) != _market_today().isoformat():
         return (
             "this plan's start date is locked to today; a different start date cannot be "
@@ -4543,6 +4572,12 @@ def _execute_tara_tool(name, inp, user_id, actions, cards, card_list, *,
     if name == "find_best_opportunities":
         scope = _plan_scope(user_token)
         inp, plan_boundary = _apply_plan_to_scan(inp, scope)
+        dropped = inp.pop("_plan_dropped", None)
+        if dropped:
+            _add_turn_note(
+                turn_notes, "plan_partial", html.escape(dropped, quote=False),
+                r"(?:not|n['\u2019]t)\s+included\s+in\s+your\s+plan",
+            )
         if plan_boundary is None and ai_request is not None:
             ai_block = _ai_plan_block(inp, scope)
             if ai_block:
