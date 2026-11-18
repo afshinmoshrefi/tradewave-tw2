@@ -28,6 +28,7 @@ MODEL_LABELS = {
     "first_payment": "First payment only",
 }
 
+GUIDE_PATH = str(Path(__file__).resolve().parents[2] / "docs" / "AFFILIATE_PARTNER_GUIDE.md")
 SMN_TERMS_PATH = str(Path(__file__).resolve().parents[2] / "docs" / "SMN_CONTRIBUTOR_TERMS.md")
 SLUG_RE = re.compile(r"^[a-z0-9-]{2,64}$")
 PLAIN_TEXT_BAN = re.compile(r"[<>]|https?://", re.IGNORECASE)
@@ -373,6 +374,97 @@ def links():
         s.close()
     return render_template("aff_links.html", **_ctx(
         aff, "links", links=_links_for(aff), take_links=take_links))
+
+
+# ------------------------------------------------------------------
+# partner guide (human page + AI-ready markdown)
+# ------------------------------------------------------------------
+def _guide_md():
+    try:
+        with open(GUIDE_PATH, encoding="utf-8") as f:
+            return f.read()
+    except OSError:
+        log.warning("partner guide missing at %s", GUIDE_PATH)
+        return "# TradeWave Partner Guide\n\nThe guide is temporarily unavailable. Write to help@tradewave.ai.\n"
+
+
+def _partner_details_md(aff):
+    """The partner's own facts, prepended to the guide for their AI. Only the
+    affiliate's own terms - never customer data."""
+    t = _effective_terms(aff)
+    links = _links_for(aff)
+    lines = [
+        "## Your details (filled in from your dashboard on %s)" % datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "",
+        "- Partner name: %s" % (aff.page_display_name or aff.name),
+        "- Referral code: `%s`" % aff.code,
+        "- Landing page (share this by default): %s" % links["join"],
+        "- Referral link: %s" % links["referral"],
+        "- Program status: %s" % aff.status,
+        "- Commission model: %s" % t["model_label"],
+    ]
+    if t["split"]:
+        lines += [
+            "- Annual plans: audience discount %s%% (first year), your commission %s%%"
+            % (t["annual_discount"], t["annual_commission"]),
+            "- Monthly plans: audience discount %s%%, your commission %s%%"
+            % (t["monthly_discount"], t["monthly_commission"]),
+        ]
+    else:
+        lines.append("- All plans: audience discount %s%% (first year), your commission %s%%"
+                     % (t["annual_discount"], t["annual_commission"]))
+    lines += [
+        "- Payout method: %s" % ((aff.payout_method or "not set").capitalize()),
+        "- Tax form on file: %s" % ("yes" if aff.tax_form_received_at else
+                                   "NO - payouts are held until you send a W-9 / W-8BEN / W-8BEN-E to help@tradewave.ai"),
+        "",
+        "---",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def _guide_for(aff):
+    md = _guide_md()
+    head, sep, rest = md.partition("\n---\n")
+    if not sep:
+        return _partner_details_md(aff) + md
+    # Keep the title + intro first, then the partner's own details.
+    return head.rstrip() + "\n\n" + _partner_details_md(aff) + rest.lstrip("\n")
+
+
+def _render_guide(md):
+    """Repo-authored markdown -> HTML (tables, headings), still bleached."""
+    import bleach
+    import markdown as _markdown
+    raw = _markdown.markdown(md, extensions=["tables", "sane_lists", "fenced_code"])
+    tags = ["h1", "h2", "h3", "h4", "p", "br", "hr", "strong", "em", "ul", "ol", "li",
+            "blockquote", "a", "code", "pre", "table", "thead", "tbody", "tr", "th", "td"]
+    clean = bleach.clean(raw, tags=tags, attributes={"a": ["href", "title"]},
+                         protocols=["https", "mailto"], strip=True)
+    return bleach.linkify(clean, skip_tags=["code", "pre"], parse_email=True)
+
+
+@bp.route("/guide")
+@require_affiliate
+def guide():
+    aff = get_current_affiliate()
+    html = _render_guide(_guide_md().replace("`ANNE`", "`%s`" % aff.code)
+                         .replace("/join/ANNE", "/join/%s" % aff.code)
+                         .replace("?code=ANNE", "?code=%s" % aff.code))
+    return render_template("aff_guide.html", **_ctx(
+        aff, "guide", guide_html=html, ai_md=_guide_for(aff)))
+
+
+@bp.route("/guide.md")
+@require_affiliate
+def guide_md():
+    from flask import Response
+    aff = get_current_affiliate()
+    return Response(_guide_for(aff), mimetype="text/markdown; charset=utf-8",
+                    headers={"Content-Disposition":
+                             'inline; filename="tradewave-partner-guide-%s.md"' % aff.code,
+                             "Cache-Control": "private, no-store"})
 
 
 # ------------------------------------------------------------------

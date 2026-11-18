@@ -118,3 +118,21 @@ def test_retracted_after_entry_still_counts():
     today = _dt.date(2026, 11, 1)
     assert esc._counts_in_record(late, today) is True
     assert esc._counts_in_record(early, today) is False
+
+
+# --- partner guide ----------------------------------------------------------
+def test_partner_guide_personalized_and_safe():
+    from affiliate_portal import routes
+    aff = SimpleNamespace(code="ZED", name="Zed", page_display_name=None, status="active",
+                          payout_method="wise", tax_form_received_at=None,
+                          discount_pct=Decimal("20"), commission_pct=Decimal("30"),
+                          discount_pct_monthly=None, commission_pct_monthly=None,
+                          stripe_coupon_id_monthly=None, commission_model="recurring")
+    md = routes._guide_for(aff)
+    assert md.startswith("# TradeWave Partner Guide")
+    assert "Referral code: `ZED`" in md and "/join/ZED" in md
+    assert "Tax form on file: NO" in md
+    assert "Instructions for AI assistants" in md
+    assert "—" not in md                        # house style: no em-dashes
+    html = routes._render_guide(routes._guide_md())
+    assert "<table>" in html and "<script" not in html

@@ -169,7 +169,7 @@ def _derive_mcp_tools() -> list[tuple[str, str]]:
     return tools
 
 
-# Derived once at import; 17 tools = 6 flagship + 11 primitives, in server.py source order.
+# Derived once at import; 19 tools = 7 flagship + 12 primitives, in server.py source order.
 _MCP_TOOLS = _derive_mcp_tools()
 
 

@@ -2257,6 +2257,43 @@ async def get_pick_track_record(ctx: Context) -> str:
     return json.dumps(data, separators=(',', ':'))
 
 
+@mcp.tool(
+    description=(
+        "For TradeWave AFFILIATES (partners who earn commission by referring subscribers). "
+        "Returns the signed-in affiliate's OWN program data: referral code and links (join page, "
+        "home link with code), commission terms, last-30-day and all-time funnel counts (link "
+        "visits, free signups, in trial, paying), payout statements and pending/paid totals per "
+        "currency, tax-form status, the partner guide link, and ready-made promo copy with the "
+        "required disclosure and promotion rules. Use on 'my affiliate link', 'how are my "
+        "referrals doing', 'what have I earned', 'when do I get paid', or 'write a post promoting "
+        "TradeWave'. When drafting promotions, ALWAYS follow the returned rules and include the "
+        "disclosure. Read-only; anonymized counts only. A non-affiliate account gets a short "
+        "not_affiliate message."
+    ),
+    annotations=ToolAnnotations(
+        title="My TradeWave affiliate program",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+)
+@_tool_errors
+async def my_affiliate_program(ctx: Optional[Context] = None) -> str:
+    _bind_request_key(ctx)
+    data = await _get("/affiliate/me")
+    f = data.get("funnel") or {}
+    tax = ((data.get("payout") or {}).get("tax_form") or {})
+    lead = (f"Affiliate code {data.get('code')} ({data.get('status')}). Last "
+            f"{f.get('days', 30)} days: {f.get('clicks_recent', 0)} link visits, "
+            f"{f.get('signups_recent', 0)} signups; {f.get('paying_total', 0)} paying "
+            "subscriptions credited all-time.")
+    if not tax.get("on_file"):
+        lead += " Tax form not on file - payouts are held until it is."
+    lead += " Promo drafts must include the disclosure and follow the rules below."
+    return _lead(lead, data)
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
