@@ -19,3 +19,7 @@ The [rendered dev checks](evidence/TW-TASK-0037-dev-ui.json) used live S&P 500 d
 The React release script built commit `596be0fbfce138761890235b6290b66af4a43b1c`. Dev serves `main.9d6f94d2.js`. Dev used its existing appserver and scorer. The prior frontend release is `0c67bb840fa152c8de9e427d8a3e801239caf6f0` and can be selected through the standard dev frontend pointer for rollback. The first verification restored that release when the QA account's welcome video covered the table. Dismissing it through “Go to Wave Viewer” allowed the same candidate to pass the interaction on both layouts.
 
 The task branch is `codex/ai-score-table-reasons-20261123`. The source commit reached main through the dev activation lock. This receipt is a documentation follow-up. No migration or service restart was needed. Staging and production are outside this dev delivery.
+
+## Highlight high volatility
+
+In progress, claimed by Codex on the same task branch at 2026-11-23 18:41 UTC. Afshin requested visual emphasis for the VIX message. Verify the visible warning, both themes and row selection on dev.
