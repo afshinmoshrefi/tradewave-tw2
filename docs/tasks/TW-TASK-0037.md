@@ -10,7 +10,7 @@ The table prints the reason from the score response for the displayed time windo
 
 On November 23 the dev app resolved 100 sampled rows. Eighty-three had passed their entry date and 17 hit the volatility limit. The old frontend rendered a dash for MAR, UNH, GOOGL and T. After deployment, MAR and UNH displayed “Pattern already started.” GOOGL and T displayed “High volatility (VIX).”
 
-The [rendered dev checks](evidence/TW-TASK-0037-dev-ui.json) used live S&P 500 data through the dev capture account. They covered dark desktop at 1440 px with four AI columns and light phone layout at 390 px with Win% enabled. In both layouts the reason fit its cell, columns aligned with their headings, and clicking GOOGL’s reason selected the row.
+The [rendered dev checks](evidence/TW-TASK-0037-dev-ui.json) used live S&P 500 data through the dev capture account. They covered dark desktop at 1440 px with four AI columns and the phone layout at 390 px with Win% enabled. In both layouts the reason fit its cell, columns aligned with their headings, and clicking GOOGL’s reason selected the row.
 
 ## Implementation and handoff
 
@@ -23,3 +23,5 @@ The task branch is `codex/ai-score-table-reasons-20261123`. The source commit re
 ## Highlight high volatility
 
 In progress, claimed by Codex on the same task branch at 2026-11-23 18:41 UTC. Afshin requested visual emphasis for the VIX message. Verify the visible warning, both themes and row selection on dev.
+
+The initial highlight passed 61 component, normalizer and AI Scores panel tests. Afshin also requested the cutoff and when scores resume. The dev scorer blocks strictly above 35 using its latest completed VIX daily close. The table warning includes the inclusive recovery level. Older blocked responses without a cutoff use the verified legacy limit. All 106 cases in the five focused suites passed.

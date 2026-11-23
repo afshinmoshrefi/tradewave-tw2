@@ -196,6 +196,18 @@ table thead th {
   color: var(--opp-ai-muted, #6b7280);
 }
 
+mark.opp-ai-cell--unavailable {
+  background-color: #ffebad;
+  color: #613800;
+  font-weight: 700;
+  padding-inline: 4px;
+}
+
+.opp-table-box[data-theme="dark"] mark.opp-ai-cell--unavailable {
+  background-color: #543b16;
+  color: #ffe19a;
+}
+
 .opp-ai-cell--below_threshold.opp-ai-cell--checkpoint,
 .opp-ai-cell--unavailable.opp-ai-cell--checkpoint {
   background: rgba(245, 158, 11, 0.08);
