@@ -56,4 +56,4 @@ Features, documentation and other substantive work follow [Shared Work Managemen
 | [TW-TASK-0035](TW-TASK-0035.md) | phase A live on dev (918626f1); phase B on branch, off | Tara on Haiku 5.5, plan steps 1 to 6: route template fixes, lists rendered in code, guard dead ends removed, AI values and plan ladder in the live context, KB facts; the model rewrite of engine replies was withdrawn after review and replaced by a validated lead that is off by default (no measured lift) |
 | [TW-TASK-0036](TW-TASK-0036.md) | delivered on branch | Independent audit of the Tara eval: 15 grading rules, 538 rubric changes on 328 questions, judge v3 (agreement with blind hand grades 67% to 88%), re-judged scores (Haiku 5.5 tuned 65.0% to 75.9%, held-out 66.2% to 72.7%) |
 
-| [TW-TASK-0037](TW-TASK-0037.md) | VIX highlight in progress | Explain missing AI scores in the Opportunity Table on dev |
+| [TW-TASK-0037](TW-TASK-0037.md) | Verified on dev | Explain missing AI scores in the Opportunity Table on dev |
