@@ -182,8 +182,13 @@ table thead th {
 }
 
 .opp-ai-cell--unavailable {
+  box-sizing: border-box;
   cursor: default;
   font-size: 0.9em;
+  max-width: 100%;
+  padding-inline: 2px;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .opp-ai-cell--below_threshold,

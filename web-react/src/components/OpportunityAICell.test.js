@@ -61,18 +61,26 @@ test('shows a compact accessible loading state', () => {
   expect(loading).not.toBeEmptyDOMElement()
 })
 
-test('shows a dash for unavailable data while keeping the reason accessible', () => {
-  render(
-    <OpportunityAICell
-      bundle={bundle({ status: 'unavailable', reason: 'service_unavailable', metrics: { ml_score: null, win_prob: null, pred_return: null, pred_mfe: null } })}
-      metric="ml_score"
-      symbol="MSFT"
-    />
-  )
+test.each([
+  ['unavailable', 'after_entry', 'Pattern already started'],
+  ['unavailable', 'vix_blocked', 'High volatility (VIX)'],
+  ['unavailable', 'too_far_ahead', 'Entry over 5 days away'],
+  ['unavailable', 'target_entry_unavailable', 'No entry price'],
+  ['below_threshold', '', 'History filter not met'],
+  ['unavailable', 'service_unavailable', 'Scoring unavailable'],
+  ['unavailable', 'unexpected_provider_error', 'Reason unavailable'],
+])('prints the reason inside the cell for %s / %s', (status, reason, expected) => {
+  render(<OpportunityAICell bundle={bundle({ status, reason })} metric="ml_score" symbol="MSFT" />)
 
-  const unavailable = screen.getByLabelText(/AI Score unavailable for MSFT.*Temporarily unavailable/i)
-  expect(unavailable).toHaveTextContent('-')
-  expect(unavailable).toHaveClass('opp-ai-cell--unavailable')
+  const cell = screen.getByLabelText(/AI Score unavailable for MSFT/i)
+  expect(cell).toHaveTextContent(expected)
+  expect(cell).toHaveClass('opp-ai-cell--unavailable')
+})
+
+test('names the shared reason when multiple adjacent metrics are unavailable', () => {
+  render(<OpportunityAICell grouped bundle={bundle({ status: 'unavailable', reason: 'vix_blocked' })} metric="win_prob" symbol="T" />)
+
+  expect(screen.getByLabelText(/AI scores unavailable for T/i)).toHaveTextContent('High volatility (VIX)')
 })
 
 test('preserves a real zero and adds no short-pattern badge', () => {

@@ -8,4 +8,4 @@ Afshin requested a visible reason wherever an AI score is unavailable in the dev
 
 ## Acceptance and handoff
 
-An eligible viewer can read the reason directly in the table. Verify past-entry and volatility results on live dev, and exercise ordinary scores, zero, loading and optional AI columns. Use the existing scored response and the React release build. The next step is implementing and testing the table presentation. Dev activation and browser verification are pending.
+An eligible viewer can read the reason directly in the table. Verify past-entry and volatility results on live dev, and exercise ordinary scores, zero, loading and optional AI columns. Use the existing scored response and the React release build. In the focused Jest run, all 100 tests passed across the AI cell, score explanations, AI Scores panel, filters and sorting. This includes legacy and structured reasons, grouping adjacent AI columns, a real zero and loading. The next step is the React release build and a rendered check on dev.

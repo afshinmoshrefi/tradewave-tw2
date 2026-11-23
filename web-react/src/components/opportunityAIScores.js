@@ -84,6 +84,7 @@ const TERMINAL_UNAVAILABLE = new Set([
   'failed',
   'not_available',
   'too_early',
+  'too_far_ahead',
   'unavailable',
   'unsupported',
   'unsupported_duration',
@@ -150,6 +151,21 @@ export const selectOpportunityVisibleColumns = ({
   return !columnVisibility || columnVisibility[column] !== false
 })
 
+// A terminal reason applies to every AI metric for the displayed horizon.
+export const opportunityTableCellLayout = columns => {
+  const individual = columns.map(key => ({ key, span: 1 }))
+  const unavailable = []
+  for (const key of columns) {
+    const last = unavailable[unavailable.length - 1]
+    if (last && AI_COLUMNS.includes(last.key) && AI_COLUMNS.includes(key)) {
+      last.span += 1
+    } else {
+      unavailable.push({ key, span: 1 })
+    }
+  }
+  return { individual, unavailable }
+}
+
 export const opportunityTableMinimumWidth = ({ columns, isMobilePortrait, shortDates = false }) => {
   const widths = isMobilePortrait
     ? MOBILE_COLUMN_MIN_WIDTH
@@ -184,13 +200,12 @@ const metricsFrom = source => {
 const hasCompleteMetrics = metrics => AI_COLUMNS.every(column => metrics[column] !== null)
 
 const reasonFrom = source => {
-  const error = source && source.error
-  return String(firstDefined(
-    source && source.reason,
-    error && typeof error === 'object' ? firstDefined(error.code, error.message) : error,
-    source && source.message,
-    '',
-  ))
+  const error = source?.error
+  const legacyStatus = TERMINAL_UNAVAILABLE.has(source?.status) ? source.status : ''
+  return String(
+    source?.reason || error?.code || (source?.vix_blocked === true ? 'vix_blocked' : '') ||
+    (typeof error === 'string' ? error : error?.message) || source?.message || legacyStatus
+  )
 }
 
 const horizonCalendarDays = source => {
@@ -415,27 +430,90 @@ export const formatOpportunityAIMetric = (metric, value) => {
 }
 
 const AI_REASON_COPY = Object.freeze({
-  after_entry: 'AI Scores combine historical patterns with current market data. Current data includes information from after this pattern started, so it cannot provide a new estimate of conditions at entry. Historical results remain available.',
-  context_scoring_failed: 'AI scoring is temporarily unavailable. Try again shortly.',
-  incomplete_feature_vector: 'TradeWave does not have all the data needed to score this time length.',
-  invalid_checkpoint_context: 'TradeWave could not verify the data for this time length.',
-  nonfinite_pattern_profile: 'TradeWave does not have all the data needed to score this time length.',
-  pattern_profile_unavailable: 'There is not enough usable history to score this time length.',
-  pattern_definitions_unavailable: 'TradeWave does not have the historical pattern data needed for this ticker and time length.',
-  prebuilt_profile_mismatch: 'TradeWave could not verify the data for this time length.',
-  selected_recurrence_below_threshold: 'This time length does not pass your history filter.',
-  selected_recurrence_insufficient_history: 'There is not enough completed history to check this time length.',
-  provider_unavailable: 'AI scoring is temporarily unavailable. Try again shortly.',
-  service_unavailable: 'AI scoring is temporarily unavailable. Try again shortly.',
-  target_entry_unavailable: 'A starting price is not available for this date.',
-  target_price_unavailable: 'TradeWave does not have enough price history for this ticker.',
-  tier_unavailable: 'The AI model for this time length is temporarily unavailable.',
-  too_early: 'AI Scores combine historical patterns with current market data, and current conditions may change before entry. Check back within five calendar days of the pattern start.',
-  too_far_ahead: 'AI Scores combine historical patterns with current market data, and current conditions may change before entry. Check back within five calendar days of the pattern start.',
-  unavailable: 'No AI score is available for this time length.',
-  unsupported_duration: 'AI models cover time lengths from 10 through 90 calendar days.',
-  unsupported_market: 'AI Scores are available only for U.S. stocks and ETFs.',
-  vix_blocked: 'Market price swings are outside the range this AI was tested for, so no score is shown.',
+  after_entry: {
+    label: 'Pattern already started',
+    detail: 'AI Scores combine historical patterns with current market data. Current data includes information from after this pattern started, so it cannot provide a new estimate of conditions at entry. Historical results remain available.',
+  },
+  context_scoring_failed: {
+    label: 'Scoring unavailable',
+    detail: 'AI scoring is temporarily unavailable. Try again shortly.',
+  },
+  incomplete_feature_vector: {
+    label: 'Missing model data',
+    detail: 'TradeWave does not have all the data needed to score this time length.',
+  },
+  invalid_checkpoint_context: {
+    label: 'Pattern data unverified',
+    detail: 'TradeWave could not verify the data for this time length.',
+  },
+  nonfinite_pattern_profile: {
+    label: 'Incomplete pattern history',
+    detail: 'TradeWave does not have all the data needed to score this time length.',
+  },
+  pattern_profile_unavailable: {
+    label: 'Not enough history',
+    detail: 'There is not enough usable history to score this time length.',
+  },
+  pattern_definitions_unavailable: {
+    label: 'Missing pattern history',
+    detail: 'TradeWave does not have the historical pattern data needed for this ticker and time length.',
+  },
+  prebuilt_profile_mismatch: {
+    label: 'Pattern data unverified',
+    detail: 'TradeWave could not verify the data for this time length.',
+  },
+  selected_recurrence_below_threshold: {
+    label: 'History filter not met',
+    detail: 'This time length does not pass your history filter.',
+  },
+  selected_recurrence_insufficient_history: {
+    label: 'Not enough history',
+    detail: 'There is not enough completed history to check this time length.',
+  },
+  provider_unavailable: {
+    label: 'Scorer unavailable',
+    detail: 'AI scoring is temporarily unavailable. Try again shortly.',
+  },
+  service_unavailable: {
+    label: 'Scoring unavailable',
+    detail: 'AI scoring is temporarily unavailable. Try again shortly.',
+  },
+  target_entry_unavailable: {
+    label: 'No entry price',
+    detail: 'A starting price is not available for this date.',
+  },
+  target_price_unavailable: {
+    label: 'Missing price history',
+    detail: 'TradeWave does not have enough price history for this ticker.',
+  },
+  tier_unavailable: {
+    label: 'Model unavailable',
+    detail: 'The AI model for this time length is temporarily unavailable.',
+  },
+  too_early: {
+    label: 'Entry over 5 days away',
+    detail: 'AI Scores combine historical patterns with current market data, and current conditions may change before entry. Check back within five calendar days of the pattern start.',
+  },
+  too_far_ahead: {
+    label: 'Entry over 5 days away',
+    detail: 'AI Scores combine historical patterns with current market data, and current conditions may change before entry. Check back within five calendar days of the pattern start.',
+  },
+  unavailable: {
+    label: 'Reason unavailable',
+    detail: 'No AI score is available for this time length.',
+  },
+  unsupported_duration: {
+    label: 'Unsupported duration',
+    detail: 'AI models cover time lengths from 10 through 90 calendar days.',
+  },
+  unsupported_market: {
+    label: 'Market outside coverage',
+    detail: 'AI Scores are available only for U.S. stocks and ETFs.',
+  },
+  vix_blocked: {
+    label: 'High volatility (VIX)',
+    detail: "The volatility index (VIX) is above the model's scoring limit.",
+  },
 })
 
 export const advanceOpportunityAIPollBudget = ({
@@ -466,16 +544,19 @@ export const opportunityAIReasonCopy = reason => {
   const value = String(reason || '').trim()
   if (!value) return 'No AI score is available for this time length.'
   const key = value.toLowerCase()
-  if (AI_REASON_COPY[key]) return AI_REASON_COPY[key]
+  if (AI_REASON_COPY[key]?.detail) return AI_REASON_COPY[key].detail
   return 'AI scoring is temporarily unavailable. Try again shortly.'
 }
 
+export const opportunityAIIsUnavailable = horizon => (
+  !horizon || horizon.status === 'unavailable' || horizon.status === 'below_threshold'
+)
+
 export const opportunityAICompactStatus = horizon => {
-  if (!horizon) return 'Temporarily unavailable'
-  if (horizon.status === 'below_threshold') return 'History filter not met'
-  const reason = String(horizon.reason || '').toLowerCase()
-  if (reason === 'after_entry') return 'Pattern already started'
+  if (horizon?.status === 'below_threshold') return 'History filter not met'
+  const reason = String(horizon?.reason || '').trim().toLowerCase()
+  const label = AI_REASON_COPY[reason]?.label
+  if (label) return label
   if (reason.includes('insufficient_history') || reason.includes('not enough')) return 'Not enough history'
-  if (reason === 'too_early' || reason === 'too_far_ahead') return 'Not available yet'
-  return 'Temporarily unavailable'
+  return 'Reason unavailable'
 }

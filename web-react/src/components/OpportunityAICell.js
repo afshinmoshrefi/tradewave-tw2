@@ -4,23 +4,25 @@ import {
   AI_METRICS,
   formatOpportunityAIMetric,
   opportunityAICompactStatus,
+  opportunityAIIsUnavailable,
 } from './opportunityAIScores'
 
 // AI cells are intentionally quiet. The selected opportunity's full explanation,
 // history evidence, and time-length comparison live in the AI Scores panel.
-const OpportunityAICell = ({ bundle, metric, symbol }) => {
+const OpportunityAICell = ({ bundle, metric, symbol, grouped = false }) => {
   const metadata = AI_METRICS[metric]
   const display = bundle && bundle.display
   const state = display ? display.status : 'unavailable'
 
-  if (!metadata || !bundle || state === 'unavailable' || state === 'below_threshold') {
+  if (!metadata || opportunityAIIsUnavailable(display)) {
     const compactState = opportunityAICompactStatus(display)
+    const label = grouped ? 'AI scores' : metadata?.label || 'AI score'
     return (
       <span
         className="opp-ai-cell opp-ai-cell--unavailable"
-        aria-label={`${metadata ? metadata.label : 'AI score'} unavailable for ${symbol || 'this pattern'}. ${compactState}. Select the row and open AI Scores for details.`}
+        aria-label={`${label} unavailable for ${symbol || 'this pattern'}. ${compactState}. Select the row and open AI Scores for details.`}
       >
-        <span aria-hidden="true">-</span>
+        {compactState}
       </span>
     )
   }

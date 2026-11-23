@@ -12,6 +12,7 @@ const {
   opportunityAIRetryDelayMs,
   opportunityAIScoreProgressSignature,
   opportunityTableMinimumWidth,
+  opportunityTableCellLayout,
   resolveOpportunityShortDates,
   selectOpportunityVisibleColumns,
 } = require('./opportunityAIScores')
@@ -256,6 +257,14 @@ test('uses a structured backend error code instead of stringifying the error obj
   expect(bundle.display.reason).not.toBe('[object Object]')
 })
 
+test.each([
+  [{ vix_blocked: true, error: 'VIX exceeds cutoff' }, 'vix_blocked'],
+  [{ status: 'after_entry' }, 'after_entry'],
+])('retains a terminal reason supplied by an older score response', (score, reason) => {
+  const bundle = normalizeOpportunityAIScore({ row: fullRow, scores: { 'AAPL|44|l': score } })
+  expect(bundle.display).toMatchObject({ status: 'unavailable', reason })
+})
+
 test('matches a date-qualified bundle key before falling back to the legacy key', () => {
   const scores = {
     'AAPL|2026-08-05|44|l': { ml_score: 80, win_prob: 0.7, pred_return: 2, pred_mfe: 4 },
@@ -390,6 +399,18 @@ test('market and tier gating preserve the configured locked teaser visibility', 
   })).toEqual(['symbol', 'daysOut', 'sharpe_ratio', 'ml_score'])
   expect(selectOpportunityVisibleColumns({ ...base, hasAI: false, mlEnabled: false, marketEligible: false }))
     .toEqual(['symbol', 'daysOut', 'sharpe_ratio'])
+})
+
+test('groups adjacent visible AI columns only on unavailable rows', () => {
+  const columns = ['win_prob', 'pred_mfe', 'symbol', 'ml_score', 'price']
+  const layout = opportunityTableCellLayout(columns)
+  expect(layout.individual).toEqual(columns.map(key => ({ key, span: 1 })))
+  expect(layout.unavailable).toEqual([
+    { key: 'win_prob', span: 2 },
+    { key: 'symbol', span: 1 },
+    { key: 'ml_score', span: 1 },
+    { key: 'price', span: 1 },
+  ])
 })
 
 test('polling becomes a terminal unavailable state after bounded no-progress responses', () => {

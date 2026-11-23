@@ -13,6 +13,8 @@ import {
   normalizeOpportunityAIScore,
   opportunityAIFlatFields,
   opportunityAIHeaderColor,
+  opportunityAIIsUnavailable,
+  opportunityTableCellLayout,
   isPhonePortrait,
   opportunityTableMinimumWidth,
   selectOpportunityVisibleColumns,
@@ -134,6 +136,8 @@ const TableBox = ({
     isMobilePortrait,
     columnVisibility,
   }), [columnOrder, showSR2, hasAI, mlEnabled, mlMarketEligible, isMobilePortrait, columnVisibility]);
+
+  const cellLayout = useMemo(() => opportunityTableCellLayout(visibleColumns), [visibleColumns])
 
   const aiSortPending = AI_COLS.includes(colSorted) && mlScoresLoading
 
@@ -427,8 +431,9 @@ const TableBox = ({
               onClick={handlerRowClicked(index, row)}
               className={rowIndexClicked === index ? "selected" : "stripes"}
             >
-              {visibleColumns.map((key) => (
-                <td key={`${key}-${index}`} style={{
+              {(hasAI && opportunityAIIsUnavailable(row.aiBundle.display)
+                ? cellLayout.unavailable : cellLayout.individual).map(({ key, span }) => (
+                <td key={`${key}-${index}`} colSpan={span} style={{
                   height: rowHeight,
                   whiteSpace: 'nowrap',
                   ...(key === firstAICol ? { borderLeft: `2px solid ${tc.aiCheckpointBorder || '#6366f1'}` } : {}),
@@ -484,6 +489,7 @@ const TableBox = ({
                         ? <OpportunityAICell
                             bundle={row.aiBundle}
                             metric={key}
+                            grouped={span > 1}
                             symbol={row.symbol}
                           />
                         : (key === 'date' && shortDates && row[key] && row[key].length > 5)

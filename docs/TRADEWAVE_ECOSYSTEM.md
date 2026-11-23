@@ -1140,6 +1140,10 @@ checks and restart verification are in `ops/OPERATIONS.md` and
   available for this market" for US stocks and ETFs. Reading a key the server never
   sends fails closed and SILENTLY; `tests/test_opplist_response_contract.py` now
   asserts every `opps['<key>']` read in `OppTable.js` exists in the `OppList4` payload.
+- In the Opportunity Table, an unavailable AI reading uses the displayed horizon's
+  reason. Adjacent visible AI columns share that text. An available reading uses
+  an individual cell for each numeric metric. The AI Scores panel explains the
+  same reason in full. See `docs/tasks/TW-TASK-0037.md`.
 - **Chart canvas resolution invariant (2026-08-04):** never force a fractional
   Chart.js `devicePixelRatio`. The seasonal bar chart and its canvas-rendered
   tooltip must use the browser's native device-pixel ratio. A forced `0.5`
