@@ -122,6 +122,7 @@ def test_gateway_route(monkeypatch, fake_db):
 
 
 def test_mcp_tool_lead_and_payload(monkeypatch, fake_db):
+    pytest.importorskip("mcp")  # MCP SDK lives in venv-api; skip cleanly in the main venv
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "mcpserver"))
     import server
     payload, _ = affiliate_view.build(_cust(), "h", today=dt.date(2026, 11, 16))
