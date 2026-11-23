@@ -76,6 +76,7 @@
       <a href="{{ url_for('affiliate_portal.payouts') }}"     class="{{ 'active' if active_tab == 'payouts' else '' }}">Payouts</a>
       <a href="{{ url_for('affiliate_portal.links') }}"       class="{{ 'active' if active_tab == 'links' else '' }}">Links</a>
       <a href="{{ url_for('affiliate_portal.profile') }}"     class="{{ 'active' if active_tab == 'profile' else '' }}">Profile</a>
+      <a href="{{ url_for('affiliate_portal.guide') }}"       class="{{ 'active' if active_tab == 'guide' else '' }}">Guide</a>
       {% if smn is defined and smn %}
       <a href="{{ url_for('affiliate_portal.smn') }}"         class="{{ 'active' if active_tab == 'smn' else '' }}">Expert Desk</a>
       {% endif %}

@@ -7,12 +7,12 @@ REST mirror: the model reaches for a small set of FLAGSHIP tools that each retur
 ready, evidence-backed answer, and falls back to the low-level primitives only when
 it needs one exact slice.
 
-**Inventory: 18 tools - 7 flagship + 11 primitives.** Flagship:
+**Inventory: 19 tools - 7 flagship + 12 primitives.** Flagship:
 `find_best_opportunities`, `analyze_symbol`, `explain_pick`, `morning_briefing`,
 `whats_seasonal_now`, `compare_opportunities`, `basket_scenarios`. Primitives: `list_markets`, `whoami`, `describe_tradewave`,
 `list_symbols`, `get_seasonal_opportunities`, `get_symbol_patterns`,
 `get_seasonal_pattern`, `get_opportunity_chart`, `score_opportunities`,
-`get_daily_pick`, `get_pick_track_record`. (There is NO `get_opportunity_for_symbol`;
+`get_daily_pick`, `get_pick_track_record`, `my_affiliate_program`. (There is NO `get_opportunity_for_symbol`;
 the symbol pattern list is served only by `get_symbol_patterns`.)
 
 **Educational-only contract:** every pattern is impersonal and identical for everyone -
@@ -156,6 +156,7 @@ exceptions - they are meta/onboarding tools the model SHOULD reach for first on
 | `score_opportunities` | list of `{symbol, date, days_out, direction}` where `days_out` is inclusive CALENDAR days and `date` is day 1; optional `market` applies to the whole batch (default `2`), with different markets sent separately | ML `ml_score` / `win_prob` / `pred_return` / `pred_mfe`; includes `ml_remaining_today`; invalid identities fail before ML reservation | `POST /v1/score` | quota depends on authentication path; see Authentication and Safety contract above |
 | `get_daily_pick` | - | bare daily-pick payload (no receipts) | `GET /v1/daily-pick` | all |
 | `get_pick_track_record` | - | forward-tested outcomes under the public scorecard's target-exit rule; `judged_count` is the denominator, pending picks are excluded, and held-to-close/current returns remain separately labeled | `GET /v1/daily-pick/track-record` | all |
+| `my_affiliate_program` | - | AFFILIATES only: the signed-in affiliate's OWN code and links, commission terms, anonymized funnel counts (visits, signups, in trial, paying), payout statements and per-currency pending/paid totals, tax-form status, partner-guide link, and promo copy with the required disclosure + promotion rules. Read-only, no customer identities; non-affiliates get 404 `not_affiliate`, service/demo principals 403 | `GET /v1/affiliate/me` | any signed-in account that is an affiliate |
 
 Morning briefings preserve `pick_featured_date`, `pick_stale_note`, and `scan_context`.
 An older latest-available pick must retain its featured date, and a partial scan must retain

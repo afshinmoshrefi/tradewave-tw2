@@ -3,14 +3,14 @@
 TradeWave API developer-docs generator.
 
 Reads  /home/flask/api/openapi.yaml   (the frozen REST contract)
-Reads  /home/flask/api/MCP_TOOLS.md   (18 MCP tools - 7 flagship + 11 primitives)
+Reads  /home/flask/api/MCP_TOOLS.md   (19 MCP tools - 7 flagship + 12 primitives)
 Reads  /home/flask/apiserver/tiers.py (tier limits - imported directly)
 Writes 7 static HTML files into the same directory as this script:
 
   quickstart.html    - get a key + first call in 5 minutes
   authentication.html - Bearer auth, key creation/rotation, BYOK for MCP
   api-reference.html  - all 13 endpoints, regenerated from openapi.yaml
-  mcp-reference.html  - 18 tools (7 flagship + 11 primitives) + OAuth and BYOK connection paths
+  mcp-reference.html  - 19 tools (7 flagship + 12 primitives) + OAuth and BYOK connection paths
   data-dictionary.html - every field + all 15 live markets defined in plain English
   rate-limits.html    - per-tier limits, headers, error shape, upgrade stub
   changelog.html      - v1 release notes
@@ -1452,7 +1452,7 @@ def build_mcp_reference() -> str:
 """
     body = f"""
 <h1>MCP Reference</h1>
-<p>The TradeWave MCP server exposes 18 tools (7 flagship + 11 primitives) for detected seasonal patterns, ML scoring, chart data, and the published daily-pick record. ChatGPT and Claude authorize a TradeWave account. Other developer clients can use OAuth when compatible or the developer bearer-authentication path. Access follows the account or developer credential used for the connection.</p>
+<p>The TradeWave MCP server exposes 19 tools (7 flagship + 12 primitives) for detected seasonal patterns, ML scoring, chart data, and the published daily-pick record. ChatGPT and Claude authorize a TradeWave account. Other developer clients can use OAuth when compatible or the developer bearer-authentication path. Access follows the account or developer credential used for the connection.</p>
 {preview_banner}
 <div class="callout">
   <p><strong>A research partner, not a black box.</strong> TradeWave supplies seasonal and machine-learning evidence about timing. It is blind to fundamentals, valuation, news, catalysts, macro/rates, analyst views, earnings dates, and the live price. It is designed to pair with the assistant's own web, news, and reasoning tools: TradeWave gives the seasonal/ML edge, the assistant extends it with fundamentals/news/macro, and the two synthesize one view. Every card carries a research hand-off, and the <code class="inline-code">describe_tradewave</code> tool self-documents the method. Tools use progressive disclosure - a one-line decision by default, full receipts / the Trend Chart data on request.</p>
@@ -1688,6 +1688,18 @@ def build_mcp_reference() -> str:
   </div>
 </div>
 
+<div class="tool-card">
+  <div class="tool-card-header">
+    <span class="tool-name">my_affiliate_program</span>
+    <span class="tier-badge tier-all">Affiliates</span>
+  </div>
+  <div class="tool-card-body">
+    <p>For TradeWave affiliates: returns the signed-in partner's own referral code and links, commission terms, anonymized funnel counts (link visits, signups, in trial, paying), payout statements and totals, tax-form status, and ready-made promo copy with the required disclosure. Read-only; never shows customer identities.</p>
+    <p><strong>Inputs:</strong> none</p>
+    <p><strong>Maps to:</strong> <code class="inline-code">GET /v1/affiliate/me</code></p>
+  </div>
+</div>
+
 <h2>Connecting to MCP clients</h2>
 
 <p>Client setup screens change independently of the MCP protocol. Use the <a href="{portal_urls.MCP_CONNECT_GUIDE_URL}">TradeWave MCP setup guide</a> for the current, numbered ChatGPT and Claude instructions and a connection test.</p>
@@ -1727,10 +1739,10 @@ def build_mcp_reference() -> str:
 """
     return page(
         title="MCP Reference",
-        description="TradeWave MCP server - 18 tools (7 flagship + 11 primitives) for AI assistants, plus connection instructions for ChatGPT, Claude.ai, Claude Desktop, and Cursor.",
+        description="TradeWave MCP server - 19 tools (7 flagship + 12 primitives) for AI assistants, plus connection instructions for ChatGPT, Claude.ai, Claude Desktop, and Cursor.",
         active_href="mcp-reference.html",
         hero_title="MCP Reference",
-        hero_sub="18 tools for AI assistants (7 flagship + 11 primitives) - sign in from ChatGPT or Claude, or connect with your own API key.",
+        hero_sub="19 tools for AI assistants (7 flagship + 12 primitives) - sign in from ChatGPT or Claude, or connect with your own API key.",
         body=body,
     )
 

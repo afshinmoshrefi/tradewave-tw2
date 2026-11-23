@@ -29,6 +29,7 @@ def test_all_public_tools_have_async_boundaries():
         "describe_tradewave", "list_symbols", "get_seasonal_opportunities",
         "get_symbol_patterns", "get_seasonal_pattern", "get_opportunity_chart",
         "score_opportunities", "get_daily_pick", "get_pick_track_record",
+        "my_affiliate_program",
     )
     assert all(inspect.iscoroutinefunction(getattr(server, name)) for name in tool_names)
 
