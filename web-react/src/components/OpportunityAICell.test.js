@@ -67,6 +67,8 @@ test.each([
   ['unavailable', 'too_far_ahead', 'Entry over 5 days away'],
   ['unavailable', 'target_entry_unavailable', 'No entry price'],
   ['below_threshold', '', 'History filter not met'],
+  ['below_threshold', 'vix_blocked', 'History filter not met'],
+  ['unavailable', ' VIX_BLOCKED ', 'High volatility (VIX)'],
   ['unavailable', 'service_unavailable', 'Scoring unavailable'],
   ['unavailable', 'unexpected_provider_error', 'Reason unavailable'],
 ])('prints the reason inside the cell for %s / %s', (status, reason, expected) => {
@@ -75,12 +77,15 @@ test.each([
   const cell = screen.getByLabelText(/AI Score unavailable for MSFT/i)
   expect(cell).toHaveTextContent(expected)
   expect(cell).toHaveClass('opp-ai-cell--unavailable')
+  expect(cell.tagName).toBe(expected === 'High volatility (VIX)' ? 'MARK' : 'SPAN')
 })
 
 test('names the shared reason when multiple adjacent metrics are unavailable', () => {
   render(<OpportunityAICell grouped bundle={bundle({ status: 'unavailable', reason: 'vix_blocked' })} metric="win_prob" symbol="T" />)
 
-  expect(screen.getByLabelText(/AI scores unavailable for T/i)).toHaveTextContent('High volatility (VIX)')
+  const warning = screen.getByLabelText(/AI scores unavailable for T/i)
+  expect(warning.tagName).toBe('MARK')
+  expect(warning).toHaveTextContent('High volatility (VIX)')
 })
 
 test('preserves a real zero and adds no short-pattern badge', () => {

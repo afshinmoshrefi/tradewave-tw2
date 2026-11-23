@@ -23,3 +23,5 @@ The task branch is `codex/ai-score-table-reasons-20261123`. The source commit re
 ## Highlight high volatility
 
 In progress, claimed by Codex on the same task branch at 2026-11-23 18:41 UTC. Afshin requested visual emphasis for the VIX message. Verify the visible warning, both themes and row selection on dev.
+
+The affected component, normalizer and AI Scores panel passed 61 tests, including grouped warnings, older VIX responses and other unavailable reasons. The next check is the rendered table on dev.

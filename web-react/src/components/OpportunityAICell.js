@@ -16,14 +16,16 @@ const OpportunityAICell = ({ bundle, metric, symbol, grouped = false }) => {
 
   if (!metadata || opportunityAIIsUnavailable(display)) {
     const compactState = opportunityAICompactStatus(display)
+    const isVixWarning = state === 'unavailable' && display?.reason?.trim().toLowerCase() === 'vix_blocked'
+    const ReasonText = isVixWarning ? 'mark' : 'span'
     const label = grouped ? 'AI scores' : metadata?.label || 'AI score'
     return (
-      <span
+      <ReasonText
         className="opp-ai-cell opp-ai-cell--unavailable"
         aria-label={`${label} unavailable for ${symbol || 'this pattern'}. ${compactState}. Select the row and open AI Scores for details.`}
       >
         {compactState}
-      </span>
+      </ReasonText>
     )
   }
 

@@ -336,7 +336,7 @@ const TableBox = ({
 
   //-------------------------------------------------------------------------------------------------------------------
   return (
-    <div className="opp-table-box" tabIndex="0" onKeyDown={handlerKeyDown} style={{
+    <div className="opp-table-box" data-theme={UITheme} tabIndex="0" onKeyDown={handlerKeyDown} style={{
       '--opp-ai-text': tc.aiCheckpointText,
       '--opp-ai-bg': tc.aiCheckpointBg,
       '--opp-ai-border': tc.aiCheckpointBorder,
