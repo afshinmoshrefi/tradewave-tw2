@@ -128,5 +128,125 @@
     "Four adjacent AI columns shared one desktop reason. A single enabled Win% column displayed it on the phone layout.",
     "Each reason fit within its cell and the row covered the same number of columns as the header.",
     "Clicking the GOOGL reason selected its row on each viewport."
-  ]
+  ],
+  "vix_highlight": {
+    "verified_at": "2026-11-23T18:56:03.120052+00:00",
+    "frontend_commit": "850e5d6f3d58ddf54751d753e5840588b9e03860",
+    "previous_frontend_commit": "596be0fbfce138761890235b6290b66af4a43b1c",
+    "asset": "main.f084f35a.js",
+    "public_asset_sha256": "81eb1d9f80af9ec92cd97ceab75ae4abdccf18e251adad7633badaaa9a2906fa",
+    "baseline_examples": [
+      [
+        "MAR",
+        "Pattern already started"
+      ],
+      [
+        "UNH",
+        "Pattern already started"
+      ],
+      [
+        "GOOGL",
+        "High volatility (VIX)"
+      ],
+      [
+        "T",
+        "High volatility (VIX)"
+      ]
+    ],
+    "rendered": [
+      {
+        "width": 1440,
+        "theme": "dark",
+        "visible_rows": 450,
+        "expected_span": 4,
+        "scorer_vix_cutoff": 35,
+        "examples": [
+          [
+            "MAR",
+            "Pattern already started"
+          ],
+          [
+            "UNH",
+            "Pattern already started"
+          ],
+          [
+            "GOOGL",
+            "High VIX. Scores resume at a close of 35 or lower"
+          ],
+          [
+            "T",
+            "High VIX. Scores resume at a close of 35 or lower"
+          ]
+        ],
+        "routes": {
+          "MLScoreBatch 200": 2,
+          "OppList4 200": 1
+        },
+        "vix_highlight_contrast": 8.19,
+        "selected_row": "GOOGL"
+      },
+      {
+        "width": 1280,
+        "theme": "light",
+        "visible_rows": 450,
+        "expected_span": 4,
+        "scorer_vix_cutoff": 35,
+        "examples": [
+          [
+            "MAR",
+            "Pattern already started"
+          ],
+          [
+            "UNH",
+            "Pattern already started"
+          ],
+          [
+            "GOOGL",
+            "High VIX. Scores resume at a close of 35 or lower"
+          ],
+          [
+            "T",
+            "High VIX. Scores resume at a close of 35 or lower"
+          ]
+        ],
+        "routes": {
+          "MLScoreBatch 200": 2,
+          "OppList4 200": 1
+        },
+        "vix_highlight_contrast": 8.55,
+        "selected_row": "GOOGL"
+      },
+      {
+        "width": 390,
+        "theme": "dark",
+        "visible_rows": 450,
+        "expected_span": 1,
+        "scorer_vix_cutoff": 35,
+        "examples": [
+          [
+            "MAR",
+            "Pattern already started"
+          ],
+          [
+            "UNH",
+            "Pattern already started"
+          ],
+          [
+            "GOOGL",
+            "High VIX. Scores resume at a close of 35 or lower"
+          ],
+          [
+            "T",
+            "High VIX. Scores resume at a close of 35 or lower"
+          ]
+        ],
+        "routes": {
+          "MLScoreBatch 200": 4,
+          "OppList4 200": 2
+        },
+        "vix_highlight_contrast": 8.19,
+        "selected_row": "GOOGL"
+      }
+    ]
+  }
 }

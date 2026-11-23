@@ -1,6 +1,6 @@
 # TW-TASK-0037 | Explain blank AI scores in the Opportunity Table
 
-Verified on TradeWave dev at 2026-11-23T18:35:38.878565+00:00. Codex claimed this change at 2026-11-23 18:25 UTC on branch `codex/ai-score-table-reasons-20261123` in `/home/tradewave-worktrees/ai-score-table-reasons-20261123`. P2. Afshin authorized the dev table change.
+Verified on TradeWave dev at 2026-11-23T18:56:03.120052+00:00. Codex claimed this change at 2026-11-23 18:25 UTC on branch `codex/ai-score-table-reasons-20261123` in `/home/tradewave-worktrees/ai-score-table-reasons-20261123`. P2. Afshin authorized the dev table change.
 
 ## User-visible behavior
 
@@ -16,12 +16,14 @@ The [rendered dev checks](evidence/TW-TASK-0037-dev-ui.json) used live S&P 500 d
 
 `OpportunityAICell`, `TableBox`, `opportunityAIScores` and `TableBox.css` own the cell, adjacent column groups, reason labels and wrapping. Five focused Jest suites passed all 100 tests, including zero scores, loading, older responses, service and history failures, column ordering, filters and sorting.
 
-The React release script built commit `596be0fbfce138761890235b6290b66af4a43b1c`. Dev serves `main.9d6f94d2.js`. Dev used its existing appserver and scorer. The prior frontend release is `0c67bb840fa152c8de9e427d8a3e801239caf6f0` and can be selected through the standard dev frontend pointer for rollback. The first verification restored that release when the QA account's welcome video covered the table. Dismissing it through “Go to Wave Viewer” allowed the same candidate to pass the interaction on both layouts.
+The React release script built commit `596be0fbfce138761890235b6290b66af4a43b1c`. The first release served `main.9d6f94d2.js`. Dev used its existing appserver and scorer. That release replaced `0c67bb840fa152c8de9e427d8a3e801239caf6f0`. The first verification restored that release when the QA account's welcome video covered the table. Dismissing it through “Go to Wave Viewer” allowed the same candidate to pass the interaction on both layouts.
 
 The task branch is `codex/ai-score-table-reasons-20261123`. The source commit reached main through the dev activation lock. This receipt is a documentation follow-up. No migration or service restart was needed. Staging and production are outside this dev delivery.
 
 ## Highlight high volatility
 
-In progress, claimed by Codex on the same task branch at 2026-11-23 18:41 UTC. Afshin requested visual emphasis for the VIX message. Verify the visible warning, both themes and row selection on dev.
+Afshin requested a highlighted VIX warning with the threshold and when scoring resumes. On the dev scorer, the volatility gate blocks above 35 and uses the latest completed VIX daily close. Eligible patterns can receive scores again when the scorer loads a close of 35 or lower. Older blocked responses without a reported threshold use the verified legacy cutoff.
 
-The initial highlight passed 61 component, normalizer and AI Scores panel tests. Afshin also requested the cutoff and when scores resume. The dev scorer blocks strictly above 35 using its latest completed VIX daily close. The table warning includes the inclusive recovery level. Older blocked responses without a cutoff use the verified legacy limit. All 106 cases in the five focused suites passed.
+GOOGL and T displayed **High VIX. Scores resume at a close of 35 or lower** in bold amber. MAR and UNH displayed “Pattern already started.” The rendered dev checks covered dark desktop at 1440 px, light desktop at 1280 px, and dark phone at 390 px. The warning fit four adjacent AI columns on desktop and one on the phone. Selecting the GOOGL warning selected its row in all three layouts. Tests measured text contrast of 8.19 in dark mode and 8.55 in light mode.
+
+All 106 cases in the five focused Jest suites passed. Dev serves `main.f084f35a.js` from `850e5d6f3d58ddf54751d753e5840588b9e03860`. The public dev asset matched the release byte for byte. This release replaced frontend `596be0fbfce138761890235b6290b66af4a43b1c` under the dev activation lock. The appserver and scorer continued running throughout.
