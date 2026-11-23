@@ -1,0 +1,132 @@
+{
+  "task": "TW-TASK-0037",
+  "environment": "TradeWave dev",
+  "verified_at": "2026-11-23T18:35:38.878565+00:00",
+  "frontend_commit": "596be0fbfce138761890235b6290b66af4a43b1c",
+  "prior_frontend": "0c67bb840fa152c8de9e427d8a3e801239caf6f0",
+  "new_bundle": "main.9d6f94d2.js",
+  "browser": "Chromium, new browser contexts, America/New_York",
+  "setup": "Project dev capture account, live nginx assets and appserver responses, S&P 500 stocks, November 23, 2026, 10 years and 8 profitable years.",
+  "baseline": [
+    {
+      "width": 1440,
+      "expected_span": 4,
+      "visible_rows": 450,
+      "examples": [
+        [
+          "MAR",
+          "-"
+        ],
+        [
+          "UNH",
+          "-"
+        ],
+        [
+          "GOOGL",
+          "-"
+        ],
+        [
+          "T",
+          "-"
+        ]
+      ],
+      "asset": "main.cd1c1c5f.js",
+      "routes": {
+        "OppList4 200": 1,
+        "MLScoreBatch 200": 2
+      }
+    },
+    {
+      "width": 390,
+      "expected_span": 1,
+      "visible_rows": 450,
+      "examples": [
+        [
+          "MAR",
+          "-"
+        ],
+        [
+          "UNH",
+          "-"
+        ],
+        [
+          "GOOGL",
+          "-"
+        ],
+        [
+          "T",
+          "-"
+        ]
+      ],
+      "asset": "main.cd1c1c5f.js",
+      "routes": {
+        "OppList4 200": 1,
+        "MLScoreBatch 200": 2
+      }
+    }
+  ],
+  "live": [
+    {
+      "asset": "main.9d6f94d2.js",
+      "examples": [
+        [
+          "MAR",
+          "Pattern already started"
+        ],
+        [
+          "UNH",
+          "Pattern already started"
+        ],
+        [
+          "GOOGL",
+          "High volatility (VIX)"
+        ],
+        [
+          "T",
+          "High volatility (VIX)"
+        ]
+      ],
+      "expected_span": 4,
+      "routes": {
+        "MLScoreBatch 200": 2,
+        "OppList4 200": 1
+      },
+      "visible_rows": 450,
+      "width": 1440
+    },
+    {
+      "asset": "main.9d6f94d2.js",
+      "examples": [
+        [
+          "MAR",
+          "Pattern already started"
+        ],
+        [
+          "UNH",
+          "Pattern already started"
+        ],
+        [
+          "GOOGL",
+          "High volatility (VIX)"
+        ],
+        [
+          "T",
+          "High volatility (VIX)"
+        ]
+      ],
+      "expected_span": 1,
+      "routes": {
+        "MLScoreBatch 200": 4,
+        "OppList4 200": 2
+      },
+      "visible_rows": 450,
+      "width": 390
+    }
+  ],
+  "assertions": [
+    "The displayed reason matched all four sample symbols on each viewport.",
+    "Four adjacent AI columns shared one desktop reason. A single enabled Win% column displayed it on the phone layout.",
+    "Each reason fit within its cell and the row covered the same number of columns as the header.",
+    "Clicking the GOOGL reason selected its row on each viewport."
+  ]
+}
