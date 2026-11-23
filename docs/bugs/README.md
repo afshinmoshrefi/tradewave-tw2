@@ -65,3 +65,5 @@ Status belongs in each record and this index; update both together. Preserve res
 | [TW-BUG-0035](TW-BUG-0035.md) | P1 | verified on Dev | Manual watchlist validation accepts a different ticker from provider search |
 
 | [TW-BUG-0036](TW-BUG-0036.md) | P2 | open, reproduced on Dev | IBM missing historical dividend adjustment; updater appends mixed vintages |
+
+| [TW-BUG-0037](TW-BUG-0037.md) | P1 | open, reproduced on Dev | Explorer row click leaves the chart blank when the pattern started before today |
