@@ -208,6 +208,24 @@ const reasonFrom = source => {
   )
 }
 
+// Older vix_blocked responses omit the cutoff. Their deployed scorer uses 35.
+const LEGACY_VIX_CUTOFF = 35
+
+const reportedVixCutoff = source => {
+  const error = source?.error
+  const message = typeof error === 'string' ? error : error?.message
+  const fromMessage = typeof message === 'string'
+    ? message.match(/\bexceeds cutoff \((\d+(?:\.\d+)?)\)/i)?.[1]
+    : undefined
+  return [source?.vix_cutoff, source?.scorer?.vix_cutoff, error?.vix_cutoff, fromMessage]
+    .filter(value => typeof value === 'number' || typeof value === 'string')
+    .map(numberOrNull)
+    .find(value => value > 0)
+}
+
+export const opportunityVixRecovery = horizon =>
+  `Scores resume at a close of ${horizon?.vixCutoff ?? LEGACY_VIX_CUTOFF} or lower`
+
 const horizonCalendarDays = source => {
   const explicit = numberOrNull(firstDefined(
     source && source.calendar_days,
@@ -230,6 +248,7 @@ const normalizeHorizon = (source, fallbackStatus, fallbackReason) => {
     calendarDays: horizonCalendarDays(source),
     status: status || 'unavailable',
     reason: reasonFrom(source) || fallbackReason || '',
+    vixCutoff: reportedVixCutoff(source),
     metrics,
     isCurrent: Boolean(source && firstDefined(source.is_current, source.isCurrent, false)),
     isModelMinimum: Boolean(source && firstDefined(source.is_model_minimum, source.isModelMinimum, false)),
@@ -363,16 +382,22 @@ export const normalizeOpportunityAIScore = ({
     })
   }
 
+  // The volatility gate applies across checkpoints. Some legacy bundles report
+  // the cutoff only in a checkpoint error, separate from the display horizon.
+  let vixCutoff = reportedVixCutoff(payload)
   const normalizedByDay = new Map()
   horizonList.forEach(horizon => {
     const normalized = normalizeHorizon(horizon, fallbackStatus, fallbackReason)
+    vixCutoff = vixCutoff ?? normalized.vixCutoff
     if (normalized.calendarDays !== null) normalizedByDay.set(normalized.calendarDays, normalized)
   })
 
   const horizons = expectedDays.map(calendarDays => {
-    if (normalizedByDay.has(calendarDays)) return normalizedByDay.get(calendarDays)
+    const horizon = normalizedByDay.get(calendarDays)
+    if (horizon) return { ...horizon, vixCutoff: horizon.vixCutoff ?? vixCutoff }
     return {
       calendarDays,
+      vixCutoff,
       status: fallbackStatus,
       reason: fallbackReason,
       metrics: { ml_score: null, win_prob: null, pred_return: null, pred_mfe: null },
@@ -512,7 +537,7 @@ const AI_REASON_COPY = Object.freeze({
   },
   vix_blocked: {
     label: 'High volatility (VIX)',
-    detail: "The volatility index (VIX) is above the model's scoring limit.",
+    detail: 'The latest daily close of the volatility index (VIX) is above the scoring limit.',
   },
 })
 
@@ -540,10 +565,11 @@ export const opportunityAIRetryDelayMs = attempt => {
   return Math.min(15000 * (2 ** safeAttempt), 300000)
 }
 
-export const opportunityAIReasonCopy = reason => {
+export const opportunityAIReasonCopy = (reason, horizon) => {
   const value = String(reason || '').trim()
   if (!value) return 'No AI score is available for this time length.'
   const key = value.toLowerCase()
+  if (key === 'vix_blocked') return `${AI_REASON_COPY[key].detail} ${opportunityVixRecovery(horizon)} for patterns that still qualify.`
   if (AI_REASON_COPY[key]?.detail) return AI_REASON_COPY[key].detail
   return 'AI scoring is temporarily unavailable. Try again shortly.'
 }

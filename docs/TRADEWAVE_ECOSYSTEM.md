@@ -1142,7 +1142,8 @@ checks and restart verification are in `ops/OPERATIONS.md` and
   asserts every `opps['<key>']` read in `OppTable.js` exists in the `OppList4` payload.
 - In the Opportunity Table, an unavailable AI reading uses the displayed horizon's
   reason. Adjacent visible AI columns share that text. The table highlights a
-  VIX-blocked reading in amber in both themes. An available reading uses
+  VIX-blocked reading in amber in both themes and shows the daily close at which scoring resumes.
+  It uses the scorer's reported cutoff when available and the legacy model's 35 cutoff otherwise. An available reading uses
   an individual cell for each numeric metric. The AI Scores panel explains the
   same reason in full. See `docs/tasks/TW-TASK-0037.md`.
 - **Chart canvas resolution invariant (2026-08-04):** never force a fractional

@@ -470,6 +470,28 @@ test('repeated partial responses do not count metadata-only changes as scoring p
     .not.toBe(opportunityAIScoreProgressSignature(first))
 })
 
+test.each([
+  [{ scorer: { vix_cutoff: 32.5 } }, 32.5],
+  [{ vix_blocked: true, error: 'VIX=42.9 exceeds cutoff (40)' }, 40],
+  [{ vix_cutoff: false, error: { code: 'vix_blocked', message: 'Volatility safety gate is active.' } }, 35],
+])('explains the closing threshold for a blocked score', (fields, expected) => {
+  const scores = { 'AAPL|44|l': { status: 'unavailable', reason: 'vix_blocked', ...fields } }
+  const { display } = normalizeOpportunityAIScore({ row: fullRow, scores })
+  const detail = opportunityAIReasonCopy(display.reason, display)
+  expect(detail).toContain('latest daily close')
+  expect(detail).toContain(`Scores resume at a close of ${expected} or lower`)
+})
+
+test('uses a reported checkpoint cutoff when the display horizon only has a generic VIX error', () => {
+  const blocked = { status: 'unavailable', error: { code: 'vix_blocked' } }
+  const scores = { 'MSFT|119|s': { horizons: [
+    { ...blocked, calendar_days: 30, error: { code: 'vix_blocked', message: 'VIX=41.2 exceeds cutoff (39.5)' } },
+    { ...blocked, calendar_days: 90 },
+  ] } }
+  const { display } = normalizeOpportunityAIScore({ row: longRow, scores })
+  expect(display.vixCutoff).toBe(39.5)
+})
+
 test('temporary scorer retries back off and cap at five minutes', () => {
   expect([0, 1, 2, 3, 4, 5, 20].map(opportunityAIRetryDelayMs)).toEqual([
     15000,

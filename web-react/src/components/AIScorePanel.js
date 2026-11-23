@@ -166,7 +166,7 @@ const statusDetails = (display, fallbackReason) => {
   return {
     kind: 'neutral',
     title: 'No AI reading is available for this time length',
-    copy: opportunityAIReasonCopy(reason),
+    copy: opportunityAIReasonCopy(reason, display),
   }
 }
 
