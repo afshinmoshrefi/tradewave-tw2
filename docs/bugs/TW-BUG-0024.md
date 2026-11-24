@@ -49,3 +49,24 @@ Candidate d648e280 passed full regression (1750 Python,61 MCP,482 React) and bui
 Despite that passing pair, refinement is needed for repeatability: after cooldown expires, existing waiters block again during each unavailable scorer probe. Add a bounded recent-outage marker so one half-open probe retries while peers promptly retain unavailable state. Healthy initial lookups still share a bounded wait. Prior Dev was explicitly restored and four services verified before editing the inactive candidate; the passing pair and original manifest are preserved in `evidence/d648-qualified-pair-before-refinement/`. Staging untouched.
 
 Half-open refinement focused checks: 41 passed. The concurrency regression holds the recovery probe behind an event and proves all 11 peers return unavailable before that probe is released; later valid recovery clears both breaker markers. Evidence: `metadata-half-open-focused-pytest.txt`. Full exact-source release qualification is pending.
+
+
+## Recurrence during release tw2-20261123-01 - 2026-11-24
+
+Recorded by Claude (staging release manager). Thresholds unchanged.
+
+- 2026-11-23 19:00Z, candidate 9857c385 on dev: post-restart run p95 11.837s, median 5.212s, 0% errors (PASS); repeat p95 6.414s (PASS).
+- 2026-11-24 09:04Z, candidate 75737858 on dev: post-restart run p95 28.624s, median 4.728s, 0% errors: FAIL. Automatic dev rollback ran and was verified (dev back on 9857c385, all four services active, lock released). Staging was not touched.
+- 75737858 differs from 9857c385 only in the React bundle (TW-BUG-0037 Explorer row date) and docs. The appserver, API gateway and MCP source are byte-identical to the run that passed the day before.
+
+Timing breakdown of the failed run (200 traced scan requests, `Server-Timing` app duration):
+
+| Scan cache | Requests | Elapsed median / max | Appserver time median | Outside the appserver |
+|---|---|---|---|---|
+| MISS (single-flight leader) | 1 | 29.1 s | 28.9 s | 0.2 s |
+| WAIT (followers on the leader) | 46 | 27.9 / 36.5 s | 27.4 s | 0.4 s |
+| HIT | 153 | 4.4 / 26.2 s | 4.0 s | 0.3 s |
+
+Almost all of the time is the first cold scan inside the appserver, about 29 s against about 12 s on Nov 23; 46 requests waited on it, which pushed p95 over 15 s. Cache hits, the gateway and the network add well under a second. No competing cron job or scorer error was found in the 09:04-09:07Z window. Next step for whoever picks this up: profile the cold scan path right after an appserver restart (data load, page cache, ML scorer lookups) and decide on a warm-up before the gate counts requests, without changing the gate's thresholds.
+
+Evidence on dev: `/var/lib/tradewave/release-state/tw2-20261123-01/evidence/mvp-post-restart.log` (failed run, per-request samples), `dev-activation-2.log`, `dev-rollback-verified.json`.
