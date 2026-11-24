@@ -571,6 +571,11 @@ assert_live_runtime "$APP" tradewave-apiserver /home/flask
 assert_live_runtime "$APP" tradewave-mcpserver /home/flask
 assert_live_runtime "$WEB" tradewave-web /home/flask/web
 
+echo "==> [$ENV] warm the restarted appserver before traffic (TW-BUG-0024; fail-soft, no cache priming)"
+# Loads market data in every appserver worker through the service-account path so the
+# first burst after a restart does not queue behind cold workers. Never fails the deploy.
+$SSH "root@$APP" 'sudo -u flask bash -c '\''set -a; . /etc/tradewave/secrets.env; set +a; cd /home/flask; timeout 200 /home/flask/venv-api/bin/python ops/warm_after_restart.py'\''' || echo "WARN: [$ENV] appserver warm-up did not complete; continuing (fail-soft)"
+
 echo "==> [$ENV] web tier ($WEB): regenerate ALL static pages (home, scorecard, insights, learn, research, about, daily-pick, ticker, text, markets)"
 # regen_site.sh runs EVERY main-site generator with secrets.env sourced, so each page
 # bakes the correct per-env host (never the tw2-dev fallback). This closes the historical
