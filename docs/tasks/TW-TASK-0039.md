@@ -43,6 +43,48 @@ Match or beat Rewardful / FirstPromoter / PartnerStack on running the program, a
 - Resend inbound email set up (DNS) for reply-by-email; the answer link works without it.
 - `TW2_TAX_FORM_KEY` and `AFFILIATE_SUPPORT_EMAIL` in secrets.env.
 
+## Package C - handoff (2026-11-24)
+
+Branch `affiliate-ops-growth` from `claude/affiliate-v2-20261124` at 31a3f37. Local commits only:
+not pushed, not deployed, migration not applied to any Postgres database.
+
+Built (architecture: `docs/TRADEWAVE_ECOSYSTEM.md`, "Affiliate operations + growth tools"):
+1. Tax-form upload - portal Payouts card, encrypted storage, admin review screen
+   (`/admin/affiliate_tax_forms/`), audit-logged download, accept satisfies the payout gate.
+2. Named sub-links with clicks / signups / paid / earned per link and per promotion on Links.
+3. Bulk payouts (`/admin/affiliate_bulk_payouts/`): PayPal + Wise CSV export per currency,
+   bulk mark-paid by paste or CSV with a preview step. Never moves money.
+4. Creative library (`/admin/affiliate_creatives/`) shown on Promote with the partner's link.
+5. Monthly operations summary job + cron entry. Plain rules, no LLM (the `anthropic` package
+   is not installed in this environment, and every number in the email comes from the ledger).
+
+Checks: `tests/test_affiliate_ops.py` 69 passed; `pytest tests/test_affiliate*.py
+tests/test_promo*.py` 488 passed, 1 skipped (baseline 419 passed, 1 skipped). Alembic renders
+upgrade and downgrade SQL for `b4d7e1f2a3c5:c0a1b2d3e4f5` and reports one head on this branch.
+`tests/test_affiliate_v2.py::test_migration_chain_has_a_single_head` now asserts "exactly one
+head" instead of naming `b4d7e1f2a3c5`. Screenshots (desktop + phone):
+`/mnt/project-files/affiliate/gap-closure/ops-*.png`.
+
+Not verified here (needs the dev box): the migration on real Postgres, the CHECK constraints
+(SQLite tests skip them), the ON CONFLICT click upsert on Postgres, file permissions under the
+`flask` user, a real upload to PayPal and Wise.
+
+Limits and open points:
+- Wise generates its batch template per account; the header in `affiliate_ops.WISE_COLUMNS`
+  is the classic email-recipient layout and must be compared once with the template Wise gives
+  the owner (one tuple to change). The PayPal layout follows PayPal's Payouts Web example.
+- Per-promotion Clicks and Signups count only sub-links the partner tied to that promotion; a
+  click cannot otherwise be assigned to a promotion.
+- A sub tag set on the static home page is written by page JS; the static site must be
+  regenerated for that part to go live.
+- Rejected and replaced tax-form files are deleted; only the accepted form is kept.
+- The integrator must add the Alembic merge revision for packages A / B / C.
+
+Owner actions: set `TW2_TAX_FORM_KEY` in secrets.env on each box (and back it up), make sure
+`/var/lib/tradewave/affiliate-tax-forms` is writable by `flask` and in the backup, run
+`sudo bash ops/install_affiliate_crons.sh web`, optionally set `TW2_AFFILIATE_OPS_EMAIL`,
+download one Wise batch template and compare its header.
+
 ## Evidence
 Filled in at integration.
 

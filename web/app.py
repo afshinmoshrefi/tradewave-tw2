@@ -724,7 +724,8 @@ def auth_callback():
         if getattr(db_user, "_tw_new_signup", False) and request.cookies.get("tw_ref"):
             try:
                 import affiliate_service as _afs
-                _afs.record_signup_referral(s, db_user_obj, request.cookies.get("tw_ref"))
+                _afs.record_signup_referral(s, db_user_obj, request.cookies.get("tw_ref"),
+                                            request.cookies.get(_afs.SUB_COOKIE))
             except Exception:
                 s.rollback()
                 log.warning("auth_callback: affiliate signup stamp failed (non-fatal)")
@@ -2195,9 +2196,10 @@ def _count_affiliate_click(s, aff):
     tw_ref code (a refresh / second page view is not a new click). Never
     raises - a counter must not break a landing page."""
     try:
+        import affiliate_service as _afs
+        _affiliate_sub_click(s, aff)
         if (request.cookies.get("tw_ref") or "").upper() == aff.code:
             return
-        import affiliate_service as _afs
         _afs.record_click(s, aff.id)
     except Exception:
         try:
@@ -2205,6 +2207,40 @@ def _count_affiliate_click(s, aff):
         except Exception:
             pass
         log.warning("affiliate click count failed for %s (non-fatal)", getattr(aff, "code", "?"))
+
+
+def _request_sub():
+    """The sub-link slug on this request (?sub= / form / JSON beacon), or None."""
+    import affiliate_service as _afs
+    raw = request.values.get("sub") or (request.get_json(silent=True) or {}).get("sub")
+    return _afs.normalize_sub(raw)
+
+
+def _affiliate_sub_click(s, aff):
+    """+1 the partner's named sub-link (?sub=) when this browser is not
+    already tagged with it. Reporting only; never raises."""
+    try:
+        sub = _request_sub()
+        if sub:
+            import affiliate_ops as _ops
+            _ops.record_sub_click(s, aff, sub, request.cookies.get(_ops.SUB_COOKIE))
+    except Exception:
+        try:
+            s.rollback()
+        except Exception:
+            pass
+        log.warning("affiliate sub-link click count failed (non-fatal)")
+
+
+def _set_sub_cookie(resp, code):
+    """Remember the sub-link tag beside tw_ref (same 60 days). The value is
+    bound to the partner code, so it can never tag another partner's sale."""
+    sub = _request_sub()
+    if sub:
+        import affiliate_service as _afs
+        resp.set_cookie(_afs.SUB_COOKIE, "%s:%s" % (code, sub), max_age=60 * 60 * 24 * 60,
+                        samesite="Lax", secure=request.is_secure, path="/")
+    return sub
 
 
 @app.route("/api/aff/click", methods=["POST"])
@@ -2283,11 +2319,14 @@ def pricing():
                        .first())
                 if aff:
                     _count_affiliate_click(s, aff)
-                    resp = make_response(redirect("/?code=%s#pricing" % aff.code, code=302))
+                    _sub = _request_sub()
+                    resp = make_response(redirect(
+                        "/?code=%s%s#pricing" % (aff.code, "&sub=%s" % _sub if _sub else ""), code=302))
                     # First-touch attribution cookie (60 days), same key the
                     # /join/<code> landing page + checkout use.
                     resp.set_cookie("tw_ref", aff.code, max_age=60 * 60 * 24 * 60,
                                     samesite="Lax", secure=request.is_secure, path="/")
+                    _set_sub_cookie(resp, aff.code)
                     return resp
             finally:
                 s.close()
@@ -3257,6 +3296,13 @@ def stripe_create_checkout():
     # snapshot the webhook copies onto the affiliate_referrals row. Payouts
     # read it from there, never from the partner's current settings.
     sub_metadata.update({k: v for k, v in offer["metadata"].items() if v is not None})
+    # Sub-link tag (?sub= / tw_ref_sub cookie / signup stamp): reporting only,
+    # stamped AFTER the partner is resolved and only for that same partner.
+    import affiliate_ops as _aff_ops
+    _aff_sub = _aff_ops.checkout_sub(offer, u, request.values.get("sub"),
+                                     request.cookies.get(_aff_ops.SUB_COOKIE))
+    if _aff_sub:
+        sub_metadata["tw2_affiliate_sub"] = _aff_sub
     # GA4: also on the SUBSCRIPTION metadata (not just the session's) so a
     # future invoice.paid handler can attribute real post-trial revenue to the
     # originating GA4 client - checkout completes at $0 under the 7-day trial,
@@ -3751,7 +3797,8 @@ def affiliate_join(code):
             monthly_discount=agr._fmt_pct(m_disc),
             annual_discount=agr._fmt_pct(a_disc),
             discount=agr._fmt_pct(a_disc),   # single-offer case: monthly == annual
-            cta_url="/pricing?code=%s" % aff.code,
+            cta_url="/pricing?code=%s%s" % (
+                aff.code, "&sub=%s" % _request_sub() if _request_sub() else ""),
             # Program v2: the effective customer offer per plan in DOLLARS
             # (campaign vs partner discount, the lower first-period price),
             # keyed "<tier>:<month|year>". Empty if the catalog is unavailable.
@@ -3763,6 +3810,7 @@ def affiliate_join(code):
     # First-touch attribution cookie (60 days), same key the homepage + checkout use.
     resp.set_cookie("tw_ref", ctx["code"], max_age=60 * 60 * 24 * 60,
                     samesite="Lax", secure=request.is_secure, path="/")
+    _set_sub_cookie(resp, ctx["code"])
     resp.headers["X-Robots-Tag"] = "noindex, nofollow"
     return resp
 
@@ -6279,6 +6327,13 @@ admin.add_view(_affiliate_help_views["kb"](
 # its Svix signature; 404 while the inbound secret/address are unset.
 csrf.exempt(_affiliate_help_admin.webhook_bp)
 app.register_blueprint(_affiliate_help_admin.webhook_bp)
+# --- Operations + growth tools (TW-TASK-0039 C; web/affiliate_ops_admin.py) ---
+import affiliate_ops_admin as _affiliate_ops_admin
+_affiliate_ops_views = _affiliate_ops_admin.make_views(
+    _AdminAuth, audit_fn=lambda **kw: write_audit(**kw), current_user_fn=lambda: get_current_user())
+admin.add_view(_affiliate_ops_views["bulk_payouts"](name="Bulk payouts", endpoint="affiliate_bulk_payouts", category="Affiliates"))
+admin.add_view(_affiliate_ops_views["tax_forms"](name="Tax forms", endpoint="affiliate_tax_forms", category="Affiliates"))
+admin.add_view(_affiliate_ops_views["creatives"](name="Creative library", endpoint="affiliate_creatives", category="Affiliates"))
 
 # --- SMN expert module: participation (invites) + take review queue ---
 from models import AffiliateSmnProfile, ExpertTake

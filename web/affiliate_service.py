@@ -66,6 +66,28 @@ def normalize_code(code: str) -> str:
     return (code or "").strip().upper()
 
 
+# Named sub-link slug (?code=ANNE&sub=youtube; TW-TASK-0039 C). A reporting
+# tag on a partner's own traffic: it is stored beside the click / signup /
+# referral and is NEVER an input to who earns or how much.
+SUB_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
+SUB_COOKIE = "tw_ref_sub"            # value "<CODE>:<sub>", set beside tw_ref
+
+
+def normalize_sub(raw):
+    """Canonical sub-link slug (lowercase) or None when absent / malformed."""
+    v = (raw or "").strip().lower() if isinstance(raw, str) else ""
+    return v if SUB_RE.match(v) else None
+
+
+def sub_from_cookie(cookie_value, code):
+    """The slug in a tw_ref_sub cookie ("<CODE>:<sub>") if it belongs to the
+    partner `code`, else None - a sub tag never travels to another partner."""
+    owner, sep, slug = (cookie_value or "").partition(":") if isinstance(cookie_value, str) else ("", "", "")
+    if not sep or normalize_code(owner) != normalize_code(code or "") or not owner:
+        return None
+    return normalize_sub(slug)
+
+
 def validate_code(code: str) -> None:
     """Validate the CANONICAL (already-normalized) code. Callers normalize first."""
     if not CODE_RE.match(code or ""):
@@ -1880,10 +1902,12 @@ def record_click(session, affiliate_id, day=None) -> None:
     session.commit()
 
 
-def record_signup_referral(session, user, raw_code) -> bool:
+def record_signup_referral(session, user, raw_code, sub_cookie=None) -> bool:
     """First-touch: stamp a brand-new user with the affiliate whose tw_ref
     code they arrived with. Never overwrites an existing stamp, skips
-    self-referral and inactive codes. Commits; returns True if stamped."""
+    self-referral and inactive codes. Commits; returns True if stamped.
+    `sub_cookie` (tw_ref_sub) adds the partner's sub-link tag to the stamp
+    when it belongs to that same partner; it never affects who is credited."""
     if user is None or getattr(user, "referred_by_affiliate_id", None):
         return False
     aff = active_affiliate_by_code(session, raw_code)
@@ -1893,6 +1917,7 @@ def record_signup_referral(session, user, raw_code) -> bool:
         return False
     user.referred_by_affiliate_id = aff.id
     user.referred_at = dt.datetime.now(dt.timezone.utc)
+    user.referred_sub = sub_from_cookie(sub_cookie, aff.code)
     session.commit()
     return True
 
@@ -2989,7 +3014,8 @@ def record_referral_from_subscription(session, sub: dict, customer_id=None) -> b
                     list_price_cents=_int("tw2_list_price_cents") or plan["list_price_cents"],
                     discount_pct=discount,
                     year_anchor_at=_utc(_int("tw2_year_anchor_at")),
-                    prior_referral_id=_uuid_or_none("tw2_prior_referral_id"))
+                    prior_referral_id=_uuid_or_none("tw2_prior_referral_id"),
+                    sub_link=normalize_sub(md.get("tw2_affiliate_sub")))
             else:
                 coupon_ids = _invoice_coupon_ids(sub)
                 if not coupon_ids and (sub.get("discounts") or sub.get("discount")):

@@ -1219,11 +1219,18 @@ body{background-image:none !important;}
         var fromUrl = (params.get('code') || params.get('via') || '').trim();
         var existing = getCookie('tw_ref');
         var code = '';
+        // Named sub-link (?code=ANNE&sub=youtube): a reporting tag for the
+        // partner's own stats. It never changes who is credited.
+        var SUBRE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
+        var sub = (params.get('sub') || '').trim().toLowerCase();
+        if (!SUBRE.test(sub)) { sub = ''; }
+        var subTag = (fromUrl && sub) ? fromUrl.toUpperCase() + ':' + sub : '';
+        var newSub = !!subTag && getCookie('tw_ref_sub') !== subTag && (!existing || existing.toUpperCase() === fromUrl.toUpperCase());
         // Referral-visit beacon: count a click when the URL carries a code this
         // browser doesn't already hold (refreshes are not new clicks).
-        if (fromUrl && RE.test(fromUrl) && existing.toUpperCase() !== fromUrl.toUpperCase()) {
+        if (fromUrl && RE.test(fromUrl) && (existing.toUpperCase() !== fromUrl.toUpperCase() || newSub)) {
             try {
-                var payload = JSON.stringify({code: fromUrl});
+                var payload = JSON.stringify(sub ? {code: fromUrl, sub: sub} : {code: fromUrl});
                 if (navigator.sendBeacon) { navigator.sendBeacon('/api/aff/click', new Blob([payload], {type: 'application/json'})); }
                 else { fetch('/api/aff/click', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: payload, keepalive: true}); }
             } catch (e) {}
@@ -1233,6 +1240,10 @@ body{background-image:none !important;}
             code = fromUrl;
             var sec = (location.protocol === 'https:') ? '; secure' : '';
             document.cookie = 'tw_ref=' + encodeURIComponent(code) + '; max-age=' + (60*24*60*60) + '; path=/; samesite=lax' + sec;
+        }
+        if (newSub && RE.test(fromUrl) && code.toUpperCase() === fromUrl.toUpperCase()) {
+            var sec2 = (location.protocol === 'https:') ? '; secure' : '';
+            document.cookie = 'tw_ref_sub=' + encodeURIComponent(subTag) + '; max-age=' + (60*24*60*60) + '; path=/; samesite=lax' + sec2;
         }
         if (!code) return;
         function addParam(url){
