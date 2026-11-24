@@ -405,6 +405,17 @@ class TestActivityRule:
         # ... and 12 months after that customer, it lapses again
         assert lines_of(renewal_in(2026, 5))[0]["kind"] == "lapsed"
 
+    def test_grace_pays_the_first_annual_renewal_of_a_one_customer_partner(self, stripe_world):
+        """Owner decision 2026-11-24: one customer in Jan 2027 and nobody since
+        -> the Jan 2028 renewal still pays (30-day grace); Mar 2028 would not."""
+        refs = {"sub_1": referral(first_paid=day(2027, 1, 12))}
+        aff = partner()
+        stripe_world.invoices = [invoice("in_r1", paid=39900, paid_at=ts(2028, 1, 12))]
+        rows = afs._compute([aff], 2028, 1, refs)
+        assert lines_of(rows)[0]["kind"] == "renewal" and total(rows) == D("99.75")
+        assert afs._is_active_at([day(2027, 1, 12)], ts(2028, 2, 10), 12)
+        assert not afs._is_active_at([day(2027, 1, 12)], ts(2028, 3, 1), 12)
+
     def test_first_year_commission_ignores_the_activity_rule(self, stripe_world):
         stripe_world.invoices = [invoice(paid=8000, list_cents=10000, paid_at=PAID_MAY)]
         rows = afs._compute([partner()], *MAY, {"sub_1": referral(first_paid=day(2026, 5, 15))})
@@ -437,9 +448,10 @@ class TestActivityRule:
         aff = partner()
         now = day(2026, 5, 1)
         st = afs.activity_status(aff, now, first_paid_dates=[day(2025, 9, 10), day(2025, 1, 1)])
-        assert st["active"] and st["active_until"] == dt.date(2026, 9, 10)
+        # 12 months + the 30-day grace
+        assert st["active"] and st["active_until"] == dt.date(2026, 10, 10)
         st = afs.activity_status(aff, now, first_paid_dates=[day(2025, 1, 1)])
-        assert not st["active"] and st["lapsed_since"] == dt.date(2026, 1, 1)
+        assert not st["active"] and st["lapsed_since"] == dt.date(2026, 1, 31)
         st = afs.activity_status(aff, now, first_paid_dates=[])
         assert not st["active"] and st["last_new_customer_at"] is None
 

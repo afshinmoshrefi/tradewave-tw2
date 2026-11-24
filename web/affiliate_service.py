@@ -506,14 +506,21 @@ def renewal_schedule(terms=None) -> dict:
     }
 
 
+# Owner decision 2026-11-24: a 30-day grace on top of the activity window, so a
+# partner whose only customer of the year renews 12 months later is still paid
+# on that renewal ("at least 1 new customer per year").
+ACTIVITY_GRACE_DAYS = 30
+
+
 def _is_active_at(first_paid_dates, at, months) -> bool:
     """Activity rule: at least one NEW paying customer in the trailing
-    `months` before `at` (window is (at - months, at]; 0 disables the rule)."""
+    `months` (+ ACTIVITY_GRACE_DAYS) before `at` (window is
+    (at - months - grace, at]; 0 disables the rule)."""
     months = int(months or 0)
     if months <= 0:
         return True
     at = _utc(at)
-    floor = _add_months(at, -months)
+    floor = _add_months(at, -months) - dt.timedelta(days=ACTIVITY_GRACE_DAYS)
     return any(floor < d <= at for d in (_utc(x) for x in first_paid_dates) if d is not None)
 
 
@@ -546,7 +553,7 @@ def activity_status(affiliate, now=None, *, first_paid_dates=None, session=None,
     if last is None:
         out["active"] = False
         return out
-    until = _add_months(last, months)
+    until = _add_months(last, months) + dt.timedelta(days=ACTIVITY_GRACE_DAYS)
     if now < until:
         out["active_until"] = until.date()
     else:
