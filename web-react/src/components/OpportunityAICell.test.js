@@ -63,12 +63,12 @@ test('shows a compact accessible loading state', () => {
 
 test.each([
   ['unavailable', 'after_entry', 'Pattern already started'],
-  ['unavailable', 'vix_blocked', 'High VIX. Scores resume at a close of 35 or lower'],
+  ['unavailable', 'vix_blocked', 'High VIX. Scores resume at 35 or lower'],
   ['unavailable', 'too_far_ahead', 'Entry over 5 days away'],
   ['unavailable', 'target_entry_unavailable', 'No entry price'],
   ['below_threshold', '', 'History filter not met'],
   ['below_threshold', 'vix_blocked', 'History filter not met'],
-  ['unavailable', ' VIX_BLOCKED ', 'High VIX. Scores resume at a close of 35 or lower'],
+  ['unavailable', ' VIX_BLOCKED ', 'High VIX. Scores resume at 35 or lower'],
   ['unavailable', 'service_unavailable', 'Scoring unavailable'],
   ['unavailable', 'unexpected_provider_error', 'Reason unavailable'],
 ])('prints the reason inside the cell for %s / %s', (status, reason, expected) => {
@@ -87,8 +87,8 @@ test('names the shared reason when multiple adjacent metrics are unavailable', (
 
   const warning = screen.getByLabelText(/AI scores unavailable for T/i)
   expect(warning.tagName).toBe('MARK')
-  expect(warning).toHaveTextContent('High VIX. Scores resume at a close of 40.5 or lower')
-  expect(warning).toHaveAccessibleName(/Scores resume at a close of 40\.5 or lower/)
+  expect(warning).toHaveTextContent('High VIX. Scores resume at 40.5 or lower')
+  expect(warning).toHaveAccessibleName(/Scores resume at 40\.5 or lower/)
 })
 
 test('preserves a real zero and adds no short-pattern badge', () => {
@@ -107,4 +107,11 @@ test('preserves a real zero and adds no short-pattern badge', () => {
 
   expect(screen.getByLabelText(/AI Score 0.0 for AAPL/i)).toHaveTextContent('0.0')
   expect(screen.queryByText('10d')).not.toBeInTheDocument()
+})
+
+
+test('the High VIX label shows the VIX close when the scorer reports it', () => {
+  const { opportunityVixCompactLabel } = require('./opportunityAIScores')
+  expect(opportunityVixCompactLabel({ vixValue: 35.9, vixCutoff: 35 })).toBe('High VIX (35.9). Scores resume at 35 or lower')
+  expect(opportunityVixCompactLabel({ vixCutoff: 35 })).toBe('High VIX. Scores resume at 35 or lower')
 })

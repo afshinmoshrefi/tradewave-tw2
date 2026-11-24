@@ -220,7 +220,6 @@ def _clean_unavailable(raw: Any) -> Optional[Dict[str, str]]:
         cleaned.update(vix_gate_details(
             raw, error,
             message=raw.get("error") if isinstance(raw.get("error"), str) else error.get("message"),
-            as_of=(raw.get("scorer") or {}).get("data_as_of") if isinstance(raw.get("scorer"), Mapping) else None,
         ))
     return cleaned
 
@@ -298,6 +297,9 @@ def finalize_analysis_score_context(
 
     if not isinstance(plan, Mapping):
         return None
+    if isinstance(scores_by_key, Mapping):
+        import vix_gate
+        scores_by_key = vix_gate.annotate_scores(dict(scores_by_key))
     status = str(plan.get("status") or "")
     mode = str(plan.get("mode") or "")
     full_days = _integer(plan.get("full_pattern_calendar_days"))

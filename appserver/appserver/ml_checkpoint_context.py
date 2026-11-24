@@ -1152,7 +1152,6 @@ def normalize_checkpoint_response(
                 error_source,
                 error_source.get("details"),
                 message=error_source.get("message"),
-                as_of=(metadata or {}).get("data_as_of") if isinstance(metadata, Mapping) else None,
             ))
         if (
             str(error_source.get("code") or "")

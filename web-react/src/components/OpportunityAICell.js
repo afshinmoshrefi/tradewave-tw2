@@ -5,7 +5,7 @@ import {
   formatOpportunityAIMetric,
   opportunityAICompactStatus,
   opportunityAIIsUnavailable,
-  opportunityVixRecovery,
+  opportunityVixCompactLabel,
 } from './opportunityAIScores'
 
 // AI cells are intentionally quiet. The selected opportunity's full explanation,
@@ -17,7 +17,7 @@ const OpportunityAICell = ({ bundle, metric, symbol, grouped = false }) => {
 
   if (!metadata || opportunityAIIsUnavailable(display)) {
     const isVixWarning = state === 'unavailable' && display?.reason?.trim().toLowerCase() === 'vix_blocked'
-    const compactState = isVixWarning ? `High VIX. ${opportunityVixRecovery(display)}` : opportunityAICompactStatus(display)
+    const compactState = isVixWarning ? opportunityVixCompactLabel(display) : opportunityAICompactStatus(display)
     const ReasonText = isVixWarning ? 'mark' : 'span'
     const label = grouped ? 'AI scores' : metadata?.label || 'AI score'
     return (

@@ -146,6 +146,7 @@ from create_active_opps import create_active_list
 from seasonal_chart_funcs import get_file_cache_path, load_from_file_cache, save_to_file_cache
 
 from get_symbol_csv import get_symbol_csv, num_years_in_df,days_ago_was_last_row
+import vix_gate  # VIX pause facts for score responses (2026-11-24)
 from get_name_from_ticker import get_security_name_from_ticker  # use get_security_name_from_ticker(exchange,ticker)
 
 # call a function in the blog folder
@@ -2769,7 +2770,7 @@ def MLScoreBatch(resourceID):
             pending.append({'symbol': sym, 'date': opp_date, 'daysOut': days_out, 'direction': direction})
 
     return jsonify({
-        'scores': scores,
+        'scores': vix_gate.annotate_scores(scores),
         'pending': pending,
         'validation_errors': validation_errors,
     })
@@ -3284,7 +3285,7 @@ def MLScorePending(resourceID):
         deduped_remainder.append(item)
 
     return jsonify({
-        'scores': scores,
+        'scores': vix_gate.annotate_scores(scores),
         'still_pending': deduped_remainder,
         'validation_errors': validation_errors,
     })

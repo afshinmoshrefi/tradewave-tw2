@@ -243,7 +243,7 @@ const reportedVixValue = source => {
 
 const reportedVixDate = source => {
   const error = source?.error
-  return [source?.vix_date, error?.vix_date, source?.scorer?.data_as_of]
+  return [source?.vix_date, error?.vix_date]
     .map(value => String(value || '').slice(0, 10))
     .find(value => /^\d{4}-\d{2}-\d{2}$/.test(value))
 }
@@ -262,6 +262,12 @@ const formatVixDate = isoDate => {
 }
 
 export const OPPORTUNITY_VIX_PAUSED_TITLE = 'AI scoring is paused while volatility is high'
+
+export const opportunityVixCompactLabel = horizon => {
+  const limit = formatVixNumber(horizon?.vixCutoff ?? LEGACY_VIX_CUTOFF)
+  const value = horizon?.vixValue == null ? '' : formatVixNumber(horizon.vixValue)
+  return `High VIX${value ? ` (${value})` : ''}. Scores resume at ${limit} or lower`
+}
 
 export const opportunityVixPausedCopy = horizon => {
   const limit = formatVixNumber(horizon?.vixCutoff ?? LEGACY_VIX_CUTOFF)

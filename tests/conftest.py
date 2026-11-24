@@ -316,3 +316,22 @@ def _tara_engine_reply_with_hostile_lead(request, monkeypatch):
         if request.node.get_closest_marker("tara_draft_rewrite") is None:
             monkeypatch.setattr(gateway, "_request_lead", lambda *args, **kwargs: HOSTILE_LEAD)
     yield
+
+
+# VIX pause annotation (appserver/appserver/vix_gate.py) reads TradeWave VIX history,
+# which may download data. Tests never touch the network: by default the history is
+# unavailable, so responses pass through unchanged. tests/test_vix_gate.py injects
+# its own history.
+@pytest.fixture(autouse=True)
+def _no_live_vix_history(monkeypatch):
+    try:
+        import vix_gate
+    except ImportError:
+        yield
+        return
+
+    def _unavailable():
+        raise OSError("VIX history disabled in tests")
+    monkeypatch.setattr(vix_gate, "_default_loader", _unavailable)
+    monkeypatch.setitem(vix_gate._CACHE, "rows", None)
+    yield

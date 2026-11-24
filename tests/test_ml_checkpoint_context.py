@@ -865,9 +865,10 @@ def test_structured_vix_unavailable_is_preserved_not_coerced_to_pending_or_zero(
         "code": "vix_blocked",
         "message": "Volatility gate is active.",
         "retryable": False,
-        # The close date comes from the scorer's own data date (metadata data_as_of).
-        "vix_date": "2026-08-05",
     }
+    # The scorer cache date is not a VIX close date; the real date is added from
+    # TradeWave VIX history when responses leave the appserver (vix_gate).
+    assert "vix_date" not in checkpoint["error"]
     assert checkpoint["pattern_recalculated"] is False
 
 
