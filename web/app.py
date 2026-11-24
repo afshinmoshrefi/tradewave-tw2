@@ -5111,7 +5111,9 @@ class AffiliateAdmin(_AdminAuth, ModelView):
         "status": {"description": "New affiliates always start Paused until they sign. Paused: their link and "
                                   "code stop applying to new customers and commission that accrues is HELD, "
                                   "not lost - it becomes payable when they are active again. Terminated: ends "
-                                  "the partnership and holds unpaid commission for review. To forfeit "
+                                  "the partnership without forfeiting anything: commission on payments "
+                                  "already made stays payable and the final balance is paid even below "
+                                  "the payout minimum. To forfeit "
                                   "commission for a breach, use 'Terminate for cause' on the Change terms page."},
         "page_display_name": {"description": "OPTIONAL - the name shown on their co-branded landing page "
                                              "(tradewave.ai/join/<code>): their personal OR business name. "

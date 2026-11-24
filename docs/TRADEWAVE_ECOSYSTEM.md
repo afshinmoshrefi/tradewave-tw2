@@ -279,9 +279,11 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
     price) = `promo_commission_pct` (50%) of what was paid pre-tax. (3) RENEWAL
     = `renewal_pct` (25%) of what was paid, commission years 2..`renewal_years`
     (5 default / 10 / NULL = lifetime), only while the partner is ACTIVE (>= 1
-    NEW paying customer in the trailing `activity_rule_months` = 12 before the
-    renewal payment; otherwise the line is recorded `lapsed` at $0, forfeited).
-    Past the window: $0, no line. Tax never earns.
+    NEW paying customer in the trailing `activity_rule_months` = 12 PLUS a
+    30-day grace, `ACTIVITY_GRACE_DAYS`, before the renewal payment - 13 months
+    in effect, owner decision 2026-11-24, so a partner whose only customer
+    renews 12 months later is still paid; otherwise the line is recorded
+    `lapsed` at $0, forfeited). Past the window: $0, no line. Tax never earns.
   - **Terms are versioned + prospective.** `affiliate_terms` rows are immutable
     (seeded `v2-5y` default, `v2-10y`, `v2-lifetime`; `create_terms` only adds).
     `affiliates.terms_id` applies to FUTURE referrals only. Every
@@ -298,6 +300,15 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
     Stamped by the webhook (`invoice.payment_succeeded` ->
     `record_first_payment`); the engine derives + persists it from Stripe if the
     webhook missed it.
+  - **A Stripe lookup failure never becomes a ledger line.** `_first_paid_invoice`
+    and `_invoice_for_reversal` raise `StripeLookupError` (never "none found").
+    The engine SKIPS that invoice / reversal for the run: no line, nothing
+    persisted, a warning in the log, an entry in the `skipped=` list of
+    `compute_month` / `_compute` (shown on the admin compute page). The next
+    run prices it. A clock the engine had to GUESS from the invoice in hand
+    (Stripe answered, no earlier paid invoice) prices the line but is never
+    written to the referral, and an activity check that could not be resolved
+    never books `lapsed`.
   - **Ledger.** `affiliate_commission_lines` = one INSERT-ONCE row per
     (affiliate, Stripe source: invoice id, or refund/dispute id), UNIQUE
     `(affiliate_id, source_id)`. Kinds first_year|promo|renewal|lapsed|refund|
@@ -315,17 +326,43 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
     late-paid invoice is booked once, in the month it was paid.
   - **Refunds / disputes** reverse at the ORIGINAL line's rate and formula,
     pro-rated by the share of the payment reversed and capped at the original
-    commission ($40 refund of the $80 sale = -$15).
+    commission ($40 refund of the $80 sale = -$15). The reversal pass also
+    follows STATUS CHANGES: it re-reads disputes and refunds created up to
+    `AFFILIATE_REVERSAL_LOOKBACK_DAYS` (180, env
+    `TW2_AFFILIATE_REVERSAL_LOOKBACK_DAYS`) before the month. A dispute that is
+    later `won`, or a `pending` refund that later is `failed` / `canceled`,
+    gets an offsetting POSITIVE line of the same kind (`refund` / `dispute` -
+    the kind CHECK is unchanged) with `source_id` `<id>:won` / `<id>:failed`
+    and `detail.outcome`; `stripe_reversal_id` keeps the real Stripe id. An
+    inquiry (`warning_*`) that later escalates is clawed back in the month it
+    is first seen as a real dispute. All insert-once on `(affiliate_id,
+    source_id)`. A give-back is only booked against a clawback that is in the
+    ledger.
   - **Paused / terminated.** ALL partners are computed. Paused -> lines `held`
     (reason `paused`), payable in the first `upsert_month` after they are active
-    again. Forfeiture ONLY via `terminate_for_cause` (records the cause; held +
-    unpaid lines -> `void`). Plain termination holds for operator review.
+    again OR are terminated without cause. Termination WITHOUT cause forfeits
+    nothing (agreement 5.3 / 11.3): new lines are payable, and the payout
+    minimum does not block that partner's final balance
+    (`affiliate_service.final_balance_due`, `affiliate_admin.payout_block_reason`).
+    Forfeiture ONLY via `affiliate_service.terminate_for_cause` (records the
+    cause; in the same transaction `forfeit_unpaid` voids pending payout rows,
+    `external_ref` `FORFEIT_REF`, and every held / payable line, including lines
+    already on an unpaid payout row). A line held for any other reason is
+    released only by the operator: Change terms page -> "Release held lines"
+    (`release_held_lines`, audited).
   - **Self-serve discount.** `set_partner_discount` (0..`max_discount_pct`, one
     change per 24h via `affiliates.discount_changed_at`, history in
     `affiliate_discount_changes`): mints a new coupon and re-points the SAME
     code; NO pause, NO re-sign; 0% removes the coupon and deactivates the typed
     code. Existing subscribers keep their coupon and their stamped terms. (The
     older admin "Change terms" view still pauses + re-signs - Phase 2 replaces it.)
+    The partner dashboard sets ONE discount for monthly and annual plans; a
+    separate monthly discount can only be set by an admin.
+  - **Coupon must equal the stamp.** `_partner_spec` applies a partner coupon
+    only when its Stripe `percent_off` (`coupon_percent_off`, cached per
+    process) equals the discount being stamped on the referral. An out-of-step
+    monthly coupon falls back to the flat coupon when that one matches, else NO
+    coupon and a 0% stamp (customer pays list, partner earns the full pool).
   - **Campaigns** (`promo_campaigns`, company-wide, not partner-specific): tiers,
     billing intervals, claim window, new-customers-only, offer `price`
     (`intro_prices` per `<tier>:<interval>`) or `percent`. One Stripe coupon per
@@ -337,8 +374,14 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
     12 months of their last subscription ending stays with the previous partner
     and keeps the year count (`find_returning_referral`, anchor carried,
     `source='return'`); else URL/form code, then `tw_ref` cookie, then
-    `users.referred_by_affiliate_id` (`source='signup'`). Active partners only;
-    self-referral never attributed. The OFFER is the lower FIRST-PERIOD price of
+    `users.referred_by_affiliate_id` (`source='signup'`). **Attribution
+    precedence: a partner code in the URL at checkout beats the first-touch
+    `tw_ref` cookie** (and both beat the signup stamp). Active partners only;
+    self-referral never attributed. `_is_new_customer` counts only web/EOD-line
+    subscriptions that are live (active / trialing / past_due) or ever had a
+    paid invoice above $0 (ended less than 12 months ago): an abandoned
+    checkout (`incomplete*`), a trial canceled before the first charge and a
+    Developer API subscription do not make someone an existing customer. The OFFER is the lower FIRST-PERIOD price of
     the live campaign (new customers only: `_is_new_customer`) and the partner
     discount; a tie goes to the partner. Exactly ONE discount is pre-applied
     (never stacked; engine guard `extra_discount` falls back to the promo rule
@@ -360,7 +403,13 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
     (never the portal update-confirm flow; the check fails closed);
     `/account/manage-subscription` gives a founder a cancel-only portal session
     (`TW2_FOUNDER_BILLING_PORTAL_CONFIGURATION_ID` if set, else the
-    `subscription_cancel` flow). The web/EOD Billing Portal configuration is
+    `subscription_cancel` flow). The dunning final-notice email
+    (`_fire_dunning_final_notice`) uses the same guard: a founder gets the
+    cancel-only configuration, or the plain `/account` link when it is not set
+    or the founder check fails - never a default (plan-switch) portal session.
+    **Setting `TW2_FOUNDER_BILLING_PORTAL_CONFIGURATION_ID` is a deploy
+    blocker** whenever `TW2_FOUNDER_PRICE_IDS` is set: the app logs a
+    `DEPLOY BLOCKER` error at startup (`warn_founder_portal_config`). The web/EOD Billing Portal configuration is
     dashboard-managed (only the API portal is seeded in code), so the founder
     portal configuration with plan switching OFF must be created in the Stripe
     dashboard - see TW-TASK-0038.
@@ -372,7 +421,9 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
     signature (archived to `audit_log` action `affiliate_v2_resign_required`)
     so they re-sign agreement v2. A migration cannot call Stripe: run
     `affiliate_service.reconcile_v2_stripe(session)` once afterwards
-    (deactivates paused codes, re-issues coupons that were above 25%).
+    (deactivates paused codes, re-issues coupons that were above 25% - the
+    annual coupon AND the monthly override coupon, which is dropped when
+    monthly now equals annual).
   - **Partner documents (v2).** `docs/AFFILIATE_AGREEMENT.md` is agreement
     version 2; `web/affiliate_agreement.py:AGREEMENT_VERSION = "2026-11-24"`
     must move with it. `exhibit(affiliate, session=None)` builds Exhibit A from

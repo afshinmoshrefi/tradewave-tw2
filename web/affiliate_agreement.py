@@ -331,8 +331,9 @@ def exhibit(affiliate, session=None) -> dict:
          "%s%% off the List Price (first 12 months). You earn %s%% of the List Price."
          % (monthly["discount_pct"], monthly["commission_pct"])),
         ("Changing your discount",
-         "Any time from your partner dashboard, 0%% to %s%%. Applies to new "
-         "checkouts only (Section 4.2)." % ex["max_discount_pct"]),
+         "Any time from your partner dashboard, 0%% to %s%%. One Customer Discount "
+         "applies to monthly and annual plans. Applies to new checkouts only "
+         "(Section 4.2)." % ex["max_discount_pct"]),
         ("Promotion Rate",
          "%s%% of the Amount Paid when a Promotion price applies (for example %s "
          "on a %s sale)" % (ex["promo_pct"], _fmt_money(promo["partner_earns_cents"]),

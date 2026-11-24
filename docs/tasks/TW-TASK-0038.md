@@ -19,7 +19,7 @@ Owner-approved rules (2026-11-24). All money examples assume fully paid, no tax,
 6. **Renewals.** From year 2 the partner earns the renewal rate (25%) of what the customer actually pays at renewal, pre-tax (a founder renewing at $189 -> $47.25). $399 annual renewal -> $99.75. Renewal length is a per-agreement setting: 5 years (default: commission years 2-5), 10 years (years 2-10), or lifetime. Year 1 = the first 12 months of paid service starting at the subscription's first successful payment with amount_paid > 0 (trial $0 invoices and failed payments never start the clock). Use the invoice line SERVICE PERIOD (line.period.start), not invoice.created, to place a payment in a year. Annual: 4 eligible renewals under the 5-year setting. Monthly: months 1-12 first-year rule, 13-60 renewal rate, 61+ $0.
 7. **Activity rule.** Renewal commissions (not first-year) are paid only while the partner has brought in at least 1 new PAYING customer (first successful payment > 0; trials don't count) in the trailing 12 months plus a 30-day grace (13 months in effect; owner decision 2026-11-24) measured at the renewal payment's date. A partner whose only customer of the year renews 12 months later is still paid on that renewal. If not active, that renewal line earns $0 and is recorded as "lapsed" (forfeited, never paid later). Renewals resume with the next new paying customer.
 8. **Cancel and return.** Same customer (Stripe customer) starts a new subscription within 12 months of the previous one ending: same partner keeps credit and the year count continues (no new first year). After 12 months: brand-new customer, credited to whoever refers them now, or nobody.
-9. **Paused partner.** Commissions accrue during an admin pause and are HELD (state held, reason paused); they become payable when unpaused. Forfeited only on termination for cause (admin action records cause).
+9. **Paused partner.** Commissions accrue during an admin pause and are HELD (state held, reason paused); they become payable when unpaused, or when the partner is terminated without cause. Forfeited only on termination for cause (admin action records cause). A termination without cause forfeits nothing, and that partner's final balance is paid even below the payout minimum (agreement 5.3 / 11.3).
 10. **Founders ($189 legacy price).** Founders may only cancel in self-serve billing: no plan, interval or price changes via checkout or the Billing Portal update flow. Founders cannot claim campaigns (campaigns are new-customer only). Detection: a subscription whose price is a legacy/founder price; add config `FOUNDER_PRICE_IDS` (env, comma-separated) plus product/price metadata `tw2_founder=true` as the two signals.
 11. **Terms are prospective and reproducible.** Every referral is stamped with the terms version, offer type (regular / promo), campaign id, interval, list price and discount at checkout. Payouts read terms from the referral, never from the partner's current row. Changing terms never re-prices a past line. Ledger lines (per invoice) are immutable once the month is finalized; refunds/chargebacks reverse at the ORIGINAL line's rate and formula.
 12. **Legacy.** No partner-referred customers exist yet, so no grandfathering of customers. Existing affiliate rows get migrated to terms v2 defaults (pool 50, their discount clamped to 25, renewal 25, 5 years) but MUST re-sign agreement v2 before their link works on v2 terms (existing re-sign flow). Keep the old engine path only as long as needed for tests of historic statements.
@@ -148,39 +148,95 @@ is_new_customer=True)`, `sync_line_states(session)` (call after marking a payout
 
 ### Owner decisions still open (the build picked the conservative reading)
 
+Decided since the first draft of this list, and no longer open:
+
+- **Activity window** (was item 2): decided 2026-11-24 - trailing 12 months PLUS a 30-day grace
+  (13 months in effect), see rule 7. A returning customer still does not count as a new one.
+- **Plain termination** (was item 3): the signed agreement decides it (5.3 / 11.3) - a termination
+  without cause forfeits nothing. Commission on payments already made stays payable and the final
+  balance is paid regardless of the $50 minimum. Only `terminate_for_cause` forfeits.
+
+These remain open:
+
 1. **Return within 12 months** carries the ORIGINAL year-1 anchor by calendar time (the gap
    counts toward the year count). The alternative - counting only months of paid service - pays
    the partner more first-year commission.
-2. **Activity window** is `(payment date - 12 months, payment date]`, and a returning customer does
-   not count as a new one. A partner with a single annual customer is therefore lapsed at that
-   customer's first renewal unless they brought someone new in the 12 months before it.
-3. **Plain termination** (not for cause) holds unpaid lines for operator review; only
-   `terminate_for_cause` forfeits.
-4. **Tie** between campaign and partner price goes to the partner offer (pool rule).
-5. **Legacy partners are paused by the migration** until they re-sign agreement v2. The agreement
+2. **Tie** between campaign and partner price goes to the partner offer (pool rule).
+3. **Legacy partners are paused by the migration** until they re-sign agreement v2. The agreement
    v2 text (`AGREEMENT_VERSION`) and its signing copy must ship in the same deploy.
 
 ### Deploy steps (not done)
 
 1. `alembic upgrade head` (b4d7e1f2a3c5).
-2. Once, after the migration: `affiliate_service.reconcile_v2_stripe(session)`.
+2. Once, after the migration: `affiliate_service.reconcile_v2_stripe(session)`. It deactivates the
+   codes of paused partners and re-issues every coupon that no longer matches the (clamped to 25%)
+   discount: the annual coupon and the monthly override coupon. Until it has run, a coupon that
+   disagrees with the stored discount is simply not applied at checkout (the customer pays the list
+   price and 0% is stamped).
 3. Set `TW2_FOUNDER_PRICE_IDS` in `/etc/tradewave/secrets.env` (or tag the founder price/product
    with metadata `tw2_founder=true`).
-4. Stripe dashboard, Settings -> Billing -> Customer portal: create a SECOND portal configuration
-   for founders with "Customers can switch plans" OFF (cancel + payment method + invoices only) and
-   put its `bpc_...` id in `TW2_FOUNDER_BILLING_PORTAL_CONFIGURATION_ID`. The web/EOD portal
-   configuration is not managed in code, so this cannot be done from the repo. Until it is set,
-   founders are sent into the portal's cancel flow, which is a deep link and not a hard restriction.
-5. Restart gunicorn.
+4. **DEPLOY BLOCKER - founder Billing Portal configuration.** Whenever `TW2_FOUNDER_PRICE_IDS` is
+   set, `TW2_FOUNDER_BILLING_PORTAL_CONFIGURATION_ID` MUST be set too. Do not deploy without it.
+   The web/EOD portal configuration is not managed in code, so this is done by hand, once per
+   Stripe account (test mode for dev/staging, live mode for production):
+   1. Stripe dashboard: Settings > Billing > Customer portal.
+   2. Add a configuration (a second one, next to the default).
+   3. Subscription update ("Customers can switch plans"): OFF.
+   4. Cancel subscriptions: ON. Leave payment method update and invoice history ON so a founder
+      can still fix a failed card.
+   5. Save, then copy the configuration id (it starts with `bpc_`).
+   6. Put it in `/etc/tradewave/secrets.env` as `TW2_FOUNDER_BILLING_PORTAL_CONFIGURATION_ID=bpc_...`
+      and restart gunicorn.
+
+   What happens without it: the app logs a `DEPLOY BLOCKER` error at every startup
+   (`app.warn_founder_portal_config`); `/account/manage-subscription` sends a founder into the
+   portal's cancel flow, which is a deep link and not a hard restriction; and the dunning
+   final-notice email gives a founder the plain `/account` link instead of a card-update portal
+   link (a founder is never given a default portal session, because that one allows a plan switch).
+5. Restart gunicorn. Check the log for `DEPLOY BLOCKER` (there must be none).
+6. Dev box only, before activation: run the Postgres suites that the cloud session cannot run,
+   including `tests/test_dunning.py` (its portal stub was changed for the founder guard).
 
 ### Not built in Phase 1
 
-- Admin and partner UI, agreement v2, partner guide (Phase 2).
-- The admin "Change terms" view still uses the old pause + re-sign flow and accepts 1-100%.
-- The $50 payout minimum: no code for it was found in the repository; it is not enforced by this
-  build.
-- `AffiliatePayoutAdmin` does not call `sync_line_states` on "mark paid" yet (`upsert_month` does
-  it on its next run).
+- Admin and partner UI, agreement v2, partner guide (Phase 2 - built since, see History).
+
+### Code review fixes (2026-11-24, branch `fix-review` from ae9a1e4)
+
+An independent review found seven defects; all are fixed, each with a regression test in
+`tests/test_affiliate_review_fixes.py` that failed before the fix.
+
+1. **Monthly coupon above the cap.** `reconcile_v2_stripe` re-issues (or drops) the monthly
+   override coupon too. `_partner_spec` never applies a coupon whose Stripe `percent_off` differs
+   from the discount being stamped: it falls back to the flat coupon when that one matches, else
+   no coupon and a 0% stamp. One limit: if Stripe cannot be asked for the coupon's percent at that
+   moment, the coupon is still applied (the engine's `extra_discount` guard then protects the
+   payout); a known mismatch is never applied.
+2. **Termination without cause.** Lines are payable, not held; lines held while paused are
+   released by a plain termination; the payout minimum does not block the final balance. New admin
+   action "Release held lines" on the Change terms page. `terminate_for_cause` itself now voids
+   pending payout rows and lines already on an unpaid payout row (was only in `affiliate_admin`).
+3. **Transient Stripe error.** A failed lookup raises `StripeLookupError`; the invoice or reversal
+   is skipped for the run (no line, nothing persisted, logged, listed on the compute page). A
+   guessed clock is never persisted; an unresolved activity check never books `lapsed`.
+4. **Founder guard.** The dunning email no longer creates a default portal session for a founder;
+   startup check + deploy blocker above.
+5. **Refunds / disputes.** Won disputes and failed / canceled refunds get an offsetting positive
+   line (`<id>:won`, `<id>:failed`); an inquiry that escalates later is clawed back when first seen
+   as a dispute. Lookback `TW2_AFFILIATE_REVERSAL_LOOKBACK_DAYS` (180). Known limit: an event older
+   than the lookback at the time its status changes is not followed. The give-back keeps the kind
+   `refund` / `dispute` with a positive amount (no schema change); the admin ledger labels it
+   "Chargeback won - commission restored" / "Refund failed - commission restored". The partner
+   dashboard shows it under the plain kind label until its templates are updated.
+6. **New customer.** Only web/EOD-line subscriptions that are live or ever had a payment above $0
+   count; abandoned checkouts, unpaid trials and Developer API subscriptions do not.
+7. **Documents.** Agreement 4.2 and Exhibit A say one Customer Discount applies to monthly and
+   annual plans (a separate monthly value only where Company set one); the ecosystem doc has the
+   30-day grace and the attribution precedence (a partner code in the URL at checkout beats the
+   first-touch cookie).
+
+Tests after the fixes (cloud session, no Postgres): `tests/test_affiliate*.py tests/test_promo*.py`
+401 passed, 1 skipped (359 before). Not run here: the Postgres suites.
 
 ## Environment Verification
 
@@ -194,3 +250,5 @@ Dev: pending. Staging and production: not changed.
   - 747ca08 commission engine and partner services
   - c48e6e7 checkout offer, typed-code attribution, founder guard, ecosystem doc, v2 tests
   - this commit: task record
+- 2026-11-24: Independent code review, seven findings fixed on branch `fix-review` (from ae9a1e4);
+  see "Code review fixes". Not pushed, not deployed.
