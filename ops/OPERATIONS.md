@@ -866,6 +866,13 @@ Spot-check the gateway JSON for **no raw price fields** (the signals-only invari
 = a worker crash on a missing `venv-api` dep (same failure mode as the web tier; `pip install -r
 requirements-api.txt`).
 
+**Warm-up after restart (TW-BUG-0024, 2026-11-24):** `ops/deploy.sh` runs
+`ops/warm_after_restart.py` on the APP box right after the restart. After any manual or dev
+restart, run it the same way (as flask, secrets sourced, from the release checkout, venv-api
+python) before the gate below. It loads market data in every appserver worker through the
+service account, does not touch the API scan cache or `/v1/scan`, is bounded and fail-soft,
+and does not change any gate threshold.
+
 **5. Mandatory pre-deployment gate:** use existing test credentials only. The script is
 read-only and does not create users, keys, products, or subscriptions.
 ```
