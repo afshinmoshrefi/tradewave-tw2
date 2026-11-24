@@ -1,0 +1,22 @@
+{% extends 'admin/model/create.html' %}
+{# Affiliates -> Create: adds the pool-rule explainer and the live dollar
+   preview under the customer discount fields (TW-TASK-0038). #}
+{% block tail %}
+{{ super() }}
+<div id="tw-offer-panel" class="card" style="margin:8px 0 20px;padding:14px 18px;">
+  <h5 style="margin-top:0">What this discount means in dollars</h5>
+  <p style="font-size:13px;color:#555;margin-bottom:6px">Each partner has a pool of the list price (50% on the standard terms).
+    The customer discount comes out of the pool and the partner earns the rest: for a $100 plan at 20% off the customer pays $80,
+    the partner earns $30 and TradeWave retains $50. The discount can be 0% up to the maximum of the terms version (25% on the standard terms).</p>
+  {% include "admin/_affiliate_offer_preview.html" %}
+</div>
+<script>
+(function(){
+  var panel = document.getElementById('tw-offer-panel');
+  var field = document.getElementById('discount_pct_monthly') || document.getElementById('discount_pct');
+  if(!panel || !field) return;
+  var holder = field.closest('.form-group') || field.parentNode;
+  holder.parentNode.insertBefore(panel, holder.nextSibling);
+})();
+</script>
+{% endblock %}

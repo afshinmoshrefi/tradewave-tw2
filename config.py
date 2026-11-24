@@ -80,6 +80,13 @@ FOUNDER_BILLING_PORTAL_CONFIGURATION_ID = os.environ.get(
 # invoices by `created`, so the monthly compute lists this many days before
 # the month and filters on paid_at (covers late-paid / dunning-recovered ones).
 AFFILIATE_PAID_LOOKBACK_DAYS = int(os.environ.get('TW2_AFFILIATE_PAID_LOOKBACK_DAYS', '120'))
+# Payout minimum (small-balance hold), in cents of the payout currency. A
+# month whose payable total is below it stays pending and is carried into the
+# partner's next month with activity; "mark paid" is refused below it.
+AFFILIATE_PAYOUT_MINIMUM_CENTS = int(os.environ.get('TW2_AFFILIATE_PAYOUT_MINIMUM_CENTS', '5000'))
+# Timezone the admin screens show and accept campaign claim windows in (IANA
+# name). Storage is always UTC.
+ADMIN_DISPLAY_TIMEZONE = os.environ.get('TW2_ADMIN_DISPLAY_TIMEZONE', 'America/New_York').strip() or 'UTC'
 
 # === STRIPE (TW2) ===
 # Get test keys from Stripe dashboard → Developers → API keys (toggle test mode)
