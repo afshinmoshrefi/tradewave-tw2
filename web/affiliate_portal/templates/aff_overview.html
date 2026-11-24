@@ -1,89 +1,188 @@
 {% extends "aff_base.html" %}
+{% import "aff_macros.html" as m %}
+{% block heading %}Welcome back{% if aff.page_display_name or aff.name %}, {{ (aff.page_display_name or aff.name).split(' ')[0] }}{% endif %}{% endblock %}
+{% block subtitle %}Here is how your TradeWave partnership is doing.{% endblock %}
+{% block headright %}
+  <span class="pill {{ 'ok' if aff.status == 'active' else 'warn' }}">{{ 'Active' if aff.status == 'active' else ('Awaiting signature' if not aff.agreement_signed_at else 'Paused') }}</span>
+{% endblock %}
 {% block content %}
-{% if not aff.tax_form_received_at %}
-<div class="card" style="border-color: rgba(248, 113, 113, 0.5);">
-  <h3>Action needed: tax form</h3>
-  <p class="muted">Payouts are held until we receive your W-9 (U.S.) or W-8BEN / W-8BEN-E (non-U.S.).
-    Email it to help@tradewave.ai. <a href="{{ url_for('affiliate_portal.payouts') }}">Details</a></p>
+
+{# ---- action strip: only what needs attention ---- #}
+{% for a in actions %}
+<div class="strip {{ a.tone }}">
+  <div class="txt"><b>{{ a.title }}</b><span>{{ a.text }}</span></div>
+  {% if a.post %}
+  <form method="post" action="{{ a.post }}" style="margin:0;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn-secondary btn-sm" type="submit">{{ a.cta }}</button>
+  </form>
+  {% elif a.href %}
+  <a class="btn-secondary btn-sm" href="{{ a.href }}">{{ a.cta }}</a>
+  {% endif %}
+</div>
+{% endfor %}
+
+{# ---- tiles ---- #}
+<div class="grid4">
+  <div class="card tile">
+    <div class="k">Estimated this month</div>
+    <div class="v">
+      {% if est_rows is none %}-{% elif est_money %}
+        {% for ccy, payable, held in est_money %}<div>{{ (payable + held)|aff_money(ccy) }}</div>{% endfor %}
+      {% else %}$0.00{% endif %}
+    </div>
+    <div class="s">
+      {% if est_rows is none %}Not available right now. Your statement stays the number of record.
+      {% elif aff.status == 'paused' %}Held while your account is paused. As of {{ est_stamp }}.
+      {% else %}So far, can still change. As of {{ est_stamp }}.{% endif %}
+    </div>
+  </div>
+  <div class="card tile">
+    <div class="k">Pending payout</div>
+    <div class="v">{{ m.money_list(pending) }}</div>
+    <div class="s">Final, waiting to be sent.</div>
+  </div>
+  <div class="card tile">
+    <div class="k">Paid to date</div>
+    <div class="v">{{ m.money_list(lifetime_paid) }}</div>
+    <div class="s">Sent to you so far.</div>
+  </div>
+  <div class="card tile">
+    <div class="k">Active customers</div>
+    <div class="v">{{ active_customers }}</div>
+    <div class="s">{% if total_customers %}<a href="{{ url_for('affiliate_portal.customers') }}">See all {{ total_customers }}</a>{% else %}Paying right now.{% endif %}</div>
+  </div>
+</div>
+
+{# ---- live promotion(s) ---- #}
+{% for p in promos %}{{ m.promo_card(p, links, aff, offer.promo_pct) }}{% endfor %}
+
+{# ---- activity rule ---- #}
+{% if activity.tone != 'none' %}
+<div class="card tone-{{ {'green':'green','amber':'amber','red':'red'}.get(activity.tone, 'plain') }}">
+  <h3>Renewal commissions
+    {% if activity.tone == 'green' %}<span class="right"><span class="pill ok">Active</span></span>
+    {% elif activity.tone == 'amber' %}<span class="right"><span class="pill warn">{{ activity.badge }}</span></span>
+    {% elif activity.tone == 'red' %}<span class="right"><span class="pill bad">Stopped{% if activity.since %} since {{ activity.since }}{% endif %}</span></span>{% endif %}
+  </h3>
+  <p class="lead">{{ activity.title }}</p>
+  <p class="soft" style="margin:0;">{{ activity.text }}</p>
+  <p class="tiny muted" style="margin:10px 0 0;">{{ activity.rule }}</p>
 </div>
 {% endif %}
-<div class="card">
-  <h3>Program Status</h3>
-  <div class="row">
-    <span class="pill {{ 'ok' if aff.status == 'active' else 'warn' }}">{{ aff.status }}</span>
-    {% if aff.agreement_signed_at %}
-      <span class="muted">Agreement signed {{ aff.agreement_signed_at.strftime('%Y-%m-%d') }}</span>
-    {% else %}
-      <span class="pill bad">awaiting signature</span>
-      <span class="muted">Your referral code activates once the agreement is signed - check your email for the signing link.</span>
-    {% endif %}
-  </div>
-</div>
 
+{# ---- funnel ---- #}
 <div class="card">
-  <h3>Your Code &amp; Terms</h3>
-  <div class="row" style="margin-bottom:10px;">
-    <span class="big mono">{{ aff.code }}</span>
-    <button class="copybtn" onclick="twCopy(this, '{{ aff.code }}')">Copy code</button>
+  <div class="spread" style="margin-bottom:14px;">
+    <h3 style="margin:0;">Your funnel</h3>
+    <div class="seg" role="group" aria-label="Date range">
+      {% for key, label in funnel.ranges %}
+      <a href="{{ url_for('affiliate_portal.overview', range=key) }}" class="{{ 'on' if funnel.range == key else '' }}">{{ key|upper if key != 'all' else 'All' }}</a>
+      {% endfor %}
+    </div>
   </div>
-  <table>
-    <tr><th></th><th>Audience discount</th><th>Your commission</th></tr>
-    {% if terms.split %}
-    <tr><td>Annual plans</td><td>{{ terms.annual_discount }}% first year</td><td>{{ terms.annual_commission }}%</td></tr>
-    <tr><td>Monthly plans</td><td>{{ terms.monthly_discount }}%</td><td>{{ terms.monthly_commission }}%</td></tr>
-    {% else %}
-    <tr><td>All plans</td><td>{{ terms.annual_discount }}% first year</td><td>{{ terms.annual_commission }}%</td></tr>
-    {% endif %}
-  </table>
-  <p class="muted" style="font-size:13px;">Commission model: {{ terms.model_label }}. Basis is net revenue (after tax and refunds).</p>
-</div>
-
-<div class="card">
-  <h3>Your Funnel</h3>
-  <table>
-    <tr><th></th><th>Last {{ funnel.days }} days</th><th>All time</th></tr>
-    <tr><td>Link visits</td><td>{{ funnel.clicks_recent }}</td><td>{{ funnel.clicks_total }}</td></tr>
-    <tr><td>Free signups</td><td>{{ funnel.signups_recent }}</td><td>{{ funnel.signups_total }}</td></tr>
-    <tr><td>Paying subscriptions</td><td>-</td><td>{{ funnel.paying_total }}</td></tr>
-  </table>
-  <p class="muted" style="font-size:13px;">{{ funnel.in_trial }} of your signups {{ 'is' if funnel.in_trial == 1 else 'are' }} in their free trial right now.
-    Counts only - we never share who your referrals are.</p>
-</div>
-<div class="card">
-  <h3>This Month (estimate)</h3>
-  {% if est_rows is none %}
-    <p class="muted">Live estimate temporarily unavailable - your monthly statement email remains the number of record.</p>
-  {% elif est_rows %}
-    {% for r in est_rows %}
-      <div class="big">{{ '%.2f'|format(r.commission_amount) }} {{ r.currency|upper }}</div>
-      <p class="muted" style="font-size:13px;">from {{ r.payments }} payment{{ '' if r.payments == 1 else 's' }} by {{ r.customers }} customer{{ '' if r.customers == 1 else 's' }}{% if r.reversals %}, less {{ r.reversals }} refund{{ '' if r.reversals == 1 else 's' }}/dispute{{ '' if r.reversals == 1 else 's' }}{% endif %}</p>
-    {% endfor %}
+  {% if funnel.empty %}
+  <div class="empty"><b>No visits yet in this period</b>
+    Share your link and your first clicks will show up here within minutes.
+    <div style="margin-top:14px;"><a class="btn-primary" href="{{ url_for('affiliate_portal.links') }}">Get your link</a></div></div>
   {% else %}
-    <div class="big">0.00</div>
-    <p class="muted" style="font-size:13px;">No attributed payments yet this month.</p>
+  <div class="funnel">
+    {% for s in funnel.steps %}
+    <div class="fstep">
+      <div class="spread">
+        <span><b>{{ s.label }}</b> <span class="muted small">{{ s.hint }}</span></span>
+        <span><span class="fval">{{ '{:,}'.format(s.value) }}</span>{% if s.rate %} <span class="pill dim" title="Share of the step before">{{ s.rate }}</span>{% endif %}</span>
+      </div>
+      <div class="bar" style="margin-top:6px;"><i style="width:{{ s.pct }}%;"></i></div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="grid3" style="margin-top:16px;">
+    <div><div class="tiny soft">Click to paid</div><div class="mid">{{ funnel.click_to_paid or '-' }}</div></div>
+    <div><div class="tiny soft">Earnings per click</div><div class="mid">{{ funnel.epc or '-' }}</div></div>
+    <div><div class="tiny soft">Earned ({{ funnel.range_label|lower }})</div><div class="mid">{{ m.money_list(funnel.earned) }}</div></div>
+  </div>
+  <p class="tiny muted" style="margin:14px 0 0;">Counts only - we never show who your customers are. {{ funnel.in_trial }} of your signups {{ 'is' if funnel.in_trial == 1 else 'are' }} in the free trial right now. Every new account starts a 7-day free trial.</p>
   {% endif %}
-  <p class="muted" style="font-size:12px;">Estimate as of {{ est_stamp }} - refreshes hourly, final on the 2nd of next month.</p>
 </div>
+
 <div class="grid2">
+  {# ---- your offer ---- #}
   <div class="card">
-    <h3>Lifetime Paid</h3>
-    {% for ccy, amt in lifetime_paid %}<div class="big">{{ '%.2f'|format(amt) }} {{ ccy|upper }}</div>{% else %}<div class="big">0.00</div>{% endfor %}
+    <h3>Your offer <span class="right"><a href="{{ url_for('affiliate_portal.settings') }}#offer">Change</a></span></h3>
+    <p class="lead">Your audience gets {{ offer.discount_year }}% off{% if offer.split %} annual plans, {{ offer.discount_month }}% off monthly{% endif %}. You earn {{ offer.rate_year }}%{% if offer.split %} / {{ offer.rate_month }}%{% endif %} of the list price.</p>
+    <p class="soft small" style="margin:0 0 12px;">First year. After that you earn {{ offer.renewal_pct }}% of every renewal payment
+      {% if offer.lifetime %}for as long as the customer stays{% else %}in years 2 to {{ offer.last_year }}{% endif %}.</p>
+    {% if plans %}
+    <table class="compact">
+      <tr class="head"><th>Plan</th><th class="num">They pay</th><th class="num">You earn</th></tr>
+      {% for p in plans if p.interval == 'year' %}
+      <tr><td>{{ p.plan }}</td><td class="num">{{ p.customer_cents|aff_price }}</td><td class="num"><b>{{ p.first_cents|aff_cents }}</b></td></tr>
+      {% endfor %}
+    </table>
+    <p class="tiny muted" style="margin:10px 0 0;">First annual payment. <a href="{{ url_for('affiliate_portal.settings') }}#offer">All plans and renewals</a></p>
+    {% endif %}
   </div>
+
+  {# ---- share ---- #}
   <div class="card">
-    <h3>Pending Payout</h3>
-    {% for ccy, amt in pending %}<div class="big">{{ '%.2f'|format(amt) }} {{ ccy|upper }}</div>{% else %}<div class="big">0.00</div>{% endfor %}
+    <h3>Share your link <span class="right"><a href="{{ url_for('affiliate_portal.links') }}">More links</a></span></h3>
+    <label style="margin-top:0;">Your join page</label>
+    <div class="linkbox"><code>{{ links.join }}</code>
+      <button class="copybtn" type="button" onclick="twCopy(this, '{{ links.join }}')">Copy</button></div>
+    {% if has_code %}
+    <label>Your code</label>
+    <div class="row">
+      <span class="big mono">{{ aff.code }}</span>
+      <button class="copybtn" type="button" onclick="twCopy(this, '{{ aff.code }}')">Copy code</button>
+    </div>
+    <p class="tiny muted" style="margin:12px 0 0;">Customers can also type {{ aff.code }} at checkout.
+      {% if aff.status != 'active' %}Your link and code switch on when your account is active.{% endif %}</p>
+    {% else %}
+    <p class="small soft" style="margin:14px 0 0;">Share your link - at 0% off there is no checkout code.
+      {% if aff.status != 'active' %}Your link switches on when your account is active.{% endif %}</p>
+    {% endif %}
   </div>
 </div>
+
+{# ---- 12-month forecast ---- #}
 <div class="card">
-  <h3>Share</h3>
-  <div class="row" style="margin-bottom:8px;">
-    <code>{{ links.referral }}</code>
-    <button class="copybtn" onclick="twCopy(this, '{{ links.referral }}')">Copy</button>
+  <h3>Next 12 months</h3>
+  {% if forecast.has_data %}
+  <div class="big">{{ forecast.total_cents|aff_cents }}</div>
+  <p class="soft small" style="margin:2px 0 14px;">If every customer renews at today's price. Expected from the customers you already have{% if forecast.renewal_cents %}, {{ forecast.renewal_cents|aff_cents }} of it from renewals{% endif %}.</p>
+  <div class="chart" role="img" aria-label="Expected commission per month for the next 12 months">
+    {% for b in forecast.months %}
+    <div class="col" title="{{ b.full_label }}: {{ b.cents|aff_cents }}">
+      <div class="amt">{{ b.cents|aff_price if b.cents else '' }}</div>
+      <div class="stick"><i style="height:{{ b.pct }}%;"></i></div>
+      <div class="lbl">{{ b.label }}</div>
+    </div>
+    {% endfor %}
   </div>
-  <div class="row">
-    <code>{{ links.join }}</code>
-    <button class="copybtn" onclick="twCopy(this, '{{ links.join }}')">Copy</button>
-    <span class="muted" style="font-size:13px;">your co-branded page</span>
-  </div>
+  <p class="tiny muted" style="margin:12px 0 0;">A forecast, not a promise: customers can cancel, and renewal commissions need you to stay active (see above). New customers you bring in are not included.</p>
+  {% else %}
+  <div class="empty"><b>Your forecast starts with your first paying customer</b>
+    Once someone you referred pays, you will see what their renewals are worth here, month by month.</div>
+  {% endif %}
 </div>
+
+<style>
+  .fstep { margin-bottom:14px; }
+  .fstep:last-child { margin-bottom:0; }
+  .fval { font-weight:750; font-size:18px; font-variant-numeric:tabular-nums; }
+  .mid { font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; }
+  table.compact th, table.compact td { padding:8px 6px; }
+  .chart { display:flex; gap:6px; align-items:flex-end; height:170px; }
+  .chart .col { flex:1; min-width:0; height:100%; display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .chart .amt { font-size:10.5px; color:var(--muted); height:14px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .chart .stick { flex:1; width:100%; display:flex; align-items:flex-end; background:#0b0712; border-radius:6px; overflow:hidden; }
+  .chart .stick i { display:block; width:100%; background:linear-gradient(180deg,#a855f7,#6366f1); border-radius:6px 6px 0 0; min-height:2px; }
+  .chart .lbl { font-size:11px; color:var(--muted); }
+  @media (max-width:640px) {
+    .chart { gap:3px; height:150px; }
+    .chart .amt { display:none; }
+    .fstep .muted { display:none; }
+  }
+</style>
 {% endblock %}

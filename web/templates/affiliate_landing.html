@@ -44,6 +44,23 @@
     .tier .plan{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.6px}
     .tier .big{font-size:40px;font-weight:800;line-height:1.05;margin-top:6px}
     .tier .off{color:var(--up);font-weight:700}
+    .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 auto 14px}
+    .plan-card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+      border-radius:16px;padding:20px 16px;text-align:center;position:relative}
+    .plan-card.sale{border-color:var(--brand)}
+    .plan-card .badge{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--brand);
+      color:#fff;font-size:11px;font-weight:700;letter-spacing:.4px;padding:3px 10px;border-radius:999px;
+      text-transform:uppercase;white-space:nowrap}
+    .plan-card .name{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.6px}
+    .plan-card .price{font-size:34px;font-weight:800;line-height:1.1;margin-top:8px}
+    .plan-card .price small{display:block;font-size:14px;font-weight:600;color:var(--muted);margin-top:2px}
+    .plan-card .was{color:var(--muted);font-size:14px;margin-top:2px}
+    .plan-card .was s{opacity:.8}
+    .plan-card .save{color:var(--up);font-weight:700;font-size:14px;margin-top:6px}
+    .plan-card .mo{border-top:1px solid var(--line);margin-top:12px;padding-top:10px;color:var(--muted);font-size:13.5px}
+    .plan-card .mo b{color:var(--text)}
+    .plans-note{text-align:center;color:var(--muted);font-size:13px;margin:0 auto 4px;max-width:600px}
+    @media (max-width:640px){.plans{grid-template-columns:1fr}h1{font-size:28px}}
     .cta{display:block;width:100%;max-width:360px;margin:22px auto 8px;text-align:center;
       background:linear-gradient(90deg,var(--brand),#6d49e8);color:#fff;font-weight:700;font-size:18px;
       padding:16px 22px;border-radius:14px;text-decoration:none;box-shadow:0 10px 30px rgba(124,58,237,.35)}
@@ -77,7 +94,46 @@
     <h1>Spot the patterns the market <span class="grad">repeats every year</span></h1>
     <p class="sub">{{ display_name }} uses TradeWave to find stocks that follow the same seasonal moves year after year - and got you an exclusive discount to try it.</p>
 
-    {% if two_tier %}
+    {# Program v2: real dollar prices per plan (the campaign price when a sale
+       is live and lower than the partner discount). Falls back to the percent
+       cards below when the price catalog is unavailable. #}
+    {% macro usd(c) %}${{ ('{:,.2f}'.format(c / 100)).replace('.00', '') }}{% endmacro %}
+    {% macro day(iso) %}{% set mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}{{ iso[8:10]|int }} {{ mon[iso[5:7]|int - 1] }}{% endmacro %}
+    {% set tiers = [('navigator', 'Navigator'), ('analyst', 'Analyst'), ('strategist', 'Strategist')] %}
+    {% set ns = namespace(any=false, sale=none) %}
+    {% for key, o in (offers or {}).items() %}{% set ns.any = true %}{% if o.offer == 'campaign' and not ns.sale %}{% set ns.sale = o.campaign %}{% endif %}{% endfor %}
+    {% if ns.any %}
+      {% if ns.sale %}
+      <div class="offer" style="padding:18px;">
+        <div class="lbl" style="margin:0;font-size:16px;color:var(--text);"><b>{{ ns.sale.name }}</b> is on. Sale prices end {{ day(ns.sale.ends_at) }}.</div>
+      </div>
+      {% endif %}
+      <div class="plans">
+        {% for tier, label in tiers %}
+        {% set y = offers.get(tier ~ ':year') %}
+        {% set mth = offers.get(tier ~ ':month') %}
+        {% if y or mth %}
+        <div class="plan-card {{ 'sale' if (y and y.offer == 'campaign') or (mth and mth.offer == 'campaign') else '' }}">
+          {% if y and y.offer == 'campaign' %}<span class="badge">{{ y.campaign.name }}</span>{% endif %}
+          <div class="name">{{ label }}</div>
+          {% if y %}
+          <div class="price">{{ usd(y.price_cents) }}<small>first year</small></div>
+          {% if y.savings_cents > 0 %}
+          <div class="was">instead of <s>{{ usd(y.list_price_cents) }}</s></div>
+          <div class="save">You save {{ usd(y.savings_cents) }}</div>
+          {% else %}
+          <div class="was">per year</div>
+          {% endif %}
+          {% endif %}
+          {% if mth %}
+          <div class="mo">or monthly: <b>{{ usd(mth.price_cents) }}/mo</b>{% if mth.savings_cents > 0 %} for {{ mth.intro_months or 12 }} months, then {{ usd(mth.list_price_cents) }}{% endif %}</div>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      <p class="plans-note">Prices before tax. After the first year, plans renew at the regular price{% if ns.sale %}. Sale prices are for new customers{% endif %}.</p>
+    {% elif two_tier %}
       <div class="tiers">
         <div class="tier">
           <div class="plan">Monthly</div>
@@ -98,8 +154,8 @@
       </div>
     {% endif %}
 
-    <a class="cta" href="{{ cta_url }}">Claim your discount &rarr;</a>
-    <p class="fine">Discount applied automatically at checkout. Cancel anytime.</p>
+    <a class="cta" href="{{ cta_url }}">{{ 'Claim your price' if ns.any else 'Claim your discount' }} &rarr;</a>
+    <p class="fine">{{ 'Your price is' if ns.any else 'Discount' }} applied automatically at checkout. Cancel anytime.</p>
 
     <div class="pitch">
       <h2>What you get with TradeWave</h2>

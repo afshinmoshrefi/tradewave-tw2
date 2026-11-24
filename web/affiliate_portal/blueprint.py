@@ -35,6 +35,22 @@ def set_user_loader(fn):
     _USER_LOADER = fn
 
 
+_CATALOG_LOADER = None
+
+
+def set_catalog_loader(fn):
+    """Optional: parent injects its Stripe price catalog (zero-arg ->
+    {(tier, 'month'|'year'): {"list_price_cents": ...}}; web/app.py:
+    _campaign_catalog). Without it the routes look the function up on the
+    module that created the Flask app."""
+    global _CATALOG_LOADER
+    _CATALOG_LOADER = fn
+
+
+def get_catalog_loader():
+    return _CATALOG_LOADER
+
+
 def get_current_user():
     cached = getattr(g, "_aff_portal_user", "unset")
     if cached != "unset":

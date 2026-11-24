@@ -1,0 +1,109 @@
+{% extends "aff_base.html" %}
+{% import "aff_macros.html" as m %}
+{% block heading %}Earnings{% endblock %}
+{% block subtitle %}Every commission line, one per customer payment.{% endblock %}
+{% block content %}
+
+{% if aff.status == 'paused' %}
+<div class="strip amber">
+  <div class="txt"><b>Your account is paused.</b><span>Commissions keep adding up and are paid when it is unpaused.</span></div>
+</div>
+{% endif %}
+
+<div class="grid4">
+  <div class="card tile">
+    <div class="k">Estimated this month</div>
+    <div class="v">
+      {% if est_rows is none %}-{% elif est_money %}
+        {% for ccy, payable, held in est_money %}<div>{{ (payable + held)|aff_money(ccy) }}</div>{% endfor %}
+      {% else %}$0.00{% endif %}
+    </div>
+    <div class="s">{% if est_rows is none %}Not available right now.{% elif aff.status == 'paused' %}Held while paused. As of {{ est_stamp }}.{% else %}As of {{ est_stamp }}, refreshed hourly.{% endif %}</div>
+  </div>
+  {% set usd = (all_totals|selectattr('0', 'equalto', 'usd')|map(attribute='1')|list|first) or {} %}
+  <div class="card tile"><div class="k">Pending</div><div class="v">{{ (usd.pending or 0)|aff_money }}</div><div class="s">Final, waiting for payout.</div></div>
+  <div class="card tile"><div class="k">Paid</div><div class="v">{{ (usd.paid or 0)|aff_money }}</div><div class="s">Sent to you.</div></div>
+  <div class="card tile"><div class="k">Held</div><div class="v">{{ (usd.held or 0)|aff_money }}</div><div class="s">Earned, waiting on something.</div></div>
+</div>
+
+<div class="card">
+  <h3>What the states mean</h3>
+  <div class="legend">
+    <div><b>Estimated</b> - this month so far, can still change.</div>
+    <div><b>Pending</b> - final, waiting for payout.</div>
+    <div><b>Paid</b> - sent to you.</div>
+    <div><b>Held</b> - earned but waiting on something; see the reason.</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="spread" style="margin-bottom:12px;">
+    <h3 style="margin:0;">Commission lines</h3>
+    {% if has_any %}<a class="btn-secondary btn-sm" href="{{ url_for('affiliate_portal.earnings_csv', state=filters.state, type=filters.type, range=filters.range) }}">Download CSV</a>{% endif %}
+  </div>
+
+  {% if has_any %}
+  <form method="get" class="filters">
+    <div><label for="f-range">Period</label>
+      <select id="f-range" name="range" onchange="this.form.submit()">
+        {% for k, l in range_options %}<option value="{{ k }}" {{ 'selected' if filters.range == k else '' }}>{{ l }}</option>{% endfor %}
+      </select></div>
+    <div><label for="f-type">Type</label>
+      <select id="f-type" name="type" onchange="this.form.submit()">
+        <option value="">All types</option>
+        {% for k, l in type_options %}<option value="{{ k }}" {{ 'selected' if filters.type == k else '' }}>{{ l }}</option>{% endfor %}
+      </select></div>
+    <div><label for="f-state">State</label>
+      <select id="f-state" name="state" onchange="this.form.submit()">
+        <option value="">All states</option>
+        {% for k, l in state_options %}<option value="{{ k }}" {{ 'selected' if filters.state == k else '' }}>{{ l }}</option>{% endfor %}
+      </select></div>
+    <noscript><div><button class="btn-secondary" type="submit">Apply</button></div></noscript>
+  </form>
+  {% endif %}
+
+  {% if lines %}
+  <table class="stack">
+    <thead><tr><th>Date</th><th>Customer</th><th>Plan</th><th>Type</th><th class="num">Customer paid</th><th class="num">Rate</th><th class="num">Amount</th><th>State</th></tr></thead>
+    <tbody>
+    {% for ln in lines %}
+    <tr>
+      <td data-label="Date" class="nw">{{ ln.date }}</td>
+      <td data-label="Customer" class="title nw">{{ ln.customer }}</td>
+      <td data-label="Plan" class="nw">{{ ln.plan }}</td>
+      <td data-label="Type">{{ ln.type }}{% if ln.is_dispute %} <span class="muted tiny">(dispute)</span>{% endif %}{% if ln.year and ln.kind in ('renewal', 'lapsed') %} <span class="muted tiny">year {{ ln.year }}</span>{% endif %}</td>
+      <td data-label="Customer paid" class="num {{ 'neg' if ln.paid < 0 else '' }}">{{ ln.paid|aff_money(ln.currency) }}</td>
+      <td data-label="Rate" class="num">{{ ln.rate }}%</td>
+      <td data-label="Amount" class="num {{ 'neg' if ln.amount < 0 else '' }}"><b>{{ ln.amount|aff_money(ln.currency) }}</b></td>
+      <td data-label="State">{{ m.state_pill(ln.state_key, ln.state) }}{% if ln.reason %}<div class="tiny soft" style="margin-top:4px;">{{ ln.reason }}</div>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% for ccy, t in totals %}
+  <div class="totals">
+    <span>{{ line_count }} line{{ '' if line_count == 1 else 's' }}{% if totals|length > 1 %} ({{ ccy|upper }}){% endif %}</span>
+    <span>Estimated <b>{{ t.estimated|aff_money(ccy) }}</b></span>
+    <span>Pending <b>{{ t.pending|aff_money(ccy) }}</b></span>
+    <span>Paid <b>{{ t.paid|aff_money(ccy) }}</b></span>
+    <span>Held <b>{{ t.held|aff_money(ccy) }}</b></span>
+    <span>Total <b>{{ t.total|aff_money(ccy) }}</b></span>
+  </div>
+  {% endfor %}
+  {% if truncated %}<p class="tiny muted">Showing the newest {{ lines|length }} lines. The CSV has all {{ line_count }}.</p>{% endif %}
+  {% elif has_any %}
+  <div class="empty"><b>No lines match these filters</b><a href="{{ url_for('affiliate_portal.earnings') }}">Clear filters</a></div>
+  {% else %}
+  <div class="empty"><b>No earnings yet</b>
+    Your first line appears here as soon as a customer you referred makes a payment.
+    <div style="margin-top:14px;"><a class="btn-primary" href="{{ url_for('affiliate_portal.links') }}">Get your link</a></div></div>
+  {% endif %}
+  <p class="tiny muted" style="margin:14px 0 0;">Commission is worked out before tax. A refund takes back the same share of the commission it paid. Final numbers for a month are set on the 2nd of the next month.</p>
+</div>
+
+<style>
+  .totals { display:flex; gap:8px 22px; flex-wrap:wrap; padding:14px 10px 2px; border-top:1px solid var(--line);
+            font-size:13.5px; color:var(--muted); }
+  .totals b { color:var(--text); font-variant-numeric:tabular-nums; }
+</style>
+{% endblock %}

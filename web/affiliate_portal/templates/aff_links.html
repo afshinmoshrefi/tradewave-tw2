@@ -1,31 +1,145 @@
 {% extends "aff_base.html" %}
+{% block heading %}Links{% endblock %}
+{% block subtitle %}Everything you need to send people to TradeWave with your name on it.{% endblock %}
 {% block content %}
+
+{% if aff.status != 'active' %}
+<div class="strip amber"><div class="txt"><b>Your links are not live yet.</b>
+  <span>They start applying your discount and crediting you as soon as your account is active.</span></div></div>
+{% endif %}
+
+<div class="grid2">
+  <div class="card">
+    <h3>Your join page</h3>
+    <p class="soft small" style="margin-top:0;">A ready-made page with your name, your note and your prices. Best link to share.</p>
+    <div class="linkbox"><code>{{ links.join }}</code>
+      <button class="copybtn" type="button" onclick="twCopy(this, '{{ links.join }}')">Copy</button></div>
+    <div class="row" style="margin-top:12px;">
+      <a class="btn-secondary btn-sm" href="{{ links.join }}" target="_blank" rel="noopener">Preview</a>
+      <a class="btn-secondary btn-sm" href="{{ url_for('affiliate_portal.promote') }}#join-page">Edit page</a>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Your referral link</h3>
+    <p class="soft small" style="margin-top:0;">Goes to the TradeWave home page with your code already applied.</p>
+    <div class="linkbox"><code>{{ links.referral }}</code>
+      <button class="copybtn" type="button" onclick="twCopy(this, '{{ links.referral }}')">Copy</button></div>
+    <p class="tiny muted" style="margin:12px 0 0;">A click is remembered for 60 days, so you get credit even if they subscribe later.</p>
+  </div>
+</div>
+
 <div class="card">
-  <h3>Your Links</h3>
-  <label>Referral link (home page, code pre-applied)</label>
-  <div class="row"><code>{{ links.referral }}</code>
-    <button class="copybtn" onclick="twCopy(this, '{{ links.referral }}')">Copy</button></div>
-  <label>Co-branded join page</label>
-  <div class="row"><code>{{ links.join }}</code>
-    <button class="copybtn" onclick="twCopy(this, '{{ links.join }}')">Copy</button></div>
-  <p class="muted" style="font-size:13px; margin-top:14px;">
-    Any TradeWave URL works with <code>?code={{ aff.code }}</code> appended - attribution
-    holds for 60 days from first click.
-  </p>
+  <h3>Your code</h3>
+  {% if has_code %}
+  <div class="row">
+    <span class="big mono">{{ aff.code }}</span>
+    <button class="copybtn" type="button" onclick="twCopy(this, '{{ aff.code }}')">Copy code</button>
+  </div>
+  <p class="soft small" style="margin:10px 0 0;">Customers can also type {{ aff.code }} at checkout. Handy for podcasts, videos and print, where people cannot click.</p>
+  {% else %}
+  <p class="lead">Share your link - at 0% off there is no checkout code.</p>
+  <p class="soft small" style="margin:0;">Your links still track every customer. To get a code people can type, set a discount above 0% in
+    <a href="{{ url_for('affiliate_portal.settings') }}#offer">Settings</a>.</p>
+  {% endif %}
+</div>
+
+<div class="card" id="builder">
+  <h3>Link builder</h3>
+  <p class="soft small" style="margin-top:0;">Send people to a specific page and label where the link is used. Your code is added for you.</p>
+  <div class="grid2" style="margin-bottom:0;">
+    <div>
+      <label for="lb-dest" style="margin-top:0;">Destination</label>
+      <select id="lb-dest">
+        {% for key, label, path in destinations %}<option value="{{ key }}" data-path="{{ path }}">{{ label }}</option>{% endfor %}
+      </select>
+      <div id="lb-custom-wrap" style="display:none;">
+        <label for="lb-custom">Page on tradewave.ai</label>
+        <input type="text" id="lb-custom" placeholder="/pricing" maxlength="120" autocomplete="off">
+      </div>
+      <label for="lb-label">Campaign label (optional)</label>
+      <input type="text" id="lb-label" placeholder="e.g. march-newsletter" maxlength="40" autocomplete="off">
+      <details class="more" style="margin-top:14px;">
+        <summary>UTM fields (optional)</summary>
+        <label for="lb-source">utm_source</label>
+        <input type="text" id="lb-source" placeholder="e.g. youtube" maxlength="40" autocomplete="off">
+        <label for="lb-medium">utm_medium</label>
+        <input type="text" id="lb-medium" placeholder="e.g. video" maxlength="40" autocomplete="off">
+        <label for="lb-campaign">utm_campaign</label>
+        <input type="text" id="lb-campaign" placeholder="e.g. spring-launch" maxlength="40" autocomplete="off">
+      </details>
+    </div>
+    <div>
+      <label style="margin-top:0;">Your link</label>
+      <div class="linkbox"><code id="lb-out">{{ links.join }}</code>
+        <button class="copybtn" type="button" id="lb-copy">Copy</button></div>
+      <p class="tiny" id="lb-err" style="color:var(--bad); display:none; margin:8px 0 0;"></p>
+      <div class="row" style="margin-top:14px; align-items:flex-start;">
+        <span style="background:#fff; border-radius:10px; padding:6px; line-height:0;">
+          <img id="lb-qr" src="{{ url_for('affiliate_portal.qr_svg', u=links.join) }}" alt="QR code for your link" width="140" height="140">
+        </span>
+        <div style="flex:1; min-width:140px;">
+          <p class="small soft" style="margin:0 0 10px;">QR code for this exact link. Use it on slides, flyers or video.</p>
+          <a class="btn-secondary btn-sm" id="lb-qr-dl" href="{{ url_for('affiliate_portal.qr_svg', u=links.join, download=1) }}">Download QR (SVG)</a>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 {% if take_links %}
 <div class="card">
-  <h3>Your Published Takes (share these)</h3>
+  <h3>Your published takes</h3>
   <table>
     {% for t in take_links %}
     <tr>
       <td>{{ t.title }}</td>
-      <td style="text-align:right;"><button class="copybtn" onclick="twCopy(this, '{{ t.url }}')">Copy link</button></td>
+      <td style="text-align:right;"><button class="copybtn" type="button" onclick="twCopy(this, '{{ t.url }}')">Copy link</button></td>
     </tr>
     {% endfor %}
   </table>
-  <p class="muted" style="font-size:13px;">Each link lands readers on your commentary with your code attached.</p>
+  <p class="tiny muted">Each link lands readers on your commentary with your code attached.</p>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var BASE = {{ site_base|tojson }}, CODE = {{ aff.code|tojson }}, QR = {{ url_for('affiliate_portal.qr_svg')|tojson }};
+  var $ = function (id) { return document.getElementById(id); };
+  var dest = $("lb-dest"), custom = $("lb-custom"), out = $("lb-out"), err = $("lb-err"), timer = null, current = out.textContent;
+  function clean(v) { return (v || "").trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40); }
+  function build() {
+    var opt = dest.options[dest.selectedIndex], key = opt.value, path = opt.getAttribute("data-path");
+    $("lb-custom-wrap").style.display = key === "custom" ? "block" : "none";
+    err.style.display = "none";
+    if (key === "custom") {
+      path = (custom.value || "").trim() || "/";
+      if (/^https?:\/\//i.test(path)) {
+        if (path.indexOf(BASE) !== 0) { err.textContent = "Use a page on " + BASE.replace(/^https?:\/\//, "") + "."; err.style.display = "block"; return; }
+        path = path.slice(BASE.length) || "/";
+      }
+      if (path.charAt(0) !== "/") path = "/" + path;
+      path = path.split("#")[0].replace(/[<>"'\s]/g, "");
+    }
+    var parts = path.split("?"), qs = parts[1] ? parts[1].split("&").filter(function (p) { return p && !/^(code|label|utm_)/.test(p); }) : [];
+    if (key !== "join") qs.push("code=" + encodeURIComponent(CODE));
+    var label = clean($("lb-label").value); if (label) qs.push("label=" + encodeURIComponent(label));
+    [["lb-source", "utm_source"], ["lb-medium", "utm_medium"], ["lb-campaign", "utm_campaign"]].forEach(function (f) {
+      var v = clean($(f[0]).value); if (v) qs.push(f[1] + "=" + encodeURIComponent(v));
+    });
+    current = BASE + parts[0] + (qs.length ? "?" + qs.join("&") : "");
+    out.textContent = current;
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      var u = QR + "?u=" + encodeURIComponent(current);
+      $("lb-qr").src = u; $("lb-qr-dl").href = u + "&download=1";
+    }, 350);
+  }
+  ["lb-dest", "lb-custom", "lb-label", "lb-source", "lb-medium", "lb-campaign"].forEach(function (id) {
+    $(id).addEventListener("input", build); $(id).addEventListener("change", build);
+  });
+  $("lb-copy").addEventListener("click", function () { twCopy(this, current); });
+})();
+</script>
 {% endblock %}

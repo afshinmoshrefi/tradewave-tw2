@@ -1,6 +1,12 @@
-"""Affiliate dashboard routes. READ-ONLY against money (no Stripe writes, no
-ledger writes - spec A7); the only writes are profile fields, the SMN terms
-acceptance, and the take lifecycle, all scoped to the session affiliate."""
+"""Affiliate dashboard routes (program v2 layout: Home, Earnings, Customers,
+Links, Promote, Payouts, Settings, plus the invite-only Expert Desk).
+
+READ-ONLY against the ledger (no ledger writes - spec A7). The writes are:
+profile fields, the SMN terms acceptance, the take lifecycle and - new in v2 -
+the partner's own customer discount (affiliate_service.set_partner_discount,
+which re-points the partner's Stripe coupon). All are scoped to the session
+affiliate. Page data is built in dashboard.py; commission math stays in
+affiliate_service."""
 import io
 import os
 import re
@@ -11,22 +17,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import requests as _requests
-from flask import flash, redirect, render_template, request, url_for
+from flask import Response, current_app, flash, redirect, render_template, request, url_for
 from sqlalchemy import func as safunc
 
 import config
 from .blueprint import bp, get_current_affiliate, get_current_user, require_affiliate
+from . import blueprint as _bpmod
+from . import dashboard as dash
+from . import qr as _qr
 
 log = logging.getLogger("tw2.affiliate_portal")
 
 AFFILIATE_LOGO_DIR = os.path.join(config.web_root_dir.rstrip("/"), "assets", "affiliate-logos")
 AFFILIATE_LOGO_URLPATH = "/assets/affiliate-logos"
-
-MODEL_LABELS = {
-    "recurring": "Recurring (lifetime)",
-    "duration_12mo": "First 12 months",
-    "first_payment": "First payment only",
-}
 
 GUIDE_PATH = str(Path(__file__).resolve().parents[2] / "docs" / "AFFILIATE_PARTNER_GUIDE.md")
 SMN_TERMS_PATH = str(Path(__file__).resolve().parents[2] / "docs" / "SMN_CONTRIBUTOR_TERMS.md")
@@ -62,19 +65,6 @@ def _smn_profile(s, aff_id):
     return s.get(AffiliateSmnProfile, aff_id)
 
 
-def _effective_terms(aff):
-    import affiliate_service as asvc
-    terms = {
-        "split": asvc.is_interval_split(aff),
-        "annual_discount": aff.discount_pct,
-        "annual_commission": aff.commission_pct,
-        "monthly_discount": asvc.effective_discount_pct(aff, "monthly"),
-        "monthly_commission": asvc.effective_commission_pct(aff, "monthly"),
-        "model_label": MODEL_LABELS.get(aff.commission_model, aff.commission_model),
-    }
-    return terms
-
-
 def _links_for(aff):
     import affiliate_agreement as agr
     return {"referral": agr.referral_link(aff), "join": agr.join_link(aff)}
@@ -104,8 +94,11 @@ def _rows_to_json(rows):
         out.append({"currency": r["currency"],
                     "gross_revenue": str(r["gross_revenue"]),
                     "commission_amount": str(r["commission_amount"]),
+                    "held_amount": str(r.get("held_amount") or "0"),
+                    "lapsed": int(r.get("lapsed_count") or 0),
                     "payments": _count_kind(r.get("detail"), "payment"),
-                    "reversals": len(r.get("detail") or []) - _count_kind(r.get("detail"), "payment"),
+                    "reversals": sum(1 for ln in (r.get("detail") or [])
+                                     if (ln.get("kind") or "") in ("refund", "dispute")),
                     "customers": _customer_count(r.get("detail"))})
     return out
 
@@ -113,7 +106,8 @@ def _rows_to_json(rows):
 def _rows_from_json(items):
     from decimal import Decimal
     return [dict(it, gross_revenue=Decimal(it["gross_revenue"]),
-                 commission_amount=Decimal(it["commission_amount"])) for it in items]
+                 commission_amount=Decimal(it["commission_amount"]),
+                 held_amount=Decimal(it.get("held_amount") or "0")) for it in items]
 
 
 def _count_kind(detail, kind):
@@ -133,52 +127,105 @@ def _customer_count(detail):
     return len(custs)
 
 
-def _estimate(aff):
+# Engine line fields the Earnings ledger needs. Whitelisted before caching so
+# nothing else from a Stripe invoice (never an email) rides along.
+_LINE_KEYS = ("kind", "state", "hold_reason", "source_id", "customer", "subscription",
+              "referral_id", "currency", "interval", "event_at", "year_number",
+              "net_paid_cents", "rate_pct", "amount", "period_month", "persisted")
+
+
+def _lines_to_json(rows):
+    out = []
+    for r in rows:
+        for ln in (r.get("detail") or []):
+            out.append({k: ln.get(k) for k in _LINE_KEYS if ln.get(k) is not None})
+    return out
+
+
+def _estimate_full(aff):
     """Cached (~1h) current-month LIVE ESTIMATE via compute_for_affiliate.
     Shared across gunicorn workers via Redis (falls back to in-process), so
     each affiliate costs at most one Stripe walk per hour.
-    Returns (rows|None, stamp|None); rows are summary dicts (currency,
-    gross_revenue, commission_amount, payments, reversals, customers);
-    None rows = unavailable/error."""
+
+    Returns {"rows": summary rows | None, "lines": engine lines, "stamp"}.
+    rows None = unavailable/error. A PAUSED partner is computed too: their
+    lines come back HELD (rows carry held_amount) because commissions keep
+    adding up during a pause and are paid when the account is unpaused."""
     year, month = _month_now()
-    key = "tw2:aff_est:%s:%04d-%02d" % (aff.id, year, month)
+    key = "tw2:aff_est2:%s:%04d-%02d" % (aff.id, year, month)
     rc = _est_redis()
     if rc is not None:
         try:
             hit = rc.get(key)
             if hit:
                 payload = json.loads(hit)
-                return _rows_from_json(payload["rows"]), payload["stamp"]
+                return {"rows": _rows_from_json(payload["rows"]),
+                        "lines": payload.get("lines") or [], "stamp": payload["stamp"]}
         except Exception:
             pass
     else:
         hit = _estimate_cache.get(str(aff.id))
         if hit and hit[1] == year and hit[2] == month and (time.monotonic() - hit[0]) < _ESTIMATE_TTL:
-            return hit[3], hit[4]
-    rows = None
-    if aff.status == "active":
-        s = _db()
-        try:
-            import affiliate_service as asvc
-            rows = _rows_to_json(asvc.compute_for_affiliate(s, _fresh_affiliate(s), year, month))
-        except Exception as e:   # noqa: BLE001 - estimate is best-effort by design
-            log.warning("estimate failed for %s: %s", aff.code, e)
-            rows = None
-        finally:
-            s.close()
-    else:
-        rows = []   # paused/unsigned affiliates don't accrue (activation gate)
+            return {"rows": hit[3], "stamp": hit[4], "lines": hit[5]}
+    rows = lines = None
+    s = _db()
+    try:
+        import affiliate_service as asvc
+        computed = asvc.compute_for_affiliate(s, _fresh_affiliate(s), year, month)
+        rows, lines = _rows_to_json(computed), _lines_to_json(computed)
+    except Exception as e:   # noqa: BLE001 - estimate is best-effort by design
+        log.warning("estimate failed for %s: %s", aff.code, e)
+        rows = None
+    finally:
+        s.close()
     stamp = datetime.now(timezone.utc).strftime("%H:%M UTC")
     if rows is None:
-        return None, stamp      # don't cache failures
+        return {"rows": None, "lines": [], "stamp": stamp}      # don't cache failures
     if rc is not None:
         try:
-            rc.setex(key, _ESTIMATE_TTL, json.dumps({"rows": rows, "stamp": stamp}))
+            rc.setex(key, _ESTIMATE_TTL, json.dumps({"rows": rows, "lines": lines, "stamp": stamp}))
         except Exception:
             pass
     rows = _rows_from_json(rows)
-    _estimate_cache[str(aff.id)] = (time.monotonic(), year, month, rows, stamp)
-    return rows, stamp
+    _estimate_cache[str(aff.id)] = (time.monotonic(), year, month, rows, stamp, lines)
+    return {"rows": rows, "lines": lines, "stamp": stamp}
+
+
+def _estimate(aff):
+    """(rows|None, stamp) - the summary half of _estimate_full."""
+    est = _estimate_full(aff)
+    return est["rows"], est["stamp"]
+
+
+_CATALOG_TTL = 600
+_catalog_cache: list = [0.0, None]
+
+
+def _catalog():
+    """{(tier, 'month'|'year'): {"list_price_cents", ...}} - the parent app's
+    Stripe price catalog (app._campaign_catalog), injected via
+    blueprint.set_catalog_loader or found on the module that created the
+    Flask app. {} when prices are unavailable: pages then hide dollar tables
+    instead of failing."""
+    ts, cached = _catalog_cache
+    if cached and (time.monotonic() - ts) < _CATALOG_TTL:
+        return cached
+    loader = _bpmod.get_catalog_loader()
+    if loader is None:
+        import sys
+        mod = sys.modules.get(current_app.import_name)
+        loader = getattr(mod, "_campaign_catalog", None)
+    if loader is None:
+        return {}
+    try:
+        cat = loader() or {}
+    except Exception as e:   # noqa: BLE001 - prices are best-effort on a dashboard
+        log.warning("price catalog unavailable: %s", e)
+        return {}
+    if cat:
+        _catalog_cache[0] = time.monotonic()
+        _catalog_cache[1] = cat
+    return cat
 
 
 def _ledger_totals(s, aff_id, status):
@@ -274,62 +321,198 @@ def _ctx(aff, tab, **extra):
             s.expunge(smn_row)
     finally:
         s.close()
-    ctx = {"aff": aff, "active_tab": tab, "smn": smn_row}
+    # A 0% discount has no Stripe coupon, so there is no typed checkout code
+    # (links still track).
+    try:
+        has_code = float(aff.discount_pct or 0) > 0
+    except (TypeError, ValueError):
+        has_code = False
+    ctx = {"aff": aff, "active_tab": tab, "smn": smn_row, "links": _links_for(aff),
+           "has_code": has_code}
     ctx.update(extra)
     return ctx
+
+
+@bp.app_template_filter("aff_money")
+def _f_money(amount, currency="usd"):
+    return dash.fmt_money(amount, currency)
+
+
+@bp.app_template_filter("aff_cents")
+def _f_cents(cents, currency="usd"):
+    return dash.fmt_cents(cents, currency)
+
+
+@bp.app_template_filter("aff_price")
+def _f_price(cents, currency="usd"):
+    return dash.fmt_price(cents, currency)
+
+
+def _csv_response(text, filename):
+    return Response(text, mimetype="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": 'attachment; filename="%s"' % filename,
+                             "Cache-Control": "private, no-store"})
+
+
+def _est_money(est_rows):
+    """[(currency, payable Decimal, held Decimal)] from estimate rows."""
+    return sorted((r["currency"], r["commission_amount"], r.get("held_amount") or 0)
+                  for r in (est_rows or []))
 
 
 # ------------------------------------------------------------------
 # pages
 # ------------------------------------------------------------------
+def _page_data(aff, s, *, want_catalog=True):
+    """What most pages need, built once inside a live DB session: the fresh
+    affiliate row, its terms, the price catalog, the cached estimate, the
+    full line ledger and the activity card."""
+    import affiliate_service as asvc
+    live = _fresh_affiliate(s)
+    terms = asvc.terms_for(s, live)
+    est = _estimate_full(aff)
+    lines = dash.ledger(s, live, est["lines"])
+    return {
+        "live": live, "terms": terms, "est": est, "lines": lines,
+        "catalog": _catalog() if want_catalog else {},
+        "activity": dash.activity_card(live, s, terms),
+        "offer": dash.offer_summary(live, terms),
+    }
+
+
 @bp.route("/")
 @require_affiliate
 def overview():
     aff = get_current_affiliate()
-    est_rows, est_stamp = _estimate(aff)
     s = _db()
     try:
-        import affiliate_service as asvc
-        paid = _ledger_totals(s, aff.id, "paid")
-        pending = _ledger_totals(s, aff.id, "pending")
-        funnel = asvc.funnel_for_affiliate(s, aff.id)
+        d = _page_data(aff, s)
+        live, terms, catalog = d["live"], d["terms"], d["catalog"]
+        pending, paid = dash.payout_totals(s, live)
+        funnel = dash.funnel(s, live, d["lines"], request.args.get("range") or "30d")
+        custs = dash.customers(s, live, catalog, terms, d["lines"], d["activity"]["status"])
+        ctx = _ctx(
+            aff, "home",
+            est_rows=d["est"]["rows"], est_stamp=d["est"]["stamp"], est_money=_est_money(d["est"]["rows"]),
+            pending=sorted(pending.items()), lifetime_paid=sorted(paid.items()),
+            active_customers=sum(1 for c in custs if c["status"] == "paying"),
+            total_customers=len(custs),
+            funnel=funnel, activity=d["activity"], offer=d["offer"],
+            plans=dash.plan_table(catalog, live, terms) if catalog else [],
+            promos=dash.promotions(s, live, catalog, terms),
+            forecast=dash.forecast(s, live, catalog, terms),
+            actions=dash.action_items(live, d["activity"], {
+                "payouts": url_for("affiliate_portal.payouts"),
+                "links": url_for("affiliate_portal.links"),
+                "resend": url_for("affiliate_portal.agreement_resend")}))
     finally:
         s.close()
-    return render_template("aff_overview.html", **_ctx(
-        aff, "overview", terms=_effective_terms(aff), links=_links_for(aff),
-        est_rows=est_rows, est_stamp=est_stamp,
-        lifetime_paid=sorted(paid.items()), pending=sorted(pending.items()),
-        funnel=funnel))
+    return render_template("aff_overview.html", **ctx)
 
 
 @bp.route("/performance")
 @require_affiliate
 def performance():
+    """Old URL: Performance is folded into Home (funnel) and Earnings."""
+    return redirect(url_for("affiliate_portal.earnings"))
+
+
+_EARNINGS_RANGES = {"30d": 30, "90d": 90, "12m": 365}
+_EARNINGS_PAGE = 200
+
+
+def _earnings_lines(aff, s):
+    d = _page_data(aff, s, want_catalog=False)
+    state = request.args.get("state") or ""
+    kind = request.args.get("type") or ""
+    rng = request.args.get("range") or ""
+    lines = dash.filter_ledger(d["lines"], state=state, kind=kind,
+                               days=_EARNINGS_RANGES.get(rng))
+    return d, lines, {"state": state, "type": kind, "range": rng}
+
+
+@bp.route("/earnings")
+@require_affiliate
+def earnings():
     aff = get_current_affiliate()
-    est_rows, est_stamp = _estimate(aff)
     s = _db()
     try:
-        from models import AffiliatePayout
-        history = (s.query(AffiliatePayout)
-                   .filter(AffiliatePayout.affiliate_id == aff.id)
-                   .order_by(AffiliatePayout.period_start.desc()).limit(36).all())
-        rows = [{
-            "period": p.period_start.strftime("%B %Y"),
-            "currency": p.currency,
-            "gross": p.gross_revenue,
-            "commission": p.commission_amount,
-            "status": p.status,
-            "paid_at": p.paid_at.strftime("%Y-%m-%d") if p.paid_at else None,
-            "customers": _customer_count((p.detail or {}).get("lines")) or None,
-            "carried": bool((p.detail or {}).get("carry_in")) or (p.external_ref or "").startswith("carried:"),
-        } for p in history]
-        import affiliate_service as asvc
-        funnel = asvc.funnel_for_affiliate(s, aff.id)
+        d, lines, filters = _earnings_lines(aff, s)
+        ctx = _ctx(
+            aff, "earnings", lines=lines[:_EARNINGS_PAGE], line_count=len(lines),
+            truncated=len(lines) > _EARNINGS_PAGE,
+            totals=sorted(dash.ledger_totals(lines).items()),
+            all_totals=sorted(dash.ledger_totals(d["lines"]).items()),
+            has_any=bool(d["lines"]), filters=filters,
+            est_rows=d["est"]["rows"], est_stamp=d["est"]["stamp"],
+            est_money=_est_money(d["est"]["rows"]), activity=d["activity"],
+            state_options=[("estimated", "Estimated"), ("pending", "Pending"), ("paid", "Paid"),
+                           ("held", "Held"), ("lapsed", "Lapsed")],
+            type_options=[("first_year", "First year"), ("promo", "Promotion"),
+                          ("renewal", "Renewal"), ("refund", "Refund adjustment"),
+                          ("lapsed", "Lapsed")],
+            range_options=[("", "All time"), ("30d", "Last 30 days"), ("90d", "Last 90 days"),
+                           ("12m", "Last 12 months")])
     finally:
         s.close()
-    return render_template("aff_performance.html", **_ctx(
-        aff, "performance", history=rows, est_rows=est_rows, est_stamp=est_stamp,
-        funnel=funnel))
+    return render_template("aff_earnings.html", **ctx)
+
+
+@bp.route("/earnings.csv")
+@require_affiliate
+def earnings_csv():
+    aff = get_current_affiliate()
+    s = _db()
+    try:
+        _d, lines, _f = _earnings_lines(aff, s)
+        body = dash.ledger_csv(lines)
+    finally:
+        s.close()
+    return _csv_response(body, "tradewave-earnings-%s.csv" % aff.code)
+
+
+def _customer_rows(aff, s):
+    d = _page_data(aff, s)
+    rows = dash.customers(s, d["live"], d["catalog"], d["terms"], d["lines"],
+                          d["activity"]["status"])
+    filters = {"status": request.args.get("status") or "",
+               "plan": request.args.get("plan") or "",
+               "source": request.args.get("source") or ""}
+    shown = dash.filter_customers(rows, status=filters["status"], interval=filters["plan"],
+                                  source=filters["source"])
+    return d, rows, shown, filters
+
+
+@bp.route("/customers")
+@require_affiliate
+def customers():
+    aff = get_current_affiliate()
+    s = _db()
+    try:
+        d, rows, shown, filters = _customer_rows(aff, s)
+        ctx = _ctx(
+            aff, "customers", rows=shown[:500], row_count=len(shown), has_any=bool(rows),
+            filters=filters, activity=d["activity"],
+            counts={k: sum(1 for r in rows if r["status"] == k) for k in dash.STATUS_LABELS},
+            status_options=list(dash.STATUS_LABELS.items()),
+            plan_options=list(dash.INTERVAL_LABELS.items()),
+            source_options=list(dash.SOURCE_LABELS.items()))
+    finally:
+        s.close()
+    return render_template("aff_customers.html", **ctx)
+
+
+@bp.route("/customers.csv")
+@require_affiliate
+def customers_csv():
+    aff = get_current_affiliate()
+    s = _db()
+    try:
+        _d, _rows, shown, _f = _customer_rows(aff, s)
+        body = dash.customers_csv(shown)
+    finally:
+        s.close()
+    return _csv_response(body, "tradewave-customers-%s.csv" % aff.code)
 
 
 @bp.route("/payouts")
@@ -339,6 +522,7 @@ def payouts():
     s = _db()
     try:
         from models import AffiliatePayout
+        live = _fresh_affiliate(s)
         rows = (s.query(AffiliatePayout)
                 .filter(AffiliatePayout.affiliate_id == aff.id)
                 .order_by(AffiliatePayout.period_start.desc()).limit(60).all())
@@ -347,14 +531,29 @@ def payouts():
             "currency": p.currency,
             "commission": p.commission_amount,
             "status": p.status,
-            "paid_at": p.paid_at.strftime("%Y-%m-%d") if p.paid_at else None,
+            "paid_at": dash.fmt_date(p.paid_at) if p.paid_at else None,
             "external_ref": p.external_ref,
             "carried_to": (p.external_ref[len("carried:"):]
                            if (p.external_ref or "").startswith("carried:") else None),
         } for p in rows]
+        pending, paid = dash.payout_totals(s, live)
+        est = _estimate_full(aff)
+        held = sum(int(r.get("held_amount", 0) * 100) for r in (est["rows"] or [])
+                   if r["currency"] == "usd")
+        ctx = _ctx(aff, "payouts", ledger=ledger,
+                   checklist=dash.payout_checklist(live, pending, held_cents=held),
+                   pending=sorted(pending.items()), lifetime_paid=sorted(paid.items()))
     finally:
         s.close()
-    return render_template("aff_payouts.html", **_ctx(aff, "payouts", ledger=ledger))
+    return render_template("aff_payouts.html", **ctx)
+
+
+# ------------------------------------------------------------------
+# links: referral link, join link, code, link builder, QR
+# ------------------------------------------------------------------
+def _site_base():
+    import affiliate_agreement as agr
+    return agr._base()
 
 
 @bp.route("/links")
@@ -379,7 +578,183 @@ def links():
     finally:
         s.close()
     return render_template("aff_links.html", **_ctx(
-        aff, "links", links=_links_for(aff), take_links=take_links))
+        aff, "links", take_links=take_links, site_base=_site_base(),
+        destinations=[("join", "Your join page", "/join/%s" % aff.code),
+                      ("home", "Home page", "/"),
+                      ("pricing", "Pricing", "/pricing"),
+                      ("custom", "Another page on tradewave.ai", "")]))
+
+
+@bp.route("/qr.svg")
+@require_affiliate
+def qr_svg():
+    """QR code (SVG) for one of the partner's OWN tracked links: the URL must
+    be on this site and carry the partner's code, so this is not an open QR
+    generator. ?download=1 sends it as a file."""
+    aff = get_current_affiliate()
+    url = (request.args.get("u") or "").strip()
+    base = _site_base()
+    code = aff.code
+    on_site = url.startswith(base + "/") and not PLAIN_TEXT_BAN.search(url[len(base):])
+    tracked = ("/join/%s" % code) in url or ("code=%s" % code) in url
+    if not on_site or not tracked or len(url) > 320:
+        return Response("Not a tracked link for this account.", status=400, mimetype="text/plain")
+    try:
+        body = _qr.svg(url, scale=8, border=4)
+    except ValueError:
+        return Response("That link is too long for a QR code.", status=400, mimetype="text/plain")
+    headers = {"Cache-Control": "private, max-age=3600"}
+    if request.args.get("download"):
+        headers["Content-Disposition"] = 'attachment; filename="tradewave-%s-qr.svg"' % code
+    return Response(body, mimetype="image/svg+xml", headers=headers)
+
+
+# ------------------------------------------------------------------
+# promote: swipe copy, AI guide, join-page editor
+# ------------------------------------------------------------------
+@bp.route("/promote")
+@require_affiliate
+def promote():
+    aff = get_current_affiliate()
+    s = _db()
+    try:
+        import affiliate_service as asvc
+        live = _fresh_affiliate(s)
+        terms = asvc.terms_for(s, live)
+        offer = dash.offer_summary(live, terms)
+        catalog = _catalog()
+        promos = dash.promotions(s, live, catalog, terms)
+        ai_md = _guide_for(live, terms)
+    finally:
+        s.close()
+    links = _links_for(aff)
+    html = _render_guide(_guide_md().replace("`ANNE`", "`%s`" % aff.code)
+                         .replace("/join/ANNE", "/join/%s" % aff.code)
+                         .replace("?code=ANNE", "?code=%s" % aff.code))
+    return render_template("aff_promote.html", **_ctx(
+        aff, "promote", offer=offer, promos=promos, swipes=dash.swipe_copy(aff, links, offer),
+        disclosure=dash.DISCLOSURE, guide_html=html, ai_md=ai_md,
+        logo_urlpath=AFFILIATE_LOGO_URLPATH))
+
+
+# ------------------------------------------------------------------
+# settings: your offer (discount chooser), profile, account
+# ------------------------------------------------------------------
+@bp.route("/settings")
+@require_affiliate
+def settings():
+    aff = get_current_affiliate()
+    s = _db()
+    try:
+        import affiliate_service as asvc
+        live = _fresh_affiliate(s)
+        terms = asvc.terms_for(s, live)
+        catalog = _catalog()
+        next_change = asvc.next_discount_change_at(live)
+        ctx = _ctx(
+            aff, "settings", offer=dash.offer_summary(live, terms),
+            plans=dash.plan_table(catalog, live, terms) if catalog else [],
+            grid=dash.discount_grid(catalog, terms),
+            history=dash.discount_history_rows(s, live),
+            next_change=(next_change.strftime("%d %b %Y, %H:%M UTC").lstrip("0")
+                         if next_change else None),
+            is_owner=_is_owner(live), logo_urlpath=AFFILIATE_LOGO_URLPATH)
+    finally:
+        s.close()
+    return render_template("aff_settings.html", **ctx)
+
+
+def _is_owner(live):
+    """Only the partner's own linked login may change the offer."""
+    user = get_current_user()
+    return (user is not None and live is not None and live.user_id is not None
+            and str(live.user_id) == str(getattr(user, "id", None)))
+
+
+@bp.route("/settings/discount", methods=["POST"])
+@require_affiliate
+def settings_discount():
+    """Self-serve customer discount (0 to the terms' cap, one change per 24h).
+    Validation, the cooldown, the Stripe coupon and the history row all live
+    in affiliate_service.set_partner_discount."""
+    import affiliate_service as asvc
+    from decimal import Decimal, InvalidOperation
+    back = redirect(url_for("affiliate_portal.settings") + "#offer")
+    raw = (request.form.get("discount_pct") or "").strip().rstrip("%").strip()
+    try:
+        new = Decimal(raw)
+        if not new.is_finite():
+            raise InvalidOperation
+    except (InvalidOperation, ValueError):
+        flash("Enter a discount as a number, for example 20.", "error")
+        return back
+    s = _db()
+    try:
+        live = _fresh_affiliate(s)
+        if not _is_owner(live):
+            flash("Only the account owner can change the discount.", "error")
+            return back
+        terms = asvc.terms_for(s, live)
+        cap = asvc._dec(terms.max_discount_pct)
+        if new < 0 or new > cap:
+            flash("Choose a discount between 0%% and %s%%." % dash.fmt_pct(cap), "error")
+            return back
+        actor = "partner:%s" % live.user_id
+        try:
+            annual_same = asvc._dec(live.discount_pct) == new
+            monthly_differs = (live.discount_pct_monthly is not None
+                               and asvc._dec(live.discount_pct_monthly) != new)
+            if annual_same and not monthly_differs:
+                flash("No change - your discount is already %s%%." % dash.fmt_pct(new), "success")
+                return back
+            if not annual_same:
+                asvc.set_partner_discount(s, live, new, interval="year", actor=actor)
+            if live.discount_pct_monthly is not None:
+                # One discount for every plan: fold a legacy monthly override
+                # into the same value (same partner action, same cooldown).
+                asvc.set_partner_discount(s, live, new, interval="month", actor=actor,
+                                          enforce_cooldown=annual_same)
+        except asvc.AffiliateError as e:
+            s.rollback()
+            flash(str(e), "error")
+            return back
+        except Exception:   # noqa: BLE001 - Stripe / DB failure: nothing was saved
+            s.rollback()
+            log.exception("discount change failed for %s", aff.code)
+            flash("We could not save that just now. Nothing was changed. Please try again.", "error")
+            return back
+    finally:
+        s.close()
+    from flask import g as _g
+    _g._aff_portal_affiliate = "unset"
+    flash("Saved. New customers now get %s%% off. Nothing changes for customers you already have."
+          % dash.fmt_pct(new), "success")
+    return back
+
+
+_resend_at: dict = {}
+
+
+@bp.route("/agreement/resend", methods=["POST"])
+@require_affiliate
+def agreement_resend():
+    """Email the partner their private agreement-signing link again."""
+    aff = get_current_affiliate()
+    back = redirect(url_for("affiliate_portal.overview"))
+    if aff.agreement_signed_at is not None:
+        flash("Your agreement is already signed.", "success")
+        return back
+    last = _resend_at.get(str(aff.id), 0.0)
+    if time.monotonic() - last < 600:
+        flash("We just sent it. Check your inbox (and spam) for the signing link.", "success")
+        return back
+    import affiliate_agreement as agr
+    if agr.email_signing_link(aff):
+        _resend_at[str(aff.id)] = time.monotonic()
+        flash("Sent. The signing link is on its way to %s." % aff.email, "success")
+    else:
+        flash("We could not send the email. Write to help@tradewave.ai and we will sort it out.", "error")
+    return back
 
 
 # ------------------------------------------------------------------
@@ -394,10 +769,16 @@ def _guide_md():
         return "# TradeWave Partner Guide\n\nThe guide is temporarily unavailable. Write to help@tradewave.ai.\n"
 
 
-def _partner_details_md(aff):
+def _partner_details_md(aff, terms=None):
     """The partner's own facts, prepended to the guide for their AI. Only the
     affiliate's own terms - never customer data."""
-    t = _effective_terms(aff)
+    import affiliate_service as asvc
+    if terms is None:
+        try:
+            terms = getattr(aff, "terms", None)
+        except Exception:   # noqa: BLE001 - detached row: fall back to the program default
+            terms = None
+    o = dash.offer_summary(aff, terms or asvc.DEFAULT_TERMS)
     links = _links_for(aff)
     lines = [
         "## Your details (filled in from your dashboard on %s)" % datetime.now(timezone.utc).strftime("%Y-%m-%d"),
@@ -407,18 +788,32 @@ def _partner_details_md(aff):
         "- Landing page (share this by default): %s" % links["join"],
         "- Referral link: %s" % links["referral"],
         "- Program status: %s" % aff.status,
-        "- Commission model: %s" % t["model_label"],
+        "- Your pool: %s%% of the list price to split between your audience's discount "
+        "(up to %s%%) and your commission" % (o["pool_pct"], o["max_discount_pct"]),
     ]
-    if t["split"]:
+    if o["split"]:
         lines += [
-            "- Annual plans: audience discount %s%% (first year), your commission %s%%"
-            % (t["annual_discount"], t["annual_commission"]),
-            "- Monthly plans: audience discount %s%%, your commission %s%%"
-            % (t["monthly_discount"], t["monthly_commission"]),
+            "- Annual plans: your audience gets %s%% off the first year, you earn %s%% of the list price"
+            % (o["discount_year"], o["rate_year"]),
+            "- Monthly plans: your audience gets %s%% off the first 12 months, you earn %s%% of the list price"
+            % (o["discount_month"], o["rate_month"]),
         ]
     else:
-        lines.append("- All plans: audience discount %s%% (first year), your commission %s%%"
-                     % (t["annual_discount"], t["annual_commission"]))
+        lines.append("- All plans: your audience gets %s%% off the first year, you earn %s%% of the list price"
+                     % (o["discount_year"], o["rate_year"]))
+    lines += [
+        "- TradeWave sales (promotions): the customer gets the lower price (the sale or your "
+        "discount); if the sale wins you earn %s%% of what they paid" % o["promo_pct"],
+        "- Renewals: %s%% of what the customer pays, %s"
+        % (o["renewal_pct"], "for as long as they stay subscribed" if o["lifetime"]
+           else "in years 2-%s" % o["last_year"]),
+    ]
+    if o["activity_rule_months"]:
+        lines.append("- Activity rule: renewal commissions are paid while you bring in at least 1 "
+                     "new paying customer every %s months, with a 30-day grace"
+                     % o["activity_rule_months"])
+    lines.append("- Change your discount any time (once per 24 hours) on the Settings page of "
+                 "your dashboard")
     lines += [
         "- Payout method: %s" % ((aff.payout_method or "not set").capitalize()),
         "- Tax form on file: %s" % ("yes" if aff.tax_form_received_at else
@@ -430,13 +825,13 @@ def _partner_details_md(aff):
     return "\n".join(lines)
 
 
-def _guide_for(aff):
+def _guide_for(aff, terms=None):
     md = _guide_md()
     head, sep, rest = md.partition("\n---\n")
     if not sep:
-        return _partner_details_md(aff) + md
+        return _partner_details_md(aff, terms) + md
     # Keep the title + intro first, then the partner's own details.
-    return head.rstrip() + "\n\n" + _partner_details_md(aff) + rest.lstrip("\n")
+    return head.rstrip() + "\n\n" + _partner_details_md(aff, terms) + rest.lstrip("\n")
 
 
 def _render_guide(md):
@@ -454,20 +849,22 @@ def _render_guide(md):
 @bp.route("/guide")
 @require_affiliate
 def guide():
-    aff = get_current_affiliate()
-    html = _render_guide(_guide_md().replace("`ANNE`", "`%s`" % aff.code)
-                         .replace("/join/ANNE", "/join/%s" % aff.code)
-                         .replace("?code=ANNE", "?code=%s" % aff.code))
-    return render_template("aff_guide.html", **_ctx(
-        aff, "guide", guide_html=html, ai_md=_guide_for(aff)))
+    """Old URL: the guide now lives under Promote."""
+    return redirect(url_for("affiliate_portal.promote") + "#guide")
 
 
 @bp.route("/guide.md")
 @require_affiliate
 def guide_md():
-    from flask import Response
     aff = get_current_affiliate()
-    return Response(_guide_for(aff), mimetype="text/markdown; charset=utf-8",
+    s = _db()
+    try:
+        import affiliate_service as asvc
+        live = _fresh_affiliate(s)
+        body = _guide_for(live, asvc.terms_for(s, live))
+    finally:
+        s.close()
+    return Response(body, mimetype="text/markdown; charset=utf-8",
                     headers={"Content-Disposition":
                              'inline; filename="tradewave-partner-guide-%s.md"' % aff.code,
                              "Cache-Control": "private, no-store"})
@@ -476,6 +873,12 @@ def guide_md():
 # ------------------------------------------------------------------
 # profile (join-page fields + photo + SMN expert profile)
 # ------------------------------------------------------------------
+def _profile_next():
+    if request.form.get("next") == "promote":
+        return url_for("affiliate_portal.promote") + "#join-page"
+    return url_for("affiliate_portal.settings") + "#profile"
+
+
 @bp.route("/profile", methods=["GET", "POST"])
 @require_affiliate
 def profile():
@@ -495,7 +898,9 @@ def profile():
                         setattr(live, field, new)
                         changed.append(field)
                 # --- SMN expert profile fields (participants only) ---
-                prof = _smn_profile(s, live.id)
+                # Only when the form carries them (the Promote join-page
+                # editor posts the three page fields alone).
+                prof = _smn_profile(s, live.id) if "bio_md" in request.form else None
                 if prof is not None and prof.status in ("invited", "active"):
                     bio = (request.form.get("bio_md") or "").strip() or None
                     if bio and len(bio) > 4000:
@@ -541,7 +946,7 @@ def profile():
             except ValueError as ve:
                 s.rollback()
                 flash(str(ve), "error")
-                return redirect(url_for("affiliate_portal.profile"))
+                return redirect(_profile_next())
             if changed:
                 s.commit()
                 g_key = getattr(get_current_affiliate(), "code", "?")
@@ -557,9 +962,8 @@ def profile():
         # bust the g-cache so the page re-renders fresh values
         from flask import g as _g
         _g._aff_portal_affiliate = "unset"
-        return redirect(url_for("affiliate_portal.profile"))
-    return render_template("aff_profile.html", **_ctx(
-        aff, "profile", logo_urlpath=AFFILIATE_LOGO_URLPATH))
+        return redirect(_profile_next())
+    return redirect(url_for("affiliate_portal.settings") + "#profile")
 
 
 @bp.route("/profile/photo", methods=["POST"])
@@ -573,11 +977,11 @@ def profile_photo():
     f = request.files.get("photo")
     if f is None or not f.filename:
         flash("Choose an image file first.", "error")
-        return redirect(url_for("affiliate_portal.profile"))
+        return redirect(url_for("affiliate_portal.settings") + "#profile")
     blob = f.read(MAX_PHOTO_BYTES + 1)
     if len(blob) > MAX_PHOTO_BYTES:
         flash("Image too large (2 MB max).", "error")
-        return redirect(url_for("affiliate_portal.profile"))
+        return redirect(url_for("affiliate_portal.settings") + "#profile")
     try:
         from PIL import Image
         img = Image.open(io.BytesIO(blob))
@@ -587,7 +991,7 @@ def profile_photo():
         img.thumbnail((512, 512))
     except Exception:   # noqa: BLE001 - any parse failure = reject
         flash("That file is not a supported image (jpg, png or webp).", "error")
-        return redirect(url_for("affiliate_portal.profile"))
+        return redirect(url_for("affiliate_portal.settings") + "#profile")
     fname = f"{aff.code.lower()}-photo.webp"
     os.makedirs(AFFILIATE_LOGO_DIR, exist_ok=True)
     img.save(os.path.join(AFFILIATE_LOGO_DIR, fname), "WEBP", quality=88)
@@ -603,7 +1007,7 @@ def profile_photo():
     _notify_operator("Affiliate photo updated: %s" % aff.code,
                      "Affiliate %s uploaded a new headshot (%s)." % (aff.code, fname))
     flash("Photo updated.", "success")
-    return redirect(url_for("affiliate_portal.profile"))
+    return redirect(url_for("affiliate_portal.settings") + "#profile")
 
 
 # ------------------------------------------------------------------

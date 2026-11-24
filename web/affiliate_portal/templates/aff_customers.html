@@ -1,0 +1,71 @@
+{% extends "aff_base.html" %}
+{% block heading %}Customers{% endblock %}
+{% block subtitle %}The people you referred, by number. We never show names or emails.{% endblock %}
+{% block content %}
+
+{% if has_any %}
+<div class="grid3" style="margin-bottom:16px;">
+  <div class="card tile" style="margin:0;"><div class="k">Paying</div><div class="v">{{ counts.paying }}</div><div class="s">Earning you commission.</div></div>
+  <div class="card tile" style="margin:0;"><div class="k">Not paid yet</div><div class="v">{{ counts.trial }}</div><div class="s">Started checkout, first payment pending.</div></div>
+  <div class="card tile" style="margin:0;"><div class="k">Ended</div><div class="v">{{ counts.ended }}</div><div class="s">If they come back within 12 months, they are still yours.</div></div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="spread" style="margin-bottom:12px;">
+    <h3 style="margin:0;">Your customers</h3>
+    {% if has_any %}<a class="btn-secondary btn-sm" href="{{ url_for('affiliate_portal.customers_csv', status=filters.status, plan=filters.plan, source=filters.source) }}">Download CSV</a>{% endif %}
+  </div>
+
+  {% if has_any %}
+  <form method="get" class="filters">
+    <div><label for="c-status">Status</label>
+      <select id="c-status" name="status" onchange="this.form.submit()">
+        <option value="">All statuses</option>
+        {% for k, l in status_options %}<option value="{{ k }}" {{ 'selected' if filters.status == k else '' }}>{{ l }}</option>{% endfor %}
+      </select></div>
+    <div><label for="c-plan">Billing</label>
+      <select id="c-plan" name="plan" onchange="this.form.submit()">
+        <option value="">Monthly and annual</option>
+        {% for k, l in plan_options %}<option value="{{ k }}" {{ 'selected' if filters.plan == k else '' }}>{{ l }}</option>{% endfor %}
+      </select></div>
+    <div><label for="c-source">Source</label>
+      <select id="c-source" name="source" onchange="this.form.submit()">
+        <option value="">All sources</option>
+        {% for k, l in source_options %}<option value="{{ k }}" {{ 'selected' if filters.source == k else '' }}>{{ l }}</option>{% endfor %}
+      </select></div>
+    <noscript><div><button class="btn-secondary" type="submit">Apply</button></div></noscript>
+  </form>
+  {% endif %}
+
+  {% if rows %}
+  <div class="scroll-x">
+  <table class="stack dense">
+    <thead><tr><th>Customer</th><th>Signed up</th><th>Plan</th><th>Status</th><th>Commission year</th><th>Next renewal</th><th class="num">Next commission (est.)</th><th class="num">Earned to date</th><th>Source</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr>
+      <td data-label="Customer" class="title nw">{{ r.label }}</td>
+      <td data-label="Signed up" class="nw">{{ r.signed_up }}</td>
+      <td data-label="Plan">{{ r.plan }}{% if r.promo %} <span class="pill dim">Promotion</span>{% endif %}</td>
+      <td data-label="Status"><span class="pill {{ {'paying':'ok','trial':'warn','ended':'dim'}[r.status] }}">{{ r.status_label }}</span></td>
+      <td data-label="Commission year" class="nw">{{ r.year }}</td>
+      <td data-label="Next renewal" class="nw">{{ r.next_renewal }}</td>
+      <td data-label="Next commission (est.)" class="num">{% if r.next_commission is none %}-{% else %}{{ r.next_commission|aff_cents }}{% endif %}{% if r.next_note %}<div class="tiny" style="color:var(--warn);">{{ r.next_note }}</div>{% endif %}</td>
+      <td data-label="Earned to date" class="num {{ 'neg' if r.earned < 0 else '' }}"><b>{{ r.earned|aff_money }}</b></td>
+      <td data-label="Source">{{ r.source }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="tiny muted" style="margin:14px 0 0;">{{ row_count }} customer{{ '' if row_count == 1 else 's' }}. Next commission assumes the customer renews at today's price. {{ activity.rule }}</p>
+  {% elif has_any %}
+  <div class="empty"><b>No customers match these filters</b><a href="{{ url_for('affiliate_portal.customers') }}">Clear filters</a></div>
+  {% else %}
+  <div class="empty"><b>No customers yet</b>
+    When someone subscribes through your link or types your code, they show up here as Customer #1.
+    <div style="margin-top:14px;"><a class="btn-primary" href="{{ url_for('affiliate_portal.promote') }}">See ways to promote</a></div></div>
+  {% endif %}
+</div>
+{% endblock %}
