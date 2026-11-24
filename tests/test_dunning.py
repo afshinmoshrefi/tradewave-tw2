@@ -62,10 +62,13 @@ def stub_resend(app_module, monkeypatch):
 
 
 @pytest.fixture
-def stub_billing_portal(monkeypatch):
+def stub_billing_portal(monkeypatch, app_module):
     import stripe
     m = MagicMock(return_value=MagicMock(url="https://billing.stripe.com/session/test_123"))
     monkeypatch.setattr(stripe.billing_portal.Session, "create", m)
+    # The dunning email checks for a founder plan first (TW-TASK-0038 rule 10);
+    # these users are on regular plans. Founder cases: test_affiliate_review_fixes.
+    monkeypatch.setattr(app_module, "_founder_subscription", lambda _sid: False)
     return m
 
 

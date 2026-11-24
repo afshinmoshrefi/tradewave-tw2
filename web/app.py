@@ -2824,6 +2824,36 @@ def _founder_portal_session(customer_id, subscription_id, return_url):
         })
 
 
+def founder_portal_config_problem():
+    """Deploy check (TW-TASK-0038 rule 10): founder prices are configured but
+    the cancel-only Billing Portal configuration is not. Returns the warning
+    text, or None when the setup is complete. Without the configuration a
+    founder has no Stripe-hosted way to update a card (the dunning email falls
+    back to the /account page) and the cancel flow is only a deep link."""
+    if getattr(config, "FOUNDER_PRICE_IDS", ()) and not getattr(
+            config, "FOUNDER_BILLING_PORTAL_CONFIGURATION_ID", ""):
+        return ("DEPLOY BLOCKER: TW2_FOUNDER_PRICE_IDS is set but "
+                "TW2_FOUNDER_BILLING_PORTAL_CONFIGURATION_ID is EMPTY. Founders have no "
+                "cancel-only Billing Portal. In the Stripe dashboard open Settings > Billing > "
+                "Customer portal, add a configuration with subscription update OFF and cancel "
+                "ON, and put its bpc_ id in secrets.env as "
+                "TW2_FOUNDER_BILLING_PORTAL_CONFIGURATION_ID (docs/tasks/TW-TASK-0038.md).")
+    return None
+
+
+def warn_founder_portal_config():
+    """Log founder_portal_config_problem() loudly. Called once at startup."""
+    problem = founder_portal_config_problem()
+    if problem:
+        log.error("=" * 78)
+        log.error(problem)
+        log.error("=" * 78)
+    return problem
+
+
+warn_founder_portal_config()
+
+
 def _existing_eod_subscription(customer_id, stored_web_subscription_id=None):
     """Return (subscription_id, item_id, status) for the customer's first
     non-terminal EOD-line Stripe subscription (an item whose price
@@ -2881,19 +2911,40 @@ def _fire_dunning_final_notice(db_user, event_id):
     contract): never raises past the caller's try/except, and a billing-portal
     session failure degrades to a plain /account link rather than skipping the
     email entirely.
+
+    Founder guard (TW-TASK-0038 rule 10): the default Billing Portal lets a
+    customer switch plans, so a FOUNDER never gets a default session from this
+    email. A founder gets the dedicated cancel-only portal configuration (it
+    still allows a card update); when that configuration is not set, or the
+    founder check itself fails, the email links to /account instead (fail
+    closed - the same guard as manage_subscription).
     """
     if not db_user.email:
         return
     public_host = os.environ.get("TW2_PUBLIC_HOST", "tw2.trxstat.com")
-    portal_url = f"https://{public_host}/account"
+    account_url = f"https://{public_host}/account"
+    portal_url = account_url
     try:
         if db_user.stripe_customer_id:
-            session_obj = stripe.billing_portal.Session.create(
-                customer=db_user.stripe_customer_id,
-                return_url=f"https://{public_host}/account",
-            )
-            portal_url = session_obj.url
+            web_sub_id = getattr(db_user, "stripe_subscription_id", None)
+            if web_sub_id and _founder_subscription(web_sub_id):
+                founder_config = getattr(config, "FOUNDER_BILLING_PORTAL_CONFIGURATION_ID", "")
+                if founder_config:
+                    portal_url = stripe.billing_portal.Session.create(
+                        customer=db_user.stripe_customer_id, return_url=account_url,
+                        configuration=founder_config).url
+                else:
+                    log.error("dunning: founder user %s gets the /account link, not a Billing "
+                              "Portal link: TW2_FOUNDER_BILLING_PORTAL_CONFIGURATION_ID is not "
+                              "set (event %s)", db_user.id, event_id)
+            else:
+                session_obj = stripe.billing_portal.Session.create(
+                    customer=db_user.stripe_customer_id,
+                    return_url=account_url,
+                )
+                portal_url = session_obj.url
     except Exception:
+        portal_url = account_url
         log.warning("dunning: billing-portal session create failed for user %s (event %s); "
                     "falling back to /account link", db_user.id, event_id)
 
@@ -2910,12 +2961,47 @@ def _fire_dunning_final_notice(db_user, event_id):
     log.info("dunning final-notice email user=%s sent=%s event=%s", db_user.id, sent, event_id)
 
 
+_LIVE_SUBSCRIPTION_STATUSES = ("active", "trialing", "past_due")
+
+
+def _subscription_is_api_line(sub_d):
+    """True when EVERY item of the subscription is a Developer API price
+    (product_line == api). Anything else - EOD prices, legacy web prices,
+    founder prices, prices we cannot classify - counts as the web/EOD line."""
+    items = ((sub_d.get("items") or {}).get("data") or [])
+    if not items:
+        return str((sub_d.get("metadata") or {}).get("product_line") or "").strip().lower() == "api"
+    for item in items:
+        item_d = item if isinstance(item, dict) else (
+            item.to_dict() if hasattr(item, "to_dict") else dict(item))
+        price_d = item_d.get("price") or {}
+        price_id = price_d.get("id") if isinstance(price_d, dict) else None
+        if not price_id or not _api_tier_for_price(price_id):
+            return False
+    return True
+
+
+def _subscription_ever_paid(subscription_id):
+    """True when the subscription has at least one PAID invoice with
+    amount_paid > 0. Stripe failures propagate (the caller fails closed)."""
+    listing = stripe.Invoice.list(subscription=subscription_id, status="paid", limit=100)
+    for inv in listing.auto_paging_iter():
+        inv_d = inv if isinstance(inv, dict) else inv.to_dict()
+        if int(inv_d.get("amount_paid") or 0) > 0:
+            return True
+    return False
+
+
 def _is_new_customer(customer_id):
     """A NEW customer for campaign eligibility: no Stripe customer yet, or one
-    that never had a subscription, or whose last subscription ended more than
-    12 months ago (rule 8: after 12 months they are brand new). Any live
-    subscription, or a lookup failure, means NOT new (fail closed: no
-    campaign price)."""
+    with no web/EOD subscription that counts. A subscription counts when it is
+    on the web/EOD line (a Developer API subscription never does) AND it is
+    live (active / trialing / past_due) or it ever had a successful payment
+    above $0. So an abandoned checkout (incomplete / incomplete_expired) and
+    a trial that was canceled before the first charge do NOT make someone an
+    existing customer. A paid subscription that ended more than 12 months ago
+    no longer counts either (rule 8: after 12 months they are brand new).
+    A lookup failure means NOT new (fail closed: no campaign price)."""
     if not customer_id:
         return True
     try:
@@ -2924,8 +3010,15 @@ def _is_new_customer(customer_id):
         subs = stripe.Subscription.list(customer=customer_id, status="all", limit=100)
         for sub in subs.auto_paging_iter():
             sub_d = sub if isinstance(sub, dict) else sub.to_dict()
-            if str(sub_d.get("status") or "") not in ("canceled", "incomplete_expired"):
+            if _subscription_is_api_line(sub_d):
+                continue
+            status = str(sub_d.get("status") or "")
+            if status in _LIVE_SUBSCRIPTION_STATUSES:
                 return False
+            if not _subscription_ever_paid(sub_d.get("id")):
+                continue                              # abandoned checkout / unpaid trial
+            if status not in ("canceled", "incomplete_expired"):
+                return False                          # paid before, not ended (unpaid / paused)
             ended = afs._utc(sub_d.get("ended_at") or sub_d.get("canceled_at"))
             if ended is None or now < afs._add_months(ended, afs.RETURN_WINDOW_MONTHS):
                 return False

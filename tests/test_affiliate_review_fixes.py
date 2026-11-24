@@ -421,3 +421,137 @@ class TestReversalStatusChanges:
         start, end, _, _ = afs._month_window(*MAY)
         afs._month_reversals(start, end)
         assert seen["created"] == {"gte": ts(2026, 4, 1), "lt": ts(2026, 6, 1)}
+
+
+# ============================================================================
+# Finding 4 - the dunning email must not hand a founder the plan-switch portal
+# ============================================================================
+
+class TestFounderDunningPortal:
+    def _fire(self, mod, monkeypatch, *, price_id="price_founder", founder_config="", boom=False,
+              sub_id="sub_f"):
+        import config
+        import email_utils
+        monkeypatch.setattr(config, "FOUNDER_PRICE_IDS", ("price_founder",))
+        monkeypatch.setattr(config, "FOUNDER_BILLING_PORTAL_CONFIGURATION_ID", founder_config)
+
+        def retrieve(sid, **kw):
+            if boom:
+                raise RuntimeError("stripe down")
+            return {"id": sid, "items": {"data": [{"id": "si_1", "price": {"id": price_id}}]}}
+        monkeypatch.setattr(mod.stripe.Subscription, "retrieve", staticmethod(retrieve))
+        portal, sent = [], []
+
+        def create_portal(**kw):
+            portal.append(kw)
+            return SimpleNamespace(url="https://billing.stripe.test/p")
+        monkeypatch.setattr(mod.stripe.billing_portal.Session, "create", staticmethod(create_portal))
+        monkeypatch.setattr(email_utils, "resend_send_email",
+                            lambda to, subject, body: sent.append(body) or True)
+        user = SimpleNamespace(id="u-1", email="founder@example.com", tier="analyst",
+                               stripe_customer_id="cus_f", stripe_subscription_id=sub_id)
+        mod._fire_dunning_final_notice(user, "evt_1")
+        return portal, sent[0]
+
+    def test_founder_without_the_cancel_only_config_gets_the_account_link(self, app_module, monkeypatch):
+        portal, body = self._fire(app_module, monkeypatch)
+        assert portal == []                              # no default (plan-switch) session
+        assert "https://tw2.trxstat.com/account" in body and "billing.stripe.test" not in body
+        assert "\u2014" not in body
+
+    def test_founder_with_the_config_gets_the_cancel_only_portal(self, app_module, monkeypatch):
+        portal, body = self._fire(app_module, monkeypatch, founder_config="bpc_founder")
+        assert [p.get("configuration") for p in portal] == ["bpc_founder"]
+        assert "billing.stripe.test" in body
+
+    def test_regular_customer_still_gets_the_default_portal(self, app_module, monkeypatch):
+        portal, body = self._fire(app_module, monkeypatch, price_id="price_regular",
+                                  founder_config="bpc_founder")
+        assert len(portal) == 1 and "configuration" not in portal[0] and "flow_data" not in portal[0]
+        assert "billing.stripe.test" in body
+
+    def test_founder_check_failure_fails_closed(self, app_module, monkeypatch):
+        portal, body = self._fire(app_module, monkeypatch, boom=True)
+        assert portal == [] and "https://tw2.trxstat.com/account" in body
+
+    def test_startup_check_warns_when_the_founder_config_is_missing(self, app_module, monkeypatch, caplog):
+        import config
+        monkeypatch.setattr(config, "FOUNDER_PRICE_IDS", ("price_founder",))
+        monkeypatch.setattr(config, "FOUNDER_BILLING_PORTAL_CONFIGURATION_ID", "")
+        with caplog.at_level(logging.ERROR, logger=app_module.log.name):
+            problem = app_module.warn_founder_portal_config()
+        assert "DEPLOY BLOCKER" in problem and "TW2_FOUNDER_BILLING_PORTAL_CONFIGURATION_ID" in caplog.text
+        monkeypatch.setattr(config, "FOUNDER_BILLING_PORTAL_CONFIGURATION_ID", "bpc_founder")
+        assert app_module.warn_founder_portal_config() is None
+        monkeypatch.setattr(config, "FOUNDER_PRICE_IDS", ())
+        monkeypatch.setattr(config, "FOUNDER_BILLING_PORTAL_CONFIGURATION_ID", "")
+        assert app_module.warn_founder_portal_config() is None
+
+
+# ============================================================================
+# Finding 6 - who is a NEW customer (campaign eligibility)
+# ============================================================================
+
+class TestIsNewCustomer:
+    def _check(self, mod, monkeypatch, subs, paid=()):
+        """subs: Stripe subscription dicts. paid: ids of subscriptions that
+        have a paid invoice above $0."""
+        monkeypatch.setattr(mod, "_api_tier_for_price",
+                            lambda pid: "pro" if pid.startswith("price_api") else None)
+        monkeypatch.setattr(mod.stripe.Subscription, "list",
+                            staticmethod(lambda **kw: FakeList(subs)))
+
+        def invoice_list(**kw):
+            sid = kw["subscription"]
+            items = [{"id": "in_0", "amount_paid": 0}]             # a $0 trial invoice
+            if sid in paid:
+                items.append({"id": "in_1", "amount_paid": 39900})
+            return FakeList(items)
+        monkeypatch.setattr(mod.stripe.Invoice, "list", staticmethod(invoice_list))
+        return mod._is_new_customer("cus_1")
+
+    @staticmethod
+    def _sub(sid="sub_1", status="active", price="price_eod", ended=None):
+        return {"id": sid, "status": status, "ended_at": ended,
+                "items": {"data": [{"id": "si_1", "price": {"id": price}}]}}
+
+    def test_no_customer_or_no_subscription_is_new(self, app_module, monkeypatch):
+        assert app_module._is_new_customer(None) is True
+        assert self._check(app_module, monkeypatch, []) is True
+
+    @pytest.mark.parametrize("status", ["incomplete", "incomplete_expired"])
+    def test_an_abandoned_checkout_does_not_make_an_existing_customer(self, app_module, monkeypatch, status):
+        assert self._check(app_module, monkeypatch, [self._sub(status=status)]) is True
+
+    def test_a_trial_canceled_before_any_payment_is_still_new(self, app_module, monkeypatch):
+        recently = int(dt.datetime.now(dt.timezone.utc).timestamp()) - 86400
+        assert self._check(app_module, monkeypatch,
+                           [self._sub(status="canceled", ended=recently)]) is True
+
+    def test_a_developer_api_subscription_does_not_count(self, app_module, monkeypatch):
+        subs = [self._sub(status="active", price="price_api_pro")]
+        assert self._check(app_module, monkeypatch, subs, paid={"sub_1"}) is True
+
+    @pytest.mark.parametrize("status", ["active", "trialing", "past_due"])
+    def test_a_live_eod_subscription_is_an_existing_customer(self, app_module, monkeypatch, status):
+        assert self._check(app_module, monkeypatch, [self._sub(status=status)]) is False
+
+    def test_a_paid_subscription_that_ended_recently_is_an_existing_customer(self, app_module, monkeypatch):
+        recently = int(dt.datetime.now(dt.timezone.utc).timestamp()) - 30 * 86400
+        subs = [self._sub(status="canceled", ended=recently)]
+        assert self._check(app_module, monkeypatch, subs, paid={"sub_1"}) is False
+
+    def test_a_paid_subscription_that_ended_over_12_months_ago_is_new_again(self, app_module, monkeypatch):
+        long_ago = int(dt.datetime.now(dt.timezone.utc).timestamp()) - 400 * 86400
+        subs = [self._sub(status="canceled", ended=long_ago)]
+        assert self._check(app_module, monkeypatch, subs, paid={"sub_1"}) is True
+
+    def test_unpaid_or_paused_after_paying_is_an_existing_customer(self, app_module, monkeypatch):
+        assert self._check(app_module, monkeypatch, [self._sub(status="unpaid")],
+                           paid={"sub_1"}) is False
+
+    def test_lookup_failure_fails_closed(self, app_module, monkeypatch):
+        def boom(**kw):
+            raise RuntimeError("stripe down")
+        monkeypatch.setattr(app_module.stripe.Subscription, "list", staticmethod(boom))
+        assert app_module._is_new_customer("cus_1") is False
