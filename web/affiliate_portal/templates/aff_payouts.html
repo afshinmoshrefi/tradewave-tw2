@@ -1,39 +1,73 @@
 {% extends "aff_base.html" %}
+{% import "aff_macros.html" as m %}
+{% block heading %}Payouts{% endblock %}
+{% block subtitle %}What you need to get paid, when the next payout is, and what has been sent.{% endblock %}
 {% block content %}
-<div class="card">
-  <h3>Payout Method</h3>
-  {% if aff.payout_method %}
-    <p>{{ aff.payout_method|capitalize }} - <span class="mono">{{ aff.payout_email }}</span></p>
-  {% else %}
-    <p class="muted">No payout method on file yet.</p>
-  {% endif %}
-  {% if aff.tax_form_received_at %}
-    <p>Tax form on file: <span class="pill ok">{{ {'w9':'W-9','w8ben':'W-8BEN','w8bene':'W-8BEN-E'}.get(aff.tax_form_type, aff.tax_form_type or 'received') }}</span></p>
-  {% else %}
-    <p><span class="pill bad">Tax form needed</span> We can't send payouts until we have your tax form:
-      a W-9 (U.S. persons), W-8BEN (non-U.S. individuals) or W-8BEN-E (non-U.S. entities).
-      Email it to help@tradewave.ai.</p>
-  {% endif %}
-  <p class="muted" style="font-size:13px;">To change payout details, reply to any of our emails or write to help@tradewave.ai - changes are verified manually (they gate real money).</p>
+
+<div class="grid2">
+  <div class="card">
+    <h3>Payout checklist {% if checklist.ready %}<span class="right"><span class="pill ok">Ready to be paid</span></span>{% endif %}</h3>
+    {% for it in checklist['items'] %}
+    <div class="check {{ 'ok' if it.ok else 'todo' }}">
+      <span class="dot" aria-hidden="true">{{ '✓' if it.ok else '!' }}</span>
+      <div><b>{{ it.label }}</b>{% if not it.ok %} <span class="pill warn">To do</span>{% endif %}
+        {% if it.help %}<div class="small soft" style="margin-top:3px;">{{ it.help }}</div>{% endif %}</div>
+    </div>
+    {% endfor %}
+    {% if aff.status == 'paused' %}
+    <p class="small" style="color:var(--warn); margin:12px 0 0;">Your account is paused. Commissions keep adding up and are paid when it is unpaused.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>Next payout</h3>
+    <div class="big">{{ checklist.pending_cents|aff_cents }}</div>
+    <p class="soft small" style="margin:4px 0 12px;">Pending balance. Next statement on <b style="color:var(--text);">{{ checklist.next_date }}</b>; payouts go out after we review it.</p>
+    <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ checklist.progress_pct }}"
+         aria-label="Progress toward the payout minimum"><i style="width:{{ checklist.progress_pct }}%;"></i></div>
+    <p class="tiny muted" style="margin:8px 0 0;">{{ checklist.progress_pct }}% of the {{ checklist.minimum_cents|aff_price }} minimum.
+      Balances under {{ checklist.minimum_cents|aff_price }} are not lost: they roll into your next payout.</p>
+    {% for ccy, amt in pending if ccy != 'usd' %}
+    <p class="small soft" style="margin:8px 0 0;">Also pending: {{ amt|aff_money(ccy) }}</p>
+    {% endfor %}
+    {% if checklist.held_cents %}
+    <p class="small soft" style="margin:8px 0 0;">Held this month: {{ checklist.held_cents|aff_cents }}</p>
+    {% endif %}
+  </div>
 </div>
 
 <div class="card">
-  <h3>Payout Ledger</h3>
-  {% if ledger %}
+  <h3>Payout details</h3>
   <table>
-    <tr><th>Period</th><th>Amount</th><th>Status</th><th>Paid</th><th>Reference</th></tr>
+    <tr><td class="soft" style="width:40%;">Method</td><td>{% if aff.payout_method %}{{ aff.payout_method|capitalize }}{% else %}<span class="pill warn">Not set</span>{% endif %}</td></tr>
+    <tr><td class="soft">Sent to</td><td>{% if aff.payout_email %}<span class="mono">{{ aff.payout_email }}</span>{% else %}-{% endif %}</td></tr>
+    <tr><td class="soft">Tax form</td><td>{% if aff.tax_form_received_at %}<span class="pill ok">{{ {'w9':'W-9','w8ben':'W-8BEN','w8bene':'W-8BEN-E'}.get(aff.tax_form_type, aff.tax_form_type or 'Received') }}</span> on file{% else %}<span class="pill bad">Needed</span>{% endif %}</td></tr>
+    <tr><td class="soft">Paid to date</td><td>{{ m.money_list(lifetime_paid) }}</td></tr>
+  </table>
+  <p class="tiny muted" style="margin:12px 0 0;">To change payout details, write to help@tradewave.ai. We check every change by hand because it moves real money.</p>
+</div>
+
+<div class="card">
+  <h3>Payout history</h3>
+  {% if ledger %}
+  <table class="stack">
+    <thead><tr><th>Month</th><th class="num">Amount</th><th>Status</th><th>Paid on</th><th>Reference</th></tr></thead>
+    <tbody>
     {% for p in ledger %}
     <tr>
-      <td>{{ p.period }}</td>
-      <td>{{ '%.2f'|format(p.commission) }} {{ p.currency|upper }}</td>
-      <td>{% if p.carried_to %}<span class="pill warn">netted into {{ p.carried_to }}</span>{% else %}<span class="pill {{ 'ok' if p.status == 'paid' else ('warn' if p.status == 'pending' else 'bad') }}">{{ p.status }}</span>{% endif %}</td>
-      <td>{{ p.paid_at or '-' }}</td>
-      <td class="mono">{{ '-' if p.carried_to else (p.external_ref or '-') }}</td>
+      <td data-label="Month" class="title">{{ p.period }}</td>
+      <td data-label="Amount" class="num {{ 'neg' if p.commission < 0 else '' }}"><b>{{ p.commission|aff_money(p.currency) }}</b></td>
+      <td data-label="Status">{% if p.carried_to %}<span class="pill warn">Moved into {{ p.carried_to }}</span>{% else %}<span class="pill {{ 'ok' if p.status == 'paid' else ('' if p.status == 'pending' else 'dim') }}">{{ p.status|capitalize }}</span>{% endif %}</td>
+      <td data-label="Paid on">{{ p.paid_at or '-' }}</td>
+      <td data-label="Reference" class="mono">{{ '-' if p.carried_to else (p.external_ref or '-') }}</td>
     </tr>
     {% endfor %}
+    </tbody>
   </table>
+  <p class="tiny muted" style="margin:12px 0 0;">A month can be negative when refunds outweigh sales. It is then taken off your next payable month.</p>
   {% else %}
-  <p class="muted">Nothing here yet - commissions appear after your first attributed month settles.</p>
+  <div class="empty"><b>No payouts yet</b>
+    Your first monthly statement appears here on the 2nd of the month after your first sale.</div>
   {% endif %}
 </div>
 {% endblock %}

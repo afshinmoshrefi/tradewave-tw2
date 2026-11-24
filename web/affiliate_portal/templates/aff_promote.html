@@ -1,0 +1,78 @@
+{% extends "aff_base.html" %}
+{% import "aff_macros.html" as m %}
+{% block heading %}Promote{% endblock %}
+{% block subtitle %}Ready-to-use copy, your join page and the partner guide.{% endblock %}
+{% block content %}
+
+{% for p in promos %}{{ m.promo_card(p, links, aff, offer.promo_pct) }}{% endfor %}
+
+<div class="card">
+  <h3>Copy you can post today</h3>
+  <p class="soft small" style="margin-top:0;">Already filled in with your code{% if offer.discount_year != '0' %}, your {{ offer.discount_year }}% discount{% endif %} and your link. Edit it to sound like you.
+    Keep the last line: you must tell people you earn a commission.</p>
+  <div class="grid2" style="margin-bottom:0;">
+    {% for sw in swipes %}
+    <div class="swipe">
+      <div class="spread" style="margin-bottom:8px;">
+        <b>{{ sw.channel }}</b>
+        <button class="copybtn" type="button" onclick="twCopy(this, document.getElementById('sw-{{ sw.key }}').value)">Copy</button>
+      </div>
+      <textarea id="sw-{{ sw.key }}" rows="7" spellcheck="true">{{ sw.text }}</textarea>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="tiny muted" style="margin:14px 0 0;">Disclosure line: "{{ disclosure }}" Do not promise profits or call TradeWave signals, picks or advice. The full rules are in the guide below.</p>
+</div>
+
+<div class="card">
+  <h3>Use it with your AI assistant</h3>
+  <p class="soft small" style="margin-top:0;">Copy the partner guide with your own code, links and terms filled in, then paste it into
+    ChatGPT, Claude or any assistant before asking it to write posts or emails. It includes the promotion rules, so the drafts stay within them.</p>
+  <div class="row">
+    <button class="btn-primary" type="button" onclick="twCopy(this, document.getElementById('ai-md').value)">Copy for my AI</button>
+    <a class="btn-secondary" href="{{ url_for('affiliate_portal.guide_md') }}" download>Download .md</a>
+  </div>
+  <textarea id="ai-md" readonly style="position:absolute;left:-9999px;" aria-hidden="true" tabindex="-1">{{ ai_md }}</textarea>
+</div>
+
+<div class="card" id="join-page">
+  <h3>Your join page <span class="right"><a href="{{ links.join }}" target="_blank" rel="noopener">Preview</a></span></h3>
+  <p class="soft small" style="margin-top:0;">This is the page people land on from <code>{{ links.join }}</code>. It shows your name, your note and the real prices your audience pays.</p>
+  <form method="post" action="{{ url_for('affiliate_portal.profile') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="next" value="promote">
+    <div class="grid2" style="margin-bottom:0;">
+      <div>
+        <label for="jp-name" style="margin-top:0;">Display name</label>
+        <input type="text" id="jp-name" name="page_display_name" value="{{ aff.page_display_name or '' }}" maxlength="80" placeholder="{{ aff.name }}">
+        <label for="jp-sign">Sign-off (60 max)</label>
+        <input type="text" id="jp-sign" name="page_signoff" value="{{ aff.page_signoff or '' }}" maxlength="60" placeholder="e.g. Sarah, your options coach">
+      </div>
+      <div>
+        <label for="jp-note" style="margin-top:0;">Note to your audience (plain text, 280 max)</label>
+        <textarea id="jp-note" name="page_note" maxlength="280" style="min-height:118px;" placeholder="Why you use TradeWave, in your own words.">{{ aff.page_note or '' }}</textarea>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px;">
+      <button class="btn-primary" type="submit">Save join page</button>
+      <a class="btn-secondary" href="{{ url_for('affiliate_portal.settings') }}#profile">Change photo</a>
+      <span class="tiny muted">Changes go live right away. The TradeWave team is told about every change.</span>
+    </div>
+  </form>
+</div>
+
+<div class="card guide" id="guide">
+  {{ guide_html|safe }}
+</div>
+<style>
+  .swipe textarea { min-height:150px; font-size:14px; line-height:1.5; }
+  .guide h1 { font-size:22px; margin-top:0; }
+  .guide h2 { font-size:17px; margin-top:28px; color:#c7d2fe; }
+  .guide table { margin:10px 0; font-size:14px; display:block; overflow-x:auto; }
+  .guide th, .guide td { border-bottom:1px solid #1f2937; padding:6px 8px; text-align:left; vertical-align:top; }
+  .guide code { background:#111827; padding:1px 5px; border-radius:4px; }
+  .guide blockquote { border-left:3px solid #6366f1; margin:10px 0; padding:4px 12px; color:#d1d5db; }
+  .guide hr { border:0; border-top:1px solid #1f2937; margin:20px 0; }
+  .guide a { color:#a5b4fc; }
+</style>
+{% endblock %}
