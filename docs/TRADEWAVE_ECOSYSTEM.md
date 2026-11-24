@@ -291,6 +291,32 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   403, non-affiliates 404 `not_affiliate`; returns links, terms, anonymized
   funnel, ledger totals per currency, tax-form status, promo copy + rules.
   No customer identities; payout email exposed only as a boolean.
+- **Partner lifecycle + communication (TW-TASK-0039 package B, built
+  2026-11-24, branch `claude/affiliate-comms-0039b`; NOT yet on
+  dev/staging/prod).** Migration `c5e8f1a2b3d6_affiliate_lifecycle_comms`
+  (down_revision `b4d7e1f2a3c5`; needs a merge revision with the parallel 0039
+  migrations) adds `affiliate_applications`, `affiliate_messages`,
+  `affiliate_notifications`, `affiliate_email_prefs`. Service
+  `web/affiliate_comms.py` (no Flask); public blueprint
+  `web/affiliate_comms_views.py` = `/partners/apply` (honeypot field
+  `company_url` + 3 per salted-IP-hash per day), `/partners/email-preferences/<token>`
+  (GET never mutates), POST `/partners/unsubscribe/<token>/<pref>` (CSRF
+  exempt, RFC 8058 one-click); admin `web/affiliate_comms_admin.py` =
+  `/admin/affiliate_applications/` and `/admin/affiliate_messages/`; portal
+  `web/affiliate_portal/messages.py` = `/messages` inbox + `/settings/email`.
+  nginx needs `location /partners/` -> web tier. INVARIANT: ONE row in
+  `affiliate_notifications` is the inbox item, the email send log AND the
+  idempotency claim - UNIQUE (affiliate_id, event_key), committed as
+  `pending` before the send, so an event is emailed at most once per partner
+  (failed retried up to 3 attempts; events older than 7 days,
+  `TW2_AFFILIATE_COMMS_MAX_EVENT_AGE_DAYS`, are never emailed, so the first
+  run has no backlog). Daily job `python web/affiliate_comms.py [--dry-run]`,
+  cron via `ops/install_affiliate_comms_cron.sh` (14:10 UTC); only the welcome
+  email is sent inline (at signing). Preferences = JSON list of disabled pref
+  ids; required notices (payout sent, discount change, 7-day warning, renewals
+  lapsed, program notice) ignore preferences and carry no unsubscribe link.
+  The statement-ready notice duplicates `affiliate_report.py --email` until
+  that flag is removed from its cron.
 - **Affiliate program v2 (TW-TASK-0038, backend built 2026-11-24, branch
   `claude/affiliate-v2-20261124`; NOT yet on dev/staging/prod).** Rules of
   record + the dollar acceptance table: `docs/tasks/TW-TASK-0038.md`. Tests:

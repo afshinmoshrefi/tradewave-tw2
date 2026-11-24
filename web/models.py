@@ -904,6 +904,104 @@ class ExpertTake(Base):
 # See web/promo_service.py + the PromoCouponAdmin Flask-Admin view. CHECK values
 # mirror migration b2c0fee1d3a5 - never rename, only add.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Partner lifecycle + communication (TW-TASK-0039 package B, migration
+# c5e8f1a2b3d6). Service: web/affiliate_comms.py. Every string in these tuples
+# is a STORAGE ID - never rename, only add.
+# ---------------------------------------------------------------------------
+AFFILIATE_APPLICATION_STATUSES = ("new", "approved", "rejected", "spam")
+AFFILIATE_NOTIFICATION_EMAIL_STATUSES = ("pending", "sent", "skipped", "failed")
+
+
+class AffiliateApplication(Base):
+    """A public partner application (/partners/apply). Approving one creates
+    the affiliates row; the application keeps the link in affiliate_id."""
+    __tablename__ = "affiliate_applications"
+    id            = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    name          = Column(Text, nullable=False)
+    email         = Column(Text, nullable=False)        # lowercased
+    website       = Column(Text)
+    channels      = Column(Text)                        # where they reach their audience (free text)
+    audience_size = Column(Text)                        # storage id, see affiliate_comms.AUDIENCE_SIZES
+    promo_plan    = Column(Text)                        # how they will promote (free text)
+    country       = Column(Text)
+    agreed_policies_at = Column(TIMESTAMP(timezone=True))
+    ip_hash       = Column(Text)                        # salted hash, rate limit only (never the raw IP)
+    user_agent    = Column(Text)
+    status        = Column(Text, nullable=False, server_default=sa_text("'new'"))
+    affiliate_id  = Column(PG_UUID(as_uuid=True), ForeignKey("affiliates.id", ondelete="SET NULL"))
+    decision_note = Column(Text)                        # reject reason / approval note
+    decided_by    = Column(Text)
+    decided_at    = Column(TIMESTAMP(timezone=True))
+    created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("status IN ('new','approved','rejected','spam')",
+                        name="affiliate_applications_status_check"),
+        Index("ix_affiliate_applications_email", "email"),
+        Index("ix_affiliate_applications_status", "status", "created_at"),
+        Index("ix_affiliate_applications_ip", "ip_hash", "created_at"),
+    )
+
+    def __str__(self):
+        return f"{self.name} <{self.email}>"
+
+
+class AffiliateMessage(Base):
+    """One admin-composed message (the send-log header). Each recipient gets
+    an affiliate_notifications row pointing here."""
+    __tablename__ = "affiliate_messages"
+    id            = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    subject       = Column(Text, nullable=False)
+    body          = Column(Text, nullable=False)        # plain text as composed (placeholders unfilled)
+    audience      = Column(Text, nullable=False)        # storage id, see affiliate_comms.AUDIENCES
+    audience_param = Column(Text)                       # partner id / terms id / days
+    required      = Column(Boolean, nullable=False, server_default=sa_text("false"))  # program notice: ignores the opt-out
+    sent_by       = Column(Text)
+    recipient_count = Column(Integer, nullable=False, server_default=sa_text("0"))
+    created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+
+
+class AffiliateNotification(Base):
+    """One message TO one partner: the portal inbox row, the email send log
+    and the idempotency claim in one. UNIQUE (affiliate_id, event_key) is what
+    makes the daily job send each event once per partner."""
+    __tablename__ = "affiliate_notifications"
+    id            = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    affiliate_id  = Column(PG_UUID(as_uuid=True), ForeignKey("affiliates.id", ondelete="CASCADE"), nullable=False)
+    message_id    = Column(BigInteger, ForeignKey("affiliate_messages.id", ondelete="SET NULL"))
+    event_type    = Column(Text, nullable=False)        # storage id, see affiliate_comms.EVENT_PREF
+    event_key     = Column(Text, nullable=False)        # e.g. 'payout:42', 'msg:7'
+    subject       = Column(Text, nullable=False)
+    body          = Column(Text, nullable=False)        # plain text, no footer
+    link_label    = Column(Text)
+    link_url      = Column(Text)
+    email_status  = Column(Text, nullable=False, server_default=sa_text("'pending'"))
+    email_reason  = Column(Text)                        # why skipped / failed
+    to_email      = Column(Text)
+    attempts      = Column(Integer, nullable=False, server_default=sa_text("0"))
+    emailed_at    = Column(TIMESTAMP(timezone=True))
+    read_at       = Column(TIMESTAMP(timezone=True))
+    created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("affiliate_id", "event_key", name="uq_affiliate_notification_event"),
+        CheckConstraint("email_status IN ('pending','sent','skipped','failed')",
+                        name="affiliate_notifications_email_status_check"),
+        Index("ix_affiliate_notifications_inbox", "affiliate_id", "created_at"),
+        Index("ix_affiliate_notifications_message", "message_id"),
+    )
+
+
+class AffiliateEmailPref(Base):
+    """Which OPTIONAL partner emails a partner turned off (a JSON list of
+    preference ids). No row = everything on. Required notices ignore it."""
+    __tablename__ = "affiliate_email_prefs"
+    affiliate_id  = Column(PG_UUID(as_uuid=True), ForeignKey("affiliates.id", ondelete="CASCADE"), primary_key=True)
+    disabled      = Column(JSONB, nullable=False, server_default=sa_text("'[]'"))
+    updated_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
 PROMO_DISCOUNT_TYPES = ("percent", "amount")
 PROMO_DURATIONS = ("once", "repeating", "forever")
 PROMO_STATUSES = ("active", "archived")

@@ -87,6 +87,7 @@ AFF_AUDIENCE_DISCOUNT_TERM = "for their first year"
 AFF_PAYOUT_CADENCE = "monthly"
 PARTNER_EMAIL = "help@tradewave.ai"
 PARTNER_SUBJECT = "Affiliate Partner Application"
+PARTNER_APPLY_URL = "/partners/apply"          # web tier form (web/affiliate_comms_views.py)
 
 # Year for the footer copyright + page-modified hint.
 YEAR = datetime.now().year
@@ -343,6 +344,7 @@ def render_page(title: str, subtitle: str, body_html: str, last_updated: str | N
     <a href="/learn/">Learn</a>
     <a href="/contact.html">Contact</a>
     <a href="/affiliate">Affiliates</a>
+    <a href="/partners/apply">Become a partner</a>
     <a href="/privacy.html">Privacy</a>
     <a href="/terms.html">Terms</a>
     <a href="/disclaimer.html">Disclaimer</a>
@@ -845,8 +847,8 @@ def build_affiliate() -> tuple[str, dict]:
 
 <div class="aff-cta-wrap">
   <h2>Apply to partner with us</h2>
-  <p>Send us a note about you and your audience. We review every application personally.</p>
-  <a class="aff-cta" href="{mailto}">Apply now →</a>
+  <p>Tell us about you and your audience. It takes about 3 minutes, and we review every application personally.</p>
+  <a class="aff-cta" href="{PARTNER_APPLY_URL}">Apply now →</a>
   <p class="aff-cta-note">Or email <a href="{mailto}">{PARTNER_EMAIL}</a> with the subject "{PARTNER_SUBJECT}".</p>
 </div>
 """

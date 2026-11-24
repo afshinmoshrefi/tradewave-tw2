@@ -187,6 +187,11 @@ The simple way to think about it: **bring in at least one new paying customer ev
 every renewal inside your term pays. Your dashboard shows whether you are active and the date
 your active status runs out.
 
+**We warn you before it happens.** You get an email (and a dashboard message) 60, 30 and 7 days
+before your active status would run out, another if your renewal commissions stop, and another
+when they start again. The 60-day and 30-day reminders can be turned off in Settings; the 7-day
+warning and the "stopped" notice are always sent.
+
 ## 7. Statements, refunds and getting paid
 
 ### 7.1 Statement states
@@ -249,7 +254,8 @@ was sent to**. (Signed up with a different email? Write to help@tradewave.ai and
 | Links | Copy buttons for your landing page and referral link, plus links to any published Expert Desk takes. |
 | Promote | The offer your visitors currently get, any live promotion, and wording you can use. |
 | Payouts | Payout method, tax-form status, and every payout with its date and PayPal/Wise reference. |
-| Settings | Your customer discount (section 4), your landing-page name, note, sign-off and headshot. |
+| Settings | Your customer discount (section 4), your landing-page name, note, sign-off and headshot, and your Email preferences (section 8.1). |
+| Messages | Everything we send you: program news from the TradeWave team and every automatic notice. A badge on the tab shows how many are unread. |
 
 This guide, the "Copy for my AI" button and (if you were invited) the Expert Desk are also in the
 dashboard menu.
@@ -262,6 +268,33 @@ How to read the numbers:
 - **This month (estimate)** can go down as well as up. The statement on the 2nd is the number
   of record.
 - We never show who your customers are. Only counts and totals.
+
+### 8.1 Emails and messages we send you
+
+Every notice below is saved in your dashboard **Messages** inbox. Most are also emailed to the
+address on your agreement. Each one is sent once.
+
+| Notice | When | Can you turn the email off? |
+|---|---|---|
+| Welcome | When you sign your agreement | Yes |
+| First click | The first time someone visits through your link | Yes |
+| New paying customer | A referred customer makes a first payment (never says who) | Yes |
+| Monthly statement ready | A month's statement is on your Payouts page | Yes |
+| Activity reminders | 60 and 30 days before your renewal commissions would stop | Yes |
+| Renewals resumed | Your renewal commissions start again | Yes |
+| New TradeWave sale | A company-wide sale starts; the email has your tracked link | Yes |
+| News from the TradeWave team | Program news and tips | Yes |
+| Payout sent | We send you a payment (amount and reference) | No |
+| Discount change confirmed | Your customer discount changes | No |
+| Final activity warning | 7 days before your renewal commissions would stop | No |
+| Renewal commissions stopped | Your activity window ended | No |
+| Program notices | Rare notices about the program or your agreement | No |
+
+**Email preferences.** Choose which emails you get in **Settings, Email preferences**. Every
+optional email also has two links at the bottom: one to stop that kind of email and one to open
+your preferences. Neither needs a login. An email you turned off still appears in Messages, so
+you never miss it. The "No" rows are about your money, your account or your agreement, so every
+partner gets them.
 
 ## 9. Promotion rules (summary of Agreement section 7)
 
@@ -395,6 +428,18 @@ No. We share counts and totals only.
 **Can the program terms change?**
 Yes, but only for customers who check out after the change. A change never reduces commission you
 have already earned. Your signed agreement has the details.
+
+**Someone I know wants to become a partner. How do they apply?**
+They fill in the short form at https://tradewave.ai/partners/apply. We review every application
+personally and reply by email, usually within 5 business days. If we approve it, they get a
+private link to sign the agreement, and their link and code go live when they sign. Referring
+another partner does not earn you a commission.
+
+**I stopped getting partner emails. Why?**
+Check Settings, Email preferences: an email you turned off is not sent, but it is still in your
+Messages inbox. Payout, discount-change and final activity notices are always sent. If those are
+missing too, check your spam folder and that the email on your account is right, then write to
+help@tradewave.ai.
 
 ## 13. Contact
 

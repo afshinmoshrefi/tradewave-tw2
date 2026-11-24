@@ -41,8 +41,9 @@ Both boxes must have **`TW2_PUBLIC_HOST` = the customer host** (`deploy.sh` pre-
 
 ### 2. nginx vhost `/etc/nginx/sites-enabled/tw2-<env>-web` (symlink -> sites-available)
 Route rules are per-box. Every customer route that is NOT a static file must `proxy_pass http://tw2_web`.
-Required `location` blocks (mirror them across envs): `= /signup = /login = /logout = /account /account/ = /pricing = /healthz /auth/ /api/ /webhooks/ /admin /admin/ /stripe/ /affiliate/sign/ **/join/** /app...`; plus `/appserver/ -> tw2_appserver` (VLAN). Fallthrough `location / { try_files ... =404; }`.
+Required `location` blocks (mirror them across envs): `= /signup = /login = /logout = /account /account/ = /pricing = /healthz /auth/ /api/ /webhooks/ /admin /admin/ /stripe/ /affiliate/sign/ **/join/** **/partners/** /app...`; plus `/appserver/ -> tw2_appserver` (VLAN). Fallthrough `location / { try_files ... =404; }`.
 - **`location /join/`** (affiliate co-branded landing) was MISSING on staging -> `/join/<code>` 404'd. Added 2026-06-19. Prod added it 2026-06-09. `verify_deploy.sh` checks `/join/TESTCODE != 404`.
+- **`location /partners/`** (TW-TASK-0039 B: `/partners/apply` application form + the email-preferences / unsubscribe links in partner emails) must exist on every env or those pages 404 from the static catch-all. `verify_deploy.sh` checks `/partners/apply == 200`.
 
 ### 3. cloudflared tunnel config (per box)
 `tunnel route dns` mappings: web tunnel -> main host; app tunnel -> api-/mcp-/developers-<env>. Backed up to `config.yml.bak` when edited.

@@ -106,3 +106,4 @@ def require_affiliate(view):
 from . import routes  # noqa: E402,F401  (attach @bp.route handlers)
 from . import help_routes  # noqa: E402,F401  (partner help assistant endpoints)
 from . import ops_routes  # noqa: E402,F401  (tax form, sub-links, creatives - TW-TASK-0039 C)
+from . import messages  # noqa: E402,F401  (Messages inbox + email preferences)
