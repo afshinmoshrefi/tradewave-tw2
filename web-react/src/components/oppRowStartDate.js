@@ -5,9 +5,15 @@ import { currentNewYorkMarketDate } from "./opportunityViewerAIScore"
 // echoes that date, and SeasonalBarChart discards any response whose echoed
 // entry_date differs from the one requested. A row dated before today therefore has
 // to request today, or the chart stays blank. Paid ("P") markets keep the row date.
-export const isStartDateLocked = ({ loggedinUser, selectedSecurityType }) => (
-  String(loggedinUser ?? "0") !== "0" && selectedSecurityType === "F"
-)
+// The markets entry in the users security list carries its type: "F" (free,
+// date-locked) or "P" (premium). The list is keyed by value in some callers and by
+// label in others, so match either.
+export const isStartDateLocked = ({ loggedinUser, securityTypeList, selectedSecurity }) => {
+  if (String(loggedinUser ?? "0") === "0") return false
+  const list = Array.isArray(securityTypeList) ? securityTypeList : []
+  const entry = list.find(item => item && (item.value === selectedSecurity || item.label === selectedSecurity))
+  return Boolean(entry && entry.type === "F")
+}
 
 export const oppRowStartDate = ({ rowDate, locked, marketDate = currentNewYorkMarketDate() }) => {
   if (!locked) return rowDate

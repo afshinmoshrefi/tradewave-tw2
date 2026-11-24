@@ -112,10 +112,10 @@ const OppTable = (props) => {
   const selectbox = document.getElementById('securityTypeList');
 
 
-  const { wpUserLevels, browserH, browserW, rdd, token, globalTextSize, debug, loggedinUser, selectedSecurityType } = useContext(UserContext)
+  const { wpUserLevels, browserH, browserW, rdd, token, globalTextSize, debug, loggedinUser } = useContext(UserContext)
   // TW-BUG-0037: read inside the stable row-click handler below.
   const startDateLockedRef = useRef(false)
-  startDateLockedRef.current = isStartDateLocked({ loggedinUser, selectedSecurityType })
+  startDateLockedRef.current = isStartDateLocked({ loggedinUser, securityTypeList: props.securityTypeList2, selectedSecurity: props.selectedSecurity })
 
   const phonePortrait = isPhonePortrait(rdd, browserH, browserW)
 
