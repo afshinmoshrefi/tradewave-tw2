@@ -40,7 +40,7 @@ HOLD_REASONS = {"paused": "Held while your account is paused - paid when it's re
 # text never reaches the partner (it is logged instead).
 DISCOUNT_SAVE_FAILED = ("We couldn't update your discount. Nothing changed - "
                         "try again in a few minutes.")
-PAYOUT_SEND_RULE = "Usually sent by the 15th of the month after the statement"
+PAYOUT_SEND_RULE = "Sent by the 15th of the month after the statement"
 TAX_FORM_HELP = ("Don't email your tax form. Reply to your welcome email or contact %s "
                  "and we'll send you a secure upload link." % HELP_EMAIL)
 PAYOUT_METHOD_HELP = ("Contact %s to add your PayPal or Wise email. Don't email bank or card "

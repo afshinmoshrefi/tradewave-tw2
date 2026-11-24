@@ -114,7 +114,7 @@ details - are set out in **Exhibit A**, which is part of this Agreement.
 
 ## 5. Payment
 
-5.1 **Cadence.** Company calculates Commissions after each calendar month closes and once the underlying payments have settled, and pays earned Commissions on a **monthly** basis thereafter.
+5.1 **Cadence.** Company calculates Commissions after each calendar month closes and once the underlying payments have settled, and pays earned Commissions on a **monthly** basis thereafter, by the **15th day of the month following the statement month** (subject to Sections 5.3, 5.5 and 6).
 
 5.2 **Method.** Company pays by **PayPal or Wise** to the account you specify in Exhibit A. You are responsible for keeping your payout details current; Company is not liable for amounts misdirected due to inaccurate details you provide.
 

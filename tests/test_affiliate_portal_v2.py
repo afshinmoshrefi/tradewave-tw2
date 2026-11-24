@@ -176,6 +176,8 @@ class TestPagesRender:
 
     def test_unsigned_partner_can_request_the_signing_link(self, portal):
         aff, user = h.seed_empty(portal.db, code="UNSIGNED", status="paused", agreement_signed_at=None)
+        from affiliate_portal import routes as portal_routes
+        portal_routes._resend_at.clear()  # module-level throttle; ids repeat across tests
         login(portal, user)
         _r, home = get(portal, "/")
         assert "Sign your partner agreement" in home and "Your account is paused" not in home
@@ -863,7 +865,7 @@ class TestUxReview:
         html = get(portal, "/payouts")[1]
         assert "Statement for Oct 2026" in html and "includes Sep and Oct 2026 lines" in html
         assert "Moved into the Oct 2026 statement" in html
-        assert "Usually sent by the 15th of the month after the statement" in html
+        assert "Sent by the 15th of the month after the statement" in html
         assert dash._month_span([dt.date(2026, 9, 1), dt.date(2026, 10, 1), dt.date(2026, 11, 1)]) == \
             "Sep to Nov 2026"
         assert dash._month_span([dt.date(2026, 7, 1), dt.date(2026, 9, 1), dt.date(2026, 10, 1)]) == \

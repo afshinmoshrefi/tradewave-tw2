@@ -227,7 +227,7 @@ Every commission line on your Earnings page has a state:
 6. To change payout details, contact help@tradewave.ai. Do not email bank details or card
    numbers; if we need more than your PayPal or Wise email we send a secure link. Changes are
    verified by hand because they control real money.
-   Payouts are usually sent by the 15th of the month after the statement month.
+   Payouts are sent by the 15th of the month after the statement month.
 7. Questions about a statement must reach us within 30 days of it.
 
 ### 7.4 If your account is paused

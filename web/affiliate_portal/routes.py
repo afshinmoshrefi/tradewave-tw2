@@ -814,8 +814,8 @@ def agreement_resend():
     if aff.agreement_signed_at is not None:
         flash("Your agreement is already signed.", "success")
         return back
-    last = _resend_at.get(str(aff.id), 0.0)
-    if time.monotonic() - last < 600:
+    last = _resend_at.get(str(aff.id))
+    if last is not None and time.monotonic() - last < 600:
         flash("We just sent it. Check your inbox (and spam) for the signing link.", "success")
         return back
     import affiliate_agreement as agr
