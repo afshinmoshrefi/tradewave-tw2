@@ -226,6 +226,53 @@ const reportedVixCutoff = source => {
 export const opportunityVixRecovery = horizon =>
   `Scores resume at a close of ${horizon?.vixCutoff ?? LEGACY_VIX_CUTOFF} or lower`
 
+// The VIX close and its date come from the scorer's volatility gate (the same
+// source that pauses scoring): structured fields first, then the gate's own
+// "VIX=41.2 exceeds cutoff (35)" text, then the scorer's data date.
+const reportedVixValue = source => {
+  const error = source?.error
+  const message = typeof error === 'string' ? error : error?.message
+  const fromMessage = typeof message === 'string'
+    ? message.match(/\bVIX\s*=\s*(\d+(?:\.\d+)?)/i)?.[1]
+    : undefined
+  return [source?.vix_value, error?.vix_value, source?.vix, error?.vix, fromMessage]
+    .filter(value => typeof value === 'number' || typeof value === 'string')
+    .map(numberOrNull)
+    .find(value => value > 0 && value < 1000)
+}
+
+const reportedVixDate = source => {
+  const error = source?.error
+  return [source?.vix_date, error?.vix_date, source?.scorer?.data_as_of]
+    .map(value => String(value || '').slice(0, 10))
+    .find(value => /^\d{4}-\d{2}-\d{2}$/.test(value))
+}
+
+const formatVixNumber = value => {
+  const number = Number(value)
+  return Number.isFinite(number) ? String(Math.round(number * 100) / 100) : ''
+}
+
+const formatVixDate = isoDate => {
+  if (!isoDate) return ''
+  const [year, month, day] = isoDate.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric' })
+}
+
+export const OPPORTUNITY_VIX_PAUSED_TITLE = 'AI scoring is paused while volatility is high'
+
+export const opportunityVixPausedCopy = horizon => {
+  const limit = formatVixNumber(horizon?.vixCutoff ?? LEGACY_VIX_CUTOFF)
+  const value = horizon?.vixValue == null ? '' : formatVixNumber(horizon.vixValue)
+  const date = value ? formatVixDate(horizon?.vixDate) : ''
+  const opening = value
+    ? `The VIX closed at ${value}${date ? ` on ${date}` : ''}, above the scoring limit of ${limit}.`
+    : `The latest VIX close is above the scoring limit of ${limit}.`
+  return `${opening} AI readings are paused for all patterns and resume once the VIX closes at ${limit} or lower.`
+}
+
 const horizonCalendarDays = source => {
   const explicit = numberOrNull(firstDefined(
     source && source.calendar_days,
@@ -249,6 +296,8 @@ const normalizeHorizon = (source, fallbackStatus, fallbackReason) => {
     status: status || 'unavailable',
     reason: reasonFrom(source) || fallbackReason || '',
     vixCutoff: reportedVixCutoff(source),
+    vixValue: reportedVixValue(source),
+    vixDate: reportedVixDate(source),
     metrics,
     isCurrent: Boolean(source && firstDefined(source.is_current, source.isCurrent, false)),
     isModelMinimum: Boolean(source && firstDefined(source.is_model_minimum, source.isModelMinimum, false)),
@@ -385,19 +434,32 @@ export const normalizeOpportunityAIScore = ({
   // The volatility gate applies across checkpoints. Some legacy bundles report
   // the cutoff only in a checkpoint error, separate from the display horizon.
   let vixCutoff = reportedVixCutoff(payload)
+  let vixValue = reportedVixValue(payload)
+  let vixDate = reportedVixDate(payload)
   const normalizedByDay = new Map()
   horizonList.forEach(horizon => {
     const normalized = normalizeHorizon(horizon, fallbackStatus, fallbackReason)
     vixCutoff = vixCutoff ?? normalized.vixCutoff
+    vixValue = vixValue ?? normalized.vixValue
+    vixDate = vixDate ?? normalized.vixDate
     if (normalized.calendarDays !== null) normalizedByDay.set(normalized.calendarDays, normalized)
   })
 
   const horizons = expectedDays.map(calendarDays => {
     const horizon = normalizedByDay.get(calendarDays)
-    if (horizon) return { ...horizon, vixCutoff: horizon.vixCutoff ?? vixCutoff }
+    if (horizon) {
+      return {
+        ...horizon,
+        vixCutoff: horizon.vixCutoff ?? vixCutoff,
+        vixValue: horizon.vixValue ?? vixValue,
+        vixDate: horizon.vixDate ?? vixDate,
+      }
+    }
     return {
       calendarDays,
       vixCutoff,
+      vixValue,
+      vixDate,
       status: fallbackStatus,
       reason: fallbackReason,
       metrics: { ml_score: null, win_prob: null, pred_return: null, pred_mfe: null },
@@ -569,7 +631,7 @@ export const opportunityAIReasonCopy = (reason, horizon) => {
   const value = String(reason || '').trim()
   if (!value) return 'No AI score is available for this time length.'
   const key = value.toLowerCase()
-  if (key === 'vix_blocked') return `${AI_REASON_COPY[key].detail} ${opportunityVixRecovery(horizon)} for patterns that still qualify.`
+  if (key === 'vix_blocked') return opportunityVixPausedCopy(horizon)
   if (AI_REASON_COPY[key]?.detail) return AI_REASON_COPY[key].detail
   return 'AI scoring is temporarily unavailable. Try again shortly.'
 }

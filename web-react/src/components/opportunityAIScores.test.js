@@ -478,8 +478,30 @@ test.each([
   const scores = { 'AAPL|44|l': { status: 'unavailable', reason: 'vix_blocked', ...fields } }
   const { display } = normalizeOpportunityAIScore({ row: fullRow, scores })
   const detail = opportunityAIReasonCopy(display.reason, display)
-  expect(detail).toContain('latest daily close')
-  expect(detail).toContain(`Scores resume at a close of ${expected} or lower`)
+  expect(detail).toContain(`above the scoring limit of ${expected}`)
+  expect(detail).toContain(`resume once the VIX closes at ${expected} or lower`)
+  expect(detail).toContain('paused for all patterns')
+  expect(detail).not.toMatch(/time length|undefined|NaN|null/)
+})
+
+test('shows the VIX close and its date from the scorer gate', () => {
+  const scores = { 'AAPL|44|l': {
+    status: 'unavailable',
+    reason: 'vix_blocked',
+    error: { code: 'vix_blocked', message: 'AI scoring is paused while volatility is high.', vix_value: 41.2, vix_cutoff: 35, vix_date: '2026-11-21' },
+  } }
+  const { display } = normalizeOpportunityAIScore({ row: fullRow, scores })
+  expect(opportunityAIReasonCopy(display.reason, display)).toBe(
+    'The VIX closed at 41.2 on November 21, 2026, above the scoring limit of 35. ' +
+    'AI readings are paused for all patterns and resume once the VIX closes at 35 or lower.')
+})
+
+test('parses the VIX close from the gate text and omits an unknown date', () => {
+  const scores = { 'AAPL|44|l': { status: 'unavailable', reason: 'vix_blocked', vix_blocked: true, error: 'VIX=42.9 exceeds cutoff (40)' } }
+  const { display } = normalizeOpportunityAIScore({ row: fullRow, scores })
+  expect(opportunityAIReasonCopy(display.reason, display)).toBe(
+    'The VIX closed at 42.9, above the scoring limit of 40. ' +
+    'AI readings are paused for all patterns and resume once the VIX closes at 40 or lower.')
 })
 
 test('uses a reported checkpoint cutoff when the display horizon only has a generic VIX error', () => {

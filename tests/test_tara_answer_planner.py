@@ -978,7 +978,10 @@ def test_exact_window_analysis_explains_structured_vix_state_without_calling_it_
                 "calendar_days": 17,
                 "status": "unavailable",
                 "error_code": "vix_blocked",
-                "unavailable_reason": "Volatility safety gate is active.",
+                "unavailable_reason": "AI scoring is paused while volatility is high.",
+                "vix_value": 41.2,
+                "vix_cutoff": 35,
+                "vix_date": "2026-11-21",
             }
         ],
     }
@@ -987,7 +990,10 @@ def test_exact_window_analysis_explains_structured_vix_state_without_calling_it_
         "Analyze this pattern", wave, {}, current_year=2026
     )
 
-    assert "volatility safety gate blocked the current-condition reading for this window" in reply
+    assert "AI scoring is paused while volatility is high" in reply
+    assert "the VIX closed at 41.2 on November 21, 2026, above the scoring limit of 35" in reply
+    assert "resume once the VIX closes at 35 or lower" in reply
+    assert "time length" not in reply
     assert "for these checkpoints" not in reply
     assert "not treating the missing values as zero" in reply
 
@@ -1782,3 +1788,11 @@ def test_pe_cycle_analysis_names_cycle_observations_not_consecutive_years():
     assert "compare the exact same window across consecutive years" in reply
     assert 'data-action="switch-viewer-cycle" data-cycle="cons"' in reply
     assert "Switch chart to consecutive years" in reply
+
+
+
+def test_vix_pause_sentence_omits_unknown_value():
+    from tara_answer_planner import vix_pause_sentence
+    text = vix_pause_sentence({"vix_cutoff": 35}, "this window")
+    assert "closed at" not in text and "scoring limit of 35" in text
+    assert "None" not in vix_pause_sentence({}, "this window")

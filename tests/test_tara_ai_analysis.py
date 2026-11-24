@@ -218,11 +218,14 @@ def test_exact_window_preserves_allowlisted_vix_unavailable_reason():
                 "calendar_days": 17,
                 "status": "unavailable",
                 "error_code": "vix_blocked",
-                "unavailable_reason": "Volatility safety gate is active.",
+                "unavailable_reason": "AI scoring is paused while volatility is high.",
+                # Only validated numbers from the scorer's gate; never its prose.
+                "vix_value": 41.2,
+                "vix_cutoff": 35.0,
             }
         ],
     }
-    assert "41.2" not in str(context)
+    assert "exceeds" not in str(context)
 
 
 def test_exact_window_collapses_untrusted_provider_error_copy_to_safe_reason():

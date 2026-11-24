@@ -3619,6 +3619,9 @@ def _normalized_ai_analysis(wave_viewer: Any) -> Optional[Dict[str, Any]]:
                 cleaned["error_code"] = error_code
             if unavailable_reason:
                 cleaned["unavailable_reason"] = unavailable_reason
+            if error_code == "vix_blocked":
+                from ml_checkpoint_context import vix_gate_details
+                cleaned.update(vix_gate_details(item))
         elif len(cleaned) > 1:
             cleaned["status"] = "available"
         if len(cleaned) > 1:
@@ -3728,10 +3731,10 @@ def _analysis_ai_context_line(
                     if context.get("mode") == "pattern"
                     else "these duration readings"
                 )
-                reason = (
-                    "The model's volatility safety gate blocked the current-condition "
-                    f"reading for {blocked_scope}"
+                blocked = next(
+                    item for item in unavailable if item.get("error_code") == "vix_blocked"
                 )
+                reason = vix_pause_sentence(blocked, blocked_scope)
             else:
                 named_reason = next(
                     (
@@ -3790,7 +3793,7 @@ def _analysis_ai_context_line(
                 )
             elif item.get("status") == "unavailable":
                 reason = (
-                    "volatility safety gate"
+                    "AI scoring paused while volatility is high"
                     if item.get("error_code") == "vix_blocked"
                     else item.get("unavailable_reason") or "recalculated profile unavailable"
                 ).rstrip(".")
@@ -5794,3 +5797,38 @@ def verified_context_lines(
         "- A broad 'what am I looking at?' question must explain the top Gain-Loss chart AND the currently active bottom slide; also mention the left table when it is visible."
     )
     return lines
+
+
+def _vix_number_text(value: Any) -> str:
+    return f"{float(value):g}"
+
+
+def _vix_date_text(value: Any) -> str:
+    try:
+        day = _datetime.date.fromisoformat(str(value)[:10])
+    except (TypeError, ValueError):
+        return ""
+    return f"{day.strftime('%B')} {day.day}, {day.year}"
+
+
+def vix_pause_sentence(item: Mapping[str, Any], scope: str = "this window") -> str:
+    """Release-owned VIX pause copy; every number comes from the scorer's gate."""
+
+    value = item.get("vix_value")
+    cutoff = item.get("vix_cutoff")
+    close_date = _vix_date_text(item.get("vix_date")) if value is not None else ""
+    parts = ["AI scoring is paused while volatility is high"]
+    if value is not None and cutoff is not None:
+        clause = f"the VIX closed at {_vix_number_text(value)}"
+        if close_date:
+            clause += f" on {close_date}"
+        parts.append(f"{clause}, above the scoring limit of {_vix_number_text(cutoff)}")
+    elif cutoff is not None:
+        parts.append(f"the latest VIX close is above the scoring limit of {_vix_number_text(cutoff)}")
+    sentence = ": ".join(parts[:1]) + (" (" + parts[1] + ")" if len(parts) > 1 else "")
+    resume = (
+        f"Readings for {scope} resume once the VIX closes at {_vix_number_text(cutoff)} or lower"
+        if cutoff is not None
+        else f"Readings for {scope} resume once volatility falls back under the limit"
+    )
+    return f"{sentence}. {resume}"

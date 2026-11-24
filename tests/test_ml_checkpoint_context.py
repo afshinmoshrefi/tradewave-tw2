@@ -448,7 +448,7 @@ def test_legacy_unavailable_codes_are_closed_and_vix_is_explicit():
     }
     assert vix["error"] == {
         "code": "vix_blocked",
-        "message": "Volatility safety gate is active.",
+        "message": "AI scoring is paused while volatility is high.",
         "retryable": False,
     }
 
@@ -865,6 +865,8 @@ def test_structured_vix_unavailable_is_preserved_not_coerced_to_pending_or_zero(
         "code": "vix_blocked",
         "message": "Volatility gate is active.",
         "retryable": False,
+        # The close date comes from the scorer's own data date (metadata data_as_of).
+        "vix_date": "2026-08-05",
     }
     assert checkpoint["pattern_recalculated"] is False
 
@@ -1399,7 +1401,7 @@ def test_tara_bundle_keeps_per_horizon_unavailable_reason():
                     "calendar_days": 60,
                     "error": {
                         "code": "vix_blocked",
-                        "message": "Volatility safety gate is active.",
+                        "message": "AI scoring is paused while volatility is high.",
                     },
                 },
                 {
@@ -1434,7 +1436,7 @@ def test_tara_bundle_keeps_per_horizon_unavailable_reason():
         "calendar_days": 60,
         "status": "unavailable",
         "error_code": "vix_blocked",
-        "unavailable_reason": "Volatility safety gate is active.",
+        "unavailable_reason": "AI scoring is paused while volatility is high.",
     }
 
     line = _analysis_ai_context_line({}, {"ai_analysis": context})
@@ -1442,5 +1444,26 @@ def test_tara_bundle_keeps_per_horizon_unavailable_reason():
     assert "70% AI Win Probability" in line
     assert "screen not met: 7 of 10 positive, requires 9" in line
     assert "60 days" in line
-    assert "volatility safety gate" in line
+    assert "AI scoring paused while volatility is high" in line
     assert "missing values as zero" not in line
+
+
+
+def test_vix_gate_details_come_only_from_the_scorer():
+    from ml_checkpoint_context import vix_gate_details
+    assert vix_gate_details(message="VIX=41.2 exceeds cutoff (35)", as_of="2026-11-21") == {
+        "vix_value": 41.2, "vix_cutoff": 35.0, "vix_date": "2026-11-21"}
+    assert vix_gate_details({"vix": 38.25, "vix_cutoff": 40, "vix_date": "2026-11-20"}) == {
+        "vix_value": 38.25, "vix_cutoff": 40.0, "vix_date": "2026-11-20"}
+    # Unknown or malformed values are omitted, never invented.
+    assert vix_gate_details(message="Volatility gate is active.") == {}
+    assert vix_gate_details({"vix": "nan", "vix_date": "not-a-date"}, message="VIX=abc") == {}
+
+
+def test_legacy_vix_block_keeps_parsed_value_and_limit():
+    blocked = normalize_legacy_score_result(
+        {"status": "unavailable", "error": "VIX=41.2 exceeds cutoff (35)", "vix_blocked": True})
+    assert blocked["error"]["code"] == "vix_blocked"
+    assert blocked["error"]["vix_value"] == 41.2
+    assert blocked["error"]["vix_cutoff"] == 35.0
+    assert "exceeds" not in blocked["error"]["message"]

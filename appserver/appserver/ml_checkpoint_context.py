@@ -84,7 +84,7 @@ _LEGACY_UNAVAILABLE_COPY = {
     "too_far_ahead": "AI scores become available within five calendar days of entry.",
     "invalid_score_context": "The pattern entry date is invalid.",
     "unsupported_duration": "The pattern duration is outside the supported TradeWave range.",
-    "vix_blocked": "Volatility safety gate is active.",
+    "vix_blocked": "AI scoring is paused while volatility is high.",
     "target_entry_unavailable": "A valid price entry could not be established for this date.",
     "target_price_unavailable": "Price history is not available for this ticker.",
     "pattern_profile_unavailable": "No qualifying historical profile is available for this horizon.",
@@ -333,6 +333,66 @@ def model_days_out_for_source(days_out: Any) -> int:
     return max(normalized, MINIMUM_MODEL_DAYS_OUT)
 
 
+
+_VIX_VALUE_RE = re.compile(r"\bVIX\s*=\s*(\d+(?:\.\d+)?)", re.IGNORECASE)
+_VIX_CUTOFF_RE = re.compile(r"\bexceeds cutoff \((\d+(?:\.\d+)?)\)", re.IGNORECASE)
+
+
+def _vix_number(value: Any) -> Optional[float]:
+    if isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) and 0 < number < 1000 else None
+
+
+def vix_gate_details(*sources: Any, message: Any = None, as_of: Any = None) -> Dict[str, Any]:
+    """VIX close, scoring limit and close date reported by the scorer's volatility gate.
+
+    The scorer's own error ("VIX=41.2 exceeds cutoff (35)") or structured fields are the
+    source; nothing is hardcoded. Only validated values are returned, so callers can omit
+    any clause whose value is unknown.
+    """
+
+    maps = [item for item in sources if isinstance(item, Mapping)]
+    text = message if isinstance(message, str) else ""
+
+    def first(keys):
+        for item in maps:
+            for key in keys:
+                number = _vix_number(item.get(key))
+                if number is not None:
+                    return number
+        return None
+
+    value = first(("vix_value", "vix", "vix_close"))
+    if value is None:
+        match = _VIX_VALUE_RE.search(text)
+        value = _vix_number(match.group(1)) if match else None
+    cutoff = first(("vix_cutoff",))
+    if cutoff is None:
+        match = _VIX_CUTOFF_RE.search(text)
+        cutoff = _vix_number(match.group(1)) if match else None
+    close_date = None
+    for candidate in [item.get(key) for item in maps for key in ("vix_date", "vix_as_of")] + [as_of]:
+        try:
+            close_date = dt.date.fromisoformat(str(candidate)[:10]).isoformat() if candidate else None
+        except ValueError:
+            close_date = None
+        if close_date:
+            break
+    details: Dict[str, Any] = {}
+    if value is not None:
+        details["vix_value"] = round(value, 2)
+    if cutoff is not None:
+        details["vix_cutoff"] = round(cutoff, 2)
+    if close_date:
+        details["vix_date"] = close_date
+    return details
+
+
 def normalize_legacy_score_result(result: Mapping[str, Any]) -> Dict[str, Any]:
     """Give the legacy scorer's terminal failures an explicit additive shape."""
 
@@ -354,17 +414,23 @@ def normalize_legacy_score_result(result: Mapping[str, Any]) -> Dict[str, Any]:
             else "provider_unavailable"
         )
         message = _LEGACY_UNAVAILABLE_COPY[code]
+        normalized_error = {
+            "code": code,
+            "message": message,
+            "retryable": bool(error.get("retryable", code != "vix_blocked")),
+        }
+        if code == "vix_blocked":
+            normalized_error.update(vix_gate_details(
+                result, error,
+                message=raw_error if isinstance(raw_error, str) else error.get("message"),
+            ))
         return {
             "status": "unavailable",
             "ml_score": None,
             "win_prob": None,
             "pred_return": None,
             "pred_mfe": None,
-            "error": {
-                "code": code,
-                "message": message,
-                "retryable": bool(error.get("retryable", code != "vix_blocked")),
-            },
+            "error": normalized_error,
         }
     normalized = {
         "status": "available",
@@ -1081,6 +1147,13 @@ def normalize_checkpoint_response(
             },
             "scorer": metadata,
         }
+        if str(error_source.get("code") or "").strip().lower() == "vix_blocked":
+            unavailable["error"].update(vix_gate_details(
+                error_source,
+                error_source.get("details"),
+                message=error_source.get("message"),
+                as_of=(metadata or {}).get("data_as_of") if isinstance(metadata, Mapping) else None,
+            ))
         if (
             str(error_source.get("code") or "")
             == "selected_recurrence_insufficient_history"

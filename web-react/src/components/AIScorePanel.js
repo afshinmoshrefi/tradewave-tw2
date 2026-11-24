@@ -8,6 +8,7 @@ import {
   hasAvailableOpportunityAIScores,
   opportunityAICompactStatus,
   opportunityAIReasonCopy,
+  OPPORTUNITY_VIX_PAUSED_TITLE,
 } from './opportunityAIScores'
 import { recordAIScoreViewed } from './aiScoreActivation'
 import './styles/AIScorePanel.css'
@@ -161,6 +162,13 @@ const statusDetails = (display, fallbackReason) => {
       kind: 'service',
       title: 'AI Scores are temporarily unavailable',
       copy: 'TradeWave could not finish this AI check. Your historical results are not affected. Try again shortly.',
+    }
+  }
+  if (reason === 'vix_blocked') {
+    return {
+      kind: 'neutral',
+      title: OPPORTUNITY_VIX_PAUSED_TITLE,
+      copy: opportunityAIReasonCopy(reason, display),
     }
   }
   return {

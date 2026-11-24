@@ -27,7 +27,7 @@ _MARKET_TZ = ZoneInfo("America/New_York")
 # can contain operational detail (and are not a trusted prose source), so each
 # code maps to release-owned copy. Unknown codes collapse to the generic state.
 _UNAVAILABLE_REASON_BY_CODE = {
-    "vix_blocked": "Volatility safety gate is active.",
+    "vix_blocked": "AI scoring is paused while volatility is high.",
     "pattern_profile_unavailable": (
         "No qualifying, complete recalculated pattern profile is available for this horizon."
     ),
@@ -210,11 +210,19 @@ def _clean_unavailable(raw: Any) -> Optional[Dict[str, str]]:
         code = "vix_blocked"
     if code not in _UNAVAILABLE_REASON_BY_CODE:
         code = "provider_unavailable"
-    return {
+    cleaned = {
         "status": "unavailable",
         "error_code": code,
         "unavailable_reason": _UNAVAILABLE_REASON_BY_CODE[code],
     }
+    if code == "vix_blocked":
+        from ml_checkpoint_context import vix_gate_details
+        cleaned.update(vix_gate_details(
+            raw, error,
+            message=raw.get("error") if isinstance(raw.get("error"), str) else error.get("message"),
+            as_of=(raw.get("scorer") or {}).get("data_as_of") if isinstance(raw.get("scorer"), Mapping) else None,
+        ))
+    return cleaned
 
 
 def _clean_selected_recurrence(raw: Any) -> Optional[Dict[str, Any]]:
