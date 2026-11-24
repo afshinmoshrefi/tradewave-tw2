@@ -384,6 +384,17 @@ def vix_gate_details(*sources: Any, message: Any = None, as_of: Any = None) -> D
         if close_date:
             break
     details: Dict[str, Any] = {}
+    for item in maps:
+        source = str(item.get("vix_source") or "").strip().lower()
+        if source in ("live", "close") and "vix_source" not in details:
+            details["vix_source"] = source
+        stamp = item.get("vix_time")
+        if isinstance(stamp, str) and "vix_time" not in details:
+            try:
+                dt.datetime.fromisoformat(stamp)
+                details["vix_time"] = stamp[:40]
+            except ValueError:
+                pass
     if value is not None:
         details["vix_value"] = round(value, 2)
     if cutoff is not None:
@@ -887,6 +898,45 @@ def legacy_value_key(
     return f"{CACHE_SCHEMA_VERSION}:legacy:value:{_hash_payload(identity)}"
 
 
+# A VIX pause from the scorer may come from stale scorer data (Nov 24, 2026: the
+# staging scorer still held the Nov 20 close). Pause results are therefore cached for
+# PAUSE_CACHE_SECONDS at most, and an older cached pause is treated as a cache miss,
+# so real scores return within minutes once the scorer refreshes.
+PAUSE_CACHE_SECONDS = 300
+
+
+def contains_vix_pause(value: Any) -> bool:
+    if isinstance(value, Mapping):
+        error = value.get("error")
+        if value.get("vix_blocked") is True or str(value.get("reason") or "").lower() == "vix_blocked":
+            return True
+        if isinstance(error, Mapping) and str(error.get("code") or "").lower() == "vix_blocked":
+            return True
+        return any(contains_vix_pause(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(contains_vix_pause(item) for item in value)
+    return False
+
+
+def pause_cache_ttl(value: Any, ttl_seconds: int) -> int:
+    """Full TTL for real results; at most PAUSE_CACHE_SECONDS for a VIX pause."""
+    ttl = int(ttl_seconds)
+    return min(ttl, PAUSE_CACHE_SECONDS) if contains_vix_pause(value) else ttl
+
+
+def _cached_pause_expired(cached: Mapping[str, Any], payload: Any) -> bool:
+    if not contains_vix_pause(payload):
+        return False
+    try:
+        cached_at = dt.datetime.fromisoformat(str(cached.get("cached_at") or ""))
+    except ValueError:
+        return True
+    if cached_at.tzinfo is None:
+        cached_at = cached_at.replace(tzinfo=dt.timezone.utc)
+    age = (dt.datetime.now(dt.timezone.utc) - cached_at).total_seconds()
+    return age > PAUSE_CACHE_SECONDS
+
+
 def read_cached_legacy_score(
     redis_client: Any,
     symbol: Any,
@@ -920,6 +970,8 @@ def read_cached_legacy_score(
     if not isinstance(cached, Mapping):
         return None
     if str(cached.get("request_hash") or "") != _hash_payload(identity):
+        return None
+    if _cached_pause_expired(cached, cached.get("score")):
         return None
     try:
         return normalize_legacy_score_result(cached.get("score"))
@@ -960,6 +1012,7 @@ def write_cached_legacy_score(
         "scorer": normalized_metadata,
         "contract_version": CONTEXT_CONTRACT_VERSION,
     }
+    ttl_seconds = pause_cache_ttl(normalized_score, ttl_seconds)
     pipeline = redis_client.pipeline(transaction=True)
     pipeline.set(value_key, _canonical_json(value), ex=max(int(ttl_seconds), 60))
     pipeline.set(pointer_key, _canonical_json(pointer), ex=max(int(ttl_seconds), 60))
@@ -1276,6 +1329,8 @@ def read_cached_checkpoint(
         return None
     if str(cached.get("request_hash") or "") != _hash_payload(request_item):
         return None
+    if _cached_pause_expired(cached, cached.get("checkpoint")):
+        return None
     checkpoint = cached.get("checkpoint")
     return dict(checkpoint) if isinstance(checkpoint, Mapping) else None
 
@@ -1300,6 +1355,7 @@ def write_cached_checkpoint(
         "scorer": metadata,
         "contract_version": CONTEXT_CONTRACT_VERSION,
     }
+    ttl_seconds = pause_cache_ttl(checkpoint, ttl_seconds)
     pipeline = redis_client.pipeline(transaction=True)
     pipeline.set(value_key, _canonical_json(value), ex=max(int(ttl_seconds), 60))
     pipeline.set(pointer_key, _canonical_json(pointer), ex=max(int(ttl_seconds), 60))

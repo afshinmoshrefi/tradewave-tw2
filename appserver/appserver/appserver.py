@@ -125,6 +125,7 @@ from ml_checkpoint_context import (
     normalize_legacy_score_result,
     normalize_scorer_metadata,
     read_cached_legacy_score,
+    pause_cache_ttl,
     record_usage_context,
     should_record_table_usage,
     valid_legacy_scorer_metadata,
@@ -3152,7 +3153,7 @@ def MLScorePending(resourceID):
                                     redis_client.set(
                                         _ml_redis_key(*identity),
                                         json.dumps(score_data),
-                                        ex=ttl,
+                                        ex=max(pause_cache_ttl(score_data, ttl), 60),
                                     )
                                 except Exception:
                                     logging.warning(

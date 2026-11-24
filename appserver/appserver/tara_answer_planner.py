@@ -5811,14 +5811,36 @@ def _vix_date_text(value: Any) -> str:
     return f"{day.strftime('%B')} {day.day}, {day.year}"
 
 
+def _vix_time_text(value: Any) -> str:
+    """'10:42 AM ET' for today's quote, 'November 21, 4:00 PM ET' for an older one."""
+    try:
+        stamp = _datetime.datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return ""
+    from zoneinfo import ZoneInfo
+    ny = ZoneInfo("America/New_York")
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=ny)
+    stamp = stamp.astimezone(ny)
+    clock = stamp.strftime("%I:%M %p").lstrip("0")
+    if stamp.date() != _datetime.datetime.now(ny).date():
+        return f"{stamp.strftime('%B')} {stamp.day}, {clock} ET"
+    return f"{clock} ET"
+
+
 def vix_pause_sentence(item: Mapping[str, Any], scope: str = "this window") -> str:
-    """Release-owned VIX pause copy; every number comes from the scorer's gate."""
+    """Release-owned VIX pause copy; the value is the live VIX (vix_gate) when known."""
 
     value = item.get("vix_value")
     cutoff = item.get("vix_cutoff")
+    live = str(item.get("vix_source") or "") == "live"
     close_date = _vix_date_text(item.get("vix_date")) if value is not None else ""
     parts = ["AI scoring is paused while volatility is high"]
-    if value is not None and cutoff is not None:
+    if value is not None and cutoff is not None and live:
+        when = _vix_time_text(item.get("vix_time"))
+        clause = f"the VIX is at {_vix_number_text(value)}" + (f" (live, {when})" if when else " (live)")
+        parts.append(f"{clause}, above the scoring limit of {_vix_number_text(cutoff)}")
+    elif value is not None and cutoff is not None:
         clause = f"the VIX closed at {_vix_number_text(value)}"
         if close_date:
             clause += f" on {close_date}"
@@ -5827,7 +5849,7 @@ def vix_pause_sentence(item: Mapping[str, Any], scope: str = "this window") -> s
         parts.append(f"the latest VIX close is above the scoring limit of {_vix_number_text(cutoff)}")
     sentence = ": ".join(parts[:1]) + (" (" + parts[1] + ")" if len(parts) > 1 else "")
     resume = (
-        f"Readings for {scope} resume once the VIX closes at {_vix_number_text(cutoff)} or lower"
+        f"Readings for {scope} resume once the VIX {'is' if live else 'closes'} at {_vix_number_text(cutoff)} or lower"
         if cutoff is not None
         else f"Readings for {scope} resume once volatility falls back under the limit"
     )

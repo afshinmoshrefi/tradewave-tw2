@@ -546,3 +546,28 @@ test('stable unavailable codes become useful plain-language explanations without
     'AI scoring is temporarily unavailable. Try again shortly.'
   )
 })
+
+
+test('the VIX pause copy shows the live VIX and the time of the quote', () => {
+  const { opportunityVixPausedCopy } = require('./opportunityAIScores')
+  const now = new Date('2026-11-24T16:00:00Z')
+  expect(opportunityVixPausedCopy({ vixValue: 41.27, vixCutoff: 35, vixSource: 'live', vixTime: '2026-11-24T10:42-05:00' }, now))
+    .toBe('The VIX is at 41.27 (live, 10:42 AM ET), above the scoring limit of 35. AI readings are paused for all patterns and resume once the VIX is at 35 or lower.')
+  expect(opportunityVixPausedCopy({ vixValue: 41.27, vixCutoff: 35, vixSource: 'live', vixTime: '2026-11-21T16:00-05:00' }, now))
+    .toBe('The VIX is at 41.27 (live, November 21, 4:00 PM ET), above the scoring limit of 35. AI readings are paused for all patterns and resume once the VIX is at 35 or lower.')
+  expect(opportunityVixPausedCopy({ vixValue: 38.42, vixCutoff: 35, vixSource: 'close', vixDate: '2026-11-23' }, now))
+    .toBe('The VIX closed at 38.42 on November 23, 2026, above the scoring limit of 35. AI readings are paused for all patterns and resume once the VIX closes at 35 or lower.')
+})
+
+test('the live VIX and its quote time reach the reason copy through normalization', () => {
+  const { normalizeOpportunityAIScore, opportunityAIReasonCopy } = require('./opportunityAIScores')
+  const scores = { 'AAPL|44|l': {
+    status: 'unavailable',
+    reason: 'vix_blocked',
+    error: { code: 'vix_blocked', vix_value: 41.27, vix_cutoff: 35, vix_source: 'live', vix_time: '2026-11-21T10:42-05:00' },
+  } }
+  const { display } = normalizeOpportunityAIScore({ row: fullRow, scores })
+  expect(opportunityAIReasonCopy(display.reason, display)).toBe(
+    'The VIX is at 41.27 (live, November 21, 10:42 AM ET), above the scoring limit of 35. ' +
+    'AI readings are paused for all patterns and resume once the VIX is at 35 or lower.')
+})

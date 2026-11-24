@@ -248,6 +248,31 @@ const reportedVixDate = source => {
     .find(value => /^\d{4}-\d{2}-\d{2}$/.test(value))
 }
 
+// vix_gate reports whether the value is the live quote ("live", with vix_time) or the
+// latest daily close ("close", with vix_date).
+const reportedVixSource = source => {
+  const error = source?.error
+  return [source?.vix_source, error?.vix_source]
+    .map(value => String(value || '').toLowerCase())
+    .find(value => value === 'live' || value === 'close')
+}
+
+const reportedVixTime = source => {
+  const error = source?.error
+  return [source?.vix_time, error?.vix_time]
+    .find(value => typeof value === 'string' && !Number.isNaN(new Date(value).getTime()))
+}
+
+const formatVixTime = (iso, now = new Date()) => {
+  if (!iso) return ''
+  const stamp = new Date(iso)
+  if (Number.isNaN(stamp.getTime())) return ''
+  const zone = { timeZone: 'America/New_York' }
+  const clock = stamp.toLocaleTimeString('en-US', { ...zone, hour: 'numeric', minute: '2-digit' })
+  const day = value => value.toLocaleDateString('en-US', { ...zone, month: 'long', day: 'numeric' })
+  return day(stamp) === day(now) ? `${clock} ET` : `${day(stamp)}, ${clock} ET`
+}
+
 const formatVixNumber = value => {
   const number = Number(value)
   return Number.isFinite(number) ? String(Math.round(number * 100) / 100) : ''
@@ -269,9 +294,14 @@ export const opportunityVixCompactLabel = horizon => {
   return `High VIX${value ? ` (${value})` : ''}. Scores resume at ${limit} or lower`
 }
 
-export const opportunityVixPausedCopy = horizon => {
+export const opportunityVixPausedCopy = (horizon, now = new Date()) => {
   const limit = formatVixNumber(horizon?.vixCutoff ?? LEGACY_VIX_CUTOFF)
   const value = horizon?.vixValue == null ? '' : formatVixNumber(horizon.vixValue)
+  if (value && horizon?.vixSource === 'live') {
+    const time = formatVixTime(horizon?.vixTime, now)
+    return `The VIX is at ${value} (live${time ? `, ${time}` : ''}), above the scoring limit of ${limit}. ` +
+      `AI readings are paused for all patterns and resume once the VIX is at ${limit} or lower.`
+  }
   const date = value ? formatVixDate(horizon?.vixDate) : ''
   const opening = value
     ? `The VIX closed at ${value}${date ? ` on ${date}` : ''}, above the scoring limit of ${limit}.`
@@ -304,6 +334,8 @@ const normalizeHorizon = (source, fallbackStatus, fallbackReason) => {
     vixCutoff: reportedVixCutoff(source),
     vixValue: reportedVixValue(source),
     vixDate: reportedVixDate(source),
+    vixSource: reportedVixSource(source),
+    vixTime: reportedVixTime(source),
     metrics,
     isCurrent: Boolean(source && firstDefined(source.is_current, source.isCurrent, false)),
     isModelMinimum: Boolean(source && firstDefined(source.is_model_minimum, source.isModelMinimum, false)),
@@ -442,12 +474,16 @@ export const normalizeOpportunityAIScore = ({
   let vixCutoff = reportedVixCutoff(payload)
   let vixValue = reportedVixValue(payload)
   let vixDate = reportedVixDate(payload)
+  let vixSource = reportedVixSource(payload)
+  let vixTime = reportedVixTime(payload)
   const normalizedByDay = new Map()
   horizonList.forEach(horizon => {
     const normalized = normalizeHorizon(horizon, fallbackStatus, fallbackReason)
     vixCutoff = vixCutoff ?? normalized.vixCutoff
     vixValue = vixValue ?? normalized.vixValue
     vixDate = vixDate ?? normalized.vixDate
+    vixSource = vixSource ?? normalized.vixSource
+    vixTime = vixTime ?? normalized.vixTime
     if (normalized.calendarDays !== null) normalizedByDay.set(normalized.calendarDays, normalized)
   })
 
@@ -459,6 +495,8 @@ export const normalizeOpportunityAIScore = ({
         vixCutoff: horizon.vixCutoff ?? vixCutoff,
         vixValue: horizon.vixValue ?? vixValue,
         vixDate: horizon.vixDate ?? vixDate,
+        vixSource: horizon.vixSource ?? vixSource,
+        vixTime: horizon.vixTime ?? vixTime,
       }
     }
     return {
@@ -466,6 +504,8 @@ export const normalizeOpportunityAIScore = ({
       vixCutoff,
       vixValue,
       vixDate,
+      vixSource,
+      vixTime,
       status: fallbackStatus,
       reason: fallbackReason,
       metrics: { ml_score: null, win_prob: null, pred_return: null, pred_mfe: null },

@@ -333,5 +333,8 @@ def _no_live_vix_history(monkeypatch):
     def _unavailable():
         raise OSError("VIX history disabled in tests")
     monkeypatch.setattr(vix_gate, "_default_loader", _unavailable)
+    monkeypatch.setattr(vix_gate, "_default_live_loader", lambda: None)
     monkeypatch.setitem(vix_gate._CACHE, "rows", None)
+    monkeypatch.setitem(vix_gate._CACHE, "live", None)
+    monkeypatch.setitem(vix_gate._CACHE, "live_at", 0.0)
     yield

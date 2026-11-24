@@ -1796,3 +1796,12 @@ def test_vix_pause_sentence_omits_unknown_value():
     text = vix_pause_sentence({"vix_cutoff": 35}, "this window")
     assert "closed at" not in text and "scoring limit of 35" in text
     assert "None" not in vix_pause_sentence({}, "this window")
+
+
+def test_vix_pause_sentence_uses_the_live_vix_and_quote_time():
+    from tara_answer_planner import vix_pause_sentence
+    text = vix_pause_sentence({"vix_value": 41.27, "vix_cutoff": 35, "vix_source": "live",
+                               "vix_time": "2026-11-21T10:42-05:00"}, "this window")
+    assert "the VIX is at 41.27 (live, November 21, 10:42 AM ET), above the scoring limit of 35" in text
+    assert "resume once the VIX is at 35 or lower" in text
+    assert "closed" not in text

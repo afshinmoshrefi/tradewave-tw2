@@ -1156,6 +1156,18 @@ checks and restart verification are in `ops/OPERATIONS.md` and
   It uses the scorer's reported cutoff when available and the legacy model's 35 cutoff otherwise. An available reading uses
   an individual cell for each numeric metric. The AI Scores panel explains the
   same reason in full. See `docs/tasks/TW-TASK-0037.md`.
+- **VIX pause uses the live VIX (2026-11-24):** the scorer's VIX gate used the daily close in
+  its price files, so a scorer with old files kept pausing on an old close (Nov 24: 35.89 from
+  Nov 20 while the live VIX was about 27), and the appserver cached that pause until midnight.
+  Now: (1) ml_scorer `live_vix.py` (branch `claude/live-vix-gate-20261124`, not yet deployed)
+  gates current dates on the live quote (`ML_SCORER_LIVE_VIX_URL` = realtime service
+  `/prices/VIX`, EODHD fallback) and reports `vix_value`, `vix_source`, `vix_time`;
+  (2) `appserver/vix_gate.py` keeps such a live decision as is, and for a scorer without it
+  (legacy v2) re-checks the pause against the live quote: under the limit it becomes
+  "AI scores are temporarily unavailable" (retryable); (3) `ml_checkpoint_context` caches a
+  pause for `PAUSE_CACHE_SECONDS` (300 s) at most and treats an older cached pause as a miss;
+  the rolling-deploy `ml4_` copy follows the same TTL. The UI and Tara show the live value and
+  quote time ("The VIX is at 36.2 (live, 10:42 AM ET)...").
 - **Chart canvas resolution invariant (2026-08-04):** never force a fractional
   Chart.js `devicePixelRatio`. The seasonal bar chart and its canvas-rendered
   tooltip must use the browser's native device-pixel ratio. A forced `0.5`
