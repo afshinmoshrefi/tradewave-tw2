@@ -88,6 +88,24 @@ AFFILIATE_REVERSAL_LOOKBACK_DAYS = int(os.environ.get('TW2_AFFILIATE_REVERSAL_LO
 # month whose payable total is below it stays pending and is carried into the
 # partner's next month with activity; "mark paid" is refused below it.
 AFFILIATE_PAYOUT_MINIMUM_CENTS = int(os.environ.get('TW2_AFFILIATE_PAYOUT_MINIMUM_CENTS', '5000'))
+# --- Operations + growth tools (TW-TASK-0039 package C) ---
+# Tax-form uploads are Fernet-encrypted at rest. TW2_TAX_FORM_KEY is one or
+# more comma-separated Fernet keys (first encrypts, all decrypt - rotation).
+# EMPTY = the portal refuses uploads. Generate one on the box:
+#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+TAX_FORM_KEY = os.environ.get('TW2_TAX_FORM_KEY', '').strip()
+# Where the encrypted files live. Must be OUTSIDE the web root (never served).
+TAX_FORM_DIR = os.environ.get('TW2_TAX_FORM_DIR', '/var/lib/tradewave/affiliate-tax-forms')
+TAX_FORM_MAX_BYTES = int(os.environ.get('TW2_TAX_FORM_MAX_BYTES', str(5 * 1024 * 1024)))
+# Creative library images (banners / logos): a PUBLIC asset folder so a
+# partner can embed them. Empty = <web_root_dir>/assets/affiliate-creatives.
+AFFILIATE_CREATIVE_DIR = os.environ.get('TW2_AFFILIATE_CREATIVE_DIR', '').strip()
+# Monthly operations summary: who gets it, and what counts as a large refund.
+AFFILIATE_OPS_EMAIL = os.environ.get('TW2_AFFILIATE_OPS_EMAIL', '').strip()   # empty = SUPPORT_EMAIL_TO
+AFFILIATE_OPS_LARGE_REFUND_CENTS = int(os.environ.get('TW2_AFFILIATE_OPS_LARGE_REFUND_CENTS', '20000'))
+AFFILIATE_OPS_ACTIVITY_WARN_DAYS = int(os.environ.get('TW2_AFFILIATE_OPS_ACTIVITY_WARN_DAYS', '30'))
+# Wise batch CSV: the currency the TradeWave Wise balance pays from.
+AFFILIATE_WISE_SOURCE_CURRENCY = os.environ.get('TW2_AFFILIATE_WISE_SOURCE_CURRENCY', 'USD').strip().upper()
 # Timezone the admin screens show and accept campaign claim windows in (IANA
 # name). Storage is always UTC.
 ADMIN_DISPLAY_TIMEZONE = os.environ.get('TW2_ADMIN_DISPLAY_TIMEZONE', 'America/New_York').strip() or 'UTC'

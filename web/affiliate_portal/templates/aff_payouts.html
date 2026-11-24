@@ -3,6 +3,7 @@
 {% block heading %}Payouts{% endblock %}
 {% block subtitle %}What you need to get paid, when the next payout is, and what has been sent.{% endblock %}
 {% block content %}
+{% set tax = aff_ops.tax() %}
 
 <div class="grid2">
   <div class="card">
@@ -11,7 +12,8 @@
     <div class="check {{ 'ok' if it.ok else 'todo' }}">
       <span class="dot" aria-hidden="true">{{ '✓' if it.ok else '!' }}</span>
       <div><b>{{ it.label }}</b>{% if not it.ok %} <span class="pill warn">To do</span>{% endif %}
-        {% if it.help %}<div class="small soft" style="margin-top:3px;">{{ it.help }}</div>{% endif %}</div>
+        {% if it.key == 'tax' and not it.ok and tax and tax.enabled %}<div class="small soft" style="margin-top:3px;">{% if tax.latest and tax.latest.status == 'received' %}We have your form and are reviewing it.{% else %}W-9 (U.S.) or W-8BEN / W-8BEN-E (non-U.S.). <a href="#tax-form">Upload it below</a> - don't email it.{% endif %}</div>
+        {% elif it.help %}<div class="small soft" style="margin-top:3px;">{{ it.help }}</div>{% endif %}</div>
     </div>
     {% endfor %}
     {% if aff.status == 'paused' %}
@@ -47,6 +49,50 @@
   </table>
   <p class="tiny muted" style="margin:12px 0 0;">To change payout details, contact help@tradewave.ai. Don't email bank details, card numbers or tax forms - we'll send you a secure link. We check every change by hand because it moves real money.</p>
 </div>
+
+{% if tax %}
+<div class="card" id="tax-form">
+  <h3>Tax form
+    <span class="right">{% if tax.on_file %}<span class="pill ok">{{ tax.on_file_label }} on file</span>
+      {% elif tax.latest and tax.latest.status == 'received' %}<span class="pill warn">Being reviewed</span>
+      {% elif tax.latest and tax.latest.status == 'rejected' %}<span class="pill bad">Needs a new upload</span>
+      {% else %}<span class="pill bad">Needed</span>{% endif %}</span></h3>
+  {% if tax.latest %}
+  <table>
+    <tr><td class="soft" style="width:40%;">Latest upload</td><td>{{ tax.latest.form_label }}, {{ tax.latest.uploaded }}</td></tr>
+    <tr><td class="soft">Status</td><td>{{ tax.latest.status_label }}{% if tax.latest.reviewed %} <span class="soft">({{ tax.latest.reviewed }})</span>{% endif %}</td></tr>
+    {% if tax.latest.status == 'rejected' and tax.latest.reason %}
+    <tr><td class="soft">What to fix</td><td style="color:var(--warn);">{{ tax.latest.reason }}</td></tr>
+    {% endif %}
+  </table>
+  {% endif %}
+  {% if tax.enabled %}
+  <p class="soft small" style="margin:{{ '14px' if tax.latest else '0' }} 0 0;">{% if tax.on_file %}Your form is on file. Upload a new one only if your details changed.{% else %}We need one form before we can pay you: W-9 if you are a U.S. person or business, W-8BEN if you are an individual outside the U.S., W-8BEN-E if you are a company outside the U.S.{% endif %}</p>
+  <form method="post" action="{{ url_for('affiliate_portal.tax_form_upload') }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="grid2" style="margin-bottom:0;">
+      <div>
+        <label for="tf-type">Which form</label>
+        <select id="tf-type" name="form_type" required>
+          <option value="">Choose a form</option>
+          {% for key, label in tax.choices %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="tf-file">Completed and signed PDF ({{ tax.max_mb }} MB max)</label>
+        <input type="file" id="tf-file" name="tax_form" accept="application/pdf,.pdf" required>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px;">
+      <button class="btn-primary" type="submit">Upload securely</button>
+      <span class="tiny muted">Encrypted when stored. Only the TradeWave payouts team can open it, and every time it is opened is logged.</span>
+    </div>
+  </form>
+  {% else %}
+  <p class="soft small" style="margin:{{ '14px' if tax.latest else '0' }} 0 0;">Secure upload is not available right now. Contact help@tradewave.ai and we will send you a secure way to get your form to us. Do not email the form itself.</p>
+  {% endif %}
+</div>
+{% endif %}
 
 <div class="card">
   <h3>Payout history</h3>

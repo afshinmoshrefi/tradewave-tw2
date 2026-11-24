@@ -1466,7 +1466,7 @@ def test_migration_chain_has_a_single_head():
         revs[rev] = path.name
         downs.update(re.findall(r"['\"](\w+)['\"]", down))
     heads = sorted(set(revs) - downs)
-    assert heads == ["b4d7e1f2a3c5"], heads
+    assert len(heads) == 1, heads      # later packages add their own revision on top
     assert downs <= set(revs)
     mig = (versions / revs["b4d7e1f2a3c5"]).read_text()
     assert "down_revision = 'a7f3c2e9b1d4'" in mig

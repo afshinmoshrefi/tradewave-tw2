@@ -81,6 +81,8 @@ class User(Base):
     # funnel; commission attribution still comes from affiliate_referrals.
     referred_by_affiliate_id    = Column(PG_UUID(as_uuid=True), ForeignKey("affiliates.id", ondelete="SET NULL"))
     referred_at                 = Column(TIMESTAMP(timezone=True))
+    # Sub-link slug the signup arrived with (TW-TASK-0039 C; reporting only).
+    referred_sub                = Column(Text)
     # navigator_mcp_first_connect_at: stamped ONCE (idempotently) by the gateway on a
     # Navigator's first MCP/OAuth connect (apiserver/db.py arm_navigator_teaser_if_null),
     # anchoring the one-time 7-day first-connect teaser (Analyst scope in chat). The web
@@ -594,6 +596,10 @@ class AffiliateReferral(Base):
     year_anchor_at   = Column(TIMESTAMP(timezone=True))
     ended_at         = Column(TIMESTAMP(timezone=True))   # subscription ended (cancel-and-return window)
     prior_referral_id = Column(PG_UUID(as_uuid=True), ForeignKey("affiliate_referrals.id", ondelete="SET NULL"))
+    # sub_link: the partner's named sub-link slug (?sub=youtube) the checkout
+    # arrived with (TW-TASK-0039 C). Reporting only - never read by
+    # attribution or the commission engine.
+    sub_link         = Column(Text)
     affiliate     = relationship("Affiliate")
     terms         = relationship("AffiliateTerms")
 

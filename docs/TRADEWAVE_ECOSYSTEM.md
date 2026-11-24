@@ -440,6 +440,55 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
     swaps the `ANNE` placeholders. OPEN: `web/templates/affiliate_sign.html`
     still prints the v1 Exhibit A rows (it must loop `ex.rows`), and the
     portal's `_partner_details_md` still prints v1 rate lines.
+- **Affiliate operations + growth tools (TW-TASK-0039 package C, built 2026-11-24, NOT yet
+  on any box).** Logic: `web/affiliate_ops.py`; tables: `web/affiliate_ops_models.py`
+  (shares `models.Base`); migration `c0a1b2d3e4f5_affiliate_ops_growth` (parent `b4d7e1f2a3c5`;
+  packages A and B branch from the same parent, so a merge revision follows). Partner routes:
+  `web/affiliate_portal/ops_routes.py` (page data reaches the templates through the `aff_ops`
+  template global, so `routes.py` is untouched). Admin: `web/affiliate_ops_admin.py` ->
+  `/admin/affiliate_bulk_payouts/`, `/admin/affiliate_tax_forms/`, `/admin/affiliate_creatives/`.
+  - **Tax forms.** Partner uploads a W-9 / W-8BEN / W-8BEN-E PDF on Payouts (`POST
+    /account/affiliate/tax-form`). Checks: `.pdf` name, PDF content type, `%PDF-` magic bytes and
+    `%%EOF` trailer, 5 MB (`TW2_TAX_FORM_MAX_BYTES`), 5 uploads a day. Stored Fernet-encrypted
+    as `<uuid>.bin` (mode 0600) in `config.TAX_FORM_DIR` (`TW2_TAX_FORM_DIR`, default
+    `/var/lib/tradewave/affiliate-tax-forms`); upload is REFUSED when `TW2_TAX_FORM_KEY` is
+    empty or malformed, or when the folder sits inside `web_root_dir`. The key may be a
+    comma-separated list (first encrypts, all decrypt) for rotation. Row
+    `affiliate_tax_forms.status`: received -> accepted | rejected (reason shown to the partner),
+    `replaced` when superseded. Accept writes `affiliates.tax_form_type` +
+    `tax_form_received_at`, which is the ONLY thing the payout gate reads
+    (`affiliate_admin.payout_block_reason`). Files of rejected / replaced forms are deleted.
+    Download is admin-only and writes `audit_log` action `affiliate_tax_form_downloaded` BEFORE
+    the bytes are sent. INVARIANT: losing the key makes stored forms unreadable - back it up
+    with secrets.env; `TAX_FORM_DIR` must be in the box backup and never under nginx.
+  - **Sub-links.** `?code=ANNE&sub=youtube` and `/join/ANNE?sub=youtube`; slug
+    `^[a-z0-9][a-z0-9_-]{0,39}$`. Cookie `tw_ref_sub` = `<CODE>:<sub>` set beside `tw_ref`
+    (server on `/join` and `/pricing`, home-page JS otherwise). Stored on
+    `affiliate_sublink_clicks` (registered links only, so a visitor cannot create rows),
+    `users.referred_sub` and `affiliate_referrals.sub_link` (via subscription metadata
+    `tw2_affiliate_sub`, stamped AFTER the partner is resolved and only when the tag belongs
+    to that partner). REPORTING ONLY: attribution and the commission engine never read it.
+    Links page: clicks / signups / paid / earned per sub-link, plus per promotion (clicks and
+    signups from sub-links the partner tied to the campaign; paid and earned from
+    `affiliate_referrals.campaign_id`).
+  - **Bulk payouts.** One export file per (method, currency) of PAYABLE pending ledger rows
+    (same gate as mark-paid, plus payout method + email). PayPal Payouts Web file: no header,
+    `email,amount,currency,reference,note,PAYPAL`. Wise batch file: header
+    `affiliate_ops.WISE_COLUMNS`. Reference = `TWP` + zero-padded `affiliate_payouts.id`.
+    Bulk mark-paid (paste or CSV, preview then confirm) re-runs the gate per row under a row
+    lock, sets status / paid_at / external_ref and calls `sync_paid_lines`. Nothing here
+    contacts PayPal or Wise or moves money.
+  - **Creative library.** `affiliate_creatives` (banner | logo | email | social; evergreen or
+    tied to a `promo_campaigns` row and then shown only while it is live). Images are verified
+    with Pillow and stored under `<web_root>/assets/affiliate-creatives/` (public, so partners
+    can embed them; `TW2_AFFILIATE_CREATIVE_DIR` overrides). Copy placeholders: `{link}`
+    `{join_link}` `{code}` `{discount}` `{name}`.
+  - **Monthly operations summary.** `web/affiliate_ops_summary.py --email`, cron `30 6 3 * *`
+    (installed by `ops/install_affiliate_crons.sh web`), one day after the ledger sweep. Reads
+    the ledger only (no Stripe call, no compute, never marks paid); plain rules, no LLM. One
+    email per month to `TW2_AFFILIATE_OPS_EMAIL` (default `SUPPORT_EMAIL_TO`), made idempotent
+    by `audit_log` action `affiliate_ops_summary_sent`. Thresholds:
+    `TW2_AFFILIATE_OPS_LARGE_REFUND_CENTS` (20000), `TW2_AFFILIATE_OPS_ACTIVITY_WARN_DAYS` (30).
 - **Standalone promo coupons (Coupons tab)** - plain marketing discount codes
   with NO affiliate / commission / payout. `web/promo_service.py` + `web/models.py`
   (`PromoCoupon`) + migration `b2c0fee1d3a5` + the top-level Flask-Admin **Coupons**
