@@ -477,10 +477,25 @@ class Affiliate(Base):
     # ledger refuses status='paid' while tax_form_received_at is NULL.
     tax_form_type        = Column(Text)   # 'w9' | 'w8ben' | 'w8bene'
     tax_form_received_at = Column(TIMESTAMP(timezone=True))
+    # --- program v2 (TW-TASK-0038, migration b4d7e1f2a3c5) -------------------
+    # terms_id: the agreement terms version that applies to this partner's
+    # FUTURE referrals (each referral snapshots it at checkout; payouts read
+    # the referral's copy, never this column). Under v2 discount_pct /
+    # discount_pct_monthly are the partner's self-serve customer discount
+    # (0..terms.max_discount_pct); commission_pct / commission_model are
+    # LEGACY (kept for old statements + display, ignored by the v2 engine).
+    terms_id             = Column(Integer, ForeignKey("affiliate_terms.id", ondelete="RESTRICT"))
+    discount_changed_at  = Column(TIMESTAMP(timezone=True))   # last self-serve discount change (24h limit)
+    # Termination for cause forfeits held/unpaid commission (admin action that
+    # records the cause). A plain pause HOLDS commission; it is never forfeited.
+    terminated_for_cause = Column(Boolean, nullable=False, server_default=sa_text("false"))
+    terminated_at        = Column(TIMESTAMP(timezone=True))
+    termination_cause    = Column(Text)
     created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     updated_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     user = relationship("User", foreign_keys=[user_id])
+    terms = relationship("AffiliateTerms")
 
     __table_args__ = (
         CheckConstraint(r"code ~ '^[A-Z0-9_-]{2,64}$'", name="affiliates_code_charset_check"),
@@ -504,7 +519,7 @@ class Affiliate(Base):
 
 class AffiliatePayout(Base):
     __tablename__ = "affiliate_payouts"
-    id            = Column(BigInteger, primary_key=True)
+    id            = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
     affiliate_id  = Column(PG_UUID(as_uuid=True), ForeignKey("affiliates.id", ondelete="RESTRICT"), nullable=False)
     period_start  = Column(Date, nullable=False)
     period_end    = Column(Date, nullable=False)
@@ -555,18 +570,209 @@ class AffiliateReferral(Base):
     stripe_customer_id     = Column(Text)
     stripe_subscription_id = Column(Text, nullable=False, unique=True)  # one referral per subscription
     referral_code = Column(Text)   # snapshot of the code used at checkout
+    # source (storage id, see REFERRAL_SOURCES): how the partner was resolved.
     source        = Column(Text, nullable=False, server_default=sa_text("'checkout'"))
     attributed_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    # --- program v2 snapshot, stamped at checkout and NEVER re-read from the
+    # partner's current row (terms are prospective + reproducible). NULLs mean
+    # a pre-v2 / coupon-only row: the engine then falls back to the partner's
+    # current terms and the discount actually on the invoice.
+    terms_id         = Column(Integer, ForeignKey("affiliate_terms.id", ondelete="RESTRICT"))
+    offer_type       = Column(Text)             # 'regular' (pool rule) | 'promo' (campaign won)
+    campaign_id      = Column(PG_UUID(as_uuid=True), ForeignKey("promo_campaigns.id", ondelete="RESTRICT"))
+    tier             = Column(Text)             # navigator | analyst | strategist
+    billing_interval = Column(Text)             # 'month' | 'year' (Stripe recurring.interval)
+    list_price_cents = Column(Integer)          # regular pre-tax list price at checkout
+    discount_pct     = Column(Numeric(5, 2))    # partner discount the customer got (regular offer)
+    # first_paid_at: first successful payment with amount_paid > 0 (trial $0
+    # invoices and failed payments never set it). Drives the activity rule.
+    first_paid_at    = Column(TIMESTAMP(timezone=True))
+    # year_anchor_at: SERVICE start of commission year 1 (line.period.start of
+    # the first paid invoice). Carried over from the prior referral when the
+    # same customer returns within 12 months, so the year count continues.
+    year_anchor_at   = Column(TIMESTAMP(timezone=True))
+    ended_at         = Column(TIMESTAMP(timezone=True))   # subscription ended (cancel-and-return window)
+    prior_referral_id = Column(PG_UUID(as_uuid=True), ForeignKey("affiliate_referrals.id", ondelete="SET NULL"))
     affiliate     = relationship("Affiliate")
+    terms         = relationship("AffiliateTerms")
 
     __table_args__ = (
         Index("ix_affiliate_referrals_customer", "stripe_customer_id"),
         Index("ix_affiliate_referrals_affiliate", "affiliate_id"),
+        CheckConstraint("offer_type IS NULL OR offer_type IN ('regular','promo')",
+                        name="affiliate_referrals_offer_type_check"),
+        CheckConstraint("billing_interval IS NULL OR billing_interval IN ('month','year')",
+                        name="affiliate_referrals_billing_interval_check"),
+        CheckConstraint("source IN ('checkout','promo_code','signup','return')",
+                        name="affiliate_referrals_source_check"),
     )
 
     def __str__(self):
         return f"{self.stripe_subscription_id} -> {self.affiliate_id}"
+
+
+# ---------------------------------------------------------------------------
+# Affiliate program v2 (TW-TASK-0038, migration b4d7e1f2a3c5). Every string in
+# these tuples is a STORAGE ID - never rename, only add.
+# ---------------------------------------------------------------------------
+REFERRAL_SOURCES = ("checkout", "promo_code", "signup", "return")
+REFERRAL_OFFER_TYPES = ("regular", "promo")
+CAMPAIGN_OFFER_TYPES = ("price", "percent")
+CAMPAIGN_STATUSES = ("draft", "active", "archived")
+COMMISSION_LINE_KINDS = ("first_year", "promo", "renewal", "lapsed", "refund", "dispute")
+COMMISSION_LINE_STATES = ("pending", "paid", "held", "lapsed", "void")
+
+
+class AffiliateTerms(Base):
+    """One VERSION of the partner commission terms. Rows are immutable once
+    created (there is no update path in affiliate_service): to change terms,
+    create a new version and assign it to partners prospectively. Referrals
+    snapshot terms_id at checkout and payouts read it from there."""
+    __tablename__ = "affiliate_terms"
+    id            = Column(Integer, primary_key=True)
+    version       = Column(Text, nullable=False, unique=True)     # label, e.g. 'v2-5y'
+    pool_pct      = Column(Numeric(5, 2), nullable=False, server_default=sa_text("50"))
+    max_discount_pct = Column(Numeric(5, 2), nullable=False, server_default=sa_text("25"))
+    promo_commission_pct = Column(Numeric(5, 2), nullable=False, server_default=sa_text("50"))
+    renewal_pct   = Column(Numeric(5, 2), nullable=False, server_default=sa_text("25"))
+    # LAST commission year: 5 = renewals paid in years 2-5. NULL = lifetime.
+    renewal_years = Column(Integer)
+    activity_rule_months = Column(Integer, nullable=False, server_default=sa_text("12"))
+    notes         = Column(Text)
+    created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("pool_pct >= 0 AND pool_pct <= 100", name="affiliate_terms_pool_pct_check"),
+        CheckConstraint("max_discount_pct >= 0 AND max_discount_pct <= pool_pct",
+                        name="affiliate_terms_max_discount_pct_check"),
+        CheckConstraint("promo_commission_pct >= 0 AND promo_commission_pct <= 100",
+                        name="affiliate_terms_promo_commission_pct_check"),
+        CheckConstraint("renewal_pct >= 0 AND renewal_pct <= 100", name="affiliate_terms_renewal_pct_check"),
+        CheckConstraint("renewal_years IS NULL OR renewal_years >= 1", name="affiliate_terms_renewal_years_check"),
+        CheckConstraint("activity_rule_months >= 0", name="affiliate_terms_activity_rule_months_check"),
+    )
+
+    def __str__(self):
+        return self.version
+
+
+class AffiliateDiscountChange(Base):
+    """History of a partner's customer-discount changes (self-serve or admin)."""
+    __tablename__ = "affiliate_discount_changes"
+    id            = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    affiliate_id  = Column(PG_UUID(as_uuid=True), ForeignKey("affiliates.id", ondelete="CASCADE"), nullable=False)
+    billing_interval = Column(Text, nullable=False)       # 'year' | 'month'
+    old_pct       = Column(Numeric(5, 2))
+    new_pct       = Column(Numeric(5, 2), nullable=False)
+    old_coupon_id = Column(Text)
+    new_coupon_id = Column(Text)
+    actor         = Column(Text)                           # 'partner:<user id>' | 'admin:<label>'
+    changed_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index("ix_affiliate_discount_changes_affiliate", "affiliate_id", "changed_at"),
+        CheckConstraint("billing_interval IN ('month','year')",
+                        name="affiliate_discount_changes_billing_interval_check"),
+    )
+
+
+class PromoCampaign(Base):
+    """A company-wide promotion (an intro offer for NEW customers during a
+    claim window). Not partner-specific: a direct sale can claim it ($0
+    commission) and a referred sale that claims it pays the promo rule. Named
+    promo_campaigns (not affiliate_*) for that reason; distinct from
+    promo_coupons, which are standalone typed codes with no window logic.
+
+    tiers / billing_intervals are JSON lists of storage ids
+    (navigator|analyst|strategist, month|year). intro_prices and
+    stripe_coupon_ids are JSON maps keyed "<tier>:<interval>"."""
+    __tablename__ = "promo_campaigns"
+    id            = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    code          = Column(Text, nullable=False, unique=True)     # generated slug id (uppercase), immutable
+    name          = Column(Text, nullable=False)                  # human label (free text lives in the VALUE)
+    tiers         = Column(JSONB, nullable=False)
+    billing_intervals = Column(JSONB, nullable=False)
+    new_customers_only = Column(Boolean, nullable=False, server_default=sa_text("true"))
+    starts_at     = Column(TIMESTAMP(timezone=True), nullable=False)
+    ends_at       = Column(TIMESTAMP(timezone=True), nullable=False)
+    offer_type    = Column(Text, nullable=False)                  # 'price' | 'percent'
+    intro_prices  = Column(JSONB)                                 # offer_type 'price': {"analyst:year": 9900}
+    percent_off   = Column(Numeric(5, 2))                         # offer_type 'percent'
+    intro_months  = Column(Integer, nullable=False, server_default=sa_text("12"))  # monthly plans; annual = 1 period
+    stripe_coupon_ids = Column(JSONB)                             # {"analyst:year": "<coupon id>"}
+    status        = Column(Text, nullable=False, server_default=sa_text("'draft'"))
+    notes         = Column(Text)
+    created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    updated_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(r"code ~ '^[A-Z0-9_-]{2,64}$'", name="promo_campaigns_code_charset_check"),
+        CheckConstraint("offer_type IN ('price','percent')", name="promo_campaigns_offer_type_check"),
+        CheckConstraint("status IN ('draft','active','archived')", name="promo_campaigns_status_check"),
+        CheckConstraint("ends_at > starts_at", name="promo_campaigns_window_check"),
+        CheckConstraint("percent_off IS NULL OR (percent_off > 0 AND percent_off <= 100)",
+                        name="promo_campaigns_percent_off_check"),
+        Index("ix_promo_campaigns_window", "status", "starts_at", "ends_at"),
+    )
+
+    def __str__(self):
+        return f"{self.code} ({self.name})"
+
+
+class AffiliateCommissionLine(Base):
+    """The commission ledger: ONE row per (partner, Stripe source object). The
+    source is the paid invoice for a sale line and the refund / dispute id for
+    a reversal. Rows are INSERT-ONCE: amount, basis and rate are never
+    re-priced after the insert; only state / payable_month / payout_id move.
+    Monthly affiliate_payouts rows aggregate the lines whose payable_month is
+    that month.
+
+    UNIQUE (affiliate_id, source_id) - deliberately WITHOUT kind, so a rerun
+    that would classify the same invoice differently (renewal vs lapsed) can
+    never add a second line for it."""
+    __tablename__ = "affiliate_commission_lines"
+    id            = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    affiliate_id  = Column(PG_UUID(as_uuid=True), ForeignKey("affiliates.id", ondelete="RESTRICT"), nullable=False)
+    referral_id   = Column(PG_UUID(as_uuid=True), ForeignKey("affiliate_referrals.id", ondelete="SET NULL"))
+    kind          = Column(Text, nullable=False)
+    source_id     = Column(Text, nullable=False)       # stripe invoice id, or refund / dispute id
+    stripe_invoice_id      = Column(Text)              # the sale invoice (also set on reversals)
+    stripe_reversal_id     = Column(Text)              # refund / dispute id (reversals only)
+    stripe_customer_id     = Column(Text)
+    stripe_subscription_id = Column(Text)
+    currency      = Column(Text, nullable=False, server_default=sa_text("'usd'"))
+    billing_interval = Column(Text)                    # 'month' | 'year'
+    service_period_start = Column(TIMESTAMP(timezone=True))
+    event_at      = Column(TIMESTAMP(timezone=True))   # invoice paid_at, or refund/dispute created
+    year_number   = Column(Integer)                    # commission year (1 = first year)
+    net_paid_cents = Column(Integer, nullable=False, server_default=sa_text("0"))   # paid less tax (signed)
+    basis_cents   = Column(Integer, nullable=False, server_default=sa_text("0"))    # commission basis (signed)
+    rate_pct      = Column(Numeric(5, 2), nullable=False, server_default=sa_text("0"))
+    amount        = Column(Numeric(14, 6), nullable=False, server_default=sa_text("0"))  # unrounded; payouts round the sum
+    state         = Column(Text, nullable=False, server_default=sa_text("'pending'"))
+    hold_reason   = Column(Text)                       # 'paused' | 'terminated' | 'terminated_for_cause'
+    period_month  = Column(Date, nullable=False)       # month the line was EARNED (event_at)
+    payable_month = Column(Date)                       # payout month it is aggregated into (NULL while held)
+    payout_id     = Column(BigInteger, ForeignKey("affiliate_payouts.id", ondelete="SET NULL"))
+    detail        = Column(JSONB)
+    created_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    updated_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    affiliate     = relationship("Affiliate")
+
+    __table_args__ = (
+        UniqueConstraint("affiliate_id", "source_id", name="uq_affiliate_commission_line_source"),
+        CheckConstraint("kind IN ('first_year','promo','renewal','lapsed','refund','dispute')",
+                        name="affiliate_commission_lines_kind_check"),
+        CheckConstraint("state IN ('pending','paid','held','lapsed','void')",
+                        name="affiliate_commission_lines_state_check"),
+        Index("ix_affiliate_commission_lines_payable", "affiliate_id", "payable_month", "currency"),
+        Index("ix_affiliate_commission_lines_period", "affiliate_id", "period_month"),
+        Index("ix_affiliate_commission_lines_invoice", "stripe_invoice_id"),
+    )
+
+    def __str__(self):
+        return f"{self.kind} {self.source_id} {self.amount}"
 
 
 # ---------------------------------------------------------------------------

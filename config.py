@@ -61,6 +61,26 @@ API_CONSOLE_ENABLED = os.environ.get('TW2_API_CONSOLE_ENABLED', '').strip().lowe
 AFFILIATE_DEFAULT_DISCOUNT_PCT = 20
 AFFILIATE_DEFAULT_COMMISSION_PCT = 30
 
+# Program v2 (TW-TASK-0038). All env-agnostic defaults; per-env values come
+# from /etc/tradewave/secrets.env.
+# FOUNDER_PRICE_IDS: comma-separated Stripe price ids of the legacy founder
+# plans ($189). A subscription on one of these (or on a price/product carrying
+# metadata tw2_founder=true) may only be CANCELLED in self-serve billing - no
+# plan, interval or price change via checkout or the Billing Portal.
+FOUNDER_PRICE_IDS = tuple(
+    p.strip() for p in os.environ.get('TW2_FOUNDER_PRICE_IDS', '').split(',') if p.strip()
+)
+# Optional dedicated Billing Portal configuration for founders with
+# "customers can switch plans" turned OFF. When empty, founders are sent
+# straight into the portal's cancel flow instead of the portal home.
+FOUNDER_BILLING_PORTAL_CONFIGURATION_ID = os.environ.get(
+    'TW2_FOUNDER_BILLING_PORTAL_CONFIGURATION_ID', ''
+).strip()
+# Commission is booked by the date an invoice was PAID. Stripe can only list
+# invoices by `created`, so the monthly compute lists this many days before
+# the month and filters on paid_at (covers late-paid / dunning-recovered ones).
+AFFILIATE_PAID_LOOKBACK_DAYS = int(os.environ.get('TW2_AFFILIATE_PAID_LOOKBACK_DAYS', '120'))
+
 # === STRIPE (TW2) ===
 # Get test keys from Stripe dashboard → Developers → API keys (toggle test mode)
 # Get from Stripe dashboard → Webhooks → Add endpoint (won't work until cloudflared tunnel is set up)
