@@ -6,11 +6,25 @@
   {%- else -%}{{ zero }}{%- endif -%}
 {%- endmacro %}
 
-{% macro promo_card(p, links, aff, promo_pct='50', show_qr=True) %}
+{# Copy button. `block` is why the partner's links do not credit them right
+   now (unsigned / paused): the button is then disabled and says so. #}
+{% macro copy(text, label='Copy', block=None) -%}
+{%- if block -%}
+<button class="copybtn" type="button" disabled aria-disabled="true" title="{{ block }}">{{ label }}</button>
+{%- else -%}
+<button class="copybtn" type="button" onclick="twCopy(this, '{{ text }}')">{{ label }}</button>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro copy_note(block) -%}
+{% if block %}<p class="blocknote">{{ block }}</p>{% endif %}
+{%- endmacro %}
+
+{% macro promo_card(p, links, aff, promo_pct='50', show_qr=True, block=None) %}
 <div class="card tone-brand">
   <h3>Live promotion <span class="right"><span class="pill warn">Ends {{ p.ends }}{% if p.days_left <= 14 %} - {{ p.days_left }} day{{ '' if p.days_left == 1 else 's' }} left{% endif %}</span></span></h3>
   {% for pl in p.plans %}
-  <p class="lead">{{ p.name }} - {{ pl.plan }} {{ pl.sale_cents|aff_price }} {{ pl.term }} (list {{ pl.list_cents|aff_price }}). Ends {{ p.ends }}.</p>
+  <p class="lead">{{ p.name }} - {{ pl.plan }} {{ pl.sale_cents|aff_price }} {{ pl.term }} (list {{ pl.list_cents|aff_price }}). Ends {{ p.ends_time or p.ends }}.</p>
   <p class="soft" style="margin:0 0 14px;">
     {% if pl.sale_wins %}
     Customer pays {{ pl.pays_cents|aff_price }} {{ pl.pays_term }} - You earn {{ pl.earn_cents|aff_cents }}{{ pl.earn_term }} - Customer renews at {{ pl.list_cents|aff_price }}{{ pl.renews_term }}
@@ -19,14 +33,17 @@
     {% endif %}
   </p>
   {% endfor %}
-  {% if aff.status == 'active' %}
+  {% if p.compare %}
+  <p class="compare">{% for line in p.compare %}{{ line }} {% endfor %}{% if p.other_plans %}Other plans are unchanged.{% endif %}</p>
+  {% endif %}
+  {% if not block %}
   <div class="row" style="align-items:flex-start;">
     <div style="flex:1; min-width:240px;">
       <label style="margin-top:0;">Your tracked link for this promotion</label>
       <div class="linkbox"><code>{{ links.join }}</code>
         <button class="copybtn" type="button" onclick="twCopy(this, '{{ links.join }}')">Copy</button></div>
       <p class="small soft" style="margin:12px 0 0;">During a TradeWave sale your customer gets whichever price is lower - the sale or your discount.
-        If the sale wins, you earn {{ promo_pct }}% of what they paid. You always keep the referral.</p>
+        If the sale wins, you earn {{ promo_pct }}% of what they paid. The referral is always yours.</p>
     </div>
     {% if show_qr %}
     <a href="{{ url_for('affiliate_portal.qr_svg', u=links.join, download=1) }}" title="Download QR code"
@@ -37,7 +54,8 @@
   </div>
   {% else %}
   <p class="small soft" style="margin:0;">During a TradeWave sale your customer gets whichever price is lower - the sale or your discount.
-    If the sale wins, you earn {{ promo_pct }}% of what they paid. You always keep the referral. Your link works once your account is active.</p>
+    If the sale wins, you earn {{ promo_pct }}% of what they paid. The referral is always yours.</p>
+  <p class="blocknote">{{ block }}</p>
   {% endif %}
 </div>
 {% endmacro %}

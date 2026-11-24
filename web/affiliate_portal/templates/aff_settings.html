@@ -6,45 +6,51 @@
 <div class="card" id="offer">
   <h3>Your offer</h3>
   <p class="lead">You have {{ offer.pool_pct }}% of the list price to split.</p>
-  <p class="soft" style="margin:0 0 16px;">Give your audience up to {{ offer.max_discount_pct }}% off and keep the rest.
+  <p class="soft" style="margin:0 0 16px;">Give your audience up to {{ offer.max_discount_pct }}% off. You earn the rest.
     Example: $100 plan at <span id="ex-pct">{{ offer.discount_year }}</span>% off - they pay <span id="ex-pay">{{ grid.example[offer.discount_year][0]|aff_price if offer.discount_year in grid.example else '-' }}</span>, you earn <span id="ex-earn">{{ grid.example[offer.discount_year][1]|aff_price if offer.discount_year in grid.example else '-' }}</span>.</p>
 
+  {% set shown = confirm.new if confirm else offer.discount_year %}
   <form method="post" action="{{ url_for('affiliate_portal.settings_discount') }}" id="offer-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label for="disc-num" style="margin-top:0;">Discount for your audience</label>
     <div class="chooser">
       <div class="seg" role="group" aria-label="Quick picks">
         {% for step in range(0, offer.max_discount_int + 1, 5) %}
-        <button type="button" data-pct="{{ step }}" class="{{ 'on' if offer.discount_year == step|string else '' }}">{{ step }}%</button>
+        <button type="button" data-pct="{{ step }}" class="{{ 'on' if shown == step|string else '' }}">{{ step }}%</button>
         {% endfor %}
       </div>
       <div class="numwrap">
         <input type="number" id="disc-num" name="discount_pct" min="0" max="{{ offer.max_discount_int }}" step="1"
-               value="{{ offer.discount_year }}" inputmode="numeric" aria-describedby="disc-help" required>
+               value="{{ shown }}" inputmode="numeric" aria-describedby="disc-help" required>
         <span>% off</span>
       </div>
     </div>
-    <input type="range" id="disc-range" min="0" max="{{ offer.max_discount_int }}" step="1" value="{{ offer.discount_year }}"
+    <input type="range" id="disc-range" min="0" max="{{ offer.max_discount_int }}" step="1" value="{{ shown }}"
            aria-label="Discount percent" tabindex="-1">
-    <p class="tiny muted" id="disc-help" style="margin:6px 0 0;">0% to {{ offer.max_discount_pct }}%. You keep <b id="keep-pct" style="color:var(--text);">{{ offer.rate_year }}</b>% of the list price on first-year payments.</p>
+    <p class="tiny muted" id="disc-help" style="margin:6px 0 0;">0% to {{ offer.max_discount_pct }}%. You earn <b id="keep-pct" style="color:var(--text);">{{ offer.rate_year }}</b>% of the list price on first-year payments.</p>
 
     {% if plans %}
     <div class="scroll-x" style="margin-top:16px;">
     <table class="stack" id="offer-table">
-      <thead><tr><th>Plan</th><th class="num">List price</th><th class="num">Your customer pays</th><th class="num">You earn on this payment (first year)</th><th class="num">You earn per renewal</th></tr></thead>
+      <thead><tr><th>Plan</th><th class="num">List price</th><th class="num">Customer pays</th><th class="num">You earn (year 1)</th><th class="num">Per renewal</th></tr></thead>
       <tbody>
+      {% set ns = namespace(sale=none) %}
       {% for p in plans %}
-      <tr data-key="{{ p.key }}">
+      {% if p.sale %}{% set ns.sale = p %}{% endif %}
+      <tr data-key="{{ p.key }}"{% if p.sale %} data-sale-pay="{{ p.sale_customer_cents }}" data-sale-earn="{{ p.sale_first_cents }}"{% endif %}>
         <td data-label="Plan" class="title">{{ p.plan }}</td>
-        <td data-label="List price" class="num">{{ p.list_cents|aff_price }}<span class="muted tiny"> /{{ p.per }}</span></td>
-        <td data-label="Your customer pays" class="num" data-cell="pay">{{ p.customer_cents|aff_price }}</td>
-        <td data-label="You earn on this payment (first year)" class="num" data-cell="earn"><b>{{ p.first_cents|aff_cents }}</b></td>
-        <td data-label="You earn per renewal" class="num">{{ p.renewal_cents|aff_cents }}</td>
+        <td data-label="List price" class="num"><span>{{ p.list_cents|aff_price }}<span class="muted tiny"> /{{ p.per }}</span></span></td>
+        <td data-label="Customer pays" class="num"><span><span data-cell="pay">{{ (p.sale_customer_cents if p.sale else p.customer_cents)|aff_price }}</span>{% if p.sale %} <span class="pill warn" data-cell="salepill">Sale</span>{% endif %}</span></td>
+        <td data-label="You earn (year 1)" class="num"><b data-cell="earn">{{ (p.sale_first_cents if p.sale else p.first_cents)|aff_cents }}</b></td>
+        <td data-label="Per renewal" class="num">{{ p.renewal_cents|aff_cents }}</td>
       </tr>
       {% endfor %}
       </tbody>
     </table>
     </div>
+    {% if ns.sale %}
+    <p class="small soft" style="margin:10px 0 0;"><span class="pill warn">Sale</span> {{ ns.sale.sale_name }} is on until {{ ns.sale.sale_ends }}: new {{ ns.sale.plan }} customers pay the sale price, because it is lower than your discount, and you earn {{ offer.promo_pct }}% of what they pay. After the sale your discount applies again.</p>
+    {% endif %}
     <p class="tiny muted" style="margin:10px 0 0;">Monthly plans: the discount and your first-year rate apply to each of the first 12 monthly payments.
       Renewals pay {{ offer.renewal_pct }}% of what the customer pays, {% if offer.lifetime %}for as long as they stay{% else %}in years 2 to {{ offer.last_year }}{% endif %}, at today's price.
       {% if offer.activity_rule_months %}Renewal commissions need at least 1 new paying customer every {{ offer.activity_rule_months }} months, with a 30-day grace.{% endif %}</p>
@@ -59,6 +65,27 @@
     <p class="small soft">Your monthly plans currently have a different discount ({{ offer.discount_month }}%). Saving sets one discount for every plan.</p>
     {% endif %}
 
+    {# save result and the confirm step live HERE, beside the button #}
+    <div id="offer-status" aria-live="polite">
+      {% with msgs = get_flashed_messages(with_categories=true, category_filter=['offer-success', 'offer-error']) %}
+      {% for category, message in msgs %}
+      <div class="inline-msg {{ category[6:] }}" role="status">{{ message }}</div>
+      {% endfor %}
+      {% endwith %}
+      {% if confirm %}
+      <div class="confirm" role="alertdialog" aria-labelledby="confirm-title">
+        <b id="confirm-title">Change your discount from {{ confirm.old }}% to {{ confirm.new }}%?</b>
+        <p>{{ confirm.text }}</p>
+        <input type="hidden" name="confirm_for" value="{{ confirm.new }}">
+        <div class="row">
+          <button class="btn-primary" type="submit" name="confirm" value="yes">Yes, change to {{ confirm.new }}%</button>
+          <a class="btn-secondary" href="{{ url_for('affiliate_portal.settings') }}#offer">Keep {{ confirm.old }}%</a>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if not confirm %}
     <div class="row" style="margin-top:14px;">
       {% if not is_owner %}
         <button class="btn-primary" type="submit" disabled>Save discount</button>
@@ -71,6 +98,7 @@
         <span class="small soft">You can change it once every 24 hours. No need to sign anything again.</span>
       {% endif %}
     </div>
+    {% endif %}
   </form>
 
   <details class="more" style="margin-top:18px;" {{ 'open' if history else '' }}>
@@ -81,7 +109,7 @@
       <tbody>
       {% for h in history %}
       <tr><td data-label="Date">{{ h.date }}</td><td data-label="Plans">{{ h.plans }}</td>
-          <td data-label="Change">{% if h.old is not none %}{{ h.old }}% to {% endif %}<b>{{ h.new }}%</b></td><td data-label="Changed by">{{ h.by }}</td></tr>
+          <td data-label="Change"><span>{% if h.old is not none %}{{ h.old }}% to {% endif %}<b>{{ h.new }}%</b></span></td><td data-label="Changed by">{{ h.by }}</td></tr>
       {% endfor %}
       </tbody>
     </table>
@@ -173,7 +201,16 @@
   input[type=range] { width:100%; margin:14px 0 0; accent-color:#8b5cf6; height:28px; }
   .note { margin-top:16px; padding:12px 14px; border-radius:10px; background:var(--brand-soft);
           border:1px solid rgba(99,102,241,0.3); color:var(--brand-text); font-size:14px; }
-  td.changed { color:var(--ok); }
+  .changed { color:var(--ok); }
+  #offer-status { scroll-margin-top:38vh; }
+  .confirm { margin-top:14px; padding:14px; border-radius:12px; background:var(--warn-bg); border:1px solid var(--warn-line); }
+  .confirm b { font-size:15.5px; }
+  .confirm p { margin:6px 0 12px; font-size:14px; }
+  #offer-table td.num { white-space:nowrap; }
+  @media (max-width:640px) {
+    #offer-table td::before { white-space:nowrap; }
+    #offer-table td > span, #offer-table td > b { white-space:nowrap; }
+  }
 </style>
 {% endblock %}
 
@@ -203,8 +240,14 @@
       var row = plans && plans[tr.getAttribute("data-key")];
       if (!row) return;
       var pay = tr.querySelector('[data-cell="pay"]'), earn = tr.querySelector('[data-cell="earn"]');
-      pay.textContent = price(row[0]); earn.innerHTML = "<b>" + cents(row[1]) + "</b>";
-      pay.classList.toggle("changed", key !== CURRENT); earn.classList.toggle("changed", key !== CURRENT);
+      var pill = tr.querySelector('[data-cell="salepill"]'), salePay = tr.getAttribute("data-sale-pay");
+      // A live sale wins a plan while it is lower than the partner price
+      // (same rule as checkout; a tie goes to the partner discount).
+      var sale = salePay !== null && Number(salePay) < row[0];
+      if (pill) pill.style.display = sale ? "" : "none";
+      pay.textContent = price(sale ? Number(salePay) : row[0]);
+      earn.textContent = cents(sale ? Number(tr.getAttribute("data-sale-earn")) : row[1]);
+      pay.classList.toggle("changed", !sale && key !== CURRENT); earn.classList.toggle("changed", !sale && key !== CURRENT);
     });
     Array.prototype.forEach.call(document.querySelectorAll(".chooser .seg button"), function (b) {
       b.classList.toggle("on", b.getAttribute("data-pct") === key);
@@ -221,6 +264,7 @@
   Array.prototype.forEach.call(document.querySelectorAll(".chooser .seg button"), function (b) {
     b.addEventListener("click", function () { num.value = b.getAttribute("data-pct"); range.value = num.value; show(num.value); });
   });
+  if (String(num.value) !== CURRENT) show(num.value);   // confirm step: preview the new numbers
 })();
 </script>
 {% endblock %}

@@ -1,11 +1,12 @@
 {% extends "aff_base.html" %}
 {% block heading %}Links{% endblock %}
 {% block subtitle %}Everything you need to send people to TradeWave with your name on it.{% endblock %}
+{% import "aff_macros.html" as m %}
 {% block content %}
 
-{% if aff.status != 'active' %}
-<div class="strip amber"><div class="txt"><b>Your links are not live yet.</b>
-  <span>They start applying your discount and crediting you as soon as your account is active.</span></div></div>
+{% if link_block %}
+<div class="strip amber"><div class="txt"><b>{{ link_block }}</b>
+  <span>{% if not aff.agreement_signed_at %}Copy is switched off so you don't share a link that can't credit you yet. The signing link is in your email.{% else %}Copy is switched off so you don't share a link that can't credit you. Questions: help@tradewave.ai{% endif %}</span></div></div>
 {% endif %}
 
 <div class="grid2">
@@ -13,7 +14,8 @@
     <h3>Your join page</h3>
     <p class="soft small" style="margin-top:0;">A ready-made page with your name, your note and your prices. Best link to share.</p>
     <div class="linkbox"><code>{{ links.join }}</code>
-      <button class="copybtn" type="button" onclick="twCopy(this, '{{ links.join }}')">Copy</button></div>
+      {{ m.copy(links.join, 'Copy', link_block) }}</div>
+    {{ m.copy_note(link_block) }}
     <div class="row" style="margin-top:12px;">
       <a class="btn-secondary btn-sm" href="{{ links.join }}" target="_blank" rel="noopener">Preview</a>
       <a class="btn-secondary btn-sm" href="{{ url_for('affiliate_portal.promote') }}#join-page">Edit page</a>
@@ -23,7 +25,8 @@
     <h3>Your referral link</h3>
     <p class="soft small" style="margin-top:0;">Goes to the TradeWave home page with your code already applied.</p>
     <div class="linkbox"><code>{{ links.referral }}</code>
-      <button class="copybtn" type="button" onclick="twCopy(this, '{{ links.referral }}')">Copy</button></div>
+      {{ m.copy(links.referral, 'Copy', link_block) }}</div>
+    {{ m.copy_note(link_block) }}
     <p class="tiny muted" style="margin:12px 0 0;">A click is remembered for 60 days, so you get credit even if they subscribe later.</p>
   </div>
 </div>
@@ -33,8 +36,9 @@
   {% if has_code %}
   <div class="row">
     <span class="big mono">{{ aff.code }}</span>
-    <button class="copybtn" type="button" onclick="twCopy(this, '{{ aff.code }}')">Copy code</button>
+    {{ m.copy(aff.code, 'Copy code', link_block) }}
   </div>
+  {{ m.copy_note(link_block) }}
   <p class="soft small" style="margin:10px 0 0;">Customers can also type {{ aff.code }} at checkout. Handy for podcasts, videos and print, where people cannot click.</p>
   {% else %}
   <p class="lead">Share your link - at 0% off there is no checkout code.</p>
@@ -71,7 +75,8 @@
     <div>
       <label style="margin-top:0;">Your link</label>
       <div class="linkbox"><code id="lb-out">{{ links.join }}</code>
-        <button class="copybtn" type="button" id="lb-copy">Copy</button></div>
+        <button class="copybtn" type="button" id="lb-copy"{% if link_block %} disabled aria-disabled="true" title="{{ link_block }}"{% endif %}>Copy</button></div>
+      {{ m.copy_note(link_block) }}
       <p class="tiny" id="lb-err" style="color:var(--bad); display:none; margin:8px 0 0;"></p>
       <div class="row" style="margin-top:14px; align-items:flex-start;">
         <span style="background:#fff; border-radius:10px; padding:6px; line-height:0;">
@@ -93,7 +98,7 @@
     {% for t in take_links %}
     <tr>
       <td>{{ t.title }}</td>
-      <td style="text-align:right;"><button class="copybtn" type="button" onclick="twCopy(this, '{{ t.url }}')">Copy link</button></td>
+      <td style="text-align:right;">{{ m.copy(t.url, 'Copy link', link_block) }}</td>
     </tr>
     {% endfor %}
   </table>

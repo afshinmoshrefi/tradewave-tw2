@@ -131,7 +131,8 @@ def _customer_count(detail):
 # nothing else from a Stripe invoice (never an email) rides along.
 _LINE_KEYS = ("kind", "state", "hold_reason", "source_id", "customer", "subscription",
               "referral_id", "currency", "interval", "event_at", "year_number",
-              "net_paid_cents", "rate_pct", "amount", "period_month", "persisted")
+              "net_paid_cents", "basis_cents", "reverses_kind", "rate_pct", "amount",
+              "period_month", "persisted")
 
 
 def _lines_to_json(rows):
@@ -328,7 +329,9 @@ def _ctx(aff, tab, **extra):
     except (TypeError, ValueError):
         has_code = False
     ctx = {"aff": aff, "active_tab": tab, "smn": smn_row, "links": _links_for(aff),
-           "has_code": has_code}
+           "has_code": has_code,
+           # why Copy buttons are disabled (unsigned / paused), or None
+           "link_block": dash.link_block(aff)}
     ctx.update(extra)
     return ctx
 
@@ -346,6 +349,14 @@ def _f_cents(cents, currency="usd"):
 @bp.app_template_filter("aff_price")
 def _f_price(cents, currency="usd"):
     return dash.fmt_price(cents, currency)
+
+
+@bp.app_template_filter("aff_sale_end")
+def _f_sale_end(value):
+    """Campaign ends_at (UTC ISO string or datetime) -> '30 Nov, 11:59 pm ET'.
+    Used by the public /join page, so a sale deadline always carries a time
+    and a zone. '' when the value cannot be read."""
+    return dash.fmt_sale_end(value)
 
 
 def _csv_response(text, filename):
@@ -391,15 +402,23 @@ def overview():
         pending, paid = dash.payout_totals(s, live)
         funnel = dash.funnel(s, live, d["lines"], request.args.get("range") or "30d")
         custs = dash.customers(s, live, catalog, terms, d["lines"], d["activity"]["status"])
+        promos = dash.promotions(s, live, catalog, terms)
+        plans = dash.plan_table(catalog, live, terms, promos) if catalog else []
+        usd = dash.ledger_totals(d["lines"]).get("usd") or {}
+        has_paying = any(c["status"] != "trial" for c in custs)
+        has_activity = bool(custs or d["lines"] or pending or paid
+                            or dash.funnel(s, live, [], "all")["clicks"])
         ctx = _ctx(
             aff, "home",
+            held_usd=usd.get("held") or 0,
+            welcome_back=dash.welcome_back(live, get_current_user(), has_activity),
+            steps=dash.getting_started(plans, d["offer"], has_paying),
             est_rows=d["est"]["rows"], est_stamp=d["est"]["stamp"], est_money=_est_money(d["est"]["rows"]),
             pending=sorted(pending.items()), lifetime_paid=sorted(paid.items()),
             active_customers=sum(1 for c in custs if c["status"] == "paying"),
             total_customers=len(custs),
             funnel=funnel, activity=d["activity"], offer=d["offer"],
-            plans=dash.plan_table(catalog, live, terms) if catalog else [],
-            promos=dash.promotions(s, live, catalog, terms),
+            plans=plans, promos=promos,
             forecast=dash.forecast(s, live, catalog, terms),
             actions=dash.action_items(live, d["activity"], {
                 "payouts": url_for("affiliate_portal.payouts"),
@@ -440,6 +459,7 @@ def earnings():
         d, lines, filters = _earnings_lines(aff, s)
         ctx = _ctx(
             aff, "earnings", lines=lines[:_EARNINGS_PAGE], line_count=len(lines),
+            months=dash.ledger_by_month(lines[:_EARNINGS_PAGE]),
             truncated=len(lines) > _EARNINGS_PAGE,
             totals=sorted(dash.ledger_totals(lines).items()),
             all_totals=sorted(dash.ledger_totals(d["lines"]).items()),
@@ -521,21 +541,8 @@ def payouts():
     aff = get_current_affiliate()
     s = _db()
     try:
-        from models import AffiliatePayout
         live = _fresh_affiliate(s)
-        rows = (s.query(AffiliatePayout)
-                .filter(AffiliatePayout.affiliate_id == aff.id)
-                .order_by(AffiliatePayout.period_start.desc()).limit(60).all())
-        ledger = [{
-            "period": p.period_start.strftime("%B %Y"),
-            "currency": p.currency,
-            "commission": p.commission_amount,
-            "status": p.status,
-            "paid_at": dash.fmt_date(p.paid_at) if p.paid_at else None,
-            "external_ref": p.external_ref,
-            "carried_to": (p.external_ref[len("carried:"):]
-                           if (p.external_ref or "").startswith("carried:") else None),
-        } for p in rows]
+        ledger = dash.payout_history(s, live)
         pending, paid = dash.payout_totals(s, live)
         est = _estimate_full(aff)
         held = sum(int(r.get("held_amount", 0) * 100) for r in (est["rows"] or [])
@@ -651,9 +658,13 @@ def settings():
         terms = asvc.terms_for(s, live)
         catalog = _catalog()
         next_change = asvc.next_discount_change_at(live)
+        offer = dash.offer_summary(live, terms)
+        promos = dash.promotions(s, live, catalog, terms)
         ctx = _ctx(
-            aff, "settings", offer=dash.offer_summary(live, terms),
-            plans=dash.plan_table(catalog, live, terms) if catalog else [],
+            aff, "settings", offer=offer,
+            confirm=_pending_confirm(request.args.get("confirm"), offer, next_change,
+                                     _is_owner(live)),
+            plans=dash.plan_table(catalog, live, terms, promos) if catalog else [],
             grid=dash.discount_grid(catalog, terms),
             history=dash.discount_history_rows(s, live),
             next_change=(next_change.strftime("%d %b %Y, %H:%M UTC").lstrip("0")
@@ -662,6 +673,52 @@ def settings():
     finally:
         s.close()
     return render_template("aff_settings.html", **ctx)
+
+
+def _pending_confirm(raw, offer, next_change, is_owner):
+    """The confirm step of a discount change (?confirm=<pct> after the first
+    POST): {"new", "old", "text"} or None when there is nothing to confirm."""
+    if not raw or next_change or not is_owner:
+        return None
+    from decimal import Decimal, InvalidOperation
+    try:
+        value = Decimal(str(raw).strip())
+        if not value.is_finite():
+            return None
+    except (InvalidOperation, ValueError):
+        return None
+    old = offer["discount_year"]
+    new = dash.fmt_pct(value)
+    if value < 0 or value > offer["max_discount_int"] or (new == old and not offer["split"]):
+        return None
+    if old not in ("", "0"):
+        text = ("Posts and videos that say %s%% off will now be wrong. New customers get %s%%."
+                % (old, new))
+    else:
+        text = ("New customers get %s%% off from now on. Posts and videos you already made "
+                "don't mention a discount." % new)
+    if value == 0:
+        text += " Your checkout code stops working, but your links still track."
+    return {"new": new, "old": old, "text": text}
+
+
+def _offer_flash(message, category):
+    """Discount results are shown NEXT TO the Save button (aff_settings.html
+    reads the offer-* categories), not at the top of the page."""
+    flash(message, "offer-" + category)
+
+
+def _discount_error_text(exc):
+    """Partner-facing text for a failed discount save. Only the cooldown and
+    'no change' messages of affiliate_service are written for partners; every
+    other AffiliateError (Stripe, internal wording) maps to one plain sentence
+    so raw exception text is never shown."""
+    msg = str(exc)
+    if msg.startswith("You can change your discount once every 24 hours"):
+        return msg
+    if msg.startswith("No change"):
+        return msg
+    return dash.DISCOUNT_SAVE_FAILED
 
 
 def _is_owner(live):
@@ -679,7 +736,9 @@ def settings_discount():
     in affiliate_service.set_partner_discount."""
     import affiliate_service as asvc
     from decimal import Decimal, InvalidOperation
-    back = redirect(url_for("affiliate_portal.settings") + "#offer")
+    aff = get_current_affiliate()
+    flash = _offer_flash                      # results render beside the Save button
+    back = redirect(url_for("affiliate_portal.settings") + "#offer-status")
     raw = (request.form.get("discount_pct") or "").strip().rstrip("%").strip()
     try:
         new = Decimal(raw)
@@ -707,6 +766,16 @@ def settings_discount():
             if annual_same and not monthly_differs:
                 flash("No change - your discount is already %s%%." % dash.fmt_pct(new), "success")
                 return back
+            wait = asvc.next_discount_change_at(live)
+            if wait is not None:
+                flash("You can change your discount once every 24 hours. Next change "
+                      "available %s UTC." % wait.strftime("%Y-%m-%d %H:%M"), "error")
+                return back
+            if (request.form.get("confirm") != "yes"
+                    or request.form.get("confirm_for", dash.fmt_pct(new)) != dash.fmt_pct(new)):
+                # Step 1 of 2: show what the change means before anything is saved.
+                return redirect(url_for("affiliate_portal.settings",
+                                        confirm=dash.fmt_pct(new)) + "#offer-status")
             if not annual_same:
                 asvc.set_partner_discount(s, live, new, interval="year", actor=actor)
             if live.discount_pct_monthly is not None:
@@ -716,12 +785,13 @@ def settings_discount():
                                           enforce_cooldown=annual_same)
         except asvc.AffiliateError as e:
             s.rollback()
-            flash(str(e), "error")
+            log.warning("discount change refused for %s: %s", aff.code, e)
+            flash(_discount_error_text(e), "error")
             return back
         except Exception:   # noqa: BLE001 - Stripe / DB failure: nothing was saved
             s.rollback()
             log.exception("discount change failed for %s", aff.code)
-            flash("We could not save that just now. Nothing was changed. Please try again.", "error")
+            flash(dash.DISCOUNT_SAVE_FAILED, "error")
             return back
     finally:
         s.close()
@@ -817,7 +887,8 @@ def _partner_details_md(aff, terms=None):
     lines += [
         "- Payout method: %s" % ((aff.payout_method or "not set").capitalize()),
         "- Tax form on file: %s" % ("yes" if aff.tax_form_received_at else
-                                   "NO - payouts are held until you send a W-9 / W-8BEN / W-8BEN-E to help@tradewave.ai"),
+                                   "NO - payouts are held until TradeWave has your W-9 / W-8BEN / W-8BEN-E. "
+                                   "Do not email the form: contact help@tradewave.ai for a secure upload link"),
         "",
         "---",
         "",
