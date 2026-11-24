@@ -45,3 +45,9 @@ Match or beat Rewardful / FirstPromoter / PartnerStack on running the program, a
 
 ## Evidence
 Filled in at integration.
+
+### Package A (help assistant) - built 2026-11-24, branch claude/affiliate-help-assistant-20261124
+- Code: `web/affiliate_help.py`, `web/affiliate_help_models.py`, `web/affiliate_help_admin.py`, `web/affiliate_portal/help_routes.py`, `web/affiliate_portal/templates/aff_help_widget.html`; migration `a9c1e5f7b3d2_affiliate_help_assistant.py` (down_revision b4d7e1f2a3c5; needs a merge revision with packages B and C).
+- Tests: `tests/test_affiliate_help.py` (70); affiliate + promo suite 489 passed, 1 skipped. Anthropic client mocked; no live model call was made.
+- Screenshots: project files `affiliate/gap-closure/` (`help-*` and `admin-*`, desktop and phone).
+- Not done: dev activation, live model check, Resend inbound DNS.

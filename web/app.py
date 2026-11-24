@@ -6267,6 +6267,18 @@ admin.add_view(AffiliateCommissionLineAdmin(
 admin.add_view(AffiliatePayoutComputeView(name="Compute / What I owe", endpoint="affiliate_compute", category="Affiliates"))
 admin.add_view(AffiliateSignedView(name="Signed agreement", endpoint="affiliate_signed", category="Affiliates"))
 admin.add_view(_affiliate_views["change_terms"](name="Change terms", endpoint="affiliate_change_terms", category="Affiliates"))
+# --- Partner help assistant (TW-TASK-0039 A; web/affiliate_help_admin.py) ---
+import affiliate_help_admin as _affiliate_help_admin
+_affiliate_help_views = _affiliate_help_admin.make_views(
+    _AdminAuth, audit_fn=lambda **kw: write_audit(**kw), current_user_fn=lambda: get_current_user())
+admin.add_view(_affiliate_help_views["questions"](
+    name="Partner questions", endpoint="affiliate_help", category="Affiliates"))
+admin.add_view(_affiliate_help_views["kb"](
+    name="Help knowledge base", endpoint="affiliate_help_kb", category="Affiliates"))
+# Optional reply-by-email (Resend inbound): external webhook, authenticated by
+# its Svix signature; 404 while the inbound secret/address are unset.
+csrf.exempt(_affiliate_help_admin.webhook_bp)
+app.register_blueprint(_affiliate_help_admin.webhook_bp)
 
 # --- SMN expert module: participation (invites) + take review queue ---
 from models import AffiliateSmnProfile, ExpertTake

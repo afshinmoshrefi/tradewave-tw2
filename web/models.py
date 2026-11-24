@@ -1027,3 +1027,8 @@ def write_audit(actor_user_id=None, actor_label=None, action=None, target_user_i
         s.commit()
     finally:
         s.close()
+
+
+# Partner help assistant tables (TW-TASK-0039 A) live in their own module.
+from affiliate_help_models import (  # noqa: E402,F401
+    AffiliateHelpEscalation, AffiliateHelpKb, AffiliateHelpMessage)

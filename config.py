@@ -61,6 +61,21 @@ API_CONSOLE_ENABLED = os.environ.get('TW2_API_CONSOLE_ENABLED', '').strip().lowe
 AFFILIATE_DEFAULT_DISCOUNT_PCT = 20
 AFFILIATE_DEFAULT_COMMISSION_PCT = 30
 
+# --- Partner help assistant (TW-TASK-0039 A; web/affiliate_help.py) ---
+# Uses anthropic_token (below). Unanswerable questions are emailed here.
+AFFILIATE_SUPPORT_EMAIL = os.environ.get('AFFILIATE_SUPPORT_EMAIL', 'help@tradewave.ai')
+AFFILIATE_HELP_MODEL = os.environ.get('TW2_AFFILIATE_HELP_MODEL', 'claude-sonnet-5-5')
+# Optional reply-by-email (Resend inbound). OFF unless BOTH are set:
+#   secret  = the Resend webhook signing secret (whsec_...)
+#   address = an address on the Resend inbound domain, e.g. reply@inbound.tradewave.ai
+AFFILIATE_HELP_INBOUND_SECRET = os.environ.get('TW2_AFFILIATE_HELP_INBOUND_SECRET', '')
+AFFILIATE_HELP_INBOUND_ADDRESS = os.environ.get('TW2_AFFILIATE_HELP_INBOUND_ADDRESS', '')
+# Per-partner limits and conversation-log retention.
+AFFILIATE_HELP_MAX_PER_10MIN = int(os.environ.get('TW2_AFFILIATE_HELP_MAX_PER_10MIN', '10'))
+AFFILIATE_HELP_MAX_PER_DAY = int(os.environ.get('TW2_AFFILIATE_HELP_MAX_PER_DAY', '60'))
+AFFILIATE_HELP_MAX_ESCALATIONS_PER_DAY = int(os.environ.get('TW2_AFFILIATE_HELP_MAX_ESCALATIONS_PER_DAY', '5'))
+AFFILIATE_HELP_RETENTION_DAYS = int(os.environ.get('TW2_AFFILIATE_HELP_RETENTION_DAYS', '365'))
+
 # Program v2 (TW-TASK-0038). All env-agnostic defaults; per-env values come
 # from /etc/tradewave/secrets.env.
 # FOUNDER_PRICE_IDS: comma-separated Stripe price ids of the legacy founder

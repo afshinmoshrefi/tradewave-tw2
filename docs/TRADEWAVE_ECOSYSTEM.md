@@ -227,6 +227,30 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   (injects/removes TW-EXPERT-DESK sections in article HTML, heals wiped
   sections after article regeneration, builds `/experts/<slug>.html` hubs;
   web-tier base from `TW2_WEB_INTERNAL_URL`, default loopback :5500).
+  PARTNER HELP ASSISTANT (TW-TASK-0039 A, 2026-11-24, migration a9c1e5f7b3d2):
+  a chat panel on every portal page (`templates/aff_help_widget.html`, included
+  by `aff_base.html` only when the session has a linked non-terminated
+  affiliate; endpoints `/account/affiliate/help/{messages,ask,ask-team}` in
+  `web/affiliate_portal/help_routes.py`). Logic is `web/affiliate_help.py`: one
+  Anthropic Messages call per question (official `anthropic` SDK,
+  `config.anthropic_token`, model `config.AFFILIATE_HELP_MODEL` default
+  `claude-sonnet-5-5`, JSON-schema output) grounded ONLY in the partner guide,
+  the agreement body, that partner's Exhibit A, the knowledge base
+  (`affiliate_help_kb`: general entries + that partner's own) and that
+  partner's numbers (counts/totals from the dashboard functions; never a
+  customer identity, never another partner). Unknown -> escalation row
+  (`affiliate_help_escalations`) + email to `config.AFFILIATE_SUPPORT_EMAIL`
+  with a signed link to `/admin/affiliate_help/answer` (super_admin still
+  required; the token only selects the question). The answer goes to the
+  partner's chat (`affiliate_help_messages`) + email and becomes a
+  partner-specific KB entry; the model proposes a generalised version the
+  admin approves in one click on `/admin/affiliate_help_kb/` (also edit /
+  make general / retire). Optional reply-by-email:
+  `POST /webhooks/resend/affiliate-help` (Svix signature, token in the
+  reply-to address, quoted text stripped); 404 unless
+  `TW2_AFFILIATE_HELP_INBOUND_SECRET` and `TW2_AFFILIATE_HELP_INBOUND_ADDRESS`
+  are both set. Limits: 10 questions / 10 min, 60 / day, 5 escalations / day
+  per partner; chat rows purged after 365 days (all env-tunable).
   GAP FIXES (2026-11-16, migration a7f3c2e9b1d4): (1) DISCOVERABILITY -
   `affiliate_service.find_or_link_affiliate` runs on `/account` too (the card
   showed only after linking, and linking only happened inside the portal), and

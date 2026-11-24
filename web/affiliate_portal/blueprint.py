@@ -104,3 +104,4 @@ def require_affiliate(view):
 
 
 from . import routes  # noqa: E402,F401  (attach @bp.route handlers)
+from . import help_routes  # noqa: E402,F401  (partner help assistant endpoints)
