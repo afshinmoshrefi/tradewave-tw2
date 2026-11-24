@@ -1400,25 +1400,39 @@ def _as_uuid(v):
     return v if isinstance(v, _uuid.UUID) else _uuid.UUID(str(v))
 
 
-def _apply_carry(session, rows, period_start):
-    """Clawback carry-forward. A month whose refunds/disputes outweigh its
-    sales ends NEGATIVE; that debt is folded into the affiliate's next month
-    with activity in the same currency (so we never pay out while they owe us).
+def payout_minimum() -> Decimal:
+    """The payout minimum (small-balance hold) in currency units, from
+    config.AFFILIATE_PAYOUT_MINIMUM_CENTS (default 5000 = $50.00)."""
+    cents = int(getattr(config, "AFFILIATE_PAYOUT_MINIMUM_CENTS", 5000) or 0)
+    return (Decimal(max(cents, 0)) / _HUNDRED).quantize(_CENTS)
 
-    For each computed (affiliate, currency) row, collect EARLIER negative rows
-    that are still pending (or already carried into THIS period by a previous
-    run - keeps re-runs idempotent), add them to this row's commission, record
-    them in detail["carry_in"], and mark them void with external_ref
-    carried:<this period>. Mutates `rows`; returns the carried row objects."""
+
+def _apply_carry(session, rows, period_start):
+    """Carry-forward of balances that cannot be paid on their own.
+
+    Clawback: a month whose refunds/disputes outweigh its sales ends NEGATIVE;
+    that debt is folded into the affiliate's next month with activity in the
+    same currency (so we never pay out while they owe us). Payout minimum: a
+    month whose total is BELOW payout_minimum() is not paid either; it rolls
+    into the next month with activity the same way.
+
+    For each computed (affiliate, currency) row, collect EARLIER rows below
+    the minimum that are still pending (or already carried into THIS period by
+    a previous run - keeps re-runs idempotent), add them to this row's
+    commission, record them in detail["carry_in"], and mark them void with
+    external_ref carried:<this period>. Their ledger lines are paid together
+    with the row they were carried into (sync_line_states). Mutates `rows`;
+    returns the carried row objects."""
     from models import AffiliatePayout
     ref = carry_ref(period_start)
+    floor = payout_minimum()
     carried = []
     for r in rows:
         prior = (session.query(AffiliatePayout)
                  .filter(AffiliatePayout.affiliate_id == _as_uuid(r["affiliate_id"]),
                          AffiliatePayout.currency == r["currency"],
                          AffiliatePayout.period_start < period_start,
-                         AffiliatePayout.commission_amount < 0,
+                         AffiliatePayout.commission_amount < floor,
                          ((AffiliatePayout.status == "pending")
                           | ((AffiliatePayout.status == "void")
                              & (AffiliatePayout.external_ref == ref))))
@@ -1448,15 +1462,35 @@ def _dialect_insert(session, table):
 
 def sync_line_states(session) -> int:
     """Move ledger lines to 'paid' once the payout row that aggregated them is
-    marked paid. Called by upsert_month; call it after marking a payout paid
+    marked paid - including the lines of earlier rows that were CARRIED into
+    that paid row (negative months and months below the payout minimum, see
+    _apply_carry). Called by upsert_month; call it after marking a payout paid
     too. Returns the number of lines moved. Does not commit."""
     from models import AffiliateCommissionLine, AffiliatePayout
-    paid_ids = [p.id for p in session.query(AffiliatePayout.id)
-                .filter(AffiliatePayout.status == "paid").all()]
-    if not paid_ids:
+    paid = (session.query(AffiliatePayout.id, AffiliatePayout.affiliate_id,
+                          AffiliatePayout.currency, AffiliatePayout.period_start)
+            .filter(AffiliatePayout.status == "paid").all())
+    if not paid:
         return 0
+    carried: dict = {}
+    for c in (session.query(AffiliatePayout.id, AffiliatePayout.affiliate_id,
+                            AffiliatePayout.currency, AffiliatePayout.period_start,
+                            AffiliatePayout.external_ref)
+              .filter(AffiliatePayout.status == "void",
+                      AffiliatePayout.external_ref.like("carried:%")).all()):
+        carried.setdefault((str(c.affiliate_id), c.currency, c.external_ref), []).append(c)
+    ids = {p.id for p in paid}
+    frontier = list(paid)
+    while frontier:                                 # a carried row may itself carry earlier ones
+        nxt = []
+        for p in frontier:
+            for c in carried.get((str(p.affiliate_id), p.currency, carry_ref(p.period_start)), ()):
+                if c.id not in ids:
+                    ids.add(c.id)
+                    nxt.append(c)
+        frontier = nxt
     return (session.query(AffiliateCommissionLine)
-            .filter(AffiliateCommissionLine.payout_id.in_(paid_ids),
+            .filter(AffiliateCommissionLine.payout_id.in_(ids),
                     AffiliateCommissionLine.state == "pending")
             .update({"state": "paid"}, synchronize_session=False))
 

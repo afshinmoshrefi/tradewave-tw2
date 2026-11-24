@@ -724,6 +724,9 @@ class TestLedger:
         stripe_world.invoices = [sale]
         stripe_world.by_pi = {"pi_1": sale}
         afs.upsert_month(db, 2026, 4)
+        # April is paid out, so May stands alone (an unpaid April below the
+        # $50 payout minimum would be carried into May instead).
+        payout_for(db, aff, dt.date(2026, 4, 1)).status = "paid"
         aff.discount_pct = D(0)
         db.commit()
         stripe_world.refunds = [refund(4000, created=ts(2026, 5, 20))]
