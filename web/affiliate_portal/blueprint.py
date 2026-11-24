@@ -104,3 +104,4 @@ def require_affiliate(view):
 
 
 from . import routes  # noqa: E402,F401  (attach @bp.route handlers)
+from . import messages  # noqa: E402,F401  (Messages inbox + email preferences)

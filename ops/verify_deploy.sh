@@ -105,6 +105,7 @@ done
 c=$(wc_web /webinar); case "$c" in 200|301|302|307|308) ok "/webinar compatibility route -> $c" ;; *) bad "/webinar -> $c (compatibility route missing)";; esac
 c=$(wc_web /markets/);        case "$c" in 200|301|302) ok "/markets/ -> $c" ;; *) bad "/markets/ -> $c (raw 403 = no section index)";; esac
 c=$(wc_web /join/TESTCODE);   [ "$c" = 404 ] && bad "/join/TESTCODE -> 404 (nginx 'location /join/' proxy rule missing)" || ok "/join/TESTCODE -> $c (route reaches the app)"
+c=$(wc_web /partners/apply);  [ "$c" = 200 ] && ok "/partners/apply -> 200" || bad "/partners/apply -> $c (nginx 'location /partners/' proxy rule missing, or the web tier is behind)"
 c=$(wc_web /healthz);         [ "$c" = 200 ] && ok "/healthz -> 200" || warn "/healthz -> $c"
 
 # The authenticated /app/ shell is proxied through Flask, while its bundle is

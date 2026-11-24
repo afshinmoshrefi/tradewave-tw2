@@ -149,6 +149,10 @@
     details.more > summary::-webkit-details-marker { display:none; }
     details.more > summary::before { content:"+ "; }
     details.more[open] > summary::before { content:"- "; }
+    .navbadge { display:inline-block; min-width:18px; padding:0 5px; border-radius:999px; background:#8b5cf6; color:#fff;
+                font-size:11px; font-weight:700; line-height:18px; text-align:center; vertical-align:1px; }
+    .bottomnav button { position:relative; }
+    .bottomnav .navbadge.dot { position:absolute; top:5px; left:calc(50% + 6px); }
     .bottomnav, .stickycopy, .moresheet { display:none; }
 
     @media (max-width:820px) {
@@ -234,6 +238,9 @@
       {% for key, label, endpoint in tabs %}
       <a href="{{ url_for(endpoint) }}" class="{{ 'active' if active_tab == key else '' }}">{{ label }}</a>
       {% endfor %}
+      {# Messages inbox + unread badge (affiliate_portal/messages.py) #}
+      {% set aff_unread = aff_unread_count() if aff_unread_count is defined else 0 %}
+      <a href="{{ url_for('affiliate_portal.messages') }}" class="{{ 'active' if active_tab == 'messages' else '' }}">Messages{% if aff_unread %} <span class="navbadge" aria-label="{{ aff_unread }} unread">{{ aff_unread }}</span>{% endif %}</a>
       {% if smn is defined and smn %}
       <a href="{{ url_for('affiliate_portal.smn') }}" class="{{ 'active' if active_tab == 'smn' else '' }}">Expert Desk</a>
       {% endif %}
@@ -258,6 +265,7 @@
     <a href="{{ url_for('affiliate_portal.promote') }}" class="{{ 'active' if active_tab == 'promote' else '' }}">Promote</a>
     <a href="{{ url_for('affiliate_portal.payouts') }}" class="{{ 'active' if active_tab == 'payouts' else '' }}">Payouts</a>
     <a href="{{ url_for('affiliate_portal.settings') }}" class="{{ 'active' if active_tab == 'settings' else '' }}">Settings</a>
+    <a href="{{ url_for('affiliate_portal.messages') }}" class="{{ 'active' if active_tab == 'messages' else '' }}">Messages{% if aff_unread %}&nbsp;<span class="navbadge">{{ aff_unread }}</span>{% endif %}</a>
     {% if smn is defined and smn %}
     <a href="{{ url_for('affiliate_portal.smn') }}" class="{{ 'active' if active_tab == 'smn' else '' }}">Expert Desk</a>
     {% endif %}
@@ -272,8 +280,8 @@
     <a href="{{ url_for('affiliate_portal.links') }}" class="{{ 'active' if active_tab == 'links' else '' }}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 10a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/></svg>Links</a>
     <button type="button" id="morebtn" aria-expanded="false" aria-controls="moresheet"
-            class="{{ 'active' if active_tab in ('promote', 'payouts', 'settings', 'smn') else '' }}">
-      <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>More</button>
+            class="{{ 'active' if active_tab in ('promote', 'payouts', 'settings', 'messages', 'smn') else '' }}">
+      <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>More{% if aff_unread %}<span class="navbadge dot" aria-label="{{ aff_unread }} unread messages">{{ aff_unread }}</span>{% endif %}</button>
   </nav>
   {% endif %}
   <script>

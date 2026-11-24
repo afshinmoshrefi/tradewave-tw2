@@ -1466,7 +1466,10 @@ def test_migration_chain_has_a_single_head():
         revs[rev] = path.name
         downs.update(re.findall(r"['\"](\w+)['\"]", down))
     heads = sorted(set(revs) - downs)
-    assert heads == ["b4d7e1f2a3c5"], heads
+    # TW-TASK-0039 adds migrations on top of the v2 one; whatever the packages
+    # add, the chain must still end in exactly one head.
+    assert len(heads) == 1, heads
+    assert "b4d7e1f2a3c5" in revs
     assert downs <= set(revs)
     mig = (versions / revs["b4d7e1f2a3c5"]).read_text()
     assert "down_revision = 'a7f3c2e9b1d4'" in mig

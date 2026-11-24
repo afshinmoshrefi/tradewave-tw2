@@ -3825,6 +3825,8 @@ def affiliate_sign(token):
                     except Exception:
                         log.warning("could not reactivate promo for %s after signing", aff.code)
                     agr.email_signed_copy(aff)
+                    import affiliate_comms as _comms   # welcome email + inbox (TW-TASK-0039 B)
+                    _comms.notify_signed(aff.id)
                 except agr.AlreadySigned:
                     s.rollback()
                     already = True
@@ -5655,7 +5657,7 @@ _AFFILIATE_GUIDE_TMPL = """
  .note{font-size:13px;color:#555;background:#fffbe6;border:1px solid #f0e6b0;border-radius:8px;padding:10px 14px;margin:14px 0}
  nav a{margin-right:14px}
 </style></head><body>
-<nav><a href="/admin">&larr; Admin</a><a href="/admin/affiliate/">Affiliates</a><a href="/admin/affiliate_terms/">Terms</a><a href="/admin/promo_campaigns/">Campaigns</a><a href="/admin/affiliatepayout/">Payout ledger</a><a href="/admin/affiliatecommissionline/">Commission lines</a><a href="/admin/affiliate_compute/">Compute / what I owe</a></nav>
+<nav><a href="/admin">&larr; Admin</a><a href="/admin/affiliate/">Affiliates</a><a href="/admin/affiliate_terms/">Terms</a><a href="/admin/promo_campaigns/">Campaigns</a><a href="/admin/affiliatepayout/">Payout ledger</a><a href="/admin/affiliatecommissionline/">Commission lines</a><a href="/admin/affiliate_compute/">Compute / what I owe</a><a href="/admin/affiliate_applications/">Applications</a><a href="/admin/affiliate_messages/">Messages</a></nav>
 <h1>Affiliate program - how it works</h1>
 <p>An in-house partner program built on Stripe coupons. Every new affiliate starts <b>paused</b>, and their link and code stay off until they <b>e-sign the affiliate agreement</b> (step 2).</p>
 <p>Current mode: {% if livemode %}<span class="pill mode-live">LIVE - real money</span>{% else %}<span class="pill mode-test">TEST / sandbox - safe to experiment</span>{% endif %}</p>
@@ -5737,7 +5739,39 @@ _AFFILIATE_GUIDE_TMPL = """
 </div>
 <div class="note"><b>Good to know:</b> a ledger line is written once and never re-priced, so re-running a month only adds what is new (late payments, new refunds). Rows you've marked <b>Paid</b> or <b>Void</b> are frozen; anything that turns up later for that month goes into the next open month.</div>
 
-<h2>7. Test vs live</h2>
+<h2>7. Applications - people who ask to join</h2>
+<div class="step">Anyone can apply at <a href="/partners/apply" target="_blank" rel="noopener">/partners/apply</a> (linked from the Affiliates page, the site footer and every partner landing page). The applicant gets a confirmation email and you get a notification with a link.
+  <ol>
+    <li>Open <a href="/admin/affiliate_applications/"><b>Applications</b></a>. New ones are listed first. A yellow label warns you when the email <b>is already a partner</b> or <b>applied before</b>.</li>
+    <li><b>Approve</b>: check the suggested <b>code</b> (permanent) and the <b>customer discount</b>, add an optional personal note, and click <b>Approve and send signing link</b>. That one click creates the partner on the standard terms (paused), creates their Stripe coupon and emails them the agreement signing link. From there it is step 2 above.</li>
+    <li><b>Reject</b>: optionally type a reason. The applicant gets a polite decline that includes it. <b>Mark as spam</b> closes it with no email.</li>
+  </ol>
+  Spam protection: a hidden field that only bots fill in, and a limit of 3 applications per network per day.
+</div>
+
+<h2>8. Send a message to partners</h2>
+<div class="step"><a href="/admin/affiliate_messages/"><b>Messages</b></a> sends one message to <b>one partner</b> or to a <b>group</b>: all, active, paused, not signed yet, one terms version, no new paying customer in the last N days, with paying customers, or with none.
+  <ol>
+    <li>Pick the group. The page shows how many partners match as you choose.</li>
+    <li>Write the subject and the message in plain text. <code>{first_name}</code>, <code>{code}</code>, <code>{link}</code> and <code>{dashboard}</code> are filled in for each partner.</li>
+    <li>Click <b>Preview recipients</b>: you see the count, the first names on the list and the message exactly as the first partner will see it. Nothing is sent yet.</li>
+    <li>Click <b>Send</b>. Each partner gets it in their dashboard <b>Messages</b> inbox (with an unread badge) and by email.</li>
+  </ol>
+  A partner who turned off "News from the TradeWave team" gets it in the inbox only. Tick <b>Program notice</b> to email everyone regardless - use it only for agreement or payment changes. The <a href="/admin/affiliate_messages/log"><b>Send log</b></a> lists every send per partner: emailed, inbox only (and why), failed, read.
+</div>
+
+<h2>9. Automatic emails</h2>
+<div class="step">A daily job (<code>web/affiliate_comms.py</code>, cron 14:10 UTC, installed by <code>ops/install_affiliate_comms_cron.sh</code>) sends each of these <b>once per partner per event</b> and records it in the Send log and the partner's inbox:
+  <ul>
+    <li><b>Welcome</b> when they sign (sent right away), <b>first click</b>, <b>new paying customer</b> (never who), <b>monthly statement ready</b>, <b>payout sent</b> (when you mark a ledger row Paid).</li>
+    <li><b>Activity warnings</b> 60, 30 and 7 days before renewal commissions would stop, then <b>renewals stopped</b> and <b>renewals resumed</b>.</li>
+    <li><b>New company sale</b> when a campaign goes live, with the partner's tracked link, and <b>discount change confirmed</b>.</li>
+  </ul>
+  Partners choose their emails in the dashboard under Settings, and every optional email has an unsubscribe link. Payout sent, discount change, the 7-day warning and renewals stopped are always sent. Events older than 7 days are never emailed, so nothing old goes out when the job is first switched on. To see what would go out without sending: <code>python web/affiliate_comms.py --dry-run</code>.
+</div>
+<div class="note"><b>One statement email, not two:</b> the daily job now announces each monthly statement. Once it is running, remove <code>--email</code> from the monthly <code>affiliate_report.py</code> cron so partners do not get the older statement email as well.</div>
+
+<h2>10. Test vs live</h2>
 <div class="step">On the dev box this is Stripe <b>test mode</b> - create affiliates, campaigns and payouts freely; nothing is real. On production the same actions create <b>real</b> coupons and apply <b>real</b> discounts.</div>
 </body></html>
 """
@@ -6267,6 +6301,14 @@ admin.add_view(AffiliateCommissionLineAdmin(
 admin.add_view(AffiliatePayoutComputeView(name="Compute / What I owe", endpoint="affiliate_compute", category="Affiliates"))
 admin.add_view(AffiliateSignedView(name="Signed agreement", endpoint="affiliate_signed", category="Affiliates"))
 admin.add_view(_affiliate_views["change_terms"](name="Change terms", endpoint="affiliate_change_terms", category="Affiliates"))
+# --- Partner applications + messaging (TW-TASK-0039 B; web/affiliate_comms_admin.py) ---
+import affiliate_comms_admin as _affiliate_comms_admin
+_affiliate_comms_views = _affiliate_comms_admin.make_views(
+    _AdminAuth, audit_fn=lambda **kw: write_audit(**kw), current_user_fn=lambda: get_current_user())
+admin.add_view(_affiliate_comms_views["applications"](
+    name="Applications", endpoint="affiliate_applications", category="Affiliates"))
+admin.add_view(_affiliate_comms_views["messages"](
+    name="Messages", endpoint="affiliate_messages", category="Affiliates"))
 
 # --- SMN expert module: participation (invites) + take review queue ---
 from models import AffiliateSmnProfile, ExpertTake
@@ -6395,6 +6437,14 @@ from affiliate_portal.blueprint import set_user_loader as _aff_set_user_loader
 _aff_set_user_loader(get_current_user)  # share the web app's WorkOS session resolver
 app.register_blueprint(affiliate_portal.bp, url_prefix="/account/affiliate")
 log.info("Affiliate dashboard enabled at /account/affiliate")
+
+# --- Public partner pages: /partners/apply + email preferences / unsubscribe
+# (TW-TASK-0039 B; web/affiliate_comms_views.py). The one-click unsubscribe
+# POST comes from mail clients, so its signed token is the auth, not CSRF. ---
+import affiliate_comms_views as _partner_public
+_partner_public.set_client_ip(lambda: _client_ip())
+app.register_blueprint(_partner_public.bp)
+csrf.exempt(_partner_public.one_click_unsubscribe)
 
 
 # --- SMN expert-content pull feed (X-Service-Key, same auth as

@@ -1,0 +1,1357 @@
+"""Partner lifecycle + communication (TW-TASK-0039 package B).
+
+One service module, no Flask:
+
+  1. Applications - validate / store a public application, approve it (creates
+     the affiliates row on the default v2 terms and emails the signing link)
+     or reject it.
+  2. Notifications - ONE row per (partner, event) in affiliate_notifications.
+     That row is the portal inbox entry, the email send log and the
+     idempotency claim, so an event is delivered once per partner no matter
+     how often the job runs.
+  3. Email preferences - optional emails a partner can turn off (Settings, or
+     the signed link in every optional email). Required notices ignore them.
+  4. Admin messaging - one partner or a group, with a recipient preview.
+  5. The daily job (run_daily) that finds lifecycle events and delivers them.
+
+Views: web/affiliate_comms_views.py (public pages), web/affiliate_comms_admin.py
+(Flask-Admin), web/affiliate_portal/messages.py (portal inbox + preferences).
+
+Cron (web box, daily 14:10 UTC; ops/install_affiliate_comms_cron.sh):
+  python web/affiliate_comms.py [--dry-run]
+
+House style: no em-dashes in any copy (use " - ").
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import hashlib
+import logging
+import re
+import sys
+import uuid
+from decimal import Decimal
+from html import escape as _esc
+from pathlib import Path
+from types import SimpleNamespace
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_WEB_ROOT = Path(__file__).resolve().parent
+for _candidate in (str(_REPO_ROOT), str(_WEB_ROOT)):
+    if _candidate not in sys.path:
+        sys.path.insert(0, _candidate)
+
+import config  # noqa: E402
+import affiliate_service as afs  # noqa: E402
+import affiliate_agreement as agr  # noqa: E402
+
+log = logging.getLogger("tw2.affiliate_comms")
+
+UTC = dt.timezone.utc
+HELP_EMAIL = "help@tradewave.ai"
+
+
+class CommsError(afs.AffiliateError):
+    """A problem to show the admin / applicant. `errors` lists every one."""
+
+    def __init__(self, errors):
+        self.errors = [errors] if isinstance(errors, str) else list(errors)
+        super().__init__("; ".join(self.errors))
+
+
+# ---------------------------------------------------------------------------
+# 1) Event catalog + preferences
+# ---------------------------------------------------------------------------
+# Preference ids (STORAGE IDs in affiliate_email_prefs.disabled - never rename).
+PREFS = (
+    ("welcome", "Welcome email", "Sent when you sign your agreement, with your links and first steps."),
+    ("first_click", "First click", "Sent once, when your link gets its first visit."),
+    ("new_customer", "New paying customer", "Sent each time a customer you referred makes a first payment. Never says who."),
+    ("statement_ready", "Monthly statement ready", "Sent when a month's commission statement is on your Payouts page."),
+    ("activity_warning", "Activity reminders", "Sent 60 and 30 days before your renewal commissions would stop."),
+    ("renewals_resumed", "Renewals resumed", "Sent when your renewal commissions start again."),
+    ("campaign_started", "New TradeWave sale", "Sent when a company-wide sale starts that your link already applies."),
+    ("announcement", "News from the TradeWave team", "Program news and tips written by the TradeWave team."),
+)
+PREF_IDS = tuple(p[0] for p in PREFS)
+PREF_LABEL = {p[0]: p[1] for p in PREFS}
+
+# Notices every partner gets (money, account changes, loss of commission).
+REQUIRED_NOTICES = (
+    ("Payout sent", "A record of every payment we send you."),
+    ("Discount change confirmed", "So you know right away if your customer discount changes."),
+    ("Final activity warning", "7 days before your renewal commissions would stop."),
+    ("Renewal commissions stopped", "When the activity window ends."),
+    ("Program notices", "Rare notices about the program or your agreement."),
+)
+
+# event_type (STORAGE ID in affiliate_notifications.event_type) -> preference
+# id, or None for a required notice.
+EVENT_PREF = {
+    "welcome": "welcome",
+    "first_click": "first_click",
+    "new_customer": "new_customer",
+    "statement_ready": "statement_ready",
+    "payout_sent": None,
+    "activity_warning_60": "activity_warning",
+    "activity_warning_30": "activity_warning",
+    "activity_warning_7": None,
+    "renewals_lapsed": None,
+    "renewals_resumed": "renewals_resumed",
+    "campaign_started": "campaign_started",
+    "discount_changed": None,
+    "message": "announcement",
+    "program_notice": None,
+}
+EVENT_LABEL = {
+    "welcome": "Welcome", "first_click": "First click", "new_customer": "New paying customer",
+    "statement_ready": "Statement ready", "payout_sent": "Payout sent",
+    "activity_warning_60": "Activity reminder (60 days)",
+    "activity_warning_30": "Activity reminder (30 days)",
+    "activity_warning_7": "Final activity warning (7 days)",
+    "renewals_lapsed": "Renewals stopped", "renewals_resumed": "Renewals resumed",
+    "campaign_started": "New sale", "discount_changed": "Discount change",
+    "message": "Message from TradeWave", "program_notice": "Program notice",
+}
+ACTIVITY_WARNING_DAYS = (60, 30, 7)
+MAX_SEND_ATTEMPTS = 3
+PENDING_RETRY_AFTER = dt.timedelta(minutes=30)
+
+
+def max_event_age() -> dt.timedelta:
+    """Events older than this are never emailed (so switching the job on does
+    not mail a backlog of old news). Env: TW2_AFFILIATE_COMMS_MAX_EVENT_AGE_DAYS."""
+    try:
+        days = int(getattr(config, "AFFILIATE_COMMS_MAX_EVENT_AGE_DAYS", 0) or 0)
+    except (TypeError, ValueError):
+        days = 0
+    if days <= 0:
+        import os
+        try:
+            days = int(os.environ.get("TW2_AFFILIATE_COMMS_MAX_EVENT_AGE_DAYS", "7"))
+        except ValueError:
+            days = 7
+    return dt.timedelta(days=max(1, days))
+
+
+def _utc(v):
+    return afs._utc(v)
+
+
+def _now(now=None):
+    return _utc(now) or dt.datetime.now(UTC)
+
+
+def first_name(aff) -> str:
+    return ((getattr(aff, "name", "") or "").strip().split(" ")[0]) or "there"
+
+
+def money(amount, currency="usd") -> str:
+    q = Decimal(str(amount or 0)).quantize(Decimal("0.01"))
+    text = "{:,.2f}".format(abs(q))
+    sign = "-" if q < 0 else ""
+    if (currency or "usd").lower() == "usd":
+        return "%s$%s" % (sign, text)
+    return "%s%s %s" % (sign, text, (currency or "").upper())
+
+
+def _pct(v) -> str:
+    return agr._fmt_pct(v)
+
+
+def _day(d) -> str:
+    """'5 March 2027' (no leading zero)."""
+    return d.strftime("%d %B %Y").lstrip("0")
+
+
+def dashboard_url(path="") -> str:
+    return agr.dashboard_link() + path
+
+
+# --- signed preference tokens (the link in every optional email) -----------
+_PREF_SALT = "affiliate-email-prefs"
+
+
+def _pref_serializer():
+    from itsdangerous import URLSafeSerializer
+    secret = getattr(config, "WORKOS_COOKIE_PASSWORD", "") or ""
+    if not secret:
+        raise CommsError("signing secret (WORKOS_COOKIE_PASSWORD) is not configured")
+    return URLSafeSerializer(secret, salt=_PREF_SALT)
+
+
+def make_pref_token(affiliate_id) -> str:
+    return _pref_serializer().dumps({"aid": str(affiliate_id)})
+
+
+def verify_pref_token(token):
+    """Affiliate id (str) or None. No expiry: an unsubscribe link in an old
+    email must keep working."""
+    try:
+        data = _pref_serializer().loads(token or "")
+    except Exception:   # noqa: BLE001  (bad signature, no secret, garbage)
+        return None
+    if not isinstance(data, dict) or not data.get("aid"):
+        return None
+    return str(data["aid"])
+
+
+def prefs_url(aff, pref=None):
+    """Public, login-free preferences page for this partner. With `pref`, the
+    page opens ready to turn that one email off. Falls back to the logged-in
+    Settings page if no signing secret is configured."""
+    try:
+        token = make_pref_token(aff.id)
+    except CommsError:
+        return dashboard_url("/settings#email")
+    url = "%s/partners/email-preferences/%s" % (agr._base(), token)
+    return url + ("?off=%s" % pref if pref else "")
+
+
+def one_click_url(aff, pref):
+    """List-Unsubscribe-Post target (RFC 8058). None without a signing secret."""
+    try:
+        token = make_pref_token(aff.id)
+    except CommsError:
+        return None
+    return "%s/partners/unsubscribe/%s/%s" % (agr._base(), token, pref)
+
+
+# --- preferences ------------------------------------------------------------
+def disabled_prefs(session, affiliate_id) -> set:
+    from models import AffiliateEmailPref
+    row = session.get(AffiliateEmailPref, affiliate_id)
+    return set(x for x in ((row.disabled if row is not None else None) or []) if x in PREF_IDS)
+
+
+def set_disabled_prefs(session, affiliate_id, disabled) -> set:
+    """Replace the partner's opt-outs. Unknown ids are dropped. Commits."""
+    from models import AffiliateEmailPref
+    clean = sorted(x for x in set(disabled or []) if x in PREF_IDS)
+    row = session.get(AffiliateEmailPref, affiliate_id)
+    if row is None:
+        row = AffiliateEmailPref(affiliate_id=affiliate_id, disabled=clean)
+        session.add(row)
+    else:
+        row.disabled = clean
+    row.updated_at = _now()
+    session.commit()
+    return set(clean)
+
+
+def turn_off_pref(session, affiliate_id, pref) -> bool:
+    if pref not in PREF_IDS:
+        return False
+    set_disabled_prefs(session, affiliate_id, disabled_prefs(session, affiliate_id) | {pref})
+    return True
+
+
+def pref_rows(session, affiliate_id) -> list:
+    """[{id, label, help, on}] for the Settings card / public page."""
+    off = disabled_prefs(session, affiliate_id)
+    return [{"id": pid, "label": label, "help": help_, "on": pid not in off}
+            for pid, label, help_ in PREFS]
+
+
+# ---------------------------------------------------------------------------
+# 2) Email rendering + delivery (idempotent)
+# ---------------------------------------------------------------------------
+_URL_RE = re.compile(r"(https?://[^\s<]+[^\s<.,;:!?)\]])")
+
+
+def _html_paragraphs(text) -> str:
+    out = []
+    for block in re.split(r"\n\s*\n", (text or "").strip()):
+        safe = _esc(block)
+        safe = _URL_RE.sub(lambda m: '<a href="%s">%s</a>' % (m.group(1), m.group(1)), safe)
+        out.append('<p style="margin:0 0 14px;">%s</p>' % safe.replace("\n", "<br>"))
+    return "".join(out)
+
+
+def render_email(aff, subject, body, *, link=None, pref=None):
+    """(text, html, headers). `pref` None = required notice: no unsubscribe
+    link. Every optional email carries the preferences link, a stop link for
+    its own kind, and the one-click List-Unsubscribe headers."""
+    manage = prefs_url(aff)
+    text = body.strip()
+    if link and link[1]:
+        text += "\n\n%s:\n%s" % (link[0], link[1])
+    text += "\n\nThe TradeWave team\n\n--\n"
+    headers = None
+    if pref:
+        stop = prefs_url(aff, pref)
+        text += ("You get this email because you are a TradeWave partner (code %s).\n"
+                 "Choose which partner emails you get: %s\n"
+                 "Stop this kind of email: %s\n" % (aff.code, manage, stop))
+        foot = ('You get this email because you are a TradeWave partner (code %s). '
+                '<a href="%s">Choose which partner emails you get</a> or '
+                '<a href="%s">stop this kind of email</a>.'
+                % (_esc(aff.code), _esc(manage), _esc(stop)))
+        one_click = one_click_url(aff, pref)
+        if one_click:
+            headers = {"List-Unsubscribe": "<%s>" % one_click,
+                       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"}
+    else:
+        text += ("This is a required program notice. It is sent to every TradeWave partner "
+                 "(code %s).\nChoose your other partner emails: %s\n" % (aff.code, manage))
+        foot = ('This is a required program notice. It is sent to every TradeWave partner '
+                '(code %s). <a href="%s">Choose your other partner emails</a>.'
+                % (_esc(aff.code), _esc(manage)))
+    button = ""
+    if link and link[1]:
+        button = ('<p style="margin:6px 0 20px;"><a href="%s" style="display:inline-block;'
+                  'background:#4f46e5;color:#ffffff;text-decoration:none;font-weight:600;'
+                  'padding:10px 18px;border-radius:8px;">%s</a></p>' % (_esc(link[1]), _esc(link[0])))
+    html = ('<div style="font:15px/1.6 -apple-system,Segoe UI,Roboto,Arial,sans-serif;'
+            'color:#1f2a44;max-width:560px;">%s%s<p style="margin:0 0 14px;">The TradeWave team</p>'
+            '<p style="margin:22px 0 0;padding-top:12px;border-top:1px solid #e3e6ee;'
+            'font-size:12px;color:#6b7280;">%s</p></div>'
+            % (_html_paragraphs(body), button, foot))
+    return text, html, headers
+
+
+def email_configured() -> bool:
+    import email_utils
+    return not email_utils._is_placeholder(getattr(config, "RESEND_API_KEY", ""))
+
+
+def _send(to, subject, text, html=None, headers=None) -> bool:
+    import email_utils
+    try:
+        return bool(email_utils.resend_send_email(
+            to=to, subject=subject, body_text=text, html=html, headers=headers))
+    except Exception as e:   # noqa: BLE001
+        log.warning("partner email send raised to=%s: %s", to, e)
+        return False
+
+
+def make_event(event_type, key, subject, body, *, occurred_at=None, link=None, message_id=None):
+    if event_type not in EVENT_PREF:
+        raise ValueError("unknown event type %r" % event_type)
+    return SimpleNamespace(type=event_type, key=key, subject=subject, body=body,
+                           occurred_at=occurred_at, link=link, message_id=message_id)
+
+
+def _claim(session, aff, ev, now):
+    """The notification row to deliver, or None when this event is already
+    done (sent / skipped), being sent right now, or out of retries."""
+    from models import AffiliateNotification
+    from sqlalchemy.exc import IntegrityError
+    row = (session.query(AffiliateNotification)
+           .filter(AffiliateNotification.affiliate_id == aff.id,
+                   AffiliateNotification.event_key == ev.key).first())
+    if row is not None:
+        if row.email_status in ("sent", "skipped"):
+            return None
+        if row.email_status == "failed" and int(row.attempts or 0) >= MAX_SEND_ATTEMPTS:
+            return None
+        if row.email_status == "pending":
+            created = _utc(row.created_at)
+            if created is not None and now - created < PENDING_RETRY_AFTER:
+                return None            # another run is sending it
+        return row
+    row = AffiliateNotification(
+        affiliate_id=aff.id, message_id=ev.message_id, event_type=ev.type, event_key=ev.key,
+        subject=ev.subject, body=ev.body,
+        link_label=ev.link[0] if ev.link else None, link_url=ev.link[1] if ev.link else None,
+        email_status="pending", attempts=0, to_email=(aff.email or None), created_at=now)
+    try:
+        with session.begin_nested():
+            session.add(row)
+    except IntegrityError:
+        return None                    # raced: the other run owns it
+    session.commit()                   # the claim is durable BEFORE the send
+    return row
+
+
+def deliver(session, aff, ev, now=None, disabled=None):
+    """Deliver one event to one partner, once. Returns the notification row
+    when this call created or retried it, else None. Commits."""
+    now = _now(now)
+    row = _claim(session, aff, ev, now)
+    if row is None:
+        return None
+    pref = EVENT_PREF[ev.type]
+    if disabled is None:
+        disabled = disabled_prefs(session, aff.id)
+    if pref and pref in disabled:
+        row.email_status, row.email_reason = "skipped", "preference"
+    elif not (aff.email or "").strip():
+        row.email_status, row.email_reason = "skipped", "no_email"
+    elif not email_configured():
+        row.email_status, row.email_reason = "skipped", "email_not_configured"
+    else:
+        text, html, headers = render_email(aff, ev.subject, ev.body, link=ev.link, pref=pref)
+        row.attempts = int(row.attempts or 0) + 1
+        row.to_email = aff.email
+        if _send(aff.email, ev.subject, text, html, headers):
+            row.email_status, row.email_reason, row.emailed_at = "sent", None, now
+        else:
+            row.email_status, row.email_reason = "failed", "send_failed"
+    session.commit()
+    return row
+
+
+# --- inbox -------------------------------------------------------------------
+def unread_count(session, affiliate_id) -> int:
+    from models import AffiliateNotification
+    return int(session.query(AffiliateNotification)
+               .filter(AffiliateNotification.affiliate_id == affiliate_id,
+                       AffiliateNotification.read_at.is_(None)).count())
+
+
+def inbox(session, affiliate_id, limit=100) -> list:
+    from models import AffiliateNotification
+    return (session.query(AffiliateNotification)
+            .filter(AffiliateNotification.affiliate_id == affiliate_id)
+            .order_by(AffiliateNotification.created_at.desc(), AffiliateNotification.id.desc())
+            .limit(limit).all())
+
+
+def mark_read(session, affiliate_id, notification_id=None, now=None) -> int:
+    """Mark one (or every) inbox row of THIS partner read. Commits."""
+    from models import AffiliateNotification
+    q = (session.query(AffiliateNotification)
+         .filter(AffiliateNotification.affiliate_id == affiliate_id,
+                 AffiliateNotification.read_at.is_(None)))
+    if notification_id is not None:
+        q = q.filter(AffiliateNotification.id == notification_id)
+    n = q.update({"read_at": _now(now)}, synchronize_session=False)
+    session.commit()
+    return int(n or 0)
+
+
+# ---------------------------------------------------------------------------
+# 3) Admin messaging
+# ---------------------------------------------------------------------------
+# Audience ids are STORAGE IDs (affiliate_messages.audience).
+AUDIENCES = (
+    ("one", "One partner"),
+    ("all", "All partners"),
+    ("active", "Active partners"),
+    ("paused", "Paused partners (signed)"),
+    ("unsigned", "Partners who have not signed yet"),
+    ("terms", "Partners on one terms version"),
+    ("inactive", "No new paying customer in the last N days"),
+    ("has_customers", "Partners with paying customers"),
+    ("no_customers", "Partners with no paying customer yet"),
+)
+AUDIENCE_LABEL = dict(AUDIENCES)
+PLACEHOLDERS = ("{first_name}", "{name}", "{code}", "{link}", "{dashboard}")
+
+
+def _last_paid_by_affiliate(session) -> dict:
+    """{affiliate_id: latest first payment of a NEW referred customer}."""
+    from models import AffiliateReferral
+    from sqlalchemy import func
+    rows = (session.query(AffiliateReferral.affiliate_id, func.max(AffiliateReferral.first_paid_at))
+            .filter(AffiliateReferral.first_paid_at.isnot(None),
+                    AffiliateReferral.source != "return")
+            .group_by(AffiliateReferral.affiliate_id).all())
+    return {aid: _utc(last) for aid, last in rows}
+
+
+def resolve_audience(session, audience, param=None, now=None) -> list:
+    """The partners a message goes to. Groups never include terminated
+    partners; 'one' reaches exactly the named partner. Raises CommsError on a
+    bad audience / parameter."""
+    from models import Affiliate
+    now = _now(now)
+    if audience not in AUDIENCE_LABEL:
+        raise CommsError("Choose who the message goes to.")
+    if audience == "one":
+        try:
+            aid = uuid.UUID(str(param))
+        except (ValueError, TypeError, AttributeError):
+            raise CommsError("Choose the partner.")
+        aff = session.get(Affiliate, aid)
+        if aff is None:
+            raise CommsError("That partner no longer exists.")
+        return [aff]
+    live = (session.query(Affiliate).filter(Affiliate.status != "terminated")
+            .order_by(Affiliate.code).all())
+    if audience == "all":
+        return live
+    if audience == "active":
+        return [a for a in live if a.status == "active"]
+    if audience == "paused":
+        return [a for a in live if a.status == "paused" and a.agreement_signed_at is not None]
+    if audience == "unsigned":
+        return [a for a in live if a.agreement_signed_at is None]
+    if audience == "terms":
+        try:
+            tid = int(param)
+        except (ValueError, TypeError):
+            raise CommsError("Choose the terms version.")
+        default = afs.get_terms(session)
+        default_id = getattr(default, "id", None)
+        return [a for a in live if (a.terms_id or default_id) == tid]
+    last = _last_paid_by_affiliate(session)
+    if audience == "has_customers":
+        return [a for a in live if a.id in last]
+    if audience == "no_customers":
+        return [a for a in live if a.id not in last]
+    # inactive
+    try:
+        days = int(param)
+    except (ValueError, TypeError):
+        raise CommsError("Enter the number of days.")
+    if days < 1 or days > 3650:
+        raise CommsError("Days must be between 1 and 3650.")
+    floor = now - dt.timedelta(days=days)
+    return [a for a in live if a.agreement_signed_at is not None
+            and (last.get(a.id) is None or last[a.id] < floor)]
+
+
+def audience_text(session, audience, param=None) -> str:
+    label = AUDIENCE_LABEL.get(audience, audience)
+    if audience == "one":
+        from models import Affiliate
+        try:
+            aff = session.get(Affiliate, uuid.UUID(str(param)))
+        except (ValueError, TypeError, AttributeError):
+            aff = None
+        return "One partner: %s" % (("%s (%s)" % (aff.code, aff.name)) if aff else "unknown")
+    if audience == "terms":
+        try:
+            terms = afs.get_terms(session, int(param))
+        except (ValueError, TypeError):
+            terms = None
+        return "Partners on terms %s" % (getattr(terms, "version", None) or param)
+    if audience == "inactive":
+        return "No new paying customer in the last %s days" % param
+    return label
+
+
+def personalize(text, aff) -> str:
+    out = text or ""
+    for token, value in (("{first_name}", first_name(aff)), ("{name}", aff.name or ""),
+                         ("{code}", aff.code or ""), ("{link}", agr.join_link(aff)),
+                         ("{dashboard}", dashboard_url())):
+        out = out.replace(token, value)
+    return out
+
+
+def validate_message(subject, body) -> tuple:
+    subject = " ".join((subject or "").split())
+    body = (body or "").replace("\r\n", "\n").strip()
+    errors = []
+    if not 3 <= len(subject) <= 150:
+        errors.append("Subject must be 3 to 150 characters.")
+    if not 10 <= len(body) <= 10000:
+        errors.append("Message must be 10 to 10,000 characters.")
+    if "—" in subject or "—" in body:
+        errors.append("Please replace the long dash with ' - ' (house style).")
+    if errors:
+        raise CommsError(errors)
+    return subject, body
+
+
+def send_message(session, *, subject, body, audience, param=None, required=False,
+                 sent_by=None, now=None):
+    """Store the message, then deliver it to every recipient (inbox + email).
+    Returns (message, {sent, skipped, failed, recipients})."""
+    from models import AffiliateMessage
+    now = _now(now)
+    subject, body = validate_message(subject, body)
+    recipients = resolve_audience(session, audience, param, now)
+    if not recipients:
+        raise CommsError("Nobody matches that group, so nothing was sent.")
+    msg = AffiliateMessage(subject=subject, body=body, audience=audience,
+                           audience_param=(str(param) if param not in (None, "") else None),
+                           required=bool(required), sent_by=sent_by,
+                           recipient_count=len(recipients), created_at=now)
+    session.add(msg)
+    session.commit()
+    stats = {"sent": 0, "skipped": 0, "failed": 0, "recipients": len(recipients)}
+    etype = "program_notice" if required else "message"
+    for aff in recipients:
+        ev = make_event(etype, "msg:%s" % msg.id, personalize(subject, aff),
+                        personalize(body, aff), occurred_at=now, message_id=msg.id)
+        try:
+            row = deliver(session, aff, ev, now)
+        except Exception as e:   # noqa: BLE001  (one partner must not stop the rest)
+            session.rollback()
+            log.warning("message %s to %s failed: %s", msg.id, aff.code, e)
+            stats["failed"] += 1
+            continue
+        if row is not None:
+            stats[row.email_status if row.email_status in stats else "failed"] += 1
+    return msg, stats
+
+
+def message_log(session, limit=100) -> list:
+    """Newest admin messages with per-status recipient counts."""
+    from models import AffiliateMessage, AffiliateNotification
+    from sqlalchemy import func
+    msgs = (session.query(AffiliateMessage).order_by(AffiliateMessage.id.desc())
+            .limit(limit).all())
+    ids = [m.id for m in msgs]
+    counts, reads = {}, {}
+    if ids:
+        for mid, status, n in (session.query(AffiliateNotification.message_id,
+                                             AffiliateNotification.email_status, func.count())
+                               .filter(AffiliateNotification.message_id.in_(ids))
+                               .group_by(AffiliateNotification.message_id,
+                                         AffiliateNotification.email_status).all()):
+            counts.setdefault(mid, {})[status] = int(n)
+        for mid, n in (session.query(AffiliateNotification.message_id, func.count())
+                       .filter(AffiliateNotification.message_id.in_(ids),
+                               AffiliateNotification.read_at.isnot(None))
+                       .group_by(AffiliateNotification.message_id).all()):
+            reads[mid] = int(n)
+    return [{"message": m, "audience": audience_text(session, m.audience, m.audience_param),
+             "counts": counts.get(m.id, {}), "read": reads.get(m.id, 0)} for m in msgs]
+
+
+def notification_log(session, limit=200, message_id=None) -> list:
+    """Newest per-partner sends (automatic emails and messages), with the code."""
+    from models import Affiliate, AffiliateNotification
+    q = (session.query(AffiliateNotification, Affiliate.code)
+         .join(Affiliate, Affiliate.id == AffiliateNotification.affiliate_id))
+    if message_id is not None:
+        q = q.filter(AffiliateNotification.message_id == message_id)
+    return q.order_by(AffiliateNotification.id.desc()).limit(limit).all()
+
+
+# ---------------------------------------------------------------------------
+# 4) Applications
+# ---------------------------------------------------------------------------
+# Storage ids (affiliate_applications.audience_size).
+AUDIENCE_SIZES = (
+    ("lt1k", "Under 1,000"),
+    ("1k_10k", "1,000 to 10,000"),
+    ("10k_50k", "10,000 to 50,000"),
+    ("50k_250k", "50,000 to 250,000"),
+    ("gt250k", "More than 250,000"),
+)
+AUDIENCE_SIZE_LABEL = dict(AUDIENCE_SIZES)
+HONEYPOT_FIELD = "company_url"          # hidden; humans leave it empty
+APPLY_LIMIT_PER_IP_DAY = 3
+_EMAIL_RE = re.compile(r"^[^@\s<>\"',;]+@[^@\s<>\"',;]+\.[A-Za-z]{2,}$")
+_SITE_RE = re.compile(r"^(https?://)?[A-Za-z0-9][A-Za-z0-9.\-]*\.[A-Za-z]{2,}(/\S*)?$")
+_MARKUP_RE = re.compile(r"[<>]")
+
+
+def hash_ip(ip):
+    """Salted hash for the per-network rate limit (the raw IP is not stored)."""
+    if not ip:
+        return None
+    salt = (getattr(config, "SUPPORT_IP_HASH_SALT", "") or
+            getattr(config, "API_KEY_HMAC_SECRET", "") or "tw2-partner-apply")
+    return hashlib.sha256(("%s|%s" % (ip, salt)).encode("utf-8")).hexdigest()
+
+
+def clean_application(form) -> dict:
+    """Validated field dict, or CommsError listing every problem."""
+    def get(key, cap):
+        return " ".join(str(form.get(key) or "").split())[:cap + 1]
+
+    def long(key):
+        return str(form.get(key) or "").replace("\r\n", "\n").strip()
+
+    errors = []
+    name = get("name", 120)
+    if not 2 <= len(name) <= 120:
+        errors.append("Please enter your name (2 to 120 characters).")
+    email = get("email", 320).lower()
+    if not _EMAIL_RE.match(email) or len(email) > 320:
+        errors.append("Please enter a valid email address.")
+    website = get("website", 300)
+    if website and (len(website) > 300 or not _SITE_RE.match(website)):
+        errors.append("Website should look like example.com or https://example.com.")
+    channels = long("channels")
+    if len(channels) > 1000:
+        errors.append("Channels: 1,000 characters at most.")
+    if not website and not channels:
+        errors.append("Tell us where you reach your audience: a website or your channels.")
+    size = get("audience_size", 20)
+    if size not in AUDIENCE_SIZE_LABEL:
+        errors.append("Please choose your audience size.")
+    plan = long("promo_plan")
+    if not 20 <= len(plan) <= 2000:
+        errors.append("Tell us how you will promote TradeWave (20 to 2,000 characters).")
+    country = get("country", 80)
+    if not 2 <= len(country) <= 80:
+        errors.append("Please enter your country.")
+    if str(form.get("agree") or "") != "yes":
+        errors.append("Please tick the box to agree to the program policies.")
+    for label, value in (("Name", name), ("Channels", channels), ("How you will promote", plan),
+                         ("Country", country)):
+        if _MARKUP_RE.search(value):
+            errors.append("%s must be plain text (no < or >)." % label)
+    if errors:
+        raise CommsError(errors)
+    return {"name": name, "email": email, "website": website or None,
+            "channels": channels or None, "audience_size": size, "promo_plan": plan,
+            "country": country}
+
+
+def submit_application(session, form, *, ip=None, user_agent=None, now=None):
+    """Handle one public submission. Returns (outcome, application | None):
+
+      'honeypot'      a bot filled the hidden field - nothing stored, no email
+      'rate_limited'  too many from this network today - nothing stored
+      'duplicate'     this email already has an application waiting - nothing new
+      'ok'            stored; confirmation + owner notification sent
+
+    Raises CommsError (all problems) when the form is invalid."""
+    from models import AffiliateApplication
+    now = _now(now)
+    if str(form.get(HONEYPOT_FIELD) or "").strip():
+        log.info("partner application honeypot tripped")
+        return "honeypot", None
+    data = clean_application(form)
+    ip_hash = hash_ip(ip)
+    if ip_hash:
+        recent = (session.query(AffiliateApplication)
+                  .filter(AffiliateApplication.ip_hash == ip_hash,
+                          AffiliateApplication.created_at > now - dt.timedelta(days=1)).count())
+        if recent >= APPLY_LIMIT_PER_IP_DAY:
+            log.info("partner application rate limited")
+            return "rate_limited", None
+    waiting = (session.query(AffiliateApplication)
+               .filter(AffiliateApplication.email == data["email"],
+                       AffiliateApplication.status == "new").first())
+    if waiting is not None:
+        return "duplicate", waiting
+    app_row = AffiliateApplication(id=uuid.uuid4(), status="new", agreed_policies_at=now,
+                                   ip_hash=ip_hash, user_agent=(user_agent or "")[:500] or None,
+                                   created_at=now, **data)
+    session.add(app_row)
+    session.commit()
+    _email_application_received(app_row)
+    _email_owner_new_application(session, app_row)
+    return "ok", app_row
+
+
+def owner_email() -> str:
+    return (getattr(config, "AFFILIATE_SUPPORT_EMAIL", "") or
+            getattr(config, "SUPPORT_EMAIL_TO", "") or HELP_EMAIL)
+
+
+def admin_applications_url(app_id=None) -> str:
+    base = agr._base() + "/admin/affiliate_applications/"
+    return base + ("view?id=%s" % app_id if app_id else "")
+
+
+def _email_application_received(app_row) -> bool:
+    first = (app_row.name or "").split(" ")[0] or "there"
+    body = ("Hi %s,\n\n"
+            "Thanks for applying to the TradeWave partner program. We have your application "
+            "and we read every one personally. You will hear from us by email, usually within "
+            "5 business days.\n\n"
+            "If we approve it, we will email you a private link to review and sign the partner "
+            "agreement. Your link and discount code go live once you sign.\n\n"
+            "Nothing to do for now. If you have a question, reply to this email or write to "
+            "%s.\n\nThe TradeWave team\n" % (first, HELP_EMAIL))
+    return _send(app_row.email, "We received your TradeWave partner application", body)
+
+
+def _email_owner_new_application(session, app_row) -> bool:
+    flags = application_flags(session, app_row)
+    notes = []
+    if flags["affiliate"] is not None:
+        notes.append("ALREADY A PARTNER: %s (%s)" % (flags["affiliate"].code, flags["affiliate"].status))
+    if flags["earlier"]:
+        notes.append("Earlier applications from this email: %d" % len(flags["earlier"]))
+    body = ("New partner application.\n\n"
+            "Name      : %s\nEmail     : %s\nWebsite   : %s\nAudience  : %s\nCountry   : %s\n\n"
+            "Channels:\n%s\n\nHow they will promote:\n%s\n\n%s"
+            "Approve or reject:\n%s\n"
+            % (app_row.name, app_row.email, app_row.website or "-",
+               AUDIENCE_SIZE_LABEL.get(app_row.audience_size, app_row.audience_size or "-"),
+               app_row.country or "-", app_row.channels or "-", app_row.promo_plan or "-",
+               ("\n".join(notes) + "\n\n") if notes else "",
+               admin_applications_url(app_row.id)))
+    return _send(owner_email(), "New partner application: %s" % app_row.name, body)
+
+
+def application_flags(session, app_row) -> dict:
+    """Duplicate detection by email: {'affiliate': existing partner | None,
+    'earlier': [other applications from the same email, newest first]}."""
+    from models import Affiliate, AffiliateApplication
+    from sqlalchemy import func
+    email = (app_row.email or "").strip().lower()
+    aff = None
+    earlier = []
+    if email:
+        aff = (session.query(Affiliate).filter(func.lower(Affiliate.email) == email)
+               .order_by(Affiliate.created_at.desc()).first())
+        earlier = (session.query(AffiliateApplication)
+                   .filter(AffiliateApplication.email == email,
+                           AffiliateApplication.id != app_row.id)
+                   .order_by(AffiliateApplication.created_at.desc()).all())
+    return {"affiliate": aff, "earlier": earlier}
+
+
+def suggest_code(session, name) -> str:
+    """A free partner code from the applicant's first name (ANNE, ANNE2, ...)."""
+    from models import Affiliate
+    base = re.sub(r"[^A-Z0-9]", "", ((name or "").strip().split(" ")[0]).upper())[:20]
+    if len(base) < 2:
+        base = "PARTNER"
+    taken = {c for (c,) in session.query(Affiliate.code).filter(Affiliate.code.like(base + "%")).all()}
+    code, n = base, 1
+    while code in taken:
+        n += 1
+        code = "%s%d" % (base, n)
+    return code
+
+
+def default_discount(terms=None) -> Decimal:
+    t = terms or afs.DEFAULT_TERMS
+    try:
+        d = Decimal(str(getattr(config, "AFFILIATE_DEFAULT_DISCOUNT_PCT", 20)))
+    except Exception:   # noqa: BLE001
+        d = Decimal("20")
+    return afs.clamp_discount(d, t)
+
+
+def approve_application(session, app_row, *, code, discount_pct, actor, note=None,
+                        send_email=True, now=None):
+    """Create the partner on the default v2 terms (PAUSED until they sign),
+    mark the application approved and email the signing link. Returns
+    (affiliate, emailed). Raises CommsError; nothing is saved on an error."""
+    from models import Affiliate
+    from sqlalchemy import func
+    from sqlalchemy.exc import IntegrityError
+    now = _now(now)
+    if app_row.status == "approved":
+        raise CommsError("This application was already approved.")
+    code = afs.normalize_code(code)
+    try:
+        afs.validate_code(code)
+    except afs.AffiliateError as e:
+        raise CommsError(str(e))
+    terms = afs.get_terms(session)
+    try:
+        discount = Decimal(str(discount_pct).strip())
+    except Exception:   # noqa: BLE001
+        raise CommsError("Customer discount must be a number.")
+    max_d = Decimal(str((terms or afs.DEFAULT_TERMS).max_discount_pct))
+    if discount < 0 or discount > max_d:
+        raise CommsError("Customer discount must be between 0%% and %s%%." % _pct(max_d))
+    email = (app_row.email or "").strip().lower()
+    existing = (session.query(Affiliate)
+                .filter(func.lower(Affiliate.email) == email,
+                        Affiliate.status != "terminated").first())
+    if existing is not None:
+        raise CommsError("%s is already a partner (code %s). Reject this application as a "
+                         "duplicate instead." % (email, existing.code))
+    if session.query(Affiliate).filter(Affiliate.code == code).first() is not None:
+        raise CommsError("The code %s is taken. Choose another." % code)
+
+    aff = Affiliate(
+        id=uuid.uuid4(), code=code, name=app_row.name, email=email, discount_pct=discount,
+        commission_pct=afs.preview_offer(10000, discount, terms)["commission_rate_pct"],
+        commission_model="recurring", status="paused",
+        terms_id=getattr(terms, "id", None), agreement_version=agr.AGREEMENT_VERSION,
+        agreement_token_version=0, terminated_for_cause=False,
+        notes="Created from partner application %s (%s)." % (app_row.id, now.date().isoformat()))
+    try:
+        session.add(aff)
+        session.flush()                         # claims the code (UNIQUE) before Stripe
+        if discount > 0:
+            coupon_id, promo_id = afs.provision_stripe_objects(aff)
+            aff.stripe_coupon_id, aff.stripe_promotion_code_id = coupon_id, promo_id
+        app_row.status = "approved"
+        app_row.affiliate_id = aff.id
+        app_row.decided_by = actor
+        app_row.decided_at = now
+        app_row.decision_note = (note or "").strip()[:2000] or None
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise CommsError("The code %s is taken. Choose another." % code)
+    except afs.AffiliateError as e:
+        session.rollback()
+        raise CommsError("Stripe could not create the discount code: %s" % e)
+    # The code must not be redeemable before the agreement is signed (same as
+    # the Add affiliate form). Signing reactivates it.
+    try:
+        import promo_service as ps
+        ps.set_promo_active(aff, False)
+    except Exception as e:   # noqa: BLE001
+        log.warning("could not deactivate promo for new partner %s: %s", code, e)
+    emailed = False
+    if send_email:
+        emailed = bool(agr.email_signing_link(aff, note=note))
+    return aff, emailed
+
+
+def reject_application(session, app_row, *, actor, reason=None, send_email=True, now=None) -> bool:
+    """Mark rejected; optionally email the applicant (with the reason when one
+    is given). Returns True if the email was accepted."""
+    if app_row.status == "approved":
+        raise CommsError("This application was already approved. Pause or terminate the "
+                         "partner instead.")
+    reason = (reason or "").replace("\r\n", "\n").strip()[:2000]
+    if "—" in reason:
+        raise CommsError("Please replace the long dash with ' - ' (house style).")
+    app_row.status = "rejected"
+    app_row.decided_by = actor
+    app_row.decided_at = _now(now)
+    app_row.decision_note = reason or None
+    session.commit()
+    if not send_email:
+        return False
+    first = (app_row.name or "").split(" ")[0] or "there"
+    body = ("Hi %s,\n\n"
+            "Thank you for applying to the TradeWave partner program and for the time you "
+            "put into it. We are not able to offer you a place right now.\n\n%s"
+            "This is not a judgment of your work. We keep the program small, and you are "
+            "welcome to apply again later.\n\nThe TradeWave team\n"
+            % (first, (reason + "\n\n") if reason else ""))
+    return _send(app_row.email, "Your TradeWave partner application", body)
+
+
+def mark_application_spam(session, app_row, actor, now=None) -> None:
+    if app_row.status == "approved":
+        raise CommsError("This application was already approved.")
+    app_row.status = "spam"
+    app_row.decided_by = actor
+    app_row.decided_at = _now(now)
+    session.commit()
+
+
+# ---------------------------------------------------------------------------
+# 5) Lifecycle events (what the daily job looks for)
+# ---------------------------------------------------------------------------
+_PLAN_LABEL = {"navigator": "Navigator", "analyst": "Analyst", "strategist": "Strategist"}
+_INTERVAL_LABEL = {"year": "annual", "month": "monthly"}
+
+
+def _rule_text(terms) -> str:
+    months = int(getattr(terms, "activity_rule_months", 12) or 12)
+    return ("at least 1 new paying customer every %d months, with a %d-day grace"
+            % (months, afs.ACTIVITY_GRACE_DAYS))
+
+
+def _welcome_event(session, aff, terms):
+    signed = _utc(aff.agreement_signed_at)
+    if signed is None:
+        return None
+    discount = afs.clamp_discount(aff.discount_pct, terms)
+    offer = afs.preview_offer(10000, discount, terms)
+    code_line = ("Your code: %s (customers can type it at checkout)\n" % aff.code
+                 if discount > 0 else "")
+    body = (
+        "Hi %s,\n\n"
+        "Your agreement is signed and your partner account is live. Welcome.\n\n"
+        "Your link: %s\n"
+        "Your landing page: %s\n%s\n"
+        "Right now your audience gets %s%% off and you earn %s%% of the list price in the "
+        "first year. On a $100 plan that is %s for the customer and %s for you. You can change "
+        "the discount any time in Settings. After the first year you earn %s%% of what the "
+        "customer pays on renewals.\n\n"
+        "Three things to do first:\n"
+        "1. Open your dashboard and copy your link.\n"
+        "2. Add your payout method and send your tax form (Payouts page). We need both "
+        "before we can pay you.\n"
+        "3. Share your link. Always say that you earn a commission.\n\n"
+        "Questions: %s."
+        % (first_name(aff), agr.join_link(aff), agr.referral_link(aff), code_line,
+           _pct(discount), _pct(offer["commission_rate_pct"]),
+           money(Decimal(offer["customer_pays_cents"]) / 100),
+           money(Decimal(offer["partner_earns_cents"]) / 100),
+           _pct(getattr(terms, "renewal_pct", 25)), HELP_EMAIL))
+    return make_event("welcome", "welcome:%s" % signed.date().isoformat(),
+                      "Welcome to the TradeWave partner program", body, occurred_at=signed,
+                      link=("Open your partner dashboard", dashboard_url()))
+
+
+def _first_click_event(session, aff):
+    from models import AffiliateClick
+    from sqlalchemy import func
+    first = (session.query(func.min(AffiliateClick.day))
+             .filter(AffiliateClick.affiliate_id == aff.id, AffiliateClick.clicks > 0).scalar())
+    if first is None:
+        return None
+    if isinstance(first, str):
+        first = dt.date.fromisoformat(first[:10])
+    body = ("Hi %s,\n\n"
+            "Someone just visited TradeWave through your link. It is working.\n\n"
+            "Your dashboard counts every click, signup and paying customer. Each new visitor "
+            "gets a free 7-day trial, so a first payment usually follows a week or more after "
+            "the click.\n\n"
+            "Keep sharing: %s" % (first_name(aff), agr.join_link(aff)))
+    return make_event("first_click", "first_click", "Your link got its first click", body,
+                      occurred_at=dt.datetime(first.year, first.month, first.day, tzinfo=UTC),
+                      link=("See your clicks", dashboard_url()))
+
+
+def _new_customer_events(session, aff, terms, status):
+    from models import AffiliateReferral
+    refs = (session.query(AffiliateReferral)
+            .filter(AffiliateReferral.affiliate_id == aff.id,
+                    AffiliateReferral.first_paid_at.isnot(None),
+                    AffiliateReferral.source != "return").all())
+    total = len(refs)
+    out = []
+    for ref in refs:
+        plan = _PLAN_LABEL.get(ref.tier or "", "")
+        interval = _INTERVAL_LABEL.get(ref.billing_interval or "", "")
+        plan_text = (" on the %s plan" % " ".join(x for x in (plan, interval) if x)
+                     if (plan or interval) else "")
+        ref_terms = getattr(ref, "terms", None) or terms
+        earn = ""
+        if ref.offer_type == "promo":
+            earn = ("They bought during a TradeWave sale, so you earn %s%% of what they paid. "
+                    % _pct(getattr(ref_terms, "promo_commission_pct", 50)))
+        elif ref.list_price_cents and ref.discount_pct is not None:
+            try:
+                offer = afs.preview_offer(int(ref.list_price_cents), ref.discount_pct, ref_terms)
+                earn = ("You earn %s on this payment (%s%% of the list price). "
+                        % (money(Decimal(offer["partner_earns_cents"]) / 100),
+                           _pct(offer["commission_rate_pct"])))
+            except afs.AffiliateError:
+                earn = ""
+        until = status.get("active_until")
+        keep = (" This also keeps your renewal commissions active until %s." % _day(until)
+                if until else "")
+        body = ("Hi %s,\n\n"
+                "A customer you referred just made their first payment%s. %sThe exact amount "
+                "is on your Earnings page.\n\n"
+                "You now have %d paying customer%s in total. To protect their privacy we "
+                "never share who they are.%s"
+                % (first_name(aff), plan_text, earn, total, "" if total == 1 else "s", keep))
+        out.append(make_event("new_customer", "new_customer:%s" % ref.id,
+                              "You have a new paying customer", body,
+                              occurred_at=_utc(ref.first_paid_at),
+                              link=("See your earnings", dashboard_url("/earnings"))))
+    return out
+
+
+def _statement_events(session, aff, now):
+    from models import AffiliatePayout
+    # Only a recent month is news: re-computing an old month must not
+    # announce its statement again as if it were new.
+    oldest = (now - dt.timedelta(days=100)).date()
+    rows = (session.query(AffiliatePayout)
+            .filter(AffiliatePayout.affiliate_id == aff.id,
+                    AffiliatePayout.period_start >= oldest,
+                    AffiliatePayout.status.in_(("pending", "paid"))).all())
+    months = {}
+    for r in rows:
+        months.setdefault(r.period_start, []).append(r)
+    out = []
+    for period, items in months.items():
+        label = period.strftime("%B %Y")
+        totals = ", ".join(money(i.commission_amount, i.currency)
+                           for i in sorted(items, key=lambda i: i.currency or ""))
+        body = ("Hi %s,\n\n"
+                "Your %s statement is ready. Commission for the month: %s.\n\n"
+                "Payouts are sent by the 15th of the month after the statement month, once "
+                "your balance is at least %s and your tax form is on file. A smaller balance "
+                "is not lost: it carries forward.\n\n"
+                "The line-by-line breakdown is on your Earnings page."
+                % (first_name(aff), label, totals, money(afs.payout_minimum())))
+        occurred = max((_utc(i.computed_at) for i in items if i.computed_at is not None),
+                       default=None)
+        out.append(make_event("statement_ready", "statement:%s" % period.strftime("%Y-%m"),
+                              "Your %s statement is ready" % label, body, occurred_at=occurred,
+                              link=("Open your Payouts page", dashboard_url("/payouts"))))
+    return out
+
+
+def _payout_events(session, aff):
+    from models import AffiliatePayout
+    rows = (session.query(AffiliatePayout)
+            .filter(AffiliatePayout.affiliate_id == aff.id, AffiliatePayout.status == "paid",
+                    AffiliatePayout.paid_at.isnot(None)).all())
+    out = []
+    for r in rows:
+        if Decimal(str(r.commission_amount or 0)) <= 0:
+            continue
+        ref = (r.external_ref or "").strip()
+        if ref.startswith(("carried:", "forfeited:")):
+            continue                              # bookkeeping rows, not a payment
+        method = {"paypal": "PayPal", "wise": "Wise"}.get((aff.payout_method or "").lower(), "")
+        amount = money(r.commission_amount, r.currency)
+        body = ("Hi %s,\n\n"
+                "We sent your payout of %s for %s%s.%s\n\n"
+                "Depending on the provider it can take a few days to arrive. If it has not "
+                "arrived after 5 business days, write to %s."
+                % (first_name(aff), amount, r.period_start.strftime("%B %Y"),
+                   (" by %s" % method) if method else "",
+                   (" Reference: %s." % ref) if ref else "", HELP_EMAIL))
+        out.append(make_event("payout_sent", "payout:%s" % r.id, "Payout sent: %s" % amount,
+                              body, occurred_at=_utc(r.paid_at),
+                              link=("See your payouts", dashboard_url("/payouts"))))
+    return out
+
+
+def _has_open_customer(session, aff) -> bool:
+    from models import AffiliateReferral
+    return (session.query(AffiliateReferral.id)
+            .filter(AffiliateReferral.affiliate_id == aff.id,
+                    AffiliateReferral.first_paid_at.isnot(None),
+                    AffiliateReferral.ended_at.is_(None)).first()) is not None
+
+
+def _activity_events(session, aff, terms, status, now):
+    """60 / 30 / 7-day warnings, 'renewals stopped' and 'renewals resumed'.
+    Only for a partner who has a customer that can still renew."""
+    from models import AffiliateNotification
+    out = []
+    rule = _rule_text(terms)
+    until, lapsed = status.get("active_until"), status.get("lapsed_since")
+    last = status.get("last_new_customer_at")
+    if status.get("active") and until is not None:
+        if _has_open_customer(session, aff):
+            days_left = (until - now.date()).days
+            due = [t for t in ACTIVITY_WARNING_DAYS if days_left <= t]
+            if due and days_left >= 0:
+                t = min(due)                     # only the most urgent one that applies
+                when = "today" if days_left == 0 else ("in %d day%s" % (days_left, "" if days_left == 1 else "s"))
+                body = ("Hi %s,\n\n"
+                        "Your renewal commissions stay active while you bring in %s. Your "
+                        "current window ends %s, on %s.\n\n"
+                        "Refer 1 new paying customer before then and the window starts again. "
+                        "If it ends first, renewal payments from your existing customers earn "
+                        "$0 until your next new paying customer, and renewals missed in that "
+                        "time are not paid later.\n\n"
+                        "Your first-year commissions are not affected.\n\n"
+                        "Your link: %s"
+                        % (first_name(aff), rule, when, _day(until), agr.join_link(aff)))
+                subject = ("%d day%s left to keep your renewal commissions"
+                           % (days_left, "" if days_left == 1 else "s")) if days_left else \
+                    "Last day to keep your renewal commissions"
+                out.append(make_event("activity_warning_%d" % t,
+                                      "activity_warn:%d:%s" % (t, until.isoformat()),
+                                      subject, body, occurred_at=now,
+                                      link=("Open your dashboard", dashboard_url())))
+        # resumed: a 'stopped' notice went out before the latest new customer
+        if last is not None:
+            lapsed_note = (session.query(AffiliateNotification)
+                           .filter(AffiliateNotification.affiliate_id == aff.id,
+                                   AffiliateNotification.event_type == "renewals_lapsed")
+                           .order_by(AffiliateNotification.created_at.desc()).first())
+            if lapsed_note is not None and _utc(lapsed_note.created_at) < last:
+                body = ("Hi %s,\n\n"
+                        "Good news. Your new paying customer restarted your renewal "
+                        "commissions. Renewal payments from your customers earn commission "
+                        "again from now on, until at least %s.\n\n"
+                        "Renewals that were paid while you were inactive are not paid later. "
+                        "To stay active, bring in %s."
+                        % (first_name(aff), _day(until), rule))
+                out.append(make_event("renewals_resumed", "resumed:%s" % last.date().isoformat(),
+                                      "Your renewal commissions are active again", body,
+                                      occurred_at=last,
+                                      link=("Open your dashboard", dashboard_url())))
+    elif not status.get("active") and lapsed is not None and _has_open_customer(session, aff):
+        body = ("Hi %s,\n\n"
+                "Your activity window ended on %s, so your renewal commissions have stopped "
+                "for now. The rule is %s.\n\n"
+                "What this means: renewal payments from your existing customers earn $0 while "
+                "you are inactive, and those renewals are not paid later. Your first-year "
+                "commissions are not affected.\n\n"
+                "How to fix it: refer 1 new paying customer. Your renewal commissions start "
+                "again with that customer's first payment.\n\n"
+                "Your link: %s"
+                % (first_name(aff), _day(lapsed), rule, agr.join_link(aff)))
+        out.append(make_event("renewals_lapsed", "lapsed:%s" % lapsed.isoformat(),
+                              "Your renewal commissions have stopped for now", body,
+                              occurred_at=dt.datetime(lapsed.year, lapsed.month, lapsed.day, tzinfo=UTC),
+                              link=("Open your dashboard", dashboard_url())))
+    return out
+
+
+def campaign_offer_text(campaign) -> str:
+    if campaign.offer_type == "percent":
+        return "%s%% off for new customers" % _pct(campaign.percent_off)
+    parts = []
+    for tier, tier_label in _PLAN_LABEL.items():
+        for iv, iv_label in (("month", "monthly"), ("year", "annual")):
+            v = (campaign.intro_prices or {}).get(afs.offer_key(tier, iv))
+            if (v is not None and tier in (campaign.tiers or [])
+                    and iv in (campaign.billing_intervals or [])):
+                price = money(Decimal(int(v)) / 100)
+                if price.endswith(".00"):
+                    price = price[:-3]
+                parts.append("%s %s for %s" % (tier_label, iv_label, price))
+    return (", ".join(parts) + " for new customers") if parts else "a special price for new customers"
+
+
+def _campaign_events(aff, terms, campaigns, now):
+    if aff.status != "active":
+        return []
+    out = []
+    for c in campaigns:
+        ends = _utc(c.ends_at)
+        body = ("Hi %s,\n\n"
+                "A TradeWave sale just started: %s. The offer is %s. It runs until %s UTC.\n\n"
+                "Your link already works with it. Customers who use your link get whichever "
+                "price is lower, the sale price or your discount, and the sale stays credited "
+                "to you. When a customer you refer buys at the sale price, you earn %s%% of "
+                "what they pay.\n\n"
+                "Your tracked link: %s\n"
+                "Short link: %s"
+                % (first_name(aff), c.name, campaign_offer_text(c),
+                   ends.strftime("%d %B %Y, %H:%M").lstrip("0"),
+                   _pct(getattr(terms, "promo_commission_pct", 50)),
+                   agr.join_link(aff), agr.referral_link(aff)))
+        out.append(make_event("campaign_started", "campaign:%s" % c.id,
+                              "New TradeWave sale: %s - your link already works" % c.name, body,
+                              occurred_at=_utc(c.starts_at),
+                              link=("Get copy and links to share", dashboard_url("/promote"))))
+    return out
+
+
+def _discount_events(session, aff, terms):
+    from models import AffiliateDiscountChange
+    rows = (session.query(AffiliateDiscountChange)
+            .filter(AffiliateDiscountChange.affiliate_id == aff.id)
+            .order_by(AffiliateDiscountChange.changed_at, AffiliateDiscountChange.id).all())
+    groups = {}
+    for r in rows:
+        when = _utc(r.changed_at)
+        if when is None:
+            continue
+        key = "discount:%s:%s" % (when.strftime("%Y%m%d%H%M"), _pct(r.new_pct))
+        groups.setdefault(key, []).append(r)
+    out = []
+    for key, items in groups.items():
+        r = items[0]
+        when = _utc(r.changed_at)
+        try:
+            rate = afs.preview_offer(10000, r.new_pct, terms)["commission_rate_pct"]
+            earn = " You now earn %s%% of the list price on first-year payments." % _pct(rate)
+        except afs.AffiliateError:
+            earn = ""
+        was = ("from %s%% to %s%%" % (_pct(r.old_pct), _pct(r.new_pct))
+               if r.old_pct is not None else "to %s%%" % _pct(r.new_pct))
+        body = ("Hi %s,\n\n"
+                "Your customer discount changed %s on %s UTC.%s\n\n"
+                "The new discount applies to customers who check out from now on. Customers "
+                "you already have keep their price, and what you earn on them does not "
+                "change. You can change the discount again after 24 hours.\n\n"
+                "If you did not make this change, reply to this email or write to %s right "
+                "away."
+                % (first_name(aff), was, when.strftime("%d %B %Y, %H:%M").lstrip("0"), earn,
+                   HELP_EMAIL))
+        out.append(make_event("discount_changed", key,
+                              "Your customer discount is now %s%%" % _pct(r.new_pct), body,
+                              occurred_at=when,
+                              link=("Review your offer", dashboard_url("/settings#offer"))))
+    return out
+
+
+def collect_events(session, aff, now=None, campaigns=None) -> list:
+    """Every lifecycle event that currently applies to this partner (old and
+    new alike - deliver() and the age cut-off decide what is actually sent)."""
+    now = _now(now)
+    if aff.status == "terminated":
+        return _payout_events(session, aff)       # a final balance is still confirmed
+    if aff.agreement_signed_at is None:
+        return []                                 # not a partner yet: admin messages only
+    terms = afs.terms_for(session, aff) or afs.DEFAULT_TERMS
+    status = afs.activity_status(aff, now, session=session, terms=terms)
+    if campaigns is None:
+        campaigns = live_campaigns(session, now)
+    events = []
+    welcome = _welcome_event(session, aff, terms)
+    if welcome is not None:
+        events.append(welcome)
+    click = _first_click_event(session, aff)
+    if click is not None:
+        events.append(click)
+    events += _new_customer_events(session, aff, terms, status)
+    events += _statement_events(session, aff, now)
+    events += _payout_events(session, aff)
+    events += _activity_events(session, aff, terms, status, now)
+    events += _campaign_events(aff, terms, campaigns, now)
+    events += _discount_events(session, aff, terms)
+    return events
+
+
+def live_campaigns(session, now=None) -> list:
+    now = _now(now)
+    return [c for c in afs.list_campaigns(session, include_archived=False)
+            if afs.campaign_is_live(c, now)]
+
+
+def run_for_affiliate(session, aff, now=None, campaigns=None, dry_run=False) -> list:
+    """Deliver this partner's due events. Returns [(event, row | None)] for
+    the events that were inside the age cut-off."""
+    now = _now(now)
+    cutoff = now - max_event_age()
+    disabled = disabled_prefs(session, aff.id)
+    out = []
+    for ev in collect_events(session, aff, now, campaigns):
+        occurred = _utc(ev.occurred_at)
+        if occurred is None or occurred < cutoff or occurred > now + dt.timedelta(minutes=5):
+            continue
+        if dry_run:
+            out.append((ev, None))
+            continue
+        out.append((ev, deliver(session, aff, ev, now, disabled)))
+    return out
+
+
+def run_daily(session, now=None, dry_run=False) -> dict:
+    """The daily job. Idempotent: safe to run any number of times a day."""
+    from models import Affiliate
+    now = _now(now)
+    campaigns = live_campaigns(session, now)
+    stats = {"partners": 0, "sent": 0, "skipped": 0, "failed": 0, "already": 0, "errors": 0}
+    ids = [a.id for a in session.query(Affiliate).order_by(Affiliate.code).all()]
+    for aid in ids:
+        try:
+            aff = session.get(Affiliate, aid)
+            if aff is None:
+                continue
+            stats["partners"] += 1
+            for ev, row in run_for_affiliate(session, aff, now, campaigns, dry_run):
+                if dry_run:
+                    log.info("dry-run: would deliver %s (%s) to %s", ev.type, ev.key, aff.code)
+                    stats["sent"] += 1
+                elif row is None:
+                    stats["already"] += 1
+                else:
+                    stats[row.email_status if row.email_status in stats else "failed"] += 1
+                    log.info("%s %s -> %s (%s%s)", ev.type, ev.key, aff.code, row.email_status,
+                             (": " + row.email_reason) if row.email_reason else "")
+        except Exception:   # noqa: BLE001  (one partner must not stop the job)
+            session.rollback()
+            stats["errors"] += 1
+            log.exception("partner comms failed for affiliate %s", aid)
+    return stats
+
+
+def notify_signed(affiliate_id) -> None:
+    """Best-effort hook for the signing route: send the welcome right away
+    instead of waiting for the daily job. Own session; never raises."""
+    try:
+        import models
+        s = models.Session()
+        try:
+            aff = s.get(models.Affiliate, affiliate_id)
+            if aff is not None:
+                run_for_affiliate(s, aff)
+        finally:
+            s.close()
+    except Exception:   # noqa: BLE001
+        log.exception("welcome email after signing failed (the daily job retries)")
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description="Partner lifecycle emails (idempotent daily job).")
+    ap.add_argument("--dry-run", action="store_true", help="log what would be sent; write nothing")
+    args = ap.parse_args(argv)
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s %(levelname)s affiliate_comms: %(message)s")
+    import models
+    s = models.Session()
+    try:
+        stats = run_daily(s, dry_run=args.dry_run)
+    finally:
+        s.close()
+    log.info("done%s: %s", " (dry run)" if args.dry_run else "", stats)
+    return 1 if stats["errors"] else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

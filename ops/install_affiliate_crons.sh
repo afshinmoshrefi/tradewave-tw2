@@ -54,3 +54,8 @@ done
 for l in "${lines[@]}"; do
   if sudo -u flask crontab -l | grep -qF "$l"; then echo "OK: $l"; else echo "FAIL: missing after install: $l" >&2; exit 1; fi
 done
+
+# Partner lifecycle emails (TW-TASK-0039 B): daily job on the web box.
+if [ "$ROLE" != smn ]; then
+  bash "$(dirname "$0")/install_affiliate_comms_cron.sh"
+fi

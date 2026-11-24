@@ -1,0 +1,105 @@
+{% extends "partner_public_base.html" %}
+{% block title %}Apply to the TradeWave partner program{% endblock %}
+{% block meta %}<meta name="description" content="Apply to become a TradeWave partner. Earn on every customer you refer, in the first year and on renewals.">{% endblock %}
+{% block content %}
+{% if done %}
+  <h1>Thank you. <span class="grad">We have your application.</span></h1>
+  <p class="sub">We read every application personally and reply by email, usually within 5 business days.</p>
+  <div class="panel">
+    <h2>What happens next</h2>
+    <ol class="rules">
+      <li><b>We review it.</b> We look at your audience and how you plan to promote TradeWave.</li>
+      <li><b>We email you.</b> If we approve it, you get a private link to review and sign the partner agreement.</li>
+      <li><b>You go live.</b> Your link and discount code start working the moment you sign.</li>
+    </ol>
+    <p class="hint" style="margin-top:14px;">We sent a confirmation to your email address. If it is not there in a few minutes, check your spam folder.</p>
+    <a class="btn ghost" href="/">Back to TradeWave</a>
+  </div>
+{% elif limited %}
+  <h1>Please try again tomorrow</h1>
+  <p class="sub">We received several applications from your network today, so we paused new ones for 24 hours.
+    If this is a mistake, write to <a href="mailto:help@tradewave.ai">help@tradewave.ai</a> and we will sort it out.</p>
+{% else %}
+  <h1>Become a <span class="grad">TradeWave partner</span></h1>
+  <p class="sub">Tell your audience about TradeWave and earn on every customer you bring in. It takes about 3 minutes to apply.</p>
+
+  <div class="facts">
+    <div class="fact"><b>Up to {{ t.pool }}%</b><span>of the list price on every first-year payment. On a $100 plan that is up to ${{ t.pool }}.</span></div>
+    <div class="fact"><b>{{ t.renewal }}%</b><span>of what your customers pay when they renew{% if t.last_year %}, in years 2 to {{ t.last_year }}{% endif %}.</span></div>
+    <div class="fact"><b>Up to {{ t.max_discount }}% off</b><span>for your audience. You choose the discount and keep the rest of the {{ t.pool }}%.</span></div>
+  </div>
+
+  {% if errors %}
+  <div class="errors" role="alert"><b>Please fix {{ 'this' if errors|length == 1 else 'these' }}:</b>
+    <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul></div>
+  {% endif %}
+
+  <form method="post" action="/partners/apply" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {# honeypot: hidden from people, bots fill it in #}
+    <div class="hp" aria-hidden="true">
+      <label for="company_url">Leave this field empty</label>
+      <input type="text" id="company_url" name="company_url" tabindex="-1" autocomplete="off">
+    </div>
+
+    <div class="panel">
+      <h2>About you</h2>
+      <div class="two">
+        <div>
+          <label for="ap-name" style="margin-top:0;">Your name</label>
+          <input type="text" id="ap-name" name="name" maxlength="120" autocomplete="name" required value="{{ f.name or '' }}">
+        </div>
+        <div>
+          <label for="ap-email" style="margin-top:0;">Email</label>
+          <input type="email" id="ap-email" name="email" maxlength="320" autocomplete="email" inputmode="email" required value="{{ f.email or '' }}">
+        </div>
+      </div>
+      <div class="two">
+        <div>
+          <label for="ap-country">Country</label>
+          <input type="text" id="ap-country" name="country" maxlength="80" autocomplete="country-name" required value="{{ f.country or '' }}">
+        </div>
+        <div>
+          <label for="ap-size">Audience size</label>
+          <select id="ap-size" name="audience_size" required>
+            <option value="">Choose one</option>
+            {% for key, label in sizes %}
+            <option value="{{ key }}" {{ 'selected' if f.audience_size == key else '' }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <p class="hint">Add up your followers, subscribers and readers. A small, engaged audience is fine.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Your audience</h2>
+      <label for="ap-site" style="margin-top:0;">Website <span class="opt">(optional)</span></label>
+      <input type="text" id="ap-site" name="website" maxlength="300" inputmode="url" autocomplete="url" placeholder="example.com" value="{{ f.website or '' }}">
+      <label for="ap-channels">Where you reach your audience</label>
+      <textarea id="ap-channels" name="channels" maxlength="1000" placeholder="For example: YouTube channel name, newsletter, X or Instagram handle, Discord, podcast">{{ f.channels or '' }}</textarea>
+      <p class="hint">Give us a website or at least one channel.</p>
+      <label for="ap-plan">How will you promote TradeWave?</label>
+      <textarea id="ap-plan" name="promo_plan" maxlength="2000" required placeholder="For example: a review video, a section in my weekly newsletter, a resources page for my students">{{ f.promo_plan or '' }}</textarea>
+    </div>
+
+    <div class="panel">
+      <h2>Program policies</h2>
+      <ul class="rules">
+        <li><b>Be honest.</b> No guaranteed or expected profits, returns or win rates. TradeWave is research, not investment advice.</li>
+        <li><b>Say you earn a commission.</b> Clearly, every time you promote TradeWave.</li>
+        <li><b>No spam.</b> No bought lists and no unsolicited bulk messages.</li>
+        <li><b>No brand bidding.</b> Do not bid on "TradeWave" in paid search or pose as TradeWave.</li>
+        <li><b>Real referrals only.</b> No self-referrals, fake signups or incentivized signups.</li>
+      </ul>
+      <p class="hint" style="margin-top:12px;">Approved partners review and sign the full partner agreement before going live.</p>
+      <label class="agree" for="ap-agree">
+        <input type="checkbox" id="ap-agree" name="agree" value="yes" required {{ 'checked' if f.agree == 'yes' else '' }}>
+        <span>I have read these program policies and I agree to follow them.</span>
+      </label>
+      <button class="btn" type="submit">Send my application</button>
+      <p class="hint" style="margin-top:12px;">We use your details only to review your application and to contact you about it.</p>
+    </div>
+  </form>
+{% endif %}
+{% endblock %}

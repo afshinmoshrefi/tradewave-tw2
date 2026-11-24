@@ -1,0 +1,50 @@
+{% extends "aff_base.html" %}
+{% block title %}Messages - TradeWave Partners{% endblock %}
+{% block heading %}Messages{% endblock %}
+{% block subtitle %}Everything we send you, in one place. Emails you turned off still show up here.{% endblock %}
+{% block headright %}
+{% if unread %}
+<form method="post" action="{{ url_for('affiliate_portal.messages_read_all') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="btn-secondary btn-sm" type="submit">Mark all as read</button>
+</form>
+{% endif %}
+{% endblock %}
+{% block content %}
+<div class="card" style="padding:6px 0;">
+  {% if rows %}
+  {% for r in rows %}
+  <a class="msgrow{{ ' unread' if r.unread else '' }}" href="{{ url_for('affiliate_portal.message', nid=r.id) }}">
+    <span class="dot" aria-hidden="true"></span>
+    <span class="main">
+      <span class="subj">{{ r.subject }}{% if r.unread %}<span class="sr"> (unread)</span>{% endif %}</span>
+      <span class="prev">{{ r.preview }}</span>
+    </span>
+    <span class="meta"><span class="pill dim">{{ r.kind }}</span><span class="when">{{ r.date }}</span></span>
+  </a>
+  {% endfor %}
+  {% else %}
+  <div class="empty"><b>No messages yet</b>News about your customers, statements, payouts and sales will appear here.</div>
+  {% endif %}
+</div>
+<p class="tiny muted">Choose which of these also reach you by email in <a href="{{ url_for('affiliate_portal.settings') }}#email">Settings</a>.</p>
+<style>
+  .msgrow { display:flex; gap:12px; align-items:flex-start; padding:14px 18px; text-decoration:none; color:var(--text);
+            border-bottom:1px solid var(--line); min-height:56px; }
+  .msgrow:last-child { border-bottom:none; }
+  .msgrow:hover { background:rgba(99,102,241,0.07); }
+  .msgrow .dot { width:9px; height:9px; border-radius:50%; flex:none; margin-top:7px; background:transparent; }
+  .msgrow.unread .dot { background:#8b5cf6; }
+  .msgrow .main { flex:1; min-width:0; }
+  .msgrow .subj { display:block; font-size:15px; color:var(--muted); }
+  .msgrow.unread .subj { color:var(--text); font-weight:700; }
+  .msgrow .prev { display:block; font-size:13px; color:var(--faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .msgrow .meta { display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex:none; }
+  .msgrow .when { font-size:12px; color:var(--faint); white-space:nowrap; }
+  .sr { position:absolute; left:-9999px; }
+  @media (max-width:640px) {
+    .msgrow { padding:13px 14px; flex-wrap:wrap; }
+    .msgrow .meta { flex-direction:row; align-items:center; width:100%; padding-left:21px; }
+  }
+</style>
+{% endblock %}
