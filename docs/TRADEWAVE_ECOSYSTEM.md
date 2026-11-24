@@ -373,6 +373,22 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
     so they re-sign agreement v2. A migration cannot call Stripe: run
     `affiliate_service.reconcile_v2_stripe(session)` once afterwards
     (deactivates paused codes, re-issues coupons that were above 25%).
+  - **Partner documents (v2).** `docs/AFFILIATE_AGREEMENT.md` is agreement
+    version 2; `web/affiliate_agreement.py:AGREEMENT_VERSION = "2026-11-24"`
+    must move with it. `exhibit(affiliate, session=None)` builds Exhibit A from
+    `terms_for` (pool, max discount, promo rate, renewal rate, renewal term
+    "Commission Years 2-N" or "Lifetime", activity rule incl.
+    `ACTIVITY_GRACE_DAYS`, $50 payout minimum, payout method) plus the partner's
+    CURRENT discount per interval and a worked $100 example; `ex["rows"]` is
+    the one ordered list `build_snapshot` freezes. `record_signature` always
+    stamps the current version (a migrated row still labelled `2026-06-11` must
+    not record v2 text under the v1 label). Old signed snapshots are stored
+    text and are never re-rendered. `docs/AFFILIATE_PARTNER_GUIDE.md` carries
+    the acceptance-table examples, the activity timeline, the statement states
+    and the FAQ; the portal renderer still splits it at the first `---` and
+    swaps the `ANNE` placeholders. OPEN: `web/templates/affiliate_sign.html`
+    still prints the v1 Exhibit A rows (it must loop `ex.rows`), and the
+    portal's `_partner_details_md` still prints v1 rate lines.
 - **Standalone promo coupons (Coupons tab)** - plain marketing discount codes
   with NO affiliate / commission / payout. `web/promo_service.py` + `web/models.py`
   (`PromoCoupon`) + migration `b2c0fee1d3a5` + the top-level Flask-Admin **Coupons**
