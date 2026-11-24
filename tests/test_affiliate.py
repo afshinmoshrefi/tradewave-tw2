@@ -2,6 +2,12 @@
 
 Hermetic: Stripe is monkeypatched, and the pure core _compute() takes a list of
 duck-typed affiliate objects (no DB / no network).
+
+Program v2 (TW-TASK-0038): a first-year regular sale pays the POOL rule -
+(50 - discount)% of the LIST price (pre-discount subtotal, tax excluded) - not
+a flat percent of what was paid. The $100 plan at 20% off pays $30 (it paid
+$24 under the old 30%-of-paid engine). The full rule matrix lives in
+tests/test_affiliate_v2.py; this module keeps the engine-plumbing checks.
 """
 import datetime as dt
 from decimal import Decimal
@@ -34,11 +40,13 @@ def _aff(**kw):
 
 
 def _inv(coupon="cpn_anne", amount_paid=8000, tax=0, customer="cus_1",
-         email="buyer@example.com", created=None, iid="in_1"):
+         email="buyer@example.com", created=None, iid="in_1", subtotal=10000):
+    """A paid invoice: $100 list (subtotal) at 20% off = $80 paid by default."""
     if created is None:
         created = int(dt.datetime(2026, 5, 15, tzinfo=dt.timezone.utc).timestamp())
     return {
         "id": iid, "amount_paid": amount_paid, "currency": "usd",
+        "status": "paid", "subtotal": subtotal,
         # SDK 15.x shape: tax lives in `total_taxes` (list of {amount}),
         # NOT the old top-level `tax` / `total_tax_amounts`.
         "total_taxes": ([{"amount": tax}] if tax else []),
@@ -120,21 +128,35 @@ def test_invoice_coupon_ids_shapes():
 
 # --- commission math --------------------------------------------------------
 
-def test_recurring_commission(monkeypatch):
+def test_first_year_pool_rule(monkeypatch):
+    # $100 list, 20% off -> customer pays $80, partner earns (50 - 20)% of
+    # LIST = $30 (was $24 = 30% of paid before program v2).
     _patch_month_invoices(monkeypatch, [_inv(amount_paid=8000, tax=0)])
     rows = afs._compute([_aff()], 2026, 5)
     assert len(rows) == 1
     assert rows[0]["gross_revenue"] == Decimal("80.00")
-    assert rows[0]["commission_amount"] == Decimal("24.00")  # 30% of 80
+    assert rows[0]["commission_amount"] == Decimal("30.00")
     assert rows[0]["code"] == "ANNE"
+    line = rows[0]["detail"][0]
+    assert line["kind"] == "first_year" and line["state"] == "estimated"
+    assert line["basis"] == "100.00" and Decimal(line["rate_pct"]) == Decimal("30")
+
+
+def test_legacy_commission_fields_are_ignored(monkeypatch):
+    # commission_pct / commission_model are pre-v2 columns: the engine reads
+    # the rules from the terms version, never from them.
+    _patch_month_invoices(monkeypatch, [_inv()])
+    for model in ("recurring", "first_payment", "duration_12mo"):
+        rows = afs._compute([_aff(commission_pct=Decimal("5"), commission_model=model)], 2026, 5)
+        assert rows[0]["commission_amount"] == Decimal("30.00")
 
 
 def test_tax_is_excluded(monkeypatch):
-    # $88 paid, $8 tax -> basis $80 -> 30% = $24
+    # $88 paid, $8 tax -> $80 net on a $100 list -> pool rule = $30
     _patch_month_invoices(monkeypatch, [_inv(amount_paid=8800, tax=800)])
     rows = afs._compute([_aff()], 2026, 5)
     assert rows[0]["gross_revenue"] == Decimal("80.00")
-    assert rows[0]["commission_amount"] == Decimal("24.00")
+    assert rows[0]["commission_amount"] == Decimal("30.00")
 
 
 def test_total_tax_amounts_fallback(monkeypatch):
@@ -144,7 +166,7 @@ def test_total_tax_amounts_fallback(monkeypatch):
     inv["total_tax_amounts"] = [{"amount": 800}]
     _patch_month_invoices(monkeypatch, [inv])
     rows = afs._compute([_aff()], 2026, 5)
-    assert rows[0]["commission_amount"] == Decimal("24.00")
+    assert rows[0]["commission_amount"] == Decimal("30.00")
 
 
 def test_legacy_top_level_tax_fallback(monkeypatch):
@@ -154,7 +176,7 @@ def test_legacy_top_level_tax_fallback(monkeypatch):
     inv["tax"] = 800
     _patch_month_invoices(monkeypatch, [inv])
     rows = afs._compute([_aff()], 2026, 5)
-    assert rows[0]["commission_amount"] == Decimal("24.00")
+    assert rows[0]["commission_amount"] == Decimal("30.00")
 
 
 def test_other_coupon_is_ignored(monkeypatch):
@@ -170,11 +192,11 @@ def test_self_referral_skipped(monkeypatch):
 def test_multiple_invoices_accumulate(monkeypatch):
     _patch_month_invoices(monkeypatch, [
         _inv(amount_paid=8000, iid="in_1", customer="cus_1"),
-        _inv(amount_paid=4000, iid="in_2", customer="cus_2"),
+        _inv(amount_paid=4000, iid="in_2", customer="cus_2", subtotal=5000),
     ])
     rows = afs._compute([_aff()], 2026, 5)
     assert rows[0]["gross_revenue"] == Decimal("120.00")
-    assert rows[0]["commission_amount"] == Decimal("36.00")
+    assert rows[0]["commission_amount"] == Decimal("45.00")   # $30 + $15
     assert len(rows[0]["detail"]) == 2
 
 
@@ -192,10 +214,10 @@ def test_no_affiliates_returns_empty(monkeypatch):
 
 
 def test_rounding_half_up(monkeypatch):
-    # $33.33 basis * 30% = 9.999 -> 10.00 (ROUND_HALF_UP at the cent)
-    _patch_month_invoices(monkeypatch, [_inv(amount_paid=3333, tax=0)])
+    # $33.33 list at 0% off * 50% = 16.665 -> 16.67 (ROUND_HALF_UP at the cent)
+    _patch_month_invoices(monkeypatch, [_inv(amount_paid=3333, tax=0, subtotal=3333)])
     rows = afs._compute([_aff()], 2026, 5)
-    assert rows[0]["commission_amount"] == Decimal("10.00")
+    assert rows[0]["commission_amount"] == Decimal("16.67")
 
 
 def test_provision_passes_new_promotion_param(monkeypatch):
@@ -233,36 +255,13 @@ def test_provision_passes_new_promotion_param(monkeypatch):
     assert captured["promo"]["code"] == "NEWCODE"
 
 
-def test_first_payment_model(monkeypatch):
-    first_ts = int(dt.datetime(2026, 5, 10, tzinfo=dt.timezone.utc).timestamp())
-    later_ts = int(dt.datetime(2026, 5, 25, tzinfo=dt.timezone.utc).timestamp())
-    month_items = [
-        _inv(iid="in_first", created=first_ts, customer="cus_1"),
-        _inv(iid="in_later", created=later_ts, customer="cus_1"),
-    ]
-
-    def _list(**kw):
-        if "customer" in kw:
-            # customer's full paid history: earliest is in_first
-            return _FakeList([_inv(iid="in_first", created=first_ts, customer="cus_1")])
-        return _FakeList(month_items)
-
-    monkeypatch.setattr(stripe.Invoice, "list", _list)
-    _patch_reversals(monkeypatch)
-    rows = afs._compute([_aff(commission_model="first_payment")], 2026, 5)
-    # only the first invoice counts -> 30% of $80 = $24, single detail line
-    assert rows[0]["commission_amount"] == Decimal("24.00")
-    assert len(rows[0]["detail"]) == 1
-    assert rows[0]["detail"][0]["invoice"] == "in_first"
-
-
 def test_commission_rounds_on_aggregate_not_per_line(monkeypatch):
     """Commission is summed unrounded and quantized ONCE per (affiliate, currency).
-    Two $0.01 invoices: per-line rounding would drop both to $0.00 ($0.00 total);
-    aggregate rounding gives 0.003+0.003=0.006 -> $0.01."""
+    Two $0.01 list-price invoices at 50%: per-line rounding would lift both to
+    $0.01 ($0.02 total); aggregate rounding gives 0.005+0.005=0.010 -> $0.01."""
     aff = _aff(commission_model="recurring")
-    i1 = _inv(iid="a", amount_paid=1, customer="cus_1")     # $0.01 basis
-    i2 = _inv(iid="b", amount_paid=1, customer="cus_2")     # distinct customer; both count
+    i1 = _inv(iid="a", amount_paid=1, customer="cus_1", subtotal=1)     # $0.01 basis
+    i2 = _inv(iid="b", amount_paid=1, customer="cus_2", subtotal=1)     # distinct customer; both count
     _patch_month_invoices(monkeypatch, [i1, i2])
     rows = afs._compute([aff], 2026, 5)
     assert rows[0]["commission_amount"] == Decimal("0.01")
@@ -281,16 +280,16 @@ def test_full_refund_same_month_nets_to_zero(monkeypatch):
     rows = afs._compute([_aff()], 2026, 5)
     assert rows[0]["commission_amount"] == Decimal("0.00")
     kinds = [ln["kind"] for ln in rows[0]["detail"]]
-    assert kinds == ["payment", "refund"]
+    assert kinds == ["first_year", "refund"]
 
 
 def test_partial_refund_netted(monkeypatch):
-    """Half refunded -> commission on the retained half only."""
+    """Half refunded -> half of the ORIGINAL $30 line is reversed."""
     inv = _inv(amount_paid=8000)
     _patch_month_invoices(monkeypatch, [inv])
     _patch_reversals(monkeypatch, refunds=[_refund(4000)], invoices={"pi_1": inv})
     rows = afs._compute([_aff()], 2026, 5)
-    assert rows[0]["commission_amount"] == Decimal("12.00")   # 30% of $40 kept
+    assert rows[0]["commission_amount"] == Decimal("15.00")   # $30 - $15
 
 
 def test_refund_of_earlier_month_is_clawed_back(monkeypatch):
@@ -301,7 +300,7 @@ def test_refund_of_earlier_month_is_clawed_back(monkeypatch):
     _patch_reversals(monkeypatch, refunds=[_refund(8800)], invoices={"pi_1": april})
     rows = afs._compute([_aff()], 2026, 5)
     assert rows[0]["gross_revenue"] == Decimal("-80.00")       # tax share stripped
-    assert rows[0]["commission_amount"] == Decimal("-24.00")
+    assert rows[0]["commission_amount"] == Decimal("-30.00")   # the original line, reversed
 
 
 def test_lost_dispute_clawed_back_won_ignored(monkeypatch):
@@ -312,7 +311,7 @@ def test_lost_dispute_clawed_back_won_ignored(monkeypatch):
     _patch_reversals(monkeypatch, disputes=disputes, invoices={"pi_1": inv})
     rows = afs._compute([_aff()], 2026, 5)
     assert rows[0]["commission_amount"] == Decimal("0.00")
-    assert [ln["kind"] for ln in rows[0]["detail"]] == ["payment", "dispute"]
+    assert [ln["kind"] for ln in rows[0]["detail"]] == ["first_year", "dispute"]
 
 
 def test_failed_refund_ignored(monkeypatch):
@@ -321,7 +320,7 @@ def test_failed_refund_ignored(monkeypatch):
     _patch_reversals(monkeypatch, refunds=[_refund(8000, status="failed")],
                      invoices={"pi_1": inv})
     rows = afs._compute([_aff()], 2026, 5)
-    assert rows[0]["commission_amount"] == Decimal("24.00")
+    assert rows[0]["commission_amount"] == Decimal("30.00")
 
 
 def test_refund_of_unattributed_invoice_ignored(monkeypatch):
@@ -331,21 +330,42 @@ def test_refund_of_unattributed_invoice_ignored(monkeypatch):
     assert afs._compute([_aff()], 2026, 5) == []
 
 
-def test_recurring_attributed_via_referral_after_coupon_expires(monkeypatch):
+def test_renewal_attributed_via_referral_after_coupon_expires(monkeypatch):
     """The persisted-referral fix: a month-13 invoice no longer carries the
-    12-month discount coupon, but the referral maps its subscription -> affiliate,
-    so a 'recurring' (lifetime) affiliate keeps earning. Without the referral map
-    the same invoice is un-attributable and pays nothing."""
-    aff = _aff(commission_model="recurring")
-    inv = _inv(coupon=None, iid="in_m13")          # coupon has fallen off the invoice
+    12-month discount coupon, but the referral maps its subscription -> partner,
+    so the renewal still pays (25% of what was paid). Without the referral the
+    same invoice is un-attributable and pays nothing."""
+    aff = _aff()
+    paid = dt.datetime(2026, 5, 15, tzinfo=dt.timezone.utc)
+    inv = _inv(coupon=None, iid="in_m13", amount_paid=10000)   # coupon has fallen off
     inv["subscription"] = "sub_anne"
+    inv["lines"] = {"data": [{"period": {"start": int(paid.timestamp())}}]}
     _patch_month_invoices(monkeypatch, [inv])
     # no referral, no coupon -> nothing to attribute to
     assert afs._compute([aff], 2026, 5) == []
-    # with the persisted referral -> still attributed and paid (30% of $80)
-    rows = afs._compute([aff], 2026, 5, {"sub_anne": aff.id})
+    first = dt.datetime(2025, 5, 15, tzinfo=dt.timezone.utc)
+    refs = {
+        "sub_anne": SimpleNamespace(affiliate_id=aff.id, first_paid_at=first, year_anchor_at=first),
+        # a newer customer keeps the partner ACTIVE under the 12-month rule
+        "sub_new": SimpleNamespace(affiliate_id=aff.id,
+                                   first_paid_at=dt.datetime(2026, 3, 1, tzinfo=dt.timezone.utc),
+                                   year_anchor_at=dt.datetime(2026, 3, 1, tzinfo=dt.timezone.utc)),
+    }
+    rows = afs._compute([aff], 2026, 5, refs)
     assert len(rows) == 1
-    assert rows[0]["commission_amount"] == Decimal("24.00")
+    assert rows[0]["commission_amount"] == Decimal("25.00")
+    assert rows[0]["detail"][0]["kind"] == "renewal"
+    assert rows[0]["detail"][0]["year_number"] == 2
+
+
+def test_bare_affiliate_id_referral_still_attributes(monkeypatch):
+    """Legacy callers pass {subscription_id: affiliate_id}: still attributed."""
+    aff = _aff()
+    inv = _inv(coupon=None, iid="in_x", amount_paid=10000)
+    inv["subscription"] = "sub_anne"
+    _patch_month_invoices(monkeypatch, [inv])
+    rows = afs._compute([aff], 2026, 5, {"sub_anne": aff.id})
+    assert rows[0]["commission_amount"] == Decimal("50.00")    # 0% off -> full pool
 
 
 def test_unattributed_discounted_invoice_is_skipped(monkeypatch):
@@ -356,51 +376,3 @@ def test_unattributed_discounted_invoice_is_skipped(monkeypatch):
     _patch_month_invoices(monkeypatch, [inv])
     rows = afs._compute([_aff()], 2026, 5)         # _aff coupon is cpn_anne
     assert rows == []
-
-
-def test_first_payment_dedupes_near_simultaneous_invoices(monkeypatch):
-    """Regression: two paid invoices on the SAME coupon minutes apart
-    (proration / true-up) must pay first_payment ONCE - the earliest invoice by
-    identity - not twice. The old +/-1h window double-counted them ($48)."""
-    t0 = int(dt.datetime(2026, 5, 15, 10, 0, tzinfo=dt.timezone.utc).timestamp())
-    t1 = int(dt.datetime(2026, 5, 15, 10, 30, tzinfo=dt.timezone.utc).timestamp())
-    early = _inv(iid="in_early", created=t0, customer="cus_1")
-    later = _inv(iid="in_later", created=t1, customer="cus_1")
-
-    def _list(**kw):
-        # both the month listing and the per-customer history return both
-        return _FakeList([early, later])
-
-    monkeypatch.setattr(stripe.Invoice, "list", _list)
-    _patch_reversals(monkeypatch)
-    rows = afs._compute([_aff(commission_model="first_payment")], 2026, 5)
-    assert len(rows) == 1
-    assert rows[0]["commission_amount"] == Decimal("24.00")   # ONE invoice, not $48
-    assert len(rows[0]["detail"]) == 1
-    assert rows[0]["detail"][0]["invoice"] == "in_early"
-
-
-def test_first_payment_ignores_unrelated_earlier_invoice(monkeypatch):
-    """Regression for the anchor bug: a customer's earlier invoice under a
-    DIFFERENT coupon must not anchor first_payment, or the affiliate's real
-    first invoice gets wrongly skipped."""
-    unrelated_ts = int(dt.datetime(2026, 4, 1, tzinfo=dt.timezone.utc).timestamp())
-    aff_ts = int(dt.datetime(2026, 5, 10, tzinfo=dt.timezone.utc).timestamp())
-    month_items = [_inv(iid="in_aff", created=aff_ts, customer="cus_1", coupon="cpn_anne")]
-
-    def _list(**kw):
-        if "customer" in kw:
-            # full paid history: an unrelated earlier invoice + the affiliate one
-            return _FakeList([
-                _inv(iid="in_unrelated", created=unrelated_ts, customer="cus_1", coupon="cpn_other"),
-                _inv(iid="in_aff", created=aff_ts, customer="cus_1", coupon="cpn_anne"),
-            ])
-        return _FakeList(month_items)
-
-    monkeypatch.setattr(stripe.Invoice, "list", _list)
-    _patch_reversals(monkeypatch)
-    rows = afs._compute([_aff(commission_model="first_payment")], 2026, 5)
-    # the affiliate invoice IS the earliest carrying the affiliate coupon -> it counts
-    assert len(rows) == 1
-    assert rows[0]["commission_amount"] == Decimal("24.00")
-    assert rows[0]["detail"][0]["invoice"] == "in_aff"

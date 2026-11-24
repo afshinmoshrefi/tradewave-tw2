@@ -53,8 +53,10 @@ def _fmt_money(amount, currency: str) -> str:
 
 def _customer_count(detail) -> int:
     """Distinct paying customers this month (anonymized count, never identities)."""
+    import affiliate_service as afs
     cs = {ln.get("customer") for ln in (detail or [])
-          if (ln.get("kind") or "payment") == "payment" and ln.get("customer")}
+          if afs.is_payment_line(ln) and ln.get("customer")
+          and ln.get("state") not in ("held", "void")}
     return len(cs)
 
 

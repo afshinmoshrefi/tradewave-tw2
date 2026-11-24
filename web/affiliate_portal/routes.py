@@ -117,13 +117,19 @@ def _rows_from_json(items):
 
 
 def _count_kind(detail, kind):
+    """Lines of a kind. 'payment' counts every SALE line: the legacy 'payment'
+    plus the program-v2 kinds first_year / promo / renewal."""
+    if kind == "payment":
+        import affiliate_service as asvc
+        return sum(1 for ln in (detail or []) if asvc.is_payment_line(ln))
     return sum(1 for ln in (detail or []) if (ln.get("kind") or "payment") == kind)
 
 
 def _customer_count(detail):
     """DISTINCT paying customers among payment lines (never identities)."""
+    import affiliate_service as asvc
     custs = {ln.get("customer") for ln in (detail or [])
-             if (ln.get("kind") or "payment") == "payment" and ln.get("customer")}
+             if asvc.is_payment_line(ln) and ln.get("customer")}
     return len(custs)
 
 
