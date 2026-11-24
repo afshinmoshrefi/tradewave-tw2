@@ -443,3 +443,13 @@ def test_buy_and_hold_never_falls_through_to_the_mcp_section():
     for question in ("what is Buy and Hold?", "what is buy & hold", "explain buy-and-hold"):
         headings = tpc.select_topic_knowledge(question, sections).headings
         assert "TradeWave in ChatGPT and Claude (MCP)" not in headings, question
+
+
+def test_knowledge_base_explains_the_live_vix_pause_and_the_temporary_unavailable_state():
+    knowledge = (APPSERVER / "chatbot_knowledge.txt").read_text(encoding="utf-8")
+    entry = knowledge[knowledge.index("\"Why are there no AI scores?\""):]
+    entry = entry[: entry.index("\n\n")]
+    assert "live VIX quote" in entry and "scoring limit, currently 35" in entry
+    assert "Scores resume at 35 or lower" in entry and "15 to 20 minutes" in entry
+    assert "AI scores are temporarily unavailable" in entry and "not volatility" in entry
+    assert "—" not in entry

@@ -170,6 +170,12 @@ artifacts.manifest_sha256 is the composite release hash. Compute SHA-256 over UT
 
 A required gate is valid only after it ran, passed, and contains evidence. An environment cannot be verified until every required typed gate passed. A blocking out-of-band item forbids deployed, approved-for-next-stage, or complete status.
 
+## Post-restart warm-up and the API/MCP load gate
+
+The API/MCP load gate (200 requests, concurrency 50, p95 at most 15 s, errors at most 1%) runs right after an appserver restart and again on a warm repeat. Its thresholds are fixed; never weaken them to pass a release. A freshly restarted appserver loads market data in each worker on first use, so an unwarmed restart can fail the post-restart gate on cold-start time alone (TW-BUG-0024, November 23, 2026: p95 28.6 s).
+
+Every activation therefore runs `ops/warm_after_restart.py` after the restart and before the gate: `ops/deploy.sh` does it on staging and production (see `ops/DEPLOY_MAP.md`, step 3a), and a dev activation or manual restart runs it the same way (`ops/OPERATIONS.md`). The warm-up is bounded (150 s deadline), fail-soft, uses the service account, and never primes the API scan cache, so the gate still measures real behavior. With it, the post-restart gate measured p95 7 to 11 s with 0% errors on November 24, 2026. If the gate still fails after the warm-up, stop, keep the automatic dev rollback, and record the per-request timing breakdown.
+
 ## Staging gates
 
 1. Confirm exclusive qualified-release ownership and a valid dev-approved manifest.
