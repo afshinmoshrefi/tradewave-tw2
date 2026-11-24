@@ -2228,6 +2228,40 @@ def api_affiliate_click():
     return ("", 204)
 
 
+def _display_offers(s, aff):
+    """affiliate_service.display_offers over this app's price catalog; {} on
+    any failure (a price card must never break a landing page)."""
+    try:
+        import affiliate_service as _afs
+        return _afs.display_offers(s, aff, _campaign_catalog())
+    except Exception:
+        log.warning("display offers unavailable (non-fatal)", exc_info=True)
+        return {}
+
+
+@app.route("/api/offers")
+def api_offers():
+    """The effective customer offer per plan, for the pricing section (static
+    home page JS) and the partner landing page: list price, the price a NEW
+    customer pays for the first period, and which offer produced it - the live
+    company campaign or the partner's discount (?code= / ?via= / tw_ref
+    cookie), whichever is lower. Read-only; unknown or inactive codes simply
+    return the no-partner offers."""
+    raw = (request.args.get("code") or request.args.get("via")
+           or request.cookies.get("tw_ref") or "")
+    s = DBSession()
+    try:
+        import affiliate_service as _afs
+        aff = _afs.active_affiliate_by_code(s, raw) if raw else None
+        offers = _display_offers(s, aff)
+        resp = jsonify({"code": aff.code if aff is not None else None,
+                        "offers": offers})
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+    finally:
+        s.close()
+
+
 @app.route("/pricing")
 def pricing():
     # Send users to the rich pricing section on the home page (single source
@@ -2692,33 +2726,101 @@ def _resolve_affiliate_promo(raw, period=None):
         s.close()
 
 
-def _record_affiliate_referral(session, sub_id, customer_id, metadata):
-    """Persist the customer/subscription -> affiliate link from subscription
-    metadata (stamped onto subscription_data at checkout). Idempotent (ON CONFLICT
-    DO NOTHING on the subscription id). No-op unless metadata carries a valid
-    tw2_affiliate_id. Never raises - a referral-write failure must not break the
-    webhook (the discount/commission still works off the coupon as a fallback)."""
-    aff_id = (metadata or {}).get("tw2_affiliate_id")
-    if not (sub_id and aff_id):
-        return
-    import uuid as _uuid
-    try:
-        _uuid.UUID(str(aff_id))
-    except (ValueError, TypeError):
+def _record_affiliate_referral(session, sub_id, customer_id, metadata, subscription=None):
+    """Persist the customer/subscription -> affiliate link when a subscription
+    is created. Delegates to affiliate_service.record_referral_from_subscription:
+    the checkout snapshot stamped in the subscription metadata (tw2_affiliate_id
+    + terms / offer / campaign / list price / discount), or - when the customer
+    TYPED a partner's promotion code into Stripe's box, so no metadata exists -
+    the partner mapped from the subscription's discount coupon (source
+    'promo_code'). Idempotent; never raises (a referral-write failure must not
+    break the webhook)."""
+    if not sub_id:
         return
     try:
-        from models import AffiliateReferral
-        from sqlalchemy.dialects.postgresql import insert as _pg_insert
-        stmt = _pg_insert(AffiliateReferral.__table__).values(
-            affiliate_id=aff_id,
-            stripe_customer_id=customer_id,
-            stripe_subscription_id=sub_id,
-            referral_code=(metadata or {}).get("tw2_affiliate_code"),
-            source="checkout",
-        ).on_conflict_do_nothing(index_elements=["stripe_subscription_id"])
-        session.execute(stmt)
+        import affiliate_service as afs
+        sub = dict(subscription or {})
+        sub.setdefault("id", sub_id)
+        sub.setdefault("metadata", metadata or {})
+        afs.record_referral_from_subscription(session, sub, customer_id)
     except Exception:
         log.exception("failed to record affiliate referral for subscription %s", sub_id)
+
+
+def _affiliate_lifecycle_hook(session, event_type, event_object):
+    """Keep a referral's commission clock current from the Stripe webhook: the
+    first successful payment > $0 stamps first_paid_at / year_anchor_at, and a
+    deleted subscription stamps ended_at (the 12-month return window). No-op
+    for subscriptions without a referral. Never raises."""
+    try:
+        import affiliate_service as afs
+        if event_type == "invoice.payment_succeeded":
+            afs.record_first_payment(session, event_object or {})
+        elif event_type == "customer.subscription.deleted":
+            afs.record_subscription_ended(session, event_object or {})
+    except Exception:
+        log.exception("affiliate lifecycle hook failed for %s", event_type)
+
+
+def _campaign_catalog():
+    """{(tier, 'month'|'year'): {"price_id", "product_id", "list_price_cents"}}
+    for the six EOD plans, from the Stripe price cache. This is the `catalog`
+    argument of affiliate_service.create_campaign / update_campaign /
+    display_offers. Raises StripePriceCatalogError like _price_for."""
+    if not _price_cache:
+        _refresh_price_cache()
+    out = {}
+    for (tier, period), price in _price_cache.items():
+        product = getattr(price, "product", None)
+        product_id = (product.get("id") if isinstance(product, dict)
+                      else getattr(product, "id", product))
+        out[(tier, "month" if period == "monthly" else "year")] = {
+            "price_id": price.id,
+            "product_id": product_id,
+            "list_price_cents": int(price.unit_amount),
+        }
+    return out
+
+
+def _founder_subscription(subscription_id):
+    """True when the subscription sits on a legacy FOUNDER price (config
+    FOUNDER_PRICE_IDS, or price / product metadata tw2_founder=true). Founders
+    may only cancel in self-serve billing. Stripe failures propagate so the
+    caller can fail closed."""
+    import affiliate_service as afs
+    sub = stripe.Subscription.retrieve(
+        subscription_id, expand=["items.data.price.product"])
+    sub_d = sub if isinstance(sub, dict) else sub.to_dict()
+    for item in ((sub_d.get("items") or {}).get("data") or []):
+        if afs.is_founder_price((item or {}).get("price")):
+            return True
+    return False
+
+
+FOUNDER_LOCKED_MESSAGE = (
+    "You are on a TradeWave founder plan. Founder plans keep their original "
+    "price and cannot be switched to another plan, billing interval or price. "
+    "You can cancel at any time from your account."
+)
+
+
+def _founder_portal_session(customer_id, subscription_id, return_url):
+    """Billing Portal session for a founder: cancel only. Uses the dedicated
+    no-plan-switch portal configuration when one is set, otherwise deep-links
+    into the portal's cancel flow for this subscription."""
+    founder_config = getattr(config, "FOUNDER_BILLING_PORTAL_CONFIGURATION_ID", "")
+    if founder_config:
+        return stripe.billing_portal.Session.create(
+            customer=customer_id, return_url=return_url,
+            configuration=founder_config)
+    return stripe.billing_portal.Session.create(
+        customer=customer_id, return_url=return_url,
+        flow_data={
+            "type": "subscription_cancel",
+            "subscription_cancel": {"subscription": subscription_id},
+            "after_completion": {"type": "redirect",
+                                 "redirect": {"return_url": return_url}},
+        })
 
 
 def _existing_eod_subscription(customer_id, stored_web_subscription_id=None):
@@ -2805,6 +2907,54 @@ def _fire_dunning_final_notice(db_user, event_id):
     sent = resend_send_email(db_user.email, subject, body)
     # No PII in logs: identify by user id, not email address.
     log.info("dunning final-notice email user=%s sent=%s event=%s", db_user.id, sent, event_id)
+
+
+def _is_new_customer(customer_id):
+    """A NEW customer for campaign eligibility: no Stripe customer yet, or one
+    that never had a subscription, or whose last subscription ended more than
+    12 months ago (rule 8: after 12 months they are brand new). Any live
+    subscription, or a lookup failure, means NOT new (fail closed: no
+    campaign price)."""
+    if not customer_id:
+        return True
+    try:
+        import affiliate_service as afs
+        now = datetime.now(timezone.utc)
+        subs = stripe.Subscription.list(customer=customer_id, status="all", limit=100)
+        for sub in subs.auto_paging_iter():
+            sub_d = sub if isinstance(sub, dict) else sub.to_dict()
+            if str(sub_d.get("status") or "") not in ("canceled", "incomplete_expired"):
+                return False
+            ended = afs._utc(sub_d.get("ended_at") or sub_d.get("canceled_at"))
+            if ended is None or now < afs._add_months(ended, afs.RETURN_WINDOW_MONTHS):
+                return False
+        return True
+    except Exception:
+        log.warning("new-customer check failed for %s; treating as existing",
+                    customer_id, exc_info=True)
+        return False
+
+
+def _resolve_checkout_offer(user, raw_code, tier, period, customer_id):
+    """affiliate_service.resolve_checkout_offer with this app's price catalog
+    and DB session. Never raises: on any failure checkout proceeds as a plain
+    direct sale (no partner, no discount, manual promo entry)."""
+    empty = {"discount_spec": None, "metadata": {}, "offer_type": None,
+             "affiliate_id": None, "affiliate_code": None}
+    s = DBSession()
+    try:
+        import affiliate_service as afs
+        price = _price_for(tier, period)
+        return afs.resolve_checkout_offer(
+            s, user=user, raw_code=raw_code, tier=tier, period=period,
+            list_price_cents=int(getattr(price, "unit_amount", 0) or 0),
+            customer_id=customer_id,
+            is_new_customer=_is_new_customer(customer_id))
+    except Exception:
+        log.exception("checkout offer resolution failed; continuing as a direct sale")
+        return empty
+    finally:
+        s.close()
 
 
 # State-changing endpoint: POST only. The pricing template uses
@@ -2933,6 +3083,26 @@ def stripe_create_checkout():
                            "Please retry in a moment.",
             }), 503
         if existing_sub_id:
+            # Founder guard (TW-TASK-0038 rule 10): a founder may only CANCEL
+            # in self-serve billing. Never open the plan-switch flow for one.
+            try:
+                is_founder = _founder_subscription(existing_sub_id)
+            except Exception:
+                log.exception(
+                    "create-checkout: founder check failed for user %s", u.id)
+                return jsonify({
+                    "error": "subscription_lookup_failed",
+                    "message": "We could not verify your current subscription. "
+                               "Please retry in a moment.",
+                }), 503
+            if is_founder:
+                log.info("create-checkout: founder subscription %s for user %s; "
+                         "plan change refused", existing_sub_id, u.id)
+                return jsonify({
+                    "error": "founder_plan_locked",
+                    "message": FOUNDER_LOCKED_MESSAGE,
+                    "cancel_url": "/account/manage-subscription",
+                }), 409
             log.info(
                 "create-checkout: user %s already has %s eod subscription %s; "
                 "redirecting to billing portal instead of a second checkout",
@@ -2961,16 +3131,19 @@ def stripe_create_checkout():
                             "user %s; falling back to plain portal", u.id, exc_info=True)
                 return manage_subscription()
 
-    # Affiliate referral code: from a direct link (?code=ANNE / ?via=ANNE), a
-    # hidden checkout-form field, or the first-party `tw_ref` cookie set on the
-    # affiliate's landing page (so attribution survives navigation + the signup
-    # round-trip). If it resolves to an active affiliate we PRE-APPLY their
-    # Stripe promotion code, so the discount shows already applied AND the sale
-    # is attributed. Pre-applying via `discounts` is mutually exclusive with
+    # Partner + offer (program v2, TW-TASK-0038). The PARTNER is resolved
+    # separately from the OFFER: a direct link (?code=ANNE / ?via=ANNE) or
+    # hidden form field, then the first-party `tw_ref` cookie, then the signup
+    # stamp users.referred_by_affiliate_id - and a customer returning within
+    # 12 months stays with their previous partner. The offer is the lower
+    # FIRST-PERIOD price of the live campaign (new customers only) and the
+    # partner's discount; exactly ONE discount is pre-applied (never stacked).
+    # Pre-applying via `discounts` is mutually exclusive with
     # allow_promotion_codes.
-    discount_spec, affiliate_id, affiliate_code = _resolve_affiliate_promo(
-        request.values.get("code") or request.values.get("via")
-        or request.cookies.get("tw_ref"), period)
+    offer = _resolve_checkout_offer(
+        u, request.values.get("code") or request.values.get("via")
+        or request.cookies.get("tw_ref"), tier, period, valid_customer_id)
+    discount_spec = offer["discount_spec"]
 
     # Stamp the affiliate onto the subscription metadata: this is the DURABLE
     # attribution carrier - it rides on the Stripe subscription for its whole
@@ -2985,9 +3158,11 @@ def stripe_create_checkout():
     }
     if u.stripe_subscription_id:
         sub_metadata["replaces_subscription_id"] = u.stripe_subscription_id
-    if affiliate_id:
-        sub_metadata["tw2_affiliate_id"] = affiliate_id
-        sub_metadata["tw2_affiliate_code"] = affiliate_code
+    # tw2_affiliate_id / _code / _source, tw2_terms_id, tw2_offer_type,
+    # tw2_campaign_id, tw2_list_price_cents, tw2_discount_pct: the checkout
+    # snapshot the webhook copies onto the affiliate_referrals row. Payouts
+    # read it from there, never from the partner's current settings.
+    sub_metadata.update({k: v for k, v in offer["metadata"].items() if v is not None})
     # GA4: also on the SUBSCRIPTION metadata (not just the session's) so a
     # future invoice.paid handler can attribute real post-trial revenue to the
     # originating GA4 client - checkout completes at $0 under the 7-day trial,
@@ -3076,11 +3251,25 @@ def stripe_create_checkout():
             # min-amount / already-redeemed) must NOT break checkout: retry
             # once, letting the customer enter a code manually instead.
             if discount_spec and "discounts" in reservation.payload:
-                log.warning("checkout: pre-applied affiliate discount %r rejected; "
+                log.warning("checkout: pre-applied discount %r rejected; "
                             "retrying with manual entry", discount_spec)
                 kwargs = dict(reservation.payload)
                 kwargs.pop("discounts", None)
                 kwargs["allow_promotion_codes"] = True
+                # The pre-applied discount is gone, so the stamped offer no
+                # longer describes this sale: drop the campaign and the stamped
+                # discount. A referred customer keeps the partner and falls
+                # back to the pool rule at whatever discount ends up on the
+                # invoice (the engine reads it from the invoice when unstamped).
+                fallback_md = dict(kwargs["subscription_data"]["metadata"])
+                for key in ("tw2_campaign_id", "tw2_campaign_code", "tw2_discount_pct"):
+                    fallback_md.pop(key, None)
+                if fallback_md.get("tw2_affiliate_id"):
+                    fallback_md["tw2_offer_type"] = "regular"
+                else:
+                    fallback_md.pop("tw2_offer_type", None)
+                kwargs["subscription_data"] = dict(
+                    kwargs["subscription_data"], metadata=fallback_md)
                 reservation = replace_checkout_payload(
                     reservation, kwargs, session_factory=DBSession,
                 )
@@ -3469,6 +3658,10 @@ def affiliate_join(code):
             annual_discount=agr._fmt_pct(a_disc),
             discount=agr._fmt_pct(a_disc),   # single-offer case: monthly == annual
             cta_url="/pricing?code=%s" % aff.code,
+            # Program v2: the effective customer offer per plan in DOLLARS
+            # (campaign vs partner discount, the lower first-period price),
+            # keyed "<tier>:<month|year>". Empty if the catalog is unavailable.
+            offers=_display_offers(s, aff),
         )
     finally:
         s.close()
@@ -3602,6 +3795,14 @@ def manage_subscription():
 
     try:
         public_host = os.environ.get("TW2_PUBLIC_HOST", "tw2.trxstat.com")
+        # Founder guard (TW-TASK-0038 rule 10): a founder gets a cancel-only
+        # portal session. The check fails CLOSED (generic 500 below) so a
+        # Stripe hiccup can never open the plan-switch screen to a founder.
+        web_sub_id = getattr(u, "stripe_subscription_id", None)
+        if web_sub_id and _founder_subscription(web_sub_id):
+            session_obj = _founder_portal_session(
+                u.stripe_customer_id, web_sub_id, f"https://{public_host}/account")
+            return redirect(session_obj.url, code=303)
         session_obj = stripe.billing_portal.Session.create(
             customer=u.stripe_customer_id,
             return_url=f"https://{public_host}/account",
@@ -3891,7 +4092,10 @@ def webhook_stripe():
                 # rather than from a possibly stale event snapshot.
                 _record_affiliate_referral(
                     s, sub_id, customer_id, sub_metadata,
+                    subscription=data_obj,
                 )
+        # Program v2 commission clock: first paid invoice / subscription end.
+        _affiliate_lifecycle_hook(s, event_type, data_obj)
 
         # Resolve the product line positively. TW2's web/EOD and developer API
         # subscriptions share one Stripe customer. An event that is not proven

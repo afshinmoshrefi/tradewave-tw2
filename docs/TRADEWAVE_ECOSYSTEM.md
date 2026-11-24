@@ -190,18 +190,17 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   discounted sale traces to exactly one partner by coupon id. Admin "Add
   affiliate" creates the Stripe coupon (`percent_off`, repeating 12mo = "X% off
   first year") + promo code automatically - no Stripe dashboard. Commission is
-  computed **downstream** from Stripe (`compute_month`): per paid invoice in a
-  month, basis = `amount_paid - tax`, commission = basis x `commission_pct`,
-  honoring `commission_model` (recurring [default, lifetime] / first_payment /
-  duration_12mo) and a self-referral guard. "Compute / What I owe" previews live
-  and commits into the `affiliate_payouts` ledger, **idempotent** on
+  computed **downstream** from Stripe (`compute_month`) by the PROGRAM V2 engine
+  (see the "Affiliate program v2" bullet below - it SUPERSEDES the old
+  `amount_paid - tax` x `commission_pct` / `commission_model` math, which is
+  gone; those two columns are legacy display-only). "Compute / What I owe"
+  previews live and commits into the `affiliate_payouts` ledger, **idempotent** on
   `(affiliate_id, period_start, currency)`; operator marks rows paid + adds the
-  PayPal/Wise txn id. Optional monthly cron: `web/affiliate_report.py`. This is
-  a **pure downstream reader of Stripe** - it touches NO webhook/billing path,
-  so it's safe to build/run during stabilization. Clean upgrade path: the codes
-  + Stripe history map straight into Rewardful/Tolt later (coupon attribution).
-  `code` + `discount_pct` are IMMUTABLE once the coupon exists (Stripe coupons
-  can't be edited). On dev, `STRIPE_SECRET_KEY` is a TEST key, so provisioning
+  PayPal/Wise txn id. Optional monthly cron: `web/affiliate_report.py`. Clean
+  upgrade path: the codes + Stripe history map straight into Rewardful/Tolt
+  later (coupon attribution). `code` is IMMUTABLE once the coupon exists; the
+  discount changes by re-pointing the same code at a NEW coupon
+  (`reissue_coupon`). On dev, `STRIPE_SECRET_KEY` is a TEST key, so provisioning
   creates disposable test coupons. BUILT OUT SINCE (verified in code 2026-07-07):
   durable per-subscription attribution (`AffiliateReferral`, written from webhook
   metadata `tw2_affiliate_id`; compute attributes referral-first, coupon fallback);
@@ -268,6 +267,112 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   403, non-affiliates 404 `not_affiliate`; returns links, terms, anonymized
   funnel, ledger totals per currency, tax-form status, promo copy + rules.
   No customer identities; payout email exposed only as a boolean.
+- **Affiliate program v2 (TW-TASK-0038, backend built 2026-11-24, branch
+  `claude/affiliate-v2-20261124`; NOT yet on dev/staging/prod).** Rules of
+  record + the dollar acceptance table: `docs/tasks/TW-TASK-0038.md`. Tests:
+  `tests/test_affiliate_v2.py` (every acceptance row) + `tests/test_affiliate.py`.
+  Migration `b4d7e1f2a3c5` (single head).
+  - **Rules.** (1) REGULAR first year = POOL rule: partner earns
+    `(pool_pct - discount)%` of the LIST price (invoice pre-discount subtotal,
+    tax excluded), discount 0..25, TradeWave always keeps 50% of list ($100 at
+    20% off -> pays $80, partner $30). (2) PROMO first year (a campaign won the
+    price) = `promo_commission_pct` (50%) of what was paid pre-tax. (3) RENEWAL
+    = `renewal_pct` (25%) of what was paid, commission years 2..`renewal_years`
+    (5 default / 10 / NULL = lifetime), only while the partner is ACTIVE (>= 1
+    NEW paying customer in the trailing `activity_rule_months` = 12 before the
+    renewal payment; otherwise the line is recorded `lapsed` at $0, forfeited).
+    Past the window: $0, no line. Tax never earns.
+  - **Terms are versioned + prospective.** `affiliate_terms` rows are immutable
+    (seeded `v2-5y` default, `v2-10y`, `v2-lifetime`; `create_terms` only adds).
+    `affiliates.terms_id` applies to FUTURE referrals only. Every
+    `affiliate_referrals` row SNAPSHOTS the checkout: `terms_id`, `offer_type`
+    (regular|promo), `campaign_id`, `tier`, `billing_interval` (month|year),
+    `list_price_cents`, `discount_pct`. **Payouts read the referral, never the
+    partner's current row** - a changed discount/terms never re-prices a past
+    customer.
+  - **Commission clock.** Year 1 starts at `year_anchor_at` = the SERVICE period
+    start (`line.period.start`) of the first paid invoice with `amount_paid > 0`
+    (`first_paid_at`). Trial $0 invoices and failed payments never start it. A
+    payment is placed in a year by its service period, not `invoice.created`
+    (monthly: months 1-12 first year, 13-60 renewal, 61+ $0 on 5-year terms).
+    Stamped by the webhook (`invoice.payment_succeeded` ->
+    `record_first_payment`); the engine derives + persists it from Stripe if the
+    webhook missed it.
+  - **Ledger.** `affiliate_commission_lines` = one INSERT-ONCE row per
+    (affiliate, Stripe source: invoice id, or refund/dispute id), UNIQUE
+    `(affiliate_id, source_id)`. Kinds first_year|promo|renewal|lapsed|refund|
+    dispute; states pending|paid|held|lapsed|void (`estimated` exists only in
+    un-persisted compute output). Amount/basis/rate are never updated after the
+    insert - only `state`, `payable_month`, `payout_id` move. `upsert_month`
+    inserts the month's new lines, releases held ones, then rebuilds each
+    PENDING `affiliate_payouts` row as the SUM of lines whose `payable_month` is
+    that month (`period_month` = month earned). Paid/void/locked payout rows stay
+    frozen; a line found after its month froze rolls into the next open month.
+    Negative months still carry forward (`_apply_carry`).
+  - **Paid date, not created date.** The month's invoices are selected by
+    `status_transitions.paid_at`; Stripe can only list by `created`, so the
+    listing reaches back `AFFILIATE_PAID_LOOKBACK_DAYS` (120) and filters. A
+    late-paid invoice is booked once, in the month it was paid.
+  - **Refunds / disputes** reverse at the ORIGINAL line's rate and formula,
+    pro-rated by the share of the payment reversed and capped at the original
+    commission ($40 refund of the $80 sale = -$15).
+  - **Paused / terminated.** ALL partners are computed. Paused -> lines `held`
+    (reason `paused`), payable in the first `upsert_month` after they are active
+    again. Forfeiture ONLY via `terminate_for_cause` (records the cause; held +
+    unpaid lines -> `void`). Plain termination holds for operator review.
+  - **Self-serve discount.** `set_partner_discount` (0..`max_discount_pct`, one
+    change per 24h via `affiliates.discount_changed_at`, history in
+    `affiliate_discount_changes`): mints a new coupon and re-points the SAME
+    code; NO pause, NO re-sign; 0% removes the coupon and deactivates the typed
+    code. Existing subscribers keep their coupon and their stamped terms. (The
+    older admin "Change terms" view still pauses + re-signs - Phase 2 replaces it.)
+  - **Campaigns** (`promo_campaigns`, company-wide, not partner-specific): tiers,
+    billing intervals, claim window, new-customers-only, offer `price`
+    (`intro_prices` per `<tier>:<interval>`) or `percent`. One Stripe coupon per
+    (tier, interval) with `applies_to` the plan's product + `redeem_by` the
+    window end; annual = `once`, monthly = repeating `intro_months` (12).
+    `create_campaign` / `update_campaign` take `catalog=_campaign_catalog()`.
+  - **Checkout (`stripe_create_checkout` -> `resolve_checkout_offer`).** The
+    PARTNER is resolved separately from the OFFER: a customer returning within
+    12 months of their last subscription ending stays with the previous partner
+    and keeps the year count (`find_returning_referral`, anchor carried,
+    `source='return'`); else URL/form code, then `tw_ref` cookie, then
+    `users.referred_by_affiliate_id` (`source='signup'`). Active partners only;
+    self-referral never attributed. The OFFER is the lower FIRST-PERIOD price of
+    the live campaign (new customers only: `_is_new_customer`) and the partner
+    discount; a tie goes to the partner. Exactly ONE discount is pre-applied
+    (never stacked; engine guard `extra_discount` falls back to the promo rule
+    if an extra coupon lands on a regular sale). Subscription metadata stamped:
+    `tw2_affiliate_id`, `tw2_affiliate_code`, `tw2_affiliate_source`,
+    `tw2_terms_id`, `tw2_offer_type`, `tw2_campaign_id`, `tw2_campaign_code`,
+    `tw2_list_price_cents`, `tw2_discount_pct`, (`tw2_year_anchor_at`,
+    `tw2_prior_referral_id` for a return), `period`.
+  - **Webhook.** `customer.subscription.created` ->
+    `record_referral_from_subscription`: the metadata snapshot, OR - when the
+    customer TYPED a partner code into Stripe's promo box (no metadata) - the
+    partner mapped from the subscription's discount coupon (current coupons or
+    `affiliate_discount_changes`), `source='promo_code'`, so renewals survive
+    the coupon falling off. `customer.subscription.deleted` -> `ended_at`. All
+    three writers run in a SAVEPOINT and never raise.
+  - **Founders** ($189 legacy price): `FOUNDER_PRICE_IDS` (env
+    `TW2_FOUNDER_PRICE_IDS`, comma-separated, default empty) OR price/product
+    metadata `tw2_founder=true`. Checkout returns 409 `founder_plan_locked`
+    (never the portal update-confirm flow; the check fails closed);
+    `/account/manage-subscription` gives a founder a cancel-only portal session
+    (`TW2_FOUNDER_BILLING_PORTAL_CONFIGURATION_ID` if set, else the
+    `subscription_cancel` flow). The web/EOD Billing Portal configuration is
+    dashboard-managed (only the API portal is seeded in code), so the founder
+    portal configuration with plan switching OFF must be created in the Stripe
+    dashboard - see TW-TASK-0038.
+  - **Display.** `/join/<code>` context gains `offers`; `GET /api/offers`
+    (`?code=`/`?via=`/`tw_ref`) returns the effective offer per plan in cents
+    (`display_offers`), same price choice as checkout.
+  - **Legacy rows / deploy step.** The migration moves every partner to
+    `v2-5y`, clamps discounts to 25, PAUSES active partners and clears their
+    signature (archived to `audit_log` action `affiliate_v2_resign_required`)
+    so they re-sign agreement v2. A migration cannot call Stripe: run
+    `affiliate_service.reconcile_v2_stripe(session)` once afterwards
+    (deactivates paused codes, re-issues coupons that were above 25%).
 - **Standalone promo coupons (Coupons tab)** - plain marketing discount codes
   with NO affiliate / commission / payout. `web/promo_service.py` + `web/models.py`
   (`PromoCoupon`) + migration `b2c0fee1d3a5` + the top-level Flask-Admin **Coupons**
@@ -295,11 +400,14 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   (`site/templates/index-dark-blue.html`) (1) stamps the code onto this page's
   checkout forms and (2) stores a first-party `tw_ref` cookie (60-day, first-touch,
   SameSite=Lax) so attribution survives navigation + the WorkOS signup round-trip.
-  `web/app.py:stripe_create_checkout` resolves the code from the URL param, the form
-  field, OR the `tw_ref` cookie (`_resolve_affiliate_promo`, active affiliates only)
-  and PRE-APPLIES the affiliate's promotion code via `discounts=[...]` (falls back to
-  manual entry if Stripe rejects it). The Stripe coupon stays the attribution source
-  of truth. Disclosed in the Privacy Policy (`PRIVACY_COOKIE_NOTE` in
+  `web/app.py:stripe_create_checkout` resolves the PARTNER from the URL param, the
+  form field, the `tw_ref` cookie, then the signup stamp
+  (`affiliate_service.resolve_checkout_offer`, active partners only) and PRE-APPLIES
+  exactly one discount via `discounts=[...]` - the partner's code or a cheaper live
+  campaign coupon (falls back to manual entry if Stripe rejects it). The
+  `affiliate_referrals` row is the attribution source of truth; the coupon is the
+  fallback. (`_resolve_affiliate_promo` remains in app.py but checkout no longer
+  calls it.) Disclosed in the Privacy Policy (`PRIVACY_COOKIE_NOTE` in
   `site/generate_text_pages.py`); first-party only, no third-party/ad trackers.
   Logged-out signup->subscribe: `/api/stripe/create-checkout` accepts **GET as well
   as POST** and the pricing CTAs submit as **GET**, so tier/period/code ride in the
