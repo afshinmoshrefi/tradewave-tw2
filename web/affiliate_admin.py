@@ -50,7 +50,7 @@ LINE_STATE_LABELS = {
 }
 HOLD_REASON_LABELS = {
     "paused": "Partner paused - becomes payable when the partner is active again",
-    "terminated": "Partner terminated - held for review",
+    "terminated": "Partner terminated (not for cause) - released at the next commit",
     "terminated_for_cause": "Terminated for cause - forfeited",
 }
 
@@ -572,7 +572,9 @@ def payout_below_minimum(payout) -> bool:
 
 def payout_block_reason(payout, affiliate=None):
     """Why this payout row may NOT be marked paid, or None when it may.
-    Order: tax form (a condition of payment), negative month, payout minimum."""
+    Order: tax form (a condition of payment), negative month, payout minimum.
+    The minimum does not apply to a partner terminated WITHOUT cause: their
+    final balance is paid whatever its size (agreement 5.3 / 11.3)."""
     aff = affiliate if affiliate is not None else getattr(payout, "affiliate", None)
     if aff is not None and not getattr(aff, "tax_form_received_at", None):
         return ("Can't mark paid: %s has no tax form on file (W-9 / W-8BEN / "
@@ -583,6 +585,8 @@ def payout_block_reason(payout, affiliate=None):
         return ("This row is negative (refunds or chargebacks were more than sales). It is "
                 "carried into the affiliate's next payable month automatically - leave it "
                 "pending.")
+    if amount > 0 and aff is not None and afs.final_balance_due(aff):
+        return None
     if amount < afs.payout_minimum():
         return ("Can't mark paid: %s is below the %s payout minimum. Leave it pending - it "
                 "is carried into the affiliate's next month automatically."
@@ -604,7 +608,11 @@ def payout_note(payout) -> str:
         if amount < 0:
             notes.append("Negative, carried into the next payable month")
         elif amount < afs.payout_minimum():
-            notes.append("Below minimum, carried")
+            aff = getattr(payout, "affiliate", None)
+            if amount > 0 and aff is not None and afs.final_balance_due(aff):
+                notes.append("Final balance - payable below the minimum (partner terminated)")
+            else:
+                notes.append("Below minimum, carried")
     carry_in = (getattr(payout, "detail", None) or {}).get("carry_in") or []
     if carry_in:
         total = sum((Decimal(str(c.get("amount") or 0)) for c in carry_in), Decimal("0"))
@@ -707,37 +715,19 @@ def terminate_partner_for_cause(session, affiliate, reason, actor):
             "permanently and it forfeits the partner's unpaid commission.")
     if getattr(affiliate, "terminated_for_cause", False):
         raise afs.AffiliateError("%s is already terminated for cause." % affiliate.code)
-    out = afs.terminate_for_cause(session, affiliate, reason, actor=actor)
     # Any signing link already issued must stop working.
     affiliate.agreement_token_version = (affiliate.agreement_token_version or 0) + 1
-    forfeit_unpaid(session, affiliate)
-    session.commit()
-    return out
+    # Forfeits pending payout rows and held / payable lines, and commits.
+    return afs.terminate_for_cause(session, affiliate, reason, actor=actor)
 
 
-FORFEIT_REF = "forfeited:terminated_for_cause"
+FORFEIT_REF = afs.FORFEIT_REF
+forfeit_unpaid = afs.forfeit_unpaid
 
 
-def forfeit_unpaid(session, affiliate) -> dict:
-    """Forfeit everything not yet paid to a partner terminated for cause, at
-    once: pending payout rows become void (external_ref FORFEIT_REF) and every
-    held or payable ledger line becomes void with hold_reason
-    'terminated_for_cause'. Paid rows and paid lines are never touched.
-
-    The engine voids held lines and lines not yet on a payout row on its next
-    upsert_month; this also covers lines already sitting on an UNPAID payout
-    row, so nothing stays payable in the ledger after the termination. Amounts
-    are not changed (lines are never re-priced). Does not commit."""
-    from models import AffiliateCommissionLine as L, AffiliatePayout as P
-    rows = (session.query(P).filter(P.affiliate_id == affiliate.id, P.status == "pending").all())
-    for row in rows:
-        row.status = "void"
-        row.external_ref = FORFEIT_REF
-    lines = (session.query(L)
-             .filter(L.affiliate_id == affiliate.id, L.state.in_(("held", "pending")))
-             .update({"state": "void", "hold_reason": "terminated_for_cause",
-                      "payable_month": None}, synchronize_session=False))
-    return {"payout_rows": len(rows), "lines": int(lines or 0)}
+def held_line_count(session, affiliate) -> int:
+    from models import AffiliateCommissionLine as L
+    return (session.query(L).filter(L.affiliate_id == affiliate.id, L.state == "held").count())
 
 
 def require_resign(session, affiliate):
@@ -1046,7 +1036,8 @@ were in force when their checkout started. Nothing on this page changes commissi
   <div class="doc"><h2>This partner is terminated</h2>
   {% if aff.terminated_for_cause %}<p>Terminated for cause{% if aff.terminated_at %} on {{ aff.terminated_at.strftime('%Y-%m-%d') }}{% endif %}.
     Unpaid commission is forfeited.</p><p><strong>Recorded reason:</strong> {{ aff.termination_cause }}</p>
-  {% else %}<p>Terminated (not for cause). Unpaid commission is held for review, not forfeited.</p>{% endif %}</div>
+  {% else %}<p>Terminated (not for cause). Commission on payments already made stays payable, and the final
+    balance is paid even when it is below the payout minimum. Nothing is forfeited.</p>{% endif %}</div>
 {% else %}
 <div class="doc"><h2>1. Customer discount</h2>
   <p>Terms version <strong>{{ terms.version }}</strong>: the partner has a pool of {{ pct(terms.pool_pct) }}% of the list price.
@@ -1117,6 +1108,18 @@ were in force when their checkout started. Nothing on this page changes commissi
     <label>Reason (required - recorded permanently)
       <textarea name="reason" rows="3" minlength="10" required placeholder="What the partner did and which part of the agreement it breached"></textarea></label>
     <button type="submit" class="danger">Terminate for cause</button>
+  </form>
+</div>
+{% endif %}
+{% if held_lines and not aff.terminated_for_cause %}
+<div class="doc"><h2>Held commission</h2>
+  <p>{{ aff.code }} has <strong>{{ held_lines }}</strong> held commission line(s). Lines held while a partner is paused
+    are released automatically when the partner is active again, or is terminated without cause. Use this button to
+    release them now. Released lines become payable and join the next month you commit.</p>
+  <form method="post" action="{{ url_for('affiliate_change_terms.release') }}"
+        onsubmit="return confirm('Release the held commission lines of {{ aff.code }}? They become payable.');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ aff.id }}">
+    <button type="submit" class="secondary">Release held lines</button>
   </form>
 </div>
 {% endif %}
@@ -1347,6 +1350,7 @@ def make_views(auth_cls, *, catalog_fn, audit_fn, current_user_fn):
                 if aff is None:
                     return render_template_string(_CHANGE_TERMS_TMPL, title="Change terms",
                                                   found=False, errors=None, **helpers)
+                held_lines = held_line_count(s, aff)
                 terms = afs.terms_for(s, aff)
                 cat, cat_error = catalog()
                 month = aff.discount_pct_monthly
@@ -1360,6 +1364,7 @@ def make_views(auth_cls, *, catalog_fn, audit_fn, current_user_fn):
                 return render_template_string(
                     _CHANGE_TERMS_TMPL, title="Change terms - %s" % aff.code, found=True,
                     aff=aff, terms=terms, cap=pct(terms.max_discount_pct), errors=None,
+                    held_lines=held_lines,
                     cur_year=pct(aff.discount_pct),
                     cur_month=pct(month) if month is not None else "",
                     preview_rows=rows, preview_terms_id=getattr(terms, "id", None) or "",
@@ -1519,6 +1524,32 @@ def make_views(auth_cls, *, catalog_fn, audit_fn, current_user_fn):
                     return self._back(aid)
                 flash("%s was terminated for cause. Their code is off and their unpaid "
                       "commission is forfeited." % code, "success")
+                return self._back(aid)
+            finally:
+                s.close()
+
+        @expose("/release", methods=["POST"])
+        def release(self):
+            """Release held lines: held -> payable, for the next committed month."""
+            aid = request.form.get("id", "")
+            s = _S()
+            try:
+                aff = load_affiliate(s, aid, lock=True)
+                if aff is None:
+                    flash("Affiliate not found.", "error")
+                    return redirect("/admin/affiliate/")
+                code = aff.code
+                try:
+                    moved = afs.release_held_lines(s, aff, actor=actor())
+                except afs.AffiliateError as e:
+                    s.rollback()
+                    flash(str(e), "error")
+                    return self._back(aid)
+                if moved:
+                    flash("%d held line(s) of %s released. They are payable and join the next "
+                          "month you commit." % (moved, code), "success")
+                else:
+                    flash("%s has no held commission lines." % code, "info")
                 return self._back(aid)
             finally:
                 s.close()

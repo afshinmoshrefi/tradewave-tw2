@@ -5392,6 +5392,7 @@ class AffiliatePayoutAdmin(_AdminAuth, ModelView):
         #   - not negative (a clawback month is carried forward instead);
         #   - at or above the payout minimum (config AFFILIATE_PAYOUT_MINIMUM_CENTS,
         #     $50): a smaller month stays pending and is carried into the next.
+        #     Not applied to a partner terminated without cause (final balance).
         if model.status == "paid" and sa_inspect(model).attrs.status.history.has_changes():
             reason = afa.payout_block_reason(model)
             if reason:
@@ -5447,7 +5448,7 @@ _AFFILIATE_COMPUTE_TMPL = """
   <button class="btn" type="submit">Preview</button>
 </form>
 <p class="muted">Reads Stripe live for the month. Each payment is credited to the partner who referred the customer and priced by the terms stamped on that customer: first year = pool minus the customer discount, of the list price; promotion sale = a share of what the customer paid; renewal = the renewal rate of what the customer paid. Tax is never part of the basis. Refunds and lost or open chargebacks are deducted in the month they happen, at the original rate.</p>
-<p class="muted"><b>Payout minimum {{ minimum }}.</b> A month below the minimum (or negative) is not paid: it stays pending and is carried into the partner's next month with activity. Commission earned while a partner is paused is <b>held</b> and becomes payable when they are active again. A tax form must be on file before a row can be marked paid.</p>
+<p class="muted"><b>Payout minimum {{ minimum }}.</b> A month below the minimum (or negative) is not paid: it stays pending and is carried into the partner's next month with activity. Commission earned while a partner is paused is <b>held</b> and becomes payable when they are active again. A partner terminated without cause keeps the commission on payments already made, and that final balance is paid even below the minimum. A tax form must be on file before a row can be marked paid.</p>
 {% if preview %}
 <table>
  <tr><th>Code</th><th>Affiliate</th><th>Cur</th><th class="num">Customer payments</th><th class="num">Commission this month</th><th class="num">Held</th><th>Note</th><th>Via</th><th>Pay to</th><th>Tax form</th></tr>
@@ -5456,7 +5457,7 @@ _AFFILIATE_COMPUTE_TMPL = """
      <td class="num">{{ '%.2f'|format(r.gross_revenue) }}</td>
      <td class="num"><b>{{ '%.2f'|format(r.commission_amount) }}</b></td>
      <td class="num">{{ '%.2f'|format(r.held_amount or 0) }}</td>
-     <td>{% if r.commission_amount < 0 %}Negative, carried{% elif r.commission_amount < minimum_amount %}Below minimum, carried{% endif %}{% if r.lapsed_count %} {{ r.lapsed_count }} renewal(s) not earned (partner inactive){% endif %}</td>
+     <td>{% if r.commission_amount < 0 %}Negative, carried{% elif r.status == 'terminated' and r.commission_amount > 0 and r.commission_amount < minimum_amount %}Final balance, payable below the minimum{% elif r.commission_amount < minimum_amount %}Below minimum, carried{% endif %}{% if r.lapsed_count %} {{ r.lapsed_count }} renewal(s) not earned (partner inactive){% endif %}</td>
      <td>{{ (r.payout_method or '?')|upper }}</td>
      <td>{{ r.payout_email or '(no payout email set)' }}{% if r.notes %} <span style="color:#888;font-size:12px">- {{ r.notes }}</span>{% endif %}</td>
      <td>{% if tax.get(r.affiliate_id) %}{{ tax[r.affiliate_id]|upper }}{% else %}<b style="color:#b00020">MISSING - can't pay</b>{% endif %}</td></tr>
@@ -5484,7 +5485,7 @@ _AFFILIATE_COMPUTE_TMPL = """
      <td class="num">{{ h.count }}</td><td class="num">{{ '%.2f'|format(h.amount) }}</td><td>{{ h.reason }}</td></tr>
  {% endfor %}
 </table>
-<p class="muted">Held lines are released the next time a month is committed after the partner is active again. See <a href="/admin/affiliatecommissionline/?flt1_state_equals=held">Commission lines</a> for each line.</p>
+<p class="muted">Held lines are released the next time a month is committed after the partner is active again (or is terminated without cause). To release them by hand, open the partner's Change terms page and use "Release held lines". See <a href="/admin/affiliatecommissionline/?flt1_state_equals=held">Commission lines</a> for each line.</p>
 {% endif %}
 </body></html>
 """

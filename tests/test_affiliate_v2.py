@@ -529,10 +529,13 @@ class TestPartnerStatus:
         assert rows[0]["commission_amount"] == D("0.00") and rows[0]["held_amount"] == D("0.00")
         assert rows[0]["detail"][0]["state"] == "void"
 
-    def test_plain_termination_holds_for_review(self, stripe_world):
+    def test_plain_termination_keeps_commission_payable(self, stripe_world):
+        """Agreement 5.3 / 11.3: termination WITHOUT cause forfeits nothing -
+        commission on payments already made is payable, not held."""
         rows = self._rows(stripe_world, status="terminated")
-        assert rows[0]["detail"][0]["hold_reason"] == "terminated"
-        assert rows[0]["held_amount"] == D("30.00")
+        ln = rows[0]["detail"][0]
+        assert (ln["state"], ln["hold_reason"]) == ("estimated", None)
+        assert rows[0]["commission_amount"] == D("30.00") and rows[0]["held_amount"] == D("0.00")
 
 
 # ============================================================================

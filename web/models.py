@@ -751,7 +751,7 @@ class AffiliateCommissionLine(Base):
     rate_pct      = Column(Numeric(5, 2), nullable=False, server_default=sa_text("0"))
     amount        = Column(Numeric(14, 6), nullable=False, server_default=sa_text("0"))  # unrounded; payouts round the sum
     state         = Column(Text, nullable=False, server_default=sa_text("'pending'"))
-    hold_reason   = Column(Text)                       # 'paused' | 'terminated' | 'terminated_for_cause'
+    hold_reason   = Column(Text)                       # 'paused' | 'terminated' (legacy) | 'terminated_for_cause' | operator text
     period_month  = Column(Date, nullable=False)       # month the line was EARNED (event_at)
     payable_month = Column(Date)                       # payout month it is aggregated into (NULL while held)
     payout_id     = Column(BigInteger, ForeignKey("affiliate_payouts.id", ondelete="SET NULL"))

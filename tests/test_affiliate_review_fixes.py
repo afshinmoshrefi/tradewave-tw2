@@ -17,6 +17,7 @@ from tests.test_affiliate_v2 import (  # noqa: F401  (fixtures are used by name)
     AFF_ID, D, FakeList, MAY, PAID_MAY, app_module, db, day, invoice, ledger, lines_of,
     make_partner, make_referral, partner, payout_for, referral, refund, resolve,
     stripe_world, terms, total, ts)
+from tests.test_affiliate_admin_v2 import admin, text_of  # noqa: F401
 
 
 @pytest.fixture
@@ -102,3 +103,103 @@ class TestMonthlyCouponAboveTheCap:
         assert afs.reconcile_v2_stripe(db) == []
         o = resolve(db, raw_code="ANNE", period="monthly", list_price_cents=4900)
         assert o["discount_spec"] == {"coupon": "cpn_anne_mo"}
+
+
+# ============================================================================
+# Finding 2 - termination WITHOUT cause: commission stays payable, the final
+# balance is paid below the minimum, held lines can be released
+# ============================================================================
+
+class TestTerminationWithoutCause:
+    def _sale(self, db, world, **partner_kw):
+        aff = make_partner(db, tax_form_received_at=day(2026, 1, 1), **partner_kw)
+        make_referral(db, aff)
+        world.invoices = [invoice(paid=8000, list_cents=10000, paid_at=PAID_MAY)]
+        return aff
+
+    def test_lines_are_payable_and_the_final_balance_ignores_the_minimum(self, db, stripe_world):
+        import affiliate_admin as afa
+        aff = self._sale(db, stripe_world, status="terminated")
+        afs.upsert_month(db, *MAY)
+        line = ledger(db)[0]
+        assert (line.state, line.hold_reason, line.payable_month) == ("pending", None, dt.date(2026, 5, 1))
+        row = payout_for(db, aff, dt.date(2026, 5, 1))
+        assert row.commission_amount == D("30.00")                     # below the $50 minimum
+        assert afa.payout_block_reason(row, aff) is None               # ...and still payable
+        assert afa.payout_note(row).startswith("Final balance")
+        assert "\u2014" not in afa.payout_note(row)
+
+    def test_minimum_still_applies_to_active_and_for_cause_partners(self, db, stripe_world):
+        import affiliate_admin as afa
+        aff = self._sale(db, stripe_world)
+        afs.upsert_month(db, *MAY)
+        row = payout_for(db, aff, dt.date(2026, 5, 1))
+        assert "payout minimum" in afa.payout_block_reason(row, aff)
+        aff.status, aff.terminated_for_cause = "terminated", True
+        assert "payout minimum" in afa.payout_block_reason(row, aff)
+
+    def test_lines_held_while_paused_are_released_by_a_plain_termination(self, db, stripe_world):
+        aff = self._sale(db, stripe_world, status="paused")
+        afs.upsert_month(db, *MAY)
+        assert ledger(db)[0].state == "held"
+        aff.status = "terminated"
+        db.commit()
+        afs.upsert_month(db, 2026, 6)
+        line = ledger(db)[0]
+        assert (line.state, line.hold_reason, line.payable_month) == ("pending", None, dt.date(2026, 6, 1))
+        assert payout_for(db, aff, dt.date(2026, 6, 1)).commission_amount == D("30.00")
+
+    def test_release_held_lines_action(self, db, stripe_world):
+        import models
+        aff = self._sale(db, stripe_world, status="paused")
+        afs.upsert_month(db, *MAY)
+        line = ledger(db)[0]
+        line.hold_reason = "review"                                    # an explicit operator hold
+        aff.status = "terminated"
+        db.commit()
+        afs.upsert_month(db, 2026, 6)
+        db.refresh(line)
+        assert (line.state, line.hold_reason) == ("held", "review")    # never released on its own
+        assert afs.release_held_lines(db, aff, actor="admin:test") == 1
+        db.refresh(line)
+        assert (line.state, line.hold_reason, line.payable_month) == ("pending", None, None)
+        assert afs.release_held_lines(db, aff) == 0                    # idempotent
+        afs.upsert_month(db, 2026, 6)
+        assert payout_for(db, aff, dt.date(2026, 6, 1)).commission_amount == D("30.00")
+        assert db.query(models.AuditLog).filter_by(action="affiliate_held_lines_released").count() == 1
+
+    def test_release_is_refused_after_termination_for_cause(self, db, stripe_world, monkeypatch):
+        monkeypatch.setattr(stripe.PromotionCode, "modify", lambda pid, **kw: None)
+        aff = self._sale(db, stripe_world, status="paused")
+        afs.upsert_month(db, *MAY)
+        afs.terminate_for_cause(db, aff, "fraudulent self-dealing", actor="admin:test")
+        with pytest.raises(afs.AffiliateError, match="forfeited"):
+            afs.release_held_lines(db, aff)
+
+    def test_engine_terminate_for_cause_voids_lines_on_unpaid_payout_rows(self, db, stripe_world,
+                                                                          monkeypatch):
+        """The forfeiture lives in the engine, not only in the admin wrapper."""
+        monkeypatch.setattr(stripe.PromotionCode, "modify", lambda pid, **kw: None)
+        aff = self._sale(db, stripe_world)
+        afs.upsert_month(db, *MAY)
+        line, row = ledger(db)[0], payout_for(db, aff, dt.date(2026, 5, 1))
+        assert line.state == "pending" and line.payout_id == row.id
+        afs.terminate_for_cause(db, aff, "fraudulent self-dealing", actor="admin:test")
+        db.refresh(line)
+        db.refresh(row)
+        assert (line.state, line.hold_reason, line.payable_month) == ("void", "terminated_for_cause", None)
+        assert (row.status, row.external_ref) == ("void", afs.FORFEIT_REF)
+
+    def test_admin_release_held_lines_button(self, admin, db, stripe_world):
+        aff = self._sale(db, stripe_world, status="paused")
+        afs.upsert_month(db, *MAY)
+        aid = str(aff.id)
+        html = text_of(admin.get("/admin/affiliate_change_terms/?id=%s" % aid))
+        assert "Release held lines" in html and "\u2014" not in html
+        resp = admin.post("/admin/affiliate_change_terms/release", data={"id": aid})
+        assert resp.status_code == 302
+        db.expire_all()
+        assert ledger(db)[0].state == "pending"
+        html = text_of(admin.get("/admin/affiliate_change_terms/?id=%s" % aid))
+        assert "Release held lines" not in html.split("</h1>", 1)[1].replace(
+            "1 held line(s) of ANNE released", "")

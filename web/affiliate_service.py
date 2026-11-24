@@ -901,8 +901,9 @@ def _iso(v):
 def _state_for(aff) -> tuple[str, str | None]:
     """(state, hold_reason) of a freshly computed line for this partner:
     active -> estimated (payable); paused -> HELD (payable once unpaused);
-    terminated -> held for operator review, or void when terminated for cause
-    (the only forfeiture)."""
+    terminated WITHOUT cause -> estimated (agreement 5.3 / 11.3: commission on
+    payments already made stays payable and the final balance is paid);
+    terminated FOR CAUSE -> void (the only forfeiture)."""
     status = getattr(aff, "status", None) or "active"
     if status == "active":
         return "estimated", None
@@ -910,7 +911,7 @@ def _state_for(aff) -> tuple[str, str | None]:
         return "held", "paused"
     if getattr(aff, "terminated_for_cause", False):
         return "void", "terminated_for_cause"
-    return "held", "terminated"
+    return "estimated", None
 
 
 def compute_month(session, year: int, month: int, discovered=None) -> list[dict]:
@@ -1396,6 +1397,21 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None, *,
     return out
 
 
+# Hold reasons the engine releases on its own (see _release_lines). 'terminated'
+# is the pre-fix reason for a partner terminated WITHOUT cause.
+AUTO_RELEASE_HOLD_REASONS = ("paused", "terminated")
+
+# external_ref of a payout row voided by a termination for cause.
+FORFEIT_REF = "forfeited:terminated_for_cause"
+
+
+def final_balance_due(affiliate) -> bool:
+    """True for a partner terminated WITHOUT cause: their final balance is
+    paid regardless of the payout minimum (agreement 5.3 / 11.3)."""
+    return (getattr(affiliate, "status", None) == "terminated"
+            and not getattr(affiliate, "terminated_for_cause", False))
+
+
 def carry_ref(period_start) -> str:
     """external_ref stamped on a negative row that was folded into a later
     month's payout (clawback carry-forward)."""
@@ -1553,12 +1569,18 @@ def _persist_lines(session, rows, period_start, frozen) -> int:
 
 def _release_lines(session, period_start, frozen) -> None:
     """Held -> payable. A line held while its partner was PAUSED becomes
-    pending once the partner is active again; lines of a partner terminated
-    for cause are forfeited (void). Any pending line without a payout month
+    pending once the partner is active again OR is terminated without cause
+    (agreement 5.3 / 11.3: that commission stays payable); lines of a partner
+    terminated for cause are forfeited (void). A line held for any OTHER
+    reason (an explicit operator hold) is only released by
+    release_held_lines. Any pending line without a payout month
     (just released, or found after its own month was frozen) is assigned to
     this month unless this month's payout row is frozen too."""
     from models import Affiliate, AffiliateCommissionLine as L
-    active = [a.id for a in session.query(Affiliate.id).filter(Affiliate.status == "active").all()]
+    active = [a.id for a in session.query(Affiliate.id)
+              .filter((Affiliate.status == "active")
+                      | ((Affiliate.status == "terminated")
+                         & Affiliate.terminated_for_cause.isnot(True))).all()]
     forfeited = [a.id for a in session.query(Affiliate.id)
                  .filter(Affiliate.terminated_for_cause.is_(True)).all()]
     if forfeited:
@@ -1568,7 +1590,7 @@ def _release_lines(session, period_start, frozen) -> None:
                  synchronize_session=False))
     if active:
         (session.query(L).filter(L.affiliate_id.in_(active), L.state == "held",
-                                 L.hold_reason == "paused")
+                                 L.hold_reason.in_(AUTO_RELEASE_HOLD_REASONS))
          .update({"state": "pending", "hold_reason": None}, synchronize_session=False))
     session.flush()
     for ln in (session.query(L).filter(L.state == "pending", L.payable_month.is_(None),
@@ -2044,11 +2066,32 @@ def discount_history(session, affiliate, limit=50) -> list:
             .order_by(C.changed_at.desc(), C.id.desc()).limit(limit).all())
 
 
+def forfeit_unpaid(session, affiliate) -> dict:
+    """Forfeit everything not yet paid to a partner terminated for cause, at
+    once: pending payout rows become void (external_ref FORFEIT_REF) and every
+    held or payable ledger line - including lines already sitting on an
+    UNPAID payout row - becomes void with hold_reason 'terminated_for_cause'.
+    Paid rows and paid lines are never touched; amounts are not changed (lines
+    are never re-priced). Does not commit."""
+    from models import AffiliateCommissionLine as L, AffiliatePayout as P
+    rows = (session.query(P).filter(P.affiliate_id == affiliate.id, P.status == "pending").all())
+    for row in rows:
+        row.status = "void"
+        row.external_ref = FORFEIT_REF
+    lines = (session.query(L)
+             .filter(L.affiliate_id == affiliate.id, L.state.in_(("held", "pending")))
+             .update({"state": "void", "hold_reason": "terminated_for_cause",
+                      "payable_month": None}, synchronize_session=False))
+    return {"payout_rows": len(rows), "lines": int(lines or 0)}
+
+
 def terminate_for_cause(session, affiliate, cause, actor=None, now=None):
     """Terminate a partner FOR CAUSE: the only action that forfeits commission.
-    Held and unpaid ledger lines are voided on the next upsert_month; paid
-    lines are untouched. The cause is required and recorded. Deactivates the
-    typed code. Commits."""
+    Everything not yet paid is forfeited in the same transaction
+    (forfeit_unpaid): pending payout rows and held / payable ledger lines,
+    including lines already on an unpaid payout row. Paid rows and lines are
+    untouched. The cause is required and recorded. Deactivates the typed code.
+    Commits."""
     from models import AuditLog
     cause = (cause or "").strip()
     if not cause:
@@ -2057,13 +2100,36 @@ def terminate_for_cause(session, affiliate, cause, actor=None, now=None):
     affiliate.terminated_for_cause = True
     affiliate.terminated_at = _utc(now) or dt.datetime.now(dt.timezone.utc)
     affiliate.termination_cause = cause
+    forfeited = forfeit_unpaid(session, affiliate)
     session.add(AuditLog(actor_label=actor or "admin", action="affiliate_terminated_for_cause",
                          details={"affiliate_id": str(affiliate.id), "code": affiliate.code,
-                                  "cause": cause}))
+                                  "cause": cause, "forfeited": forfeited}))
     session.commit()
     if affiliate.stripe_promotion_code_id:
         _safe(lambda: stripe.PromotionCode.modify(affiliate.stripe_promotion_code_id, active=False))
     return affiliate
+
+
+def release_held_lines(session, affiliate, actor=None) -> int:
+    """Operator action "Release held lines": move every HELD ledger line of
+    the partner to pending (payable), whatever the hold reason. The lines join
+    the next month that is committed (upsert_month gives them a payout month).
+    Refused for a partner terminated for cause - that commission is forfeited.
+    Returns the number of lines released. Commits."""
+    from models import AffiliateCommissionLine as L, AuditLog
+    if getattr(affiliate, "terminated_for_cause", False):
+        raise AffiliateError("%s was terminated for cause: the commission is forfeited "
+                             "and cannot be released." % affiliate.code)
+    moved = (session.query(L).filter(L.affiliate_id == affiliate.id, L.state == "held")
+             .update({"state": "pending", "hold_reason": None, "payable_month": None},
+                     synchronize_session=False))
+    moved = int(moved or 0)
+    if moved:
+        session.add(AuditLog(actor_label=actor or "admin", action="affiliate_held_lines_released",
+                             details={"affiliate_id": str(affiliate.id), "code": affiliate.code,
+                                      "lines": moved}))
+    session.commit()
+    return moved
 
 
 def _mint_monthly_coupon(aff, pct) -> str:
