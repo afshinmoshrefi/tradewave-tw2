@@ -70,6 +70,7 @@ AFFILIATE_HELP_MODEL = os.environ.get('TW2_AFFILIATE_HELP_MODEL', 'claude-sonnet
 #   address = an address on the Resend inbound domain, e.g. reply@inbound.tradewave.ai
 AFFILIATE_HELP_INBOUND_SECRET = os.environ.get('TW2_AFFILIATE_HELP_INBOUND_SECRET', '')
 AFFILIATE_HELP_INBOUND_ADDRESS = os.environ.get('TW2_AFFILIATE_HELP_INBOUND_ADDRESS', '')
+AFFILIATE_HELP_REPLY_FROM = os.environ.get('AFFILIATE_HELP_REPLY_FROM', '')  # extra comma-separated owner addresses allowed to answer by email
 # Per-partner limits and conversation-log retention.
 AFFILIATE_HELP_MAX_PER_10MIN = int(os.environ.get('TW2_AFFILIATE_HELP_MAX_PER_10MIN', '10'))
 AFFILIATE_HELP_MAX_PER_DAY = int(os.environ.get('TW2_AFFILIATE_HELP_MAX_PER_DAY', '60'))
