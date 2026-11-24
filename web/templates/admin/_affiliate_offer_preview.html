@@ -1,0 +1,60 @@
+{# Live dollar preview of a partner's customer discount (TW-TASK-0038).
+   Reads #discount_pct / #discount_pct_monthly / #terms and asks the server
+   (affiliate_change_terms.preview) for the table, so the browser never does
+   commission math. Included by the Change terms page and the Affiliates
+   create form. #}
+<div id="tw-offer-preview" data-url="{{ url_for('affiliate_change_terms.preview') }}" data-terms-id="{{ preview_terms_id or '' }}">
+  <table>
+    <thead><tr><th>Plan</th><th>Billing</th><th class="num">Customer discount</th><th class="num">List price</th>
+      <th class="num">Customer pays</th><th class="num">Partner earns (first year)</th>
+      <th class="num">Partner earns per renewal</th><th class="num">TradeWave retains</th></tr></thead>
+    <tbody>
+    {% for r in preview_rows or [] %}
+      <tr><td>{{ r.plan }}</td><td>{{ r.interval }}</td><td class="num">{{ r.discount_pct }}%</td>
+        <td class="num">{{ r.list_price }}</td><td class="num">{{ r.customer_pays }}</td>
+        <td class="num">{{ r.partner_first_year }}</td><td class="num">{{ r.partner_renewal }}</td>
+        <td class="num">{{ r.retained }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="err" style="color:#b00020;font-size:13px;margin:6px 0 0"></p>
+  <p class="muted" style="color:#666;font-size:13px">Amounts are per payment, before tax. Monthly rows show one monthly payment:
+    the first-year amount applies to months 1-12. "TradeWave retains" is for a first-year payment.
+    A renewal is paid at the list price because the customer discount lasts 12 months.
+    Renewal commission is paid only inside the renewal length of the partner's terms and only while the partner is active.</p>
+</div>
+<script>
+(function(){
+  var box = document.getElementById('tw-offer-preview'); if(!box) return;
+  var body = box.querySelector('tbody'), err = box.querySelector('.err'), timer = null;
+  function val(id){ var el = document.getElementById(id); return el ? el.value : ''; }
+  function cell(text, num){ var td = document.createElement('td'); td.textContent = text; if(num) td.className = 'num'; td.style.textAlign = num ? 'right' : 'left'; return td; }
+  function load(){
+    var q = 'discount_year=' + encodeURIComponent(val('discount_pct')) +
+            '&discount_month=' + encodeURIComponent(val('discount_pct_monthly')) +
+            '&terms_id=' + encodeURIComponent(val('terms') || box.getAttribute('data-terms-id') || '');
+    fetch(box.getAttribute('data-url') + '?' + q, {credentials: 'same-origin'})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        err.textContent = d.ok ? (d.warning || '') : d.error;
+        if(!d.ok) return;
+        body.innerHTML = '';
+        d.rows.forEach(function(r){
+          var tr = document.createElement('tr');
+          tr.appendChild(cell(r.plan)); tr.appendChild(cell(r.interval));
+          tr.appendChild(cell(r.discount_pct + '%', true)); tr.appendChild(cell(r.list_price, true));
+          tr.appendChild(cell(r.customer_pays, true)); tr.appendChild(cell(r.partner_first_year, true));
+          tr.appendChild(cell(r.partner_renewal, true)); tr.appendChild(cell(r.retained, true));
+          body.appendChild(tr);
+        });
+      }).catch(function(){ err.textContent = 'Could not load the preview.'; });
+  }
+  function later(){ clearTimeout(timer); timer = setTimeout(load, 200); }
+  ['discount_pct', 'discount_pct_monthly', 'terms'].forEach(function(id){
+    var el = document.getElementById(id); if(!el) return;
+    el.addEventListener('input', later); el.addEventListener('change', later);
+    if(window.jQuery) window.jQuery(el).on('change', later);
+  });
+  load();
+})();
+</script>
