@@ -130,18 +130,33 @@ def help_ask():
 @bp.route("/help/ask-team", methods=["POST"])
 @_json_affiliate
 def help_ask_team():
-    """'Ask the TradeWave team' under an answer: send the question to a person."""
+    """Send a question to a person. Three callers, all in the chat panel:
+      {message_id}       'Ask the TradeWave team' under an assistant answer
+      {question}         'Send this to the team instead' while the assistant is slow
+      {about, question}  'Ask about this' on a Messages entry (about = its id;
+                         the entry must belong to the session partner)"""
     import affiliate_help as ah
     from . import routes
-    mid = (request.get_json(silent=True) or {}).get("message_id")
+    data = request.get_json(silent=True) or {}
+    mid, about = data.get("message_id"), data.get("about")
+    question = data.get("question")
     s = routes._db()
     try:
         try:
             live = routes._fresh_affiliate(s)
-            msgs = ah.ask_team(s, live, int(mid) if str(mid or "").isdigit() else None)
+            if str(about or "").isdigit():
+                from models import AffiliateNotification as N
+                note = (s.query(N).filter(N.id == int(about), N.affiliate_id == live.id).first())
+                if note is None:
+                    return jsonify(ok=False, error="That message was not found."), 404
+                msgs = ah.ask_about(s, live, question, note.subject, note.body)
+            elif question is not None:
+                msgs = ah.ask_team(s, live, question=str(question))
+            else:
+                msgs = ah.ask_team(s, live, int(mid) if str(mid or "").isdigit() else None)
         except ah.HelpError as e:
             s.rollback()
-            return jsonify(ok=False, error=str(e)), 400
+            return jsonify(ok=False, error=str(e)), 429 if str(e) == ah.MSG_RATE_LIMIT else 400
         return jsonify(ok=True, messages=msgs)
     finally:
         s.close()

@@ -221,7 +221,7 @@ The email adds "The TradeWave team" and the unsubscribe footer for you.</div>
 <thead><tr><th>Sent</th><th>Subject</th><th>To</th><th class="num">Recipients</th><th class="num">Emailed</th><th class="num">Read</th><th></th></tr></thead>
 <tbody>
 {% for r in recent %}
-<tr><td data-label="Sent">{{ r.message.created_at.strftime('%Y-%m-%d %H:%M') if r.message.created_at else '' }}</td>
+<tr><td data-label="Sent">{{ r.message.created_at.strftime('%Y-%m-%d %H:%M UTC') if r.message.created_at else '' }}</td>
 <td data-label="Subject"><span>{{ r.message.subject }}{% if r.message.required %} <span class="badge b-new">notice</span>{% endif %}</span></td>
 <td data-label="To">{{ r.audience }}</td>
 <td data-label="Recipients" class="num">{{ r.message.recipient_count }}</td>
@@ -276,7 +276,7 @@ _LOG_TMPL = _HEAD + _SUBNAV + """
 <thead><tr><th>When</th><th>Partner</th><th>Type</th><th>Subject</th><th>Email</th><th>Read</th><th>Note</th></tr></thead>
 <tbody>
 {% for n, code in rows %}
-<tr><td data-label="When">{{ n.created_at.strftime('%Y-%m-%d %H:%M') if n.created_at else '' }}</td>
+<tr><td data-label="When">{{ n.created_at.strftime('%Y-%m-%d %H:%M UTC') if n.created_at else '' }}</td>
 <td data-label="Partner">{{ code }}</td>
 <td data-label="Type">{{ labels.get(n.event_type, n.event_type) }}</td>
 <td data-label="Subject">{{ n.subject }}</td>
@@ -291,6 +291,7 @@ _LOG_TMPL = _HEAD + _SUBNAV + """
 
 REASON_LABELS = {
     "preference": "Partner turned this email off",
+    "inbox_only": "Shown in the partner's Messages only (no email by design)",
     "no_email": "No email address on file",
     "email_not_configured": "Email sending is not set up on this server",
     "send_failed": "The email provider refused it (retried up to 3 times)",

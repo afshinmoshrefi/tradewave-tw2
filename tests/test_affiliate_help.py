@@ -526,7 +526,9 @@ class TestAnswerFlow:
         p = prompt_for(paul)
         assert "ANNE-WISE-ANSWER" not in p and "GENERAL-WISE-ANSWER" not in p   # a proposal is not used
 
-        ah.approve_proposal(env.db, kb, "admin:t")
+        with pytest.raises(ah.HelpError):                   # new words need an explicit confirm
+            ah.approve_proposal(env.db, kb, "admin:t")
+        ah.approve_proposal(env.db, kb, "admin:t", confirm_added=True)
         assert (kb.scope, kb.affiliate_id, kb.answer) == ("general", None, "GENERAL-WISE-ANSWER")
         assert kb.proposed_answer is None
         p = prompt_for(paul)
@@ -748,7 +750,10 @@ class TestAdmin:
         again = page(admin.c.post("/admin/affiliate_help/answer", data={"id": esc.id, "answer": "Other."}))
         assert "already answered" in again
         kb_page = page(admin.c.get("/admin/affiliate_help_kb/"))
-        assert "Suggested general version" in kb_page and "GENERAL VERSION" in kb_page
+        assert "Suggested general version" in kb_page
+        # shown as a diff against the owner's answer: added words are highlighted
+        assert "<ins>GENERAL VERSION</ins>" in kb_page and "<del>We add no fee.</del>" in kb_page
+        assert 'name="confirm_added"' in kb_page and "Edit the suggestion" in kb_page
         assert "ANNE only" in kb_page and "Approve for all partners" in kb_page
 
     def test_empty_answer_is_refused(self, env, admin):
@@ -759,10 +764,49 @@ class TestAdmin:
 
     def test_dismiss(self, env, admin):
         esc = open_escalation(env)
-        assert admin.c.post("/admin/affiliate_help/dismiss", data={"id": esc.id}).status_code == 302
-        assert rows(env, models_help().AffiliateHelpEscalation)[0].status == "dismissed"
+        # the page offers both ways to close, with an editable default message
+        form = page(admin.c.get("/admin/affiliate_help/answer?id=%d" % esc.id))
+        assert ah.MSG_CLOSED_DEFAULT in form and "Spam / duplicate" in form
+        # spam / duplicate: nothing reaches the partner
+        r = admin.c.post("/admin/affiliate_help/dismiss", data={"id": esc.id, "silent": "1",
+                                                                "message": "ignored"})
+        assert r.status_code == 302
+        (row,) = rows(env, models_help().AffiliateHelpEscalation)
+        assert (row.status, row.answered_via, row.answer) == ("dismissed", "spam", None)
         assert env.sent == [] and rows(env, models_help().AffiliateHelpKb) == []
-        assert "closed without an answer" in page(admin.c.get("/admin/affiliate_help/"))
+        assert [m.role for m in rows(env, models_help().AffiliateHelpMessage)] == ["partner", "assistant"]
+        assert admin.audits[-1]["details"] == {"escalation_id": esc.id, "partner_told": False}
+        assert "closed as spam / duplicate" in page(admin.c.get("/admin/affiliate_help/"))
+
+    def test_close_with_a_note_tells_the_partner(self, env, admin):
+        M = models_help().AffiliateHelpMessage
+        esc = open_escalation(env)
+        # the owner's own words
+        admin.c.post("/admin/affiliate_help/dismiss",
+                     data={"id": esc.id, "message": "We sorted this out by email — thanks, Anne."})
+        (row,) = rows(env, models_help().AffiliateHelpEscalation)
+        assert (row.status, row.answered_via) == ("dismissed", "closed")
+        assert row.answer == "We sorted this out by email - thanks, Anne."
+        note = rows(env, M)[-1]
+        assert (note.role, note.outcome, note.body, note.escalation_id) == (
+            "team", "closed", "We sorted this out by email - thanks, Anne.", esc.id)
+        assert env.sent == []                                       # no email for a closing note
+        assert rows(env, models_help().AffiliateHelpKb) == []       # and no knowledge-base entry
+        assert admin.audits[-1]["details"]["partner_told"] is True
+        # the partner: unread badge, a "closed" bubble, and the amber bubble is no longer waiting
+        assert env.client.get(BASE + "/help/messages?peek=1").get_json()["unread"] == 1
+        msgs = env.client.get(BASE + "/help/messages").get_json()["messages"]
+        assert (msgs[-1]["role"], msgs[-1]["outcome"], msgs[-1]["esc_status"]) == ("team", "closed", "dismissed")
+        assert msgs[-2]["outcome"] == "needs_team" and msgs[-2]["esc_status"] == "dismissed"
+        listing = page(admin.c.get("/admin/affiliate_help/"))
+        assert "closed with a note" in listing and "We sorted this out by email" in listing
+        # an empty message falls back to the default text
+        esc2 = open_escalation(env, "Second question?")
+        admin.c.post("/admin/affiliate_help/dismiss", data={"id": esc2.id, "message": "  "})
+        assert rows(env, M)[-1].body == ah.MSG_CLOSED_DEFAULT
+        # closing twice is refused
+        with pytest.raises(ah.HelpError):
+            ah.dismiss_escalation(env.db, rows(env, models_help().AffiliateHelpEscalation)[-1], "admin:t")
 
     def test_knowledge_base_lifecycle(self, env, admin):
         K = models_help().AffiliateHelpKb
@@ -792,7 +836,12 @@ class TestAdmin:
         esc = open_escalation(env)
         env.claude.payloads = [{"generalisable": True, "question": "Wise fee?", "answer": "GENERAL VERSION"}]
         kb = ah.answer_escalation(env.db, esc, "Anne, we add no fee.", "admin:t")
+        # the suggestion adds words: approving without the confirm box changes nothing
         assert admin.c.post("/admin/affiliate_help_kb/approve", data={"id": kb.id}).status_code == 302
+        (row,) = rows(env, K)
+        assert (row.scope, row.answer, row.proposed_answer) == ("partner", "Anne, we add no fee.", "GENERAL VERSION")
+        assert admin.c.post("/admin/affiliate_help_kb/approve",
+                            data={"id": kb.id, "confirm_added": "1"}).status_code == 302
         (row,) = rows(env, K)
         assert (row.scope, row.answer, row.affiliate_id, row.proposed_answer) == ("general", "GENERAL VERSION", None, None)
         assert admin.audits[-1]["action"] == "affiliate_help_kb_approved"
@@ -840,6 +889,249 @@ class TestWebhookRoute:
 # ============================================================================
 # 8. Schema
 # ============================================================================
+
+
+# ============================================================================
+# 9. User-review fixes (closing, generalising, the feel of the chat, one inbox)
+# ============================================================================
+@pytest.fixture
+def one_inbox(monkeypatch):
+    """Request BEFORE `env`: adds the partner-comms tables and a recording
+    Resend, so the Help <-> Messages bridge runs for real."""
+    import email_utils
+    monkeypatch.setitem(globals(), "HELP_TABLES", HELP_TABLES + [
+        "affiliate_messages", "affiliate_notifications", "affiliate_email_prefs"])
+    mails = []
+
+    def fake_send(to, subject, body_text, from_addr=None, reply_to=None, html=None, headers=None):
+        mails.append(SimpleNamespace(to=to, subject=subject, text=body_text, reply_to=reply_to,
+                                     headers=headers or {}))
+        return True
+
+    monkeypatch.setattr(email_utils, "resend_send_email", fake_send)
+    monkeypatch.setattr(config, "RESEND_API_KEY", "re_test_key", raising=False)
+    monkeypatch.setattr(config, "tw2_public_url", "https://tw.test/", raising=False)
+    return mails
+
+
+def inbox(env):
+    import models
+    env.db.expire_all()
+    return (env.db.query(models.AffiliateNotification)
+            .order_by(models.AffiliateNotification.id).all())
+
+
+class TestClosingAQuestion:
+    def test_default_text_can_be_set_by_the_owner(self, env):
+        assert ah.close_text_default() == ah.MSG_CLOSED_DEFAULT
+        env.patch.setattr(config, "AFFILIATE_HELP_CLOSE_TEXT", "Handled on our call — thanks.", raising=False)
+        assert ah.close_text_default() == "Handled on our call - thanks."
+        esc = open_escalation(env)
+        ah.dismiss_escalation(env.db, esc, "admin:t")
+        assert rows(env, models_help().AffiliateHelpMessage)[-1].body == "Handled on our call - thanks."
+
+    def test_closing_note_lands_in_messages_without_an_email(self, one_inbox, env):
+        esc = open_escalation(env)
+        ah.dismiss_escalation(env.db, esc, "admin:t", message="We handled this by email.")
+        (note,) = inbox(env)
+        assert (note.event_type, note.email_status, note.email_reason) == ("help_answer", "skipped", "inbox_only")
+        assert note.subject.startswith("We closed your question: Does Wise charge me a fee?")
+        assert "We handled this by email." in note.body and note.link_url.endswith("/account/affiliate#help")
+        assert one_inbox == [] and env.sent == []
+        # spam / duplicate leaves no trace on the partner's side
+        esc2 = open_escalation(env, "buy cheap followers")
+        ah.dismiss_escalation(env.db, esc2, "admin:t", silent=True)
+        assert len(inbox(env)) == 1 and one_inbox == []
+
+
+class TestGeneralisingCannotAddFacts:
+    OWN = "Hi Anne, we add no fee to your Wise payout."
+
+    def test_word_diff_marks_what_was_added_and_removed(self):
+        diff = ah.word_diff("We add no fee to your payout.", "We add no fee to a payout. Wise charges 1%.")
+        assert ("add", "a") in diff and ("del", "your") in diff
+        assert ("add", "Wise charges 1%.") in diff
+        assert "".join(t for op, t in diff if op != "del") == "We add no fee to a payout. Wise charges 1%."
+        assert ah.added_words("We add no fee.", "we ADD no fee") == []       # case and punctuation ignored
+        assert ah.added_words("We add no fee.", "We add no fee. Wise charges 1%.") == ["Wise", "charges", "1%"]
+
+    def test_a_pure_removal_needs_no_confirmation(self, env):
+        esc = open_escalation(env)
+        env.claude.payloads = [{"generalisable": True, "question": "Wise fee?",
+                                "answer": "we add no fee to your Wise payout."}]
+        kb = ah.answer_escalation(env.db, esc, self.OWN, "admin:t")
+        review = ah.proposal_review(kb)
+        assert review["added"] == [] and review["needs_confirm"] is False
+        ah.approve_proposal(env.db, kb, "admin:t")                             # one click is enough
+        assert kb.scope == "general"
+
+    def test_added_words_need_the_confirm_or_an_edit(self, env, admin):
+        esc = open_escalation(env)
+        env.claude.payloads = [{"generalisable": True, "question": "Wise fee?",
+                                "answer": "We add no fee to a Wise payout. Wise charges about 1%."}]
+        kb = ah.answer_escalation(env.db, esc, self.OWN, "admin:t")
+        assert ah.proposal_review(kb)["added"] == ["a", "charges", "about", "1%"]
+        html = page(admin.c.get("/admin/affiliate_help_kb/"))
+        assert "<ins>Wise charges about 1%.</ins>" in html and "<del>Hi Anne,</del>" in html
+        assert "The suggestion adds 4 words you did not write" in html
+        assert 'name="confirm_added" value="1" required' in html
+        with pytest.raises(ah.HelpError) as e:
+            ah.approve_proposal(env.db, kb, "admin:t")
+        assert "adds words that are not in your answer" in str(e.value)
+        # "Edit the suggestion" opens the editor with the suggestion, general selected
+        edit = page(admin.c.get("/admin/affiliate_help_kb/edit?id=%d&use=suggestion" % kb.id))
+        assert "Wise charges about 1%.</textarea>" in edit and "Your original answer" in edit
+        admin.c.post("/admin/affiliate_help_kb/edit",
+                     data={"id": kb.id, "use": "suggestion", "question": "Wise fee?",
+                           "answer": "We add no fee to a Wise payout.", "scope": "general"})
+        (row,) = rows(env, models_help().AffiliateHelpKb)
+        assert (row.scope, row.answer, row.proposed_answer) == ("general", "We add no fee to a Wise payout.", None)
+
+    def test_a_much_longer_suggestion_is_refused_on_the_server(self, env, admin):
+        esc = open_escalation(env)
+        long_answer = "We add no fee. " + "Also, here is a lot of extra policy nobody wrote. " * 6
+        env.claude.payloads = [{"generalisable": True, "question": "Wise fee?", "answer": long_answer}]
+        kb = ah.answer_escalation(env.db, esc, self.OWN, "admin:t")              # the answer still goes out
+        assert kb.proposed_answer is None and rows(env, models_help().AffiliateHelpEscalation)[0].status == "answered"
+        # asking again by hand says why
+        env.claude.payloads = [{"generalisable": True, "question": "Wise fee?", "answer": long_answer}]
+        admin.c.post("/admin/affiliate_help_kb/propose", data={"id": kb.id})
+        assert "much longer than your answer" in page(admin.c.get("/admin/affiliate_help_kb/"))
+        assert rows(env, models_help().AffiliateHelpKb)[0].proposed_answer is None
+        # a stored over-long proposal (older data) cannot be approved either
+        row = rows(env, models_help().AffiliateHelpKb)[0]
+        row.proposed_question, row.proposed_answer = "Wise fee?", long_answer
+        env.db.commit()
+        with pytest.raises(ah.HelpError):
+            ah.approve_proposal(env.db, row, "admin:t", confirm_added=True)
+        assert ah.proposal_too_long("x" * 100, "y" * 219) is False and ah.proposal_too_long("x" * 100, "y" * 221)
+
+
+class TestAssistantFeel:
+    def test_escalation_says_when_to_expect_an_answer_and_since_when(self, env):
+        env.claude.payloads = [NEEDS_TEAM]
+        mine, reply = ask(env, "Does Wise charge me a fee on a payout to my euro account?")["messages"]
+        assert "usually answer within 1 business day" in reply["body"] and "in Messages" in reply["body"]
+        today = dt.datetime.now(dt.timezone.utc)
+        assert reply["since"] in ("%d %s" % (today.day, today.strftime("%b %Y")),
+                                  "%d %s" % ((today - dt.timedelta(days=1)).day,
+                                             (today - dt.timedelta(days=1)).strftime("%b %Y")))
+        assert reply["esc_status"] == "open" and "esc_status" not in mine
+        assert reply["re"] == "Does Wise charge me a fee on a payout to my euro account?"
+
+    def test_team_answer_is_labelled_with_the_question(self, env):
+        esc = open_escalation(env, "Does Wise charge me a fee on a payout to my euro account, and if so "
+                                   "how much is it for a typical month?")
+        ah.answer_escalation(env.db, esc, "We add no fee.", "admin:t", propose=False)
+        msgs = env.client.get(BASE + "/help/messages").get_json()["messages"]
+        team = msgs[-1]
+        assert team["role"] == "team" and team["esc_status"] == "answered"
+        assert team["re"] == "Does Wise charge me a fee on a payout to my euro account, and if so..."
+        assert msgs[-2]["esc_status"] == "answered"                 # the amber bubble stops waiting
+        assert ah.excerpt("short one") == "short one"
+
+    def test_panel_has_the_thinking_states_polling_and_labels(self, env):
+        html = env.client.get(BASE + "/").get_data(as_text=True)
+        for needle in ('"hlp-dots"', "hlp-bounce", "prefers-reduced-motion",
+                       "Still checking your agreement and numbers...", "SLOW_MS = 8000",
+                       "Send this to the team instead", "GIVEUP_MS = 25000", "POLL_MS = 60000",
+                       '"Waiting since " + m.since', '" - re: " + m.re', "Closed by the team",
+                       'location.hash === "#help"', "hashchange"):
+            assert needle in html, needle
+        assert "Looking that up..." not in html and "—" not in html
+
+    def test_help_is_in_the_header_and_the_pill_only_floats_on_wide_screens(self, env):
+        html = env.client.get(BASE + "/payouts").get_data(as_text=True)
+        nav = html[html.index('<nav class="nav">'):html.index("</nav>")]
+        assert 'class="navhelp hlp-open"' in nav and "hlp-badge" in nav
+        # the floating pill is hidden by default and shown only where the page has a gutter
+        assert re.search(r"\.hlp-launch \{[^}]*display:none", html)
+        assert "@media (min-width:1300px) { .hlp-launch { display:flex; } }" in html
+        assert "left:12px" not in html                              # no second floating button on phones
+
+    def test_send_this_to_the_team_instead(self, env):
+        M = models_help().AffiliateHelpMessage
+        # the slow request never stored the question: it is stored once, then escalated
+        r = env.client.post(BASE + "/help/ask-team", json={"question": "How are refunds handled?"})
+        msgs = r.get_json()["messages"]
+        assert [m["role"] for m in msgs] == ["partner", "assistant"] and msgs[1]["outcome"] == "needs_team"
+        assert env.claude.calls == []                               # no model call at all
+        (esc,) = rows(env, models_help().AffiliateHelpEscalation)
+        assert esc.question == "How are refunds handled?"
+        # the slow request DID store it: no second copy of the bubble
+        env.claude.payloads = [answered("Late answer.")]
+        ask(env, "And chargebacks?")
+        r = env.client.post(BASE + "/help/ask-team", json={"question": "And chargebacks?"})
+        assert [m["role"] for m in r.get_json()["messages"]] == ["assistant"]
+        assert [m.body for m in rows(env, M) if m.role == "partner"].count("And chargebacks?") == 1
+        assert env.client.post(BASE + "/help/ask-team", json={"question": "  "}).status_code == 400
+
+
+class TestOneInbox:
+    def test_answer_is_copied_to_messages_and_emailed_once(self, one_inbox, env):
+        esc = open_escalation(env)
+        ah.answer_escalation(env.db, esc, "We add no fee.", "admin:t", propose=False)
+        (note,) = inbox(env)
+        assert (note.event_type, note.email_status) == ("help_answer", "sent")
+        assert note.subject == "Answer from the TradeWave team: Does Wise charge me a fee?"
+        assert "You asked:\nDoes Wise charge me a fee?" in note.body and "Our answer:\nWe add no fee." in note.body
+        assert (note.link_label, note.link_url) == ("Open Help in your dashboard",
+                                                    "https://tw.test/account/affiliate#help")
+        (mail,) = one_inbox                                          # one email, through the comms pipeline
+        assert env.sent == []                                        # not a second one from the help module
+        assert mail.to == env.aff.email and "https://tw.test/account/affiliate#help" in mail.text
+        assert mail.reply_to == "owner@tradewave.test"               # replying reaches the support inbox
+        assert "required program notice" in mail.text and "List-Unsubscribe" not in mail.headers
+        assert "—" not in mail.text + mail.subject
+        # Messages shows it with the same label the Settings list uses, and links to Help
+        import affiliate_comms as comms
+        html = env.client.get(BASE + "/messages").get_data(as_text=True)
+        assert comms.KIND_LABEL["help_answer"] in html and "You asked: Does Wise" in html
+        opened = env.client.get(BASE + "/messages/%d" % note.id).get_data(as_text=True)
+        assert 'class="btn-primary hlp-open" href="#help"' in opened and 'data-help-about="' not in opened
+
+    def test_fallback_email_deep_links_to_help(self, env):
+        # no comms tables in this fixture: the plain email still goes out
+        esc = open_escalation(env)
+        ah.answer_escalation(env.db, esc, "We add no fee.", "admin:t", propose=False)
+        (mail,) = env.sent
+        assert mail["to"] == env.aff.email and "/account/affiliate#help" in mail["body_text"]
+        assert mail["reply_to"] == "owner@tradewave.test"
+
+    def test_ask_about_a_message_goes_to_the_team_with_the_message_quoted(self, one_inbox, env):
+        import affiliate_comms as comms
+        import models
+        note = comms.deliver(env.db, env.aff, comms.make_event(
+            "statement_ready", "statement:2026-10", "Your October 2026 statement is ready",
+            "Hi Anne,\n\nYour October 2026 statement is ready. Commission for the month: $108.45."))
+        opened = env.client.get(BASE + "/messages/%d" % note.id).get_data(as_text=True)
+        assert 'data-help-about="%d"' % note.id in opened
+        assert 'data-help-subject="Your October 2026 statement is ready"' in opened
+        one_inbox.clear()
+        r = env.client.post(BASE + "/help/ask-team",
+                            json={"about": note.id, "question": "Why is it lower than September?"})
+        mine, reply = r.get_json()["messages"]
+        assert mine["body"] == ('About the message "Your October 2026 statement is ready": '
+                                "Why is it lower than September?")
+        assert reply["outcome"] == "needs_team" and reply["esc_status"] == "open"
+        assert env.claude.calls == []                               # straight to a person
+        (esc,) = rows(env, models_help().AffiliateHelpEscalation)
+        assert "Commission for the month: $108.45." in esc.reason   # the owner sees what was quoted
+        (owner_mail,) = env.sent
+        assert "Commission for the month: $108.45." in owner_mail["body_text"]
+        # the owner answers: it is a thread (chat + Messages + email)
+        ah.answer_escalation(env.db, esc, "September had a renewal.", "admin:t", propose=False)
+        assert [n.event_type for n in inbox(env)] == ["statement_ready", "help_answer"]
+        assert one_inbox[-1].subject.startswith("Answer from the TradeWave team: About the message")
+        # another partner's message cannot be quoted
+        paul, _ = h.make_partner(env.db, "PAUL")
+        other = comms.deliver(env.db, paul, comms.make_event("payout_sent", "payout:1", "Payout sent: $900.00", "Secret."))
+        assert models.AffiliateNotification is not None
+        r = env.client.post(BASE + "/help/ask-team", json={"about": other.id, "question": "What is this?"})
+        assert r.status_code == 404 and "Secret." not in r.get_data(as_text=True)
+        assert len(rows(env, models_help().AffiliateHelpEscalation)) == 1
+
+
 def test_migration_matches_the_models():
     text = (_REPO_ROOT / "migrations" / "versions" / "a9c1e5f7b3d2_affiliate_help_assistant.py").read_text()
     assert "down_revision = 'b4d7e1f2a3c5'" in text and "revision = 'a9c1e5f7b3d2'" in text

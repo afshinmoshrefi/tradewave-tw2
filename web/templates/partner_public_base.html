@@ -56,6 +56,21 @@
     .errors ul{margin:6px 0 0 18px;padding:0}
     .ok{background:rgba(52,211,153,.10);border:1px solid rgba(52,211,153,.35);color:#a7f3d0;border-radius:12px;
       padding:14px 16px;margin:0 0 16px;font-size:14.5px}
+    .errors a{color:inherit;font-weight:600}
+    .ferr{display:block;color:var(--bad);font-size:13.5px;font-weight:600;margin:6px 0 0}
+    input[aria-invalid=true],select[aria-invalid=true],textarea[aria-invalid=true]{border-color:#ef4444;
+      box-shadow:0 0 0 1px #ef4444}
+    .agree.bad{outline:1px solid #ef4444;outline-offset:6px;border-radius:8px}
+    .btnrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:20px}
+    .btnrow .btn{margin-top:0}
+    .stopbox{border-color:rgba(139,92,246,.55)}
+    .stopbox h2{margin-bottom:6px}
+    .fine{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;
+      font-size:14.5px;color:var(--muted)}
+    .fine b{display:block;color:var(--text);font-size:14.5px}
+    .tradeoff{display:inline-block;margin-top:8px;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:700;
+      color:#ddd6fe;background:rgba(139,92,246,.16);border:1px solid rgba(139,92,246,.4);
+      -webkit-text-fill-color:#ddd6fe}
     .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
     .toggle{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--line)}
     .toggle:last-of-type{border-bottom:0}
@@ -71,7 +86,7 @@
       .facts{grid-template-columns:1fr} .two{grid-template-columns:1fr}
       .two > div + div label{margin-top:16px !important}
       .panel{padding:18px 16px;border-radius:16px}
-      .btn{width:100%}
+      .btn{width:100%} .fine{grid-template-columns:1fr}
     }
   </style>
 </head>

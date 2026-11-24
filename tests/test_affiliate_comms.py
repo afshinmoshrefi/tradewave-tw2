@@ -59,7 +59,7 @@ def world(monkeypatch):
 
     def fake_send(to, subject, body_text, from_addr=None, reply_to=None, html=None, headers=None):
         outbox.append(SimpleNamespace(to=to, subject=subject, text=body_text, html=html,
-                                      headers=headers or {}))
+                                      headers=headers or {}, reply_to=reply_to))
         return state.ok
 
     monkeypatch.setattr(email_utils, "resend_send_email", fake_send)
@@ -162,7 +162,7 @@ class TestApplicationSubmit:
             c.submit_application(world.db, {"name": "M", "email": "nope", "audience_size": "huge",
                                             "promo_plan": "short", "website": "not a site"})
         errors = " | ".join(e.value.errors)
-        for needle in ("your name", "valid email", "Website should look like", "audience size",
+        for needle in ("your name", "email address does not look right", "Website should look like", "audience size",
                        "how you will promote", "your country", "tick the box"):
             assert needle in errors
         assert world.outbox == [] and world.db.query(models().AffiliateApplication).count() == 0
@@ -401,7 +401,9 @@ class TestDelivery:
         aff, _ = partner(world.db)
         assert all(r["on"] for r in c.pref_rows(world.db, aff.id))
         c.set_disabled_prefs(world.db, aff.id, ["announcement", "bogus", "welcome"])
-        assert c.disabled_prefs(world.db, aff.id) == {"announcement", "welcome"}
+        # "welcome" is no longer a toggle (sent once, at signing): a stored opt-out is ignored
+        assert c.disabled_prefs(world.db, aff.id) == {"announcement"}
+        assert "welcome" not in c.PREF_IDS and c.EVENT_PREF["welcome"] is None
         assert c.turn_off_pref(world.db, aff.id, "bogus") is False
         c.set_disabled_prefs(world.db, aff.id, [])
         assert c.disabled_prefs(world.db, aff.id) == set()
@@ -542,6 +544,14 @@ class TestDailyJob:
         assert "20% off and you earn 30% of the list price" in welcome.text
         assert "$80.00 for the customer and $30.00 for you" in welcome.text
         assert "25% of what the customer pays on renewals" in welcome.text
+        # onboarding copy: the discount trade-off in one line, and the activity rule up front
+        assert "(20% off for them = 30% for you)" in welcome.text
+        assert "come out of the same 50%" in welcome.text
+        assert ("they keep paying while you bring in at least 1 new paying customer every 12 months, "
+                "with a 30-day grace") in welcome.text
+        assert "earn $0 until your next new paying customer" in welcome.text
+        assert "First-year commissions are never affected" in welcome.text
+        assert "required program notice" in welcome.text
         (click,) = mails(world, "Your link got its first click")
         assert "7-day trial" in click.text
         new = mails(world, "You have a new paying customer")
@@ -556,7 +566,9 @@ class TestDailyJob:
             blob = mail.text + (mail.html or "") + mail.subject
             assert "cus_" not in blob and "sub_" not in blob and "secret.example" not in blob
             assert EM_DASH not in blob
-            assert "/partners/email-preferences/" in mail.text and "List-Unsubscribe" in mail.headers
+            assert "/partners/email-preferences/" in mail.text
+            # the welcome is a required notice now (no unsubscribe); the others are optional
+            assert ("List-Unsubscribe" in mail.headers) == (mail is not welcome)
         # idempotent: a second and third run send nothing
         world.outbox.clear()
         again = run(world)
@@ -618,7 +630,7 @@ class TestDailyJob:
         assert w60.subject == "60 days left to keep your renewal commissions"
         assert w30.subject == "30 days left to keep your renewal commissions"
         assert w7.subject == "7 days left to keep your renewal commissions"
-        assert "on 9 February 2027" in w60.text
+        assert "on 9 Feb 2027" in w60.text
         assert "at least 1 new paying customer every 12 months, with a 30-day grace" in w60.text
         assert "first-year commissions are not affected" in w60.text
         assert "?off=activity_warning" in w60.text and "?off=activity_warning" in w30.text
@@ -631,7 +643,7 @@ class TestDailyJob:
         assert run(world, now=after)["sent"] == 1
         (stopped,) = world.outbox
         assert stopped.subject == "Your renewal commissions have stopped for now"
-        assert "ended on 9 February 2027" in stopped.text and "earn $0" in stopped.text
+        assert "ended on 9 Feb 2027" in stopped.text and "earn $0" in stopped.text
         assert "refer 1 new paying customer" in stopped.text
         assert "required program notice" in stopped.text
         assert run(world, now=after + dt.timedelta(days=2))["sent"] == 0
@@ -641,7 +653,7 @@ class TestDailyJob:
         referral(world.db, aff, 2, first_paid=back - dt.timedelta(hours=4))
         run(world, now=back)
         (resumed,) = mails(world, "Your renewal commissions are active again")
-        assert "until at least 31 March 2028" in resumed.text
+        assert "until at least 31 Mar 2028" in resumed.text
         assert "?off=renewals_resumed" in resumed.text
         assert len(mails(world, "You have a new paying customer")) == 1
         world.outbox.clear()
@@ -689,7 +701,7 @@ class TestDailyJob:
         assert mail.to == "anne@partner.example"
         assert mail.subject == "New TradeWave sale: Black Friday - your link already works"
         assert "The offer is Analyst annual for $99 for new customers." in mail.text
-        assert "It runs until 30 November 2026, 15:00 UTC." in mail.text
+        assert "It runs until 30 Nov 2026, 15:00 UTC." in mail.text
         assert "you earn 50% of what they pay" in mail.text
         assert "Your tracked link: https://tw.test/join/ANNE" in mail.text
         assert "Short link: https://tw.test/?code=ANNE" in mail.text
@@ -713,7 +725,7 @@ class TestDailyJob:
         assert run(world)["sent"] == 1
         (mail,) = world.outbox
         assert mail.subject == "Your customer discount is now 10%"
-        assert "changed from 20% to 10% on 24 November 2026, 14:30 UTC" in mail.text
+        assert "changed from 20% to 10% on 24 Nov 2026, 14:30 UTC" in mail.text
         assert "You now earn 40% of the list price on first-year payments." in mail.text
         assert "If you did not make this change" in mail.text
         assert "required program notice" in mail.text and "List-Unsubscribe" not in mail.headers
@@ -743,10 +755,12 @@ class TestDailyJob:
             actor="partner:%s" % user.id, changed_at=NOW - dt.timedelta(hours=1)))
         world.db.commit()
         stats = run(world)
-        assert stats["sent"] == 1 and stats["skipped"] == 2
-        assert [x.subject for x in world.outbox] == ["Your customer discount is now 5%"]
+        # required notices still go out: the welcome (once, at signing) and the discount change
+        assert stats["sent"] == 2 and stats["skipped"] == 1
+        assert sorted(x.subject for x in world.outbox) == [
+            "Welcome to the TradeWave partner program", "Your customer discount is now 5%"]
         by_type = {n.event_type: n for n in notes(world.db, aff)}
-        assert by_type["welcome"].email_reason == "preference"
+        assert by_type["welcome"].email_status == "sent"
         assert by_type["new_customer"].email_reason == "preference"
         assert c.unread_count(world.db, aff.id) == 3              # all three are in the inbox
 
@@ -945,7 +959,7 @@ class TestApplyPage:
 
     def test_errors_keep_what_was_typed(self, site):
         html = body(site.client.post("/partners/apply", data=dict(GOOD_FORM, email="nope", agree="")), 400)
-        assert "Please enter a valid email address." in html and "tick the box" in html
+        assert "That email address does not look right." in html and "tick the box" in html
         assert 'value="Maya Stone"' in html and "A review video" in html
         assert site.outbox == []
 
@@ -995,9 +1009,32 @@ class TestPreferenceLinks:
         aff, _ = partner(site.db)
         url = c.prefs_url(aff, "statement_ready").replace("https://tw.test", "")
         html = body(site.client.get(url))
-        assert "We unticked the email you asked to stop" in html
-        assert 'value="statement_ready" >' in html and 'value="new_customer" checked' in html
+        # ONE button at the top; the toggles below show the real state (nothing pre-unticked)
+        assert 'Stop "Monthly statement" emails?' in html and html.count("Stop these emails") == 1
+        assert html.index("Stop these emails") < html.index("Save preferences")
+        assert 'value="statement_ready" checked' in html and 'value="new_customer" checked' in html
         assert c.disabled_prefs(site.db, aff.id) == set()           # mail scanners prefetch links
+        # press it: done, with an Undo
+        html = body(site.client.post(url, data={"stop": "statement_ready"}))
+        assert "Done." in html and "Undo" in html and "Stop these emails" not in html
+        assert c.disabled_prefs(site.db, aff.id) == {"statement_ready"}
+        assert 'value="statement_ready" >' in html
+        # the same link again says it is already off (no second question)
+        assert "already off" in body(site.client.get(url))
+        html = body(site.client.post(url, data={"undo": "statement_ready"}))
+        assert "Undone." in html and c.disabled_prefs(site.db, aff.id) == set()
+        # an unknown kind in the link is ignored
+        assert "Stop these emails" not in body(site.client.get(url.replace("statement_ready", "payout_sent")))
+
+    def test_save_and_turn_all_off_sit_in_one_row(self, site):
+        c = comms()
+        aff, _ = partner(site.db)
+        html = body(site.client.get(c.prefs_url(aff).replace("https://tw.test", "")))
+        row = html[html.index('<div class="btnrow">'):]
+        row = row[:row.index("</div>")]
+        assert "Save preferences" in row and "Turn all of these off" in row
+        assert "Welcome" not in html[html.index("Emails you can turn off"):html.index("Always sent")]
+        assert "Welcome" in html[html.index("Always sent"):]        # listed as always sent instead
 
     def test_one_click_unsubscribe_post_works_without_csrf(self, site):
         c = comms()
@@ -1161,6 +1198,178 @@ class TestAdminMessages:
 # ---------------------------------------------------------------------------
 # 7. migration, cron, docs
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# 9. user-review fixes: one name per email, reply-to, previews, log order,
+#    apply-page errors and fine print
+# ---------------------------------------------------------------------------
+class TestReviewFixes:
+    def test_one_label_per_kind_of_email_everywhere(self):
+        c = comms()
+        # a Settings toggle, the Messages tag and the send-log type are the same words
+        for etype, pref in c.EVENT_PREF.items():
+            if pref:
+                assert c.EVENT_LABEL[etype] == c.PREF_LABEL[pref], etype
+        required = {label for label, _why in c.REQUIRED_NOTICES}
+        for etype, pref in c.EVENT_PREF.items():
+            if pref is None:
+                assert c.EVENT_LABEL[etype] in required, etype
+        assert set(c.EVENT_LABEL) == set(c.EVENT_PREF)
+        labels = set(c.EVENT_LABEL.values()) | set(c.PREF_LABEL.values())
+        for old in ("Statement ready", "Monthly statement ready", "New sale", "Message from TradeWave",
+                    "Renewals stopped", "Renewals resumed", "Welcome email", "Activity reminders",
+                    "Discount change confirmed", "Program notices"):
+            assert old not in labels and old not in required
+        assert all(EM_DASH not in x for x in labels | required)
+
+    def test_every_partner_email_can_be_replied_to(self, world):
+        c = comms()
+        aff, _ = partner(world.db)
+        world.patch(config_mod(), "AFFILIATE_SUPPORT_EMAIL", "partners@tradewave.test")
+        c.deliver(world.db, aff, c.make_event("payout_sent", "payout:1", "Payout sent: $60.00", "Sent."), NOW)
+        c.send_message(world.db, subject="News for you", body="Hello {first_name}, some news.",
+                       audience="one", param=str(aff.id), sent_by="admin:x", now=NOW)
+        c.submit_application(world.db, GOOD_FORM, ip="203.0.113.9", now=NOW)
+        by_subject = {m.subject: m for m in world.outbox}
+        assert by_subject["Payout sent: $60.00"].reply_to == "partners@tradewave.test"
+        assert by_subject["News for you"].reply_to == "partners@tradewave.test"
+        assert by_subject["We received your TradeWave partner application"].reply_to == "partners@tradewave.test"
+        # the owner's copy of an application replies to the applicant
+        assert by_subject["New partner application: Maya Stone"].reply_to == "maya@example.com"
+        world.patch(config_mod(), "AFFILIATE_SUPPORT_EMAIL", "")
+        assert c.support_inbox() == "help@tradewave.ai"
+
+    def test_signing_emails_reply_to_the_support_inbox(self, world):
+        import affiliate_agreement as agr
+        aff, _ = partner(world.db, agreement_signed_at=None, status="paused")
+        world.patch(config_mod(), "AFFILIATE_SUPPORT_EMAIL", "partners@tradewave.test")
+        assert agr.email_signing_link(aff) is True
+        assert world.outbox[-1].reply_to == "partners@tradewave.test"
+
+    def test_preview_drops_the_greeting(self):
+        c = comms()
+        assert c.preview_text("Hi Anne,\n\nYour October 2026 statement is ready.") == \
+            "Your October 2026 statement is ready."
+        assert c.preview_text("Hello there!\nNews.") == "News."
+        assert c.preview_text("Higher commissions start today.") == "Higher commissions start today."
+        assert c.preview_text("Hi Anne,\n\nHi again.") == "Hi again."            # only the first one
+        assert len(c.preview_text("word " * 100)) == 140
+
+    def test_send_log_is_newest_first_by_time_not_by_row_id(self, world):
+        c = comms()
+        aff, _ = partner(world.db)
+        ev = lambda key: c.make_event("payout_sent", key, "Subject %s" % key, "Body.")   # noqa: E731
+        c.deliver(world.db, aff, ev("b"), NOW - dt.timedelta(days=1))
+        c.deliver(world.db, aff, ev("c"), NOW)
+        c.deliver(world.db, aff, ev("a"), NOW - dt.timedelta(days=2))            # written last, oldest
+        assert [n.event_key for n, _code in c.notification_log(world.db)] == ["c", "b", "a"]
+
+    def test_application_errors_come_per_field_in_form_order(self):
+        c = comms()
+        with pytest.raises(c.CommsError) as e:
+            c.clean_application({"name": "", "email": "nope", "website": "not a site", "promo_plan": "x",
+                                 "country": "", "audience_size": ""})
+        fields = [f for f, _m in e.value.fields]
+        assert fields == ["name", "email", "country", "audience_size", "website", "promo_plan", "agree"]
+        assert e.value.errors == [m for _f, m in e.value.fields]
+        with pytest.raises(c.CommsError) as e:
+            c.clean_application(dict(GOOD_FORM, email=""))
+        assert e.value.fields == [("email", "Please enter your email address.")]
+
+    def test_attribution_window_comes_from_the_service_then_config_then_60(self, world):
+        c = comms()
+        afs = importlib.import_module("affiliate_service")
+        cfg = config_mod()
+        world.patch(afs, "attribution_window_days", None, raising=False)
+        world.patch(cfg, "AFFILIATE_ATTRIBUTION_DAYS", None, raising=False)
+        assert c.attribution_days() == 60
+        world.patch(cfg, "AFFILIATE_ATTRIBUTION_DAYS", 45, raising=False)
+        assert c.attribution_days() == 45
+        world.patch(afs, "attribution_window_days", lambda: 90, raising=False)
+        assert c.attribution_days() == 90
+
+    def test_discount_tradeoff_example(self):
+        c = comms()
+        assert c.offer_example()["line"] == "20% off for them = 30% for you"
+        assert c.offer_example(discount=10)["line"] == "10% off for them = 40% for you"
+
+
+def config_mod():
+    import config
+    return config
+
+
+class TestApplyPageReview:
+    def test_fine_print_and_the_tradeoff_example(self, site):
+        html = body(site.client.get("/partners/apply"))
+        box = html[html.index('id="fine-print"'):]
+        box = box[:box.index("</ul>")]
+        for needle in ("The fine print", "60-day tracking", "subscribes within 60 days",
+                       "at least 1 new paying customer every 12 months (30-day grace)",
+                       "First-year commissions are never affected", "$50 minimum payout",
+                       "rolls into your next payout", "Paid by the 15th", "PayPal or Wise",
+                       "W-9 (U.S.) or W-8BEN / W-8BEN-E"):
+            assert needle in box, needle
+        assert "20% off for them = 30% for you" in html and EM_DASH not in html
+        assert "aria-invalid" not in html.split("<form")[1]          # a clean form marks nothing
+
+    def test_errors_are_inline_in_field_order_and_linked(self, site):
+        html = body(site.client.post("/partners/apply", data={
+            "name": "Maya Stone", "email": "maya@", "country": "", "audience_size": "",
+            "website": "", "channels": "", "promo_plan": "short", "agree": ""}), 400)
+        # the summary: field order, each one a link to its field
+        summary = html[html.index('id="error-summary"'):]
+        summary = summary[:summary.index("</div>")]
+        assert "Please fix these 6 things:" in summary
+        anchors = re.findall(r'<li><a href="#([a-z-]+)">', summary)
+        assert anchors == ["ap-email", "ap-country", "ap-size", "ap-channels", "ap-plan", "ap-agree"]
+        # each bad field: aria-invalid + its own message, wired with aria-describedby
+        for field, fid in (("email", "ap-email"), ("country", "ap-country"), ("audience_size", "ap-size"),
+                           ("channels", "ap-channels"), ("promo_plan", "ap-plan"), ("agree", "ap-agree")):
+            tag = re.search(r'<(?:input|select|textarea)[^>]*id="%s"[^>]*>' % fid, html).group(0)
+            assert 'aria-invalid="true"' in tag and 'aria-describedby="err-%s"' % field in tag, tag
+            assert '<span class="ferr" id="err-%s">' % field in html
+        good = re.search(r'<input[^>]*id="ap-name"[^>]*>', html).group(0)
+        assert "aria-invalid" not in good and 'id="err-name"' not in html
+        assert "That email address does not look right. Example: you@example.com" in html
+        # red border comes from aria-invalid, and the first bad field gets the focus
+        assert "textarea[aria-invalid=true]{border-color:#ef4444" in html
+        assert "document.querySelector('[aria-invalid=\"true\"]')" in html and "first.focus(" in html
+        assert 'value="Maya Stone"' in html and EM_DASH not in html
+
+
+class TestPortalReview:
+    def test_previews_dates_and_tags(self, portal):
+        c = comms()
+        aff, user = partner(portal.db)
+        c.deliver(portal.db, aff, c.make_event(
+            "statement_ready", "statement:2026-10", "Your October 2026 statement is ready",
+            "Hi Anne,\n\nYour October 2026 statement is ready. Commission for the month: $108.45."),
+            dt.datetime(2026, 11, 2, 14, 10, tzinfo=UTC))
+        portal.state.user = user
+        _r, html = page(portal, "/messages")
+        assert '<span class="prev">Your October 2026 statement is ready.' in html
+        assert "Hi Anne" not in html
+        assert '<span class="when">2 Nov 2026</span>' in html
+        assert '<span class="pill dim">Monthly statement</span>' in html
+        _r, settings = page(portal, "/settings")
+        card = settings[settings.index('id="email"'):]
+        assert "<b>Monthly statement</b>" in card and "Welcome email" not in card
+        assert 'value="welcome"' not in card and "<b style=\"color:var(--text);\">Welcome.</b>" in card
+
+    def test_ask_about_this_button_on_a_message(self, portal):
+        c = comms()
+        aff, user = partner(portal.db)
+        note = c.deliver(portal.db, aff, c.make_event(
+            "payout_sent", "payout:1", "Payout sent: $60.00", "Hi Anne,\n\nWe sent your payout."), NOW)
+        portal.state.user = user
+        _r, html = page(portal, "/messages/%d" % note.id)
+        assert ('<button class="btn-secondary" type="button" data-help-about="%d" '
+                'data-help-subject="Payout sent: $60.00">Ask about this</button>' % note.id) in html
+        assert "sends it to the TradeWave team" in html
+
+
 def test_migration_adds_the_four_tables_from_the_v2_head():
     import models as m
     mig = (REPO / "migrations/versions/c5e8f1a2b3d6_affiliate_lifecycle_comms.py").read_text()

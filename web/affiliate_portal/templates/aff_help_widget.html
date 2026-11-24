@@ -1,15 +1,24 @@
 {# Partner help assistant chat panel (TW-TASK-0039 A). Included by
    aff_base.html for logged-in partners only (is_aff). All text is set with
-   textContent - nothing from the server is ever inserted as HTML. #}
+   textContent - nothing from the server is ever inserted as HTML.
+
+   Opening it: the Help button in the page header (every screen size) and,
+   on wide screens only (where the page has an empty gutter, so the pill
+   never sits on top of a table), a floating pill bottom-right. Any element
+   with class "hlp-open" opens the panel; "#help" in the address opens it;
+   [data-help-about] opens it with a Messages entry quoted. #}
 <style>
   .hlp-launch { position:fixed; right:20px; bottom:20px; z-index:45; min-height:48px; padding:0 18px 0 14px;
-                display:flex; align-items:center; gap:8px; border-radius:999px; border:1px solid rgba(139,92,246,0.6);
+                display:none; align-items:center; gap:8px; border-radius:999px; border:1px solid rgba(139,92,246,0.6);
                 background:var(--panel-solid); color:var(--text); font-family:inherit; font-size:14.5px;
                 font-weight:700; cursor:pointer; box-shadow:0 8px 28px rgba(0,0,0,0.5); }
+  /* 1040px page + two 120px gutters: only then is there room beside the content */
+  @media (min-width:1300px) { .hlp-launch { display:flex; } }
+  .hlp-is-open .hlp-launch { display:none; }
   .hlp-launch:hover { border-color:var(--brand2); }
-  .hlp-launch svg { width:20px; height:20px; color:var(--brand-text); }
-  .hlp-launch .hlp-badge { min-width:20px; height:20px; padding:0 6px; border-radius:999px; background:#ef4444;
-                           color:#fff; font-size:12px; font-weight:700; line-height:20px; text-align:center; }
+  .hlp-launch svg, .navhelp svg { width:20px; height:20px; color:var(--brand-text); flex:none; }
+  .hlp-badge { min-width:20px; height:20px; padding:0 6px; border-radius:999px; background:#ef4444;
+               color:#fff; font-size:12px; font-weight:700; line-height:20px; text-align:center; }
   .hlp-panel { position:fixed; right:20px; bottom:20px; z-index:60; width:400px; max-width:calc(100vw - 24px);
                height:min(620px, calc(100vh - 40px)); display:none; flex-direction:column;
                background:var(--panel-solid); border:1px solid var(--line); border-radius:16px;
@@ -33,9 +42,13 @@
   .hlp-msg.assistant.waiting { border-color:var(--warn-line); background:var(--warn-bg); }
   .hlp-msg.team { align-self:flex-start; background:var(--ok-bg); border:1px solid var(--ok-line);
                   border-bottom-left-radius:4px; }
+  .hlp-msg.team.closed { background:rgba(156,163,175,0.10); border-color:rgba(156,163,175,0.35); }
   .hlp-who { display:block; font-size:11.5px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;
              margin-bottom:3px; color:var(--muted); }
+  .hlp-re { display:block; font-size:12px; color:var(--muted); margin:0 0 5px; font-style:italic; }
+  .hlp-since { display:block; font-size:12px; font-weight:600; color:var(--warn); margin-top:6px; }
   .hlp-msg.team .hlp-who { color:var(--ok); }
+  .hlp-msg.team.closed .hlp-who { color:var(--muted); }
   .hlp-msg.assistant.waiting .hlp-who { color:var(--warn); }
   .hlp-askteam { align-self:flex-start; margin:-4px 0 0 2px; padding:8px 2px; min-height:36px; border:none;
                  background:none; color:#a5b4fc; font-family:inherit; font-size:13px; font-weight:600;
@@ -48,9 +61,31 @@
               background:rgba(255,255,255,0.03); color:var(--text); font-family:inherit; font-size:14px;
               cursor:pointer; }
   .hlp-chip:hover { border-color:var(--brand); }
-  .hlp-typing { align-self:flex-start; color:var(--muted); font-size:13px; padding:2px 4px; }
+  .hlp-typing { align-self:flex-start; display:flex; flex-direction:column; gap:6px; align-items:flex-start;
+                color:var(--muted); font-size:13px; padding:2px 4px; max-width:88%; }
+  .hlp-dots { display:inline-flex; gap:5px; align-items:center; padding:11px 14px; border-radius:14px;
+              border-bottom-left-radius:4px; background:rgba(255,255,255,0.05); border:1px solid var(--line); }
+  .hlp-dots i { width:7px; height:7px; border-radius:50%; background:var(--brand-text); opacity:0.35;
+                animation:hlp-bounce 1.2s infinite ease-in-out; }
+  .hlp-dots i:nth-child(2) { animation-delay:0.15s; }
+  .hlp-dots i:nth-child(3) { animation-delay:0.3s; }
+  @keyframes hlp-bounce { 0%, 60%, 100% { transform:translateY(0); opacity:0.35; }
+                          30% { transform:translateY(-5px); opacity:1; } }
+  @media (prefers-reduced-motion:reduce) { .hlp-dots i { animation:none; opacity:0.7; } }
+  .hlp-giveup { min-height:40px; padding:8px 14px; border-radius:10px; border:1px solid var(--warn-line);
+                background:var(--warn-bg); color:var(--warn); font-family:inherit; font-size:13.5px;
+                font-weight:700; cursor:pointer; }
   .hlp-err { margin:0 14px 6px; padding:8px 11px; border-radius:9px; font-size:13px; color:var(--bad);
              background:var(--bad-bg); border:1px solid var(--bad-line); display:none; }
+  .hlp-about { display:none; align-items:flex-start; gap:8px; margin:0 12px; padding:8px 8px 8px 12px;
+               border-radius:10px 10px 0 0; border:1px solid rgba(139,92,246,0.45); border-bottom:none;
+               background:rgba(139,92,246,0.12); font-size:13px; }
+  .hlp-about.on { display:flex; }
+  .hlp-about div { flex:1; min-width:0; }
+  .hlp-about b { display:block; font-size:11.5px; letter-spacing:0.04em; text-transform:uppercase; color:var(--brand-text); }
+  .hlp-about span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .hlp-about button { width:32px; height:32px; flex:none; border:none; border-radius:8px; background:transparent;
+                      color:var(--text); font-size:18px; line-height:1; cursor:pointer; }
   .hlp-form { display:flex; gap:8px; align-items:flex-end; padding:10px 12px;
               border-top:1px solid var(--line); }
   .hlp-form textarea { flex:1; resize:none; min-height:44px; max-height:120px; padding:11px 12px;
@@ -62,7 +97,6 @@
               background:linear-gradient(135deg,#6366f1,#8b5cf6); }
   .hlp-foot { padding:0 14px 10px; font-size:11.5px; color:var(--faint); }
   @media (max-width:640px) {
-    .hlp-launch { right:auto; left:12px; bottom:calc(70px + env(safe-area-inset-bottom)); min-height:46px; }
     .hlp-panel { right:0; left:0; top:0; bottom:0; width:auto; max-width:none; height:auto; border-radius:0;
                  border:none; }
     .hlp-form { padding-bottom:calc(10px + env(safe-area-inset-bottom)); }
@@ -70,9 +104,9 @@
   }
 </style>
 
-<button type="button" class="hlp-launch" id="hlp-launch" aria-haspopup="dialog" aria-controls="hlp-panel">
+<button type="button" class="hlp-launch hlp-open" id="hlp-launch" aria-haspopup="dialog" aria-controls="hlp-panel">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z"/></svg>
-  Help <span class="hlp-badge" id="hlp-badge" hidden></span>
+  Help <span class="hlp-badge" hidden></span>
 </button>
 
 <div class="hlp-panel" id="hlp-panel" role="dialog" aria-label="Partner help" aria-modal="false"
@@ -87,24 +121,30 @@
   </div>
   <div class="hlp-log" id="hlp-log" aria-live="polite"></div>
   <div class="hlp-err" id="hlp-err" role="alert"></div>
+  <div class="hlp-about" id="hlp-about">
+    <div><b>Asking the team about</b><span id="hlp-about-text"></span></div>
+    <button type="button" id="hlp-about-x" aria-label="Stop asking about this message">&times;</button>
+  </div>
   <form class="hlp-form" id="hlp-form" autocomplete="off">
     <textarea id="hlp-input" rows="1" maxlength="1500" placeholder="Ask a question"
               aria-label="Your question"></textarea>
     <button type="submit" class="hlp-send" id="hlp-send">Send</button>
   </form>
-  <div class="hlp-foot">If the assistant is not sure, it asks the TradeWave team for you. It does not give tax or legal advice.</div>
+  <div class="hlp-foot" id="hlp-foot">If the assistant is not sure, it asks the TradeWave team for you. It does not give tax or legal advice.</div>
 </div>
 
 <script>
 (function () {
-  var panel = document.getElementById("hlp-panel"), launch = document.getElementById("hlp-launch");
-  if (!panel || !launch) return;
+  var panel = document.getElementById("hlp-panel");
+  if (!panel) return;
   var log = document.getElementById("hlp-log"), form = document.getElementById("hlp-form"),
       input = document.getElementById("hlp-input"), send = document.getElementById("hlp-send"),
-      err = document.getElementById("hlp-err"), badge = document.getElementById("hlp-badge");
-  var loaded = false, busy = false;
+      err = document.getElementById("hlp-err"), foot = document.getElementById("hlp-foot"),
+      aboutBar = document.getElementById("hlp-about"), aboutText = document.getElementById("hlp-about-text");
+  var loaded = false, busy = false, about = null, opener = null, pollTimer = null, lastSig = "";
   var SUGGEST = ["When do I get paid?", "How is my commission calculated?", "Can I change my customer discount?"];
-  var WHO = { assistant: "Help assistant", team: "TradeWave team" };
+  var FOOT = foot.textContent;
+  var SLOW_MS = 8000, GIVEUP_MS = 25000, POLL_MS = 60000;
 
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -115,18 +155,36 @@
   function showErr(text) { err.textContent = text || ""; err.style.display = text ? "block" : "none"; }
   function bottom() { log.scrollTop = log.scrollHeight; }
   function setBadge(n) {
-    if (n > 0) { badge.textContent = n; badge.hidden = false; } else { badge.hidden = true; }
+    var all = document.querySelectorAll(".hlp-badge");
+    for (var i = 0; i < all.length; i++) {
+      if (n > 0) { all[i].textContent = n; all[i].hidden = false; } else { all[i].hidden = true; }
+    }
   }
   function clearExtras() {
     var old = log.querySelectorAll(".hlp-askteam, .hlp-empty, .hlp-typing");
     for (var i = 0; i < old.length; i++) old[i].parentNode.removeChild(old[i]);
   }
+  function label(m) {
+    // who is speaking, and about which question
+    if (m.role === "team") {
+      return m.outcome === "closed" ? "Closed by the team" : "TradeWave team";
+    }
+    if (m.outcome === "needs_team") {
+      if (m.esc_status === "answered") return "Sent to the TradeWave team - answered";
+      if (m.esc_status === "dismissed") return "Sent to the TradeWave team - closed";
+      return "Sent to the TradeWave team";
+    }
+    return "Help assistant";
+  }
   function addMsg(m) {
-    var b = el("div", "hlp-msg " + m.role + (m.outcome === "needs_team" ? " waiting" : ""));
+    var waiting = m.outcome === "needs_team" && (!m.esc_status || m.esc_status === "open");
+    var b = el("div", "hlp-msg " + m.role + (waiting ? " waiting" : "") +
+                      (m.role === "team" && m.outcome === "closed" ? " closed" : ""));
     if (m.role !== "partner") {
-      b.appendChild(el("span", "hlp-who", m.outcome === "needs_team" ? "Sent to the TradeWave team" : WHO[m.role]));
+      b.appendChild(el("span", "hlp-who", label(m) + (m.role === "team" && m.re ? " - re: " + m.re : "")));
     }
     b.appendChild(document.createTextNode(m.body));
+    if (waiting && m.since) b.appendChild(el("span", "hlp-since", "Waiting since " + m.since));
     b.setAttribute("data-id", m.id);
     log.appendChild(b);
     return b;
@@ -159,18 +217,21 @@
     box.appendChild(chips);
     log.appendChild(box);
   }
+  function hasOpenQuestion() { return !!log.querySelector(".hlp-msg.waiting"); }
   function render(msgs, replace) {
     if (replace) log.textContent = "";
     clearExtras();
     (msgs || []).forEach(addMsg);
-    if (!log.querySelector(".hlp-msg")) { empty(); return; }
+    if (!log.querySelector(".hlp-msg")) { empty(); syncPoll(); return; }
     var last = msgs && msgs.length ? msgs[msgs.length - 1] : null;
     if (last) offerTeam(last);
     bottom();
+    syncPoll();
   }
   function post(url, body, ok, fail) {
     busy = true; send.classList.add("hlp-wait"); showErr("");
-    fetch(url, { method: "POST", credentials: "same-origin",
+    var ctl = window.AbortController ? new AbortController() : null;
+    fetch(url, { method: "POST", credentials: "same-origin", signal: ctl ? ctl.signal : undefined,
                  headers: { "Content-Type": "application/json", "X-CSRFToken": panel.getAttribute("data-csrf") },
                  body: JSON.stringify(body) })
       .then(function (r) { return r.json().then(function (j) { return j; }, function () { return { ok: false }; }); })
@@ -179,43 +240,133 @@
         if (res && res.ok) { ok(res); }
         else { showErr((res && res.error) || "Something went wrong. Please try again."); if (fail) fail(); }
       })
-      .catch(function () {
+      .catch(function (e) {
         busy = false; send.classList.remove("hlp-wait");
+        if (e && e.name === "AbortError") return;          // the partner chose the team instead
         showErr("Could not reach the server. Check your connection and try again."); if (fail) fail();
       });
+    return ctl;
+  }
+  // "thinking": animated dots, then a line saying what is taking long, then a way out
+  function thinking(q, cancel) {
+    var box = el("div", "hlp-typing");
+    var dots = el("span", "hlp-dots");
+    dots.setAttribute("role", "status"); dots.setAttribute("aria-label", "The assistant is working on your answer");
+    dots.appendChild(el("i")); dots.appendChild(el("i")); dots.appendChild(el("i"));
+    box.appendChild(dots);
+    var t1 = setTimeout(function () {
+      box.appendChild(el("span", null, "Still checking your agreement and numbers..."));
+      bottom();
+    }, SLOW_MS);
+    var t2 = setTimeout(function () {
+      var b = el("button", "hlp-giveup", "Send this to the team instead");
+      b.type = "button";
+      b.addEventListener("click", function () { cancel(q); });
+      box.appendChild(b); bottom();
+    }, GIVEUP_MS);
+    box._stop = function () { clearTimeout(t1); clearTimeout(t2); };
+    log.appendChild(box); bottom();
+    return box;
   }
   function ask(q) {
     q = (q || "").trim();
     if (!q || busy) return;
+    if (about) { askAbout(q); return; }
     clearExtras();
     var mine = addMsg({ role: "partner", body: q, id: "" });
-    var typing = el("div", "hlp-typing", "Looking that up...");
-    log.appendChild(typing); bottom();
+    var ctl = null;
+    var typing = thinking(q, function (text) {
+      // stop waiting for the assistant and hand the question to a person
+      typing._stop(); if (ctl) ctl.abort();
+      if (typing.parentNode) typing.parentNode.removeChild(typing);
+      if (mine.parentNode) mine.parentNode.removeChild(mine);
+      post(panel.getAttribute("data-team"), { question: text }, function () { load(); },
+           function () { load(); });
+    });
     input.value = ""; input.style.height = "";
-    post(panel.getAttribute("data-ask"), { question: q }, function (res) {
+    ctl = post(panel.getAttribute("data-ask"), { question: q }, function (res) {
+      typing._stop();
       if (mine.parentNode) mine.parentNode.removeChild(mine);
       render(res.messages, false);
     }, function () {
+      typing._stop();
       if (mine.parentNode) mine.parentNode.removeChild(mine);
       clearExtras(); input.value = q;
       if (!log.querySelector(".hlp-msg")) empty();
     });
   }
-  function load() {
+  // "Ask about this" on a Messages entry: the question goes straight to the team
+  function setAbout(a) {
+    about = a;
+    aboutBar.classList.toggle("on", !!a);
+    aboutText.textContent = a ? a.subject : "";
+    input.placeholder = a ? "Your question about this message" : "Ask a question";
+    foot.textContent = a ? "This goes straight to the TradeWave team. Their answer appears here, in Messages and by email."
+                         : FOOT;
+  }
+  function askAbout(q) {
+    var a = about;
+    clearExtras();
+    var mine = addMsg({ role: "partner", body: 'About the message "' + a.subject + '": ' + q, id: "" });
+    bottom();
+    input.value = ""; input.style.height = "";
+    post(panel.getAttribute("data-team"), { about: a.id, question: q }, function (res) {
+      if (mine.parentNode) mine.parentNode.removeChild(mine);
+      setAbout(null);
+      render(res.messages, false);
+    }, function () {
+      if (mine.parentNode) mine.parentNode.removeChild(mine);
+      input.value = q;
+      if (!log.querySelector(".hlp-msg")) empty();
+    });
+  }
+  function sig(msgs) {
+    var last = msgs && msgs.length ? msgs[msgs.length - 1] : null;
+    return (msgs ? msgs.length : 0) + ":" + (last ? last.id + ":" + (last.esc_status || "") : "");
+  }
+  function load(quiet) {
     fetch(panel.getAttribute("data-messages"), { credentials: "same-origin" })
       .then(function (r) { return r.json(); })
-      .then(function (res) { if (res && res.ok) { loaded = true; setBadge(0); render(res.messages, true); } })
-      .catch(function () { showErr("Could not load your messages. Please try again."); });
+      .then(function (res) {
+        if (!(res && res.ok)) return;
+        loaded = true; setBadge(0);
+        var s = sig(res.messages) + ":" + (res.messages || []).filter(function (m) { return m.esc_status === "open"; }).length;
+        if (quiet && (s === lastSig || busy)) return;     // nothing new: leave the panel alone
+        lastSig = s;
+        render(res.messages, true);
+      })
+      .catch(function () { if (!quiet) showErr("Could not load your messages. Please try again."); });
   }
-  function open() {
-    panel.classList.add("open"); launch.style.display = "none";
-    if (!loaded) load(); else bottom();
-    if (window.matchMedia("(min-width:641px)").matches) input.focus();
+  // While a question is waiting for the team and the panel is open, look for
+  // the answer once a minute so it appears without a page reload.
+  function syncPoll() {
+    var want = panel.classList.contains("open") && hasOpenQuestion();
+    if (want && !pollTimer) pollTimer = setInterval(function () { load(true); }, POLL_MS);
+    if (!want && pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   }
-  function close() { panel.classList.remove("open"); launch.style.display = ""; launch.focus(); }
+  function open(from) {
+    opener = from || opener;
+    panel.classList.add("open"); document.body.classList.add("hlp-is-open");
+    if (!loaded) load(); else { bottom(); syncPoll(); }
+    if (about || window.matchMedia("(min-width:641px)").matches) input.focus();
+  }
+  function close() {
+    panel.classList.remove("open"); document.body.classList.remove("hlp-is-open");
+    syncPoll();
+    if (opener && opener.focus) opener.focus();
+  }
 
-  launch.addEventListener("click", open);
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest ? e.target.closest(".hlp-open, [data-help-about]") : null;
+    if (!t) return;
+    e.preventDefault();
+    if (t.hasAttribute("data-help-about")) {
+      setAbout({ id: t.getAttribute("data-help-about"), subject: t.getAttribute("data-help-subject") || "this message" });
+    }
+    open(t);
+  });
   document.getElementById("hlp-close").addEventListener("click", close);
+  document.getElementById("hlp-about-x").addEventListener("click", function () { setAbout(null); input.focus(); });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && panel.classList.contains("open")) close();
   });
@@ -231,6 +382,9 @@
     .then(function (r) { return r.json(); })
     .then(function (res) { if (res && res.ok) setBadge(res.unread); })
     .catch(function () {});
-  if (location.hash === "#help") open();
+  // "#help" opens the panel: the link in the answer email and in Messages
+  function fromHash() { if (location.hash === "#help") open(); }
+  window.addEventListener("hashchange", fromHash);
+  fromHash();
 })();
 </script>

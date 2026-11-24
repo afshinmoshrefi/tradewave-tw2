@@ -52,9 +52,16 @@ def _program_facts():
         s.rollback()
     finally:
         s.close()
+    minimum = comms.money(afs.payout_minimum())
     return {"pool": comms._pct(t.pool_pct), "max_discount": comms._pct(t.max_discount_pct),
             "renewal": comms._pct(t.renewal_pct),
-            "last_year": int(t.renewal_years) if t.renewal_years else None}
+            "last_year": int(t.renewal_years) if t.renewal_years else None,
+            # "The fine print" box
+            "example": comms.offer_example(t)["line"],
+            "attribution_days": comms.attribution_days(),
+            "activity_months": int(getattr(t, "activity_rule_months", 12) or 0),
+            "grace_days": afs.ACTIVITY_GRACE_DAYS,
+            "minimum": minimum[:-3] if minimum.endswith(".00") else minimum}
 
 
 def _no_store(resp, status=200):
@@ -66,8 +73,8 @@ def _no_store(resp, status=200):
 
 @bp.route("/partners/apply", methods=["GET", "POST"])
 def apply():
-    ctx = {"sizes": comms.AUDIENCE_SIZES, "f": {}, "errors": None, "done": False,
-           "limited": False, "t": _program_facts()}
+    ctx = {"sizes": comms.AUDIENCE_SIZES, "f": {}, "errors": None, "fe": {}, "field_errors": [],
+           "done": False, "limited": False, "t": _program_facts()}
     if request.method == "GET":
         return render_template("partner_apply.html", **ctx)
     s = _db()
@@ -77,7 +84,8 @@ def apply():
                 s, request.form, ip=_ip(), user_agent=request.headers.get("User-Agent"))
         except comms.CommsError as e:
             s.rollback()
-            ctx.update(errors=e.errors, f=request.form)
+            ctx.update(errors=e.errors, f=request.form, field_errors=e.fields,
+                       fe=dict(e.fields))
             return _no_store(render_template("partner_apply.html", **ctx), 400)
         except Exception:   # noqa: BLE001
             s.rollback()
@@ -114,22 +122,34 @@ def email_preferences(token):
         if aff is None:
             return _no_store(render_template("partner_email_prefs.html", invalid=True), 404)
         saved = None
-        highlight = None
+        stop = None          # the one email the link asks to stop: {id, label, state}
         if request.method == "POST":
-            if request.form.get("all_off") == "yes":
+            form = request.form
+            if form.get("stop") in comms.PREF_IDS:
+                # the single "Stop these emails" button at the top of the page
+                comms.turn_off_pref(s, aff.id, form["stop"])
+                stop = {"id": form["stop"], "state": "done"}
+            elif form.get("undo") in comms.PREF_IDS:
+                comms.set_disabled_prefs(
+                    s, aff.id, comms.disabled_prefs(s, aff.id) - {form["undo"]})
+                stop = {"id": form["undo"], "state": "undone"}
+            elif form.get("all_off") == "yes":
                 comms.set_disabled_prefs(s, aff.id, comms.PREF_IDS)
                 saved = "Done. All optional partner emails are off. Required notices still reach you."
             else:
-                on = set(request.form.getlist("on"))
+                on = set(form.getlist("on"))
                 comms.set_disabled_prefs(s, aff.id, [p for p in comms.PREF_IDS if p not in on])
                 saved = "Saved. Your email preferences are updated."
         else:
             off = request.args.get("off") or ""
-            if off in comms.PREF_IDS and off not in comms.disabled_prefs(s, aff.id):
-                highlight = off
+            if off in comms.PREF_IDS:
+                stop = {"id": off, "state": ("already" if off in comms.disabled_prefs(s, aff.id)
+                                             else "ask")}
+        if stop:
+            stop["label"] = comms.PREF_LABEL[stop["id"]]
         resp = render_template(
             "partner_email_prefs.html", invalid=False, code=aff.code, saved=saved,
-            highlight=highlight, prefs=comms.pref_rows(s, aff.id),
+            stop=stop, prefs=comms.pref_rows(s, aff.id),
             required=comms.REQUIRED_NOTICES, action=request.path)
         return _no_store(resp)
     finally:

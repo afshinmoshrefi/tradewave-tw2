@@ -13,7 +13,10 @@
       <span><b>{{ p.label }}</b><span class="small soft">{{ p.help }}</span></span>
     </label>
     {% endfor %}
-    <button class="btn-primary" type="submit" style="margin-top:14px;">Save email preferences</button>
+    <div class="row" style="margin-top:14px;">
+      <button class="btn-primary" type="submit">Save email preferences</button>
+      <button class="btn-secondary" type="button" onclick="var b=this.form.querySelectorAll('input[name=on]');for(var i=0;i<b.length;i++)b[i].checked=false;">Untick all</button>
+    </div>
   </form>
   <details class="more" style="margin-top:16px;">
     <summary>Emails every partner gets</summary>

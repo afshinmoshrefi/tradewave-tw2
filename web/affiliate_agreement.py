@@ -117,6 +117,12 @@ def join_link(affiliate) -> str:
     return f"{_base()}/join/{affiliate.code}"
 
 
+def _partner_reply_to() -> str:
+    """Reply-To on every partner email: the support inbox, so a partner who
+    answers the email reaches a person (the From address does not)."""
+    return (getattr(config, "AFFILIATE_SUPPORT_EMAIL", "") or "help@tradewave.ai").strip()
+
+
 def dashboard_link() -> str:
     """The affiliate's logged-in partner dashboard (web/affiliate_portal/)."""
     return f"{_base()}/account/affiliate"
@@ -445,7 +451,8 @@ def email_signed_copy(affiliate) -> bool:
             sent = bool(resend_send_email(
                 to=affiliate.email,
                 subject="Your signed TradeWave Affiliate Agreement",
-                body_text=body, html=html))
+                body_text=body, html=html,
+                reply_to=_partner_reply_to()))
         except Exception:
             pass
     # 2) support inbox: a notification (the full doc lives in Flask-Admin).
@@ -527,6 +534,7 @@ def email_signing_link(affiliate, note=None) -> bool:
         return bool(resend_send_email(
             to=affiliate.email,
             subject="Sign your TradeWave Affiliate Agreement",
-            body_text=body_text, html=html_body))
+            body_text=body_text, html=html_body,
+            reply_to=_partner_reply_to()))
     except Exception:
         return False

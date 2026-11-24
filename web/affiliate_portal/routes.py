@@ -639,7 +639,7 @@ def promote():
                          .replace("/join/ANNE", "/join/%s" % aff.code)
                          .replace("?code=ANNE", "?code=%s" % aff.code))
     return render_template("aff_promote.html", **_ctx(
-        aff, "promote", offer=offer, promos=promos, swipes=dash.swipe_copy(aff, links, offer),
+        aff, "promote", offer=offer, promos=promos, swipes=dash.swipe_copy(aff, links, offer, promos),
         disclosure=dash.DISCLOSURE, guide_html=html, ai_md=ai_md,
         logo_urlpath=AFFILIATE_LOGO_URLPATH))
 
@@ -769,7 +769,7 @@ def settings_discount():
             wait = asvc.next_discount_change_at(live)
             if wait is not None:
                 flash("You can change your discount once every 24 hours. Next change "
-                      "available %s UTC." % wait.strftime("%Y-%m-%d %H:%M"), "error")
+                      "available %s UTC." % ("%d %s" % (wait.day, wait.strftime("%b %Y, %H:%M"))), "error")
                 return back
             if (request.form.get("confirm") != "yes"
                     or request.form.get("confirm_for", dash.fmt_pct(new)) != dash.fmt_pct(new)):

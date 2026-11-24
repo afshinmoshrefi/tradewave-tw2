@@ -1059,13 +1059,63 @@ def action_items(aff, activity, urls):
 DISCLOSURE = "I earn a commission if you subscribe through my link."
 
 
-def swipe_copy(aff, links, offer):
+def sale_for_copy(promos):
+    """The live sale to write copy about: the first plan where the SALE price
+    beats the partner's own discount (None when the partner discount wins
+    everywhere, or there is no sale). Annual plans first."""
+    for card in (promos or []):
+        plans = sorted((p for p in card["plans"] if p.get("sale_wins")),
+                       key=lambda p: p["interval"] != "year")
+        if plans:
+            p = plans[0]
+            return {"name": card["name"], "plan": p["plan"], "ends": card["ends"],
+                    "price": fmt_price(p["sale_cents"]), "list": fmt_price(p["list_cents"]),
+                    "term": p["term"]}
+    return None
+
+
+def swipe_copy(aff, links, offer, promos=None):
     """Ready-to-post copy per channel, prefilled with the partner's code and
-    discount, always ending in the FTC disclosure line."""
+    discount, always ending in the FTC disclosure line. While a TradeWave
+    sale beats the partner's discount, the copy is the SALE version (the
+    price the customer really gets through the link); each item then says so
+    in `sale`."""
     code = aff.code
     join = links["join"]
     d = offer["discount_year"]
     has_disc = d not in ("", "0")
+    sale = sale_for_copy(promos)
+    if sale:
+        # The link applies the sale price on its own - no code to type.
+        deal = "%s %s for %s %s (normally %s)" % (sale["name"], sale["plan"], sale["price"],
+                                                  sale["term"], sale["list"])
+        tail = "The sale ends %s." % sale["ends"]
+        tag = "%s version - ends %s" % (sale["name"], sale["ends"])
+        # the sale covers some plans only; on the others the partner's code still applies
+        other = (" On the other plans my code %s gets you %s%% off your first year." % (code, d)
+                 if has_disc else "")
+        return [
+            {"key": "social", "channel": "Social post", "sale": tag,
+             "text": ("Before I place a trade I check whether the market has a seasonal habit. "
+                      "TradeWave shows how a pattern did in every past year, drawdowns included. "
+                      "Right now: %s. %s%s Use my link: %s\n\n%s" % (deal, tail, other, join, DISCLOSURE))},
+            {"key": "email", "channel": "Email or newsletter", "sale": tag,
+             "text": ("Subject: TradeWave is on sale until %s\n\n"
+                      "I use TradeWave to check whether a stock, ETF or market has a repeatable "
+                      "seasonal tendency before I act. It shows each past year, not just the "
+                      "average, so you can see the bad years too. It is research, not advice, and "
+                      "past patterns do not guarantee future results.\n\n"
+                      "Right now: %s. %s%s\n\nMy link applies the sale price for you: %s\n\n%s"
+                      % (sale["ends"], deal, tail, other, join, DISCLOSURE))},
+            {"key": "video", "channel": "Video or podcast", "sale": tag,
+             "text": ("Today's research came from TradeWave, which maps seasonal patterns across "
+                      "decades of data. Right now: %s. %s The link is in the description. %s"
+                      % (deal, tail, DISCLOSURE))},
+            {"key": "bio", "channel": "Link in bio", "sale": tag,
+             "text": ("Seasonal market research I use: %s (%s, ends %s). %s"
+                      % (join, "%s %s %s" % (sale["plan"], sale["price"], sale["term"]),
+                         sale["ends"], DISCLOSURE))},
+        ]
     # At 0% there is no checkout code to type (no Stripe coupon): link only.
     deal = ("%s%% off your first year with my code %s" % (d, code)) if has_disc else "my link"
     return [

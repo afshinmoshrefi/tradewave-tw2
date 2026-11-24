@@ -890,7 +890,10 @@ def fill_copy(body, affiliate, links, discount="") -> str:
 def creatives_for_partner(session, affiliate, links, discount="", now=None) -> dict:
     """Active library items a partner may use right now, filled in:
     {"images": [...], "texts": [...]}. An item tied to a campaign shows only
-    while that campaign is live."""
+    while that campaign is live: it disappears by itself when the campaign
+    ends (or is paused), and says when that will be while it shows.
+    `quotes_discount` marks general copy that states the partner's own
+    discount, so the page can warn when a live sale is the better price."""
     import affiliate_agreement as agr
     from markupsafe import escape
     C = om.AffiliateCreative
@@ -900,13 +903,18 @@ def creatives_for_partner(session, affiliate, links, discount="", now=None) -> d
         camp = c.campaign
         if camp is not None and not afs.campaign_is_live(camp, now):
             continue
+        ends = afs._utc(camp.ends_at) if camp is not None and camp.ends_at else None
         item = {"id": c.id, "kind": c.kind, "kind_label": CREATIVE_KIND_LABELS[c.kind], "title": c.title,
-                "campaign": camp.name if camp is not None else None}
+                "campaign": camp.name if camp is not None else None,
+                "ends": ("%d %s" % (ends.day, ends.strftime("%b"))) if ends else None,
+                "quotes_discount": camp is None and "{discount}" in (c.body or "")}
         if c.kind in CREATIVE_IMAGE_KINDS:
             if creative_path(c) is None:
                 continue
             public = "%s%s/%s" % (base, CREATIVE_URLPATH, c.file_name)
             item.update(width=c.width, height=c.height, public_url=public,
+                        # a wide strip (leaderboard) gets the full row so its text is readable
+                        wide=bool(c.width and c.height and c.width >= 3 * c.height),
                         embed='<a href="%s"><img src="%s" alt="%s" width="%s" height="%s"></a>' % (
                             escape(links.get("join", "")), escape(public), escape(c.title),
                             c.width or "", c.height or ""),
