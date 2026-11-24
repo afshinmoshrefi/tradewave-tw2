@@ -5442,12 +5442,13 @@ _AFFILIATE_COMPUTE_TMPL = """
 <h1>Affiliate commission - what I owe</h1>
 {% if committed %}<div class="bar ok">Committed {{ '%04d-%02d'|format(y, m) }} to the payout ledger (idempotent - existing rows untouched).</div>{% endif %}
 {% if error %}<div class="bar err">Error: {{ error }}</div>{% endif %}
+{% if skipped %}<div class="bar err"><b>{{ skipped|length }} item(s) left out of this run.</b> Stripe did not answer a lookup that is needed to price them, so nothing was recorded for them (no wrong line is ever written). Wait a minute, then preview and commit this month again: {% for x in skipped[:20] %}{{ x.source }} {{ x.id }}{% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}
 <form method="get">
   <label>Year <input type="number" name="year" value="{{ y }}"></label>
   <label>Month <input type="number" name="month" value="{{ m }}" min="1" max="12"></label>
   <button class="btn" type="submit">Preview</button>
 </form>
-<p class="muted">Reads Stripe live for the month. Each payment is credited to the partner who referred the customer and priced by the terms stamped on that customer: first year = pool minus the customer discount, of the list price; promotion sale = a share of what the customer paid; renewal = the renewal rate of what the customer paid. Tax is never part of the basis. Refunds and lost or open chargebacks are deducted in the month they happen, at the original rate.</p>
+<p class="muted">Reads Stripe live for the month. Each payment is credited to the partner who referred the customer and priced by the terms stamped on that customer: first year = pool minus the customer discount, of the list price; promotion sale = a share of what the customer paid; renewal = the renewal rate of what the customer paid. Tax is never part of the basis. Refunds and lost or open chargebacks are deducted in the month they happen, at the original rate. If a chargeback is later won, or a refund fails, the commission is restored in the month that is committed next.</p>
 <p class="muted"><b>Payout minimum {{ minimum }}.</b> A month below the minimum (or negative) is not paid: it stays pending and is carried into the partner's next month with activity. Commission earned while a partner is paused is <b>held</b> and becomes payable when they are active again. A partner terminated without cause keeps the commission on payments already made, and that final balance is paid even below the minimum. A tax form must be on file before a row can be marked paid.</p>
 {% if preview %}
 <table>
@@ -5517,13 +5518,14 @@ class AffiliatePayoutComputeView(_AdminAuth, BaseView):
         preview = []
         tax = {}
         held = []
+        skipped = []
         import affiliate_admin as afa
         s = _S()
         try:
             if _rq.method == "POST" and _rq.form.get("action") == "commit":
                 afs.upsert_month(s, y, m)
                 committed = True
-            preview = afs.compute_month(s, y, m)
+            preview = afs.compute_month(s, y, m, skipped=skipped)
             from models import Affiliate as _Aff
             tax = {str(a.id): a.tax_form_type for a in s.query(_Aff).filter(
                 _Aff.tax_form_received_at.isnot(None)).all()}
@@ -5541,7 +5543,7 @@ class AffiliatePayoutComputeView(_AdminAuth, BaseView):
         return render_template_string(
             _AFFILIATE_COMPUTE_TMPL, y=y, m=m, preview=preview,
             committed=committed, error=error, totals=sorted(totals.items()), tax=tax,
-            held=held, minimum=afa.money(afa.payout_minimum_cents()),
+            held=held, skipped=skipped, minimum=afa.money(afa.payout_minimum_cents()),
             minimum_amount=afs.payout_minimum())
 
 
@@ -6141,7 +6143,7 @@ class AffiliateCommissionLineAdmin(_AdminAuth, ModelView):
     column_default_sort = ("event_at", True)
     page_size = 100
     column_formatters = {
-        "kind": lambda v, c, m, n: _affiliate_admin.LINE_KIND_LABELS.get(m.kind, m.kind),
+        "kind": lambda v, c, m, n: _affiliate_admin.line_kind_label(m),
         "state": lambda v, c, m, n: _affiliate_admin.LINE_STATE_LABELS.get(m.state, m.state),
         "hold_reason": lambda v, c, m, n: (
             _affiliate_admin.HOLD_REASON_LABELS.get(m.hold_reason, m.hold_reason or "")),

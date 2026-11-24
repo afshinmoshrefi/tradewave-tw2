@@ -44,6 +44,21 @@ LINE_KIND_LABELS = {
     "lapsed": "Renewal - not earned (partner inactive)", "refund": "Refund",
     "dispute": "Chargeback",
 }
+# A POSITIVE refund / dispute line gives an earlier clawback back (detail
+# outcome 'failed' / 'won').
+LINE_OUTCOME_LABELS = {
+    ("dispute", "won"): "Chargeback won - commission restored",
+    ("refund", "failed"): "Refund failed - commission restored",
+}
+
+
+def line_kind_label(line) -> str:
+    """Label of a ledger line (ORM row), aware of give-back lines."""
+    outcome = (getattr(line, "detail", None) or {}).get("outcome")
+    return (LINE_OUTCOME_LABELS.get((line.kind, outcome))
+            or LINE_KIND_LABELS.get(line.kind, line.kind))
+
+
 LINE_STATE_LABELS = {
     "pending": "Payable", "paid": "Paid", "held": "Held",
     "lapsed": "Not earned", "void": "Forfeited / void",

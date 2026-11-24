@@ -269,7 +269,8 @@ def test_commission_rounds_on_aggregate_not_per_line(monkeypatch):
 
 def _refund(amount, pi="pi_1", rid="re_1", status="succeeded"):
     return {"id": rid, "amount": amount, "payment_intent": pi, "charge": "ch_1",
-            "status": status, "created": 0}
+            "status": status,
+            "created": int(dt.datetime(2026, 5, 15, tzinfo=dt.timezone.utc).timestamp())}
 
 
 def test_full_refund_same_month_nets_to_zero(monkeypatch):

@@ -712,9 +712,13 @@ def _first_paid_invoice(customer_id: str, subscription_id: str | None = None,
                         coupon_id: str | None = None):
     """The earliest PAID invoice with amount_paid > 0 for a subscription (or,
     when the subscription id is unknown, the earliest carrying `coupon_id`), as
-    {"paid_at", "service_start", "invoice"} - or None. $0 trial invoices and
-    failed payments never qualify, so they never start the commission clock.
-    Never raises."""
+    {"paid_at", "service_start", "invoice"} - or None when Stripe ANSWERED and
+    there is none. $0 trial invoices and failed payments never qualify, so
+    they never start the commission clock.
+
+    A Stripe failure raises StripeLookupError. It is never turned into "no
+    invoice": the caller would then anchor the commission clock on the wrong
+    invoice, or declare an active partner lapsed, and persist that forever."""
     if not customer_id:
         return None
     try:
@@ -736,8 +740,14 @@ def _first_paid_invoice(customer_id: str, subscription_id: str | None = None,
                         "invoice": invd.get("id")}
         return best
     except Exception as e:
-        log.warning("first-paid-invoice lookup failed for %s: %s", customer_id, e)
-        return None
+        raise StripeLookupError("first-paid-invoice lookup failed for %s: %s"
+                                % (customer_id, e)) from e
+
+
+class StripeLookupError(AffiliateError):
+    """Stripe could not be asked something the engine needs to price a line
+    (a transient error). The invoice / reversal is SKIPPED for this run - not
+    booked, not persisted - and picked up by the next run."""
 
 
 def _resolve_terms(ref, aff, terms_by_id):
@@ -898,6 +908,13 @@ def _iso(v):
     return v.isoformat() if v is not None else None
 
 
+def _from_iso(v):
+    """Inverse of _iso for values read back from a persisted line dict."""
+    if isinstance(v, str):
+        return _utc(dt.datetime.fromisoformat(v))
+    return v
+
+
 def _state_for(aff) -> tuple[str, str | None]:
     """(state, hold_reason) of a freshly computed line for this partner:
     active -> estimated (payable); paused -> HELD (payable once unpaused);
@@ -914,7 +931,7 @@ def _state_for(aff) -> tuple[str, str | None]:
     return "estimated", None
 
 
-def compute_month(session, year: int, month: int, discovered=None) -> list[dict]:
+def compute_month(session, year: int, month: int, discovered=None, skipped=None) -> list[dict]:
     """Compute every partner's commission lines for the month from Stripe and
     the persisted referrals. Does NOT write anything. See _compute().
 
@@ -928,7 +945,7 @@ def compute_month(session, year: int, month: int, discovered=None) -> list[dict]
     return _compute(affiliates, year, month,
                     {r.stripe_subscription_id: r for r in referrals},
                     terms_by_id=terms_by_id, ledger=_ledger_loader(session),
-                    discovered=discovered)
+                    discovered=discovered, skipped=skipped)
 
 
 def _ledger_loader(session):
@@ -948,35 +965,66 @@ def _ledger_loader(session):
 
 
 # Dispute statuses that do NOT take money back (won, or inquiries that never
-# withdrew funds). Every other dispute status nets the commission at creation.
+# withdrew funds). Every other dispute status nets the commission.
 _DISPUTE_NO_CLAWBACK = {"won", "warning_needs_response", "warning_under_review",
                         "warning_closed"}
+# Refund statuses that mean the money did NOT (or will not) leave.
+_REFUND_UNDONE = {"failed", "canceled"}
+
+
+def _reversal_lookback_days() -> int:
+    return max(0, int(getattr(config, "AFFILIATE_REVERSAL_LOOKBACK_DAYS", 180) or 0))
 
 
 def _month_reversals(start, end):
-    """Refunds + money-withdrawing disputes CREATED in [start, end), as plain
-    dicts {kind, id, amount, charge, payment_intent, created}. Dated by when
-    the money left, so a refund of an invoice paid in an earlier (possibly
-    already-paid-out) month lands in THIS month as a negative line - the
-    clawback. Credit notes that refund money create Refund objects, so they
-    are covered here too (and are no longer netted on the invoice itself)."""
-    window = {"gte": int(start.timestamp()), "lt": int(end.timestamp())}
+    """Refunds and disputes the month's reversal pass has to look at, as plain
+    dicts {kind, id, amount, charge, payment_intent, created, status, undo}.
+
+    * CREATED in [start, end): refunds that took (or are taking) money back
+      and disputes that withdrew funds. Dated by when the money left, so a
+      refund of an invoice paid in an earlier (possibly already-paid-out)
+      month lands in THIS month as a negative line - the clawback. Credit
+      notes that refund money create Refund objects, so they are covered here
+      too (and are no longer netted on the invoice itself).
+    * Created up to AFFILIATE_REVERSAL_LOOKBACK_DAYS BEFORE the month, to
+      catch a status that changed after the event's own month was computed:
+      a dispute that was WON (the commission comes back), an inquiry that
+      ESCALATED into a real dispute (clawed back now), and a pending refund
+      that FAILED or was canceled (the clawback is undone).
+
+    `undo` is True when the event's current status means the money came back:
+    the reversal pass then books an offsetting line, but only against a
+    clawback that is already in the ledger."""
+    lo = int((start - dt.timedelta(days=_reversal_lookback_days())).timestamp())
+    month_lo = int(start.timestamp())
+    window = {"gte": lo, "lt": int(end.timestamp())}
     out = []
     for r in stripe.Refund.list(created=window, limit=100).auto_paging_iter():
         rd = r.to_dict() if hasattr(r, "to_dict") else dict(r)
-        if rd.get("status") not in ("succeeded", "pending"):
-            continue
+        status = rd.get("status")
+        undo = status in _REFUND_UNDONE
+        in_month = int(rd.get("created") or 0) >= month_lo
+        if not undo and (status not in ("succeeded", "pending") or not in_month):
+            continue                  # an earlier month's refund was booked in its own month
         out.append({"kind": "refund", "id": rd.get("id"), "amount": int(rd.get("amount") or 0),
                     "charge": rd.get("charge"), "payment_intent": rd.get("payment_intent"),
-                    "created": rd.get("created")})
+                    "created": rd.get("created"), "status": status, "undo": undo})
     for d in stripe.Dispute.list(created=window, limit=100).auto_paging_iter():
         dd = d.to_dict() if hasattr(d, "to_dict") else dict(d)
-        if dd.get("status") in _DISPUTE_NO_CLAWBACK:
-            continue
+        status = dd.get("status")
+        if status in _DISPUTE_NO_CLAWBACK and status != "won":
+            continue                  # an inquiry: no money has moved (yet)
         out.append({"kind": "dispute", "id": dd.get("id"), "amount": int(dd.get("amount") or 0),
                     "charge": dd.get("charge"), "payment_intent": dd.get("payment_intent"),
-                    "created": dd.get("created")})
+                    "created": dd.get("created"), "status": status, "undo": status == "won"})
+    out.sort(key=lambda e: (int(e.get("created") or 0), e.get("id") or ""))
     return out
+
+
+def undo_source_id(ev) -> str:
+    """source_id of the line that gives a clawback back: '<dispute id>:won' or
+    '<refund id>:failed'. Stable, so the give-back is booked exactly once."""
+    return "%s:%s" % (ev["id"], "won" if ev["kind"] == "dispute" else "failed")
 
 
 def _id_of(v):
@@ -987,8 +1035,10 @@ def _id_of(v):
 
 def _invoice_for_reversal(ev):
     """The paid invoice (dict, discounts expanded) a refund/dispute reverses,
-    or None. API 2025+ links payments to invoices via InvoicePayment; older
-    APIs carried charge.invoice. Never raises."""
+    or None when the payment belongs to no invoice. API 2025+ links payments
+    to invoices via InvoicePayment; older APIs carried charge.invoice. A
+    Stripe failure raises StripeLookupError (the reversal is retried on the
+    next run instead of being dropped)."""
     inv_id = None
     pi = _id_of(ev.get("payment_intent"))
     try:
@@ -1008,8 +1058,7 @@ def _invoice_for_reversal(ev):
         inv = stripe.Invoice.retrieve(inv_id, expand=["discounts"])
         return inv.to_dict() if hasattr(inv, "to_dict") else dict(inv)
     except Exception as e:   # noqa: BLE001
-        log.warning("reversal %s: invoice lookup failed: %s", ev.get("id"), e)
-        return None
+        raise StripeLookupError("reversal %s: invoice lookup failed: %s" % (ev.get("id"), e)) from e
 
 
 def _paid_invoices_in(start, end):
@@ -1049,7 +1098,7 @@ def _ref_view(value):
 
 
 def _compute(affiliates, year: int, month: int, referrals_by_sub=None, *,
-             terms_by_id=None, ledger=None, discovered=None) -> list[dict]:
+             terms_by_id=None, ledger=None, discovered=None, skipped=None) -> list[dict]:
     """Pure core (testable): given duck-typed partner objects, read Stripe for
     the month and return per-(partner, currency) totals plus every line.
 
@@ -1063,7 +1112,13 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None, *,
     (invoice_ids) -> LedgerView, of already-persisted lines. discovered: an
     optional dict the engine fills with {subscription_id: {"first_paid_at",
     "year_anchor_at"}} for referrals whose clock it had to derive from Stripe
-    (upsert_month persists those).
+    (upsert_month persists those). Only clocks READ from Stripe are reported;
+    a clock the engine had to guess from the invoice in hand is used for this
+    run but never persisted. skipped: an optional list the engine appends
+    {"source", "id", "error"} to for every invoice / reversal it could not
+    price because a Stripe lookup FAILED (StripeLookupError). A skipped source
+    gets no line at all - never a wrong one - and is picked up by the next
+    run.
 
     Two passes:
       1. every invoice PAID in the month -> a sale line (first_year / promo /
@@ -1073,7 +1128,12 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None, *,
          NEGATIVE line at the ORIGINAL sale line's rate and formula, pro-rated
          by the share of the payment that was reversed and capped at the
          original commission (can make a month negative; upsert_month carries
-         that forward).
+         that forward). The pass also follows STATUS CHANGES of earlier
+         events (see _month_reversals): a dispute that is later won, or a
+         pending refund that later fails, gets a POSITIVE line equal to the
+         booked clawback (source_id '<id>:won' / '<id>:failed', same kind,
+         detail outcome 'won' / 'failed'); an inquiry that later escalates is
+         clawed back when it is first seen as a real dispute.
 
     Each result dict: affiliate_id, code, name, email, payout_email,
     payout_method, notes, currency, gross_revenue (paid less tax, payable
@@ -1145,9 +1205,14 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None, *,
         fp = _utc(getattr(ref, "first_paid_at", None))
         anchor = _utc(getattr(ref, "year_anchor_at", None))
         if fp is None or anchor is None:
+            # A Stripe failure raises StripeLookupError: the caller skips the
+            # invoice. It must never fall through to the guess below.
             found = _first_paid_invoice(invd.get("customer"), subscription_id=sub_id,
                                         coupon_id=None if sub_id else aff.stripe_coupon_id)
-            if found is None:
+            guessed = found is None
+            if guessed:
+                # Stripe answered "no earlier paid invoice": this invoice is
+                # the first. Good enough to price it now, not to persist.
                 found = {"paid_at": _invoice_paid_at(invd),
                          "service_start": _invoice_service_start(invd)}
             derived_fp = fp is None
@@ -1157,7 +1222,7 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None, *,
                 first_paid.setdefault(str(aff.id), []).append(fp)
                 unresolved[str(aff.id)] = [x for x in unresolved.get(str(aff.id), [])
                                            if x[0] != sub_id]
-            if discovered is not None and sub_id and ref is not None:
+            if discovered is not None and sub_id and ref is not None and not guessed:
                 discovered[sub_id] = {"first_paid_at": fp, "year_anchor_at": anchor}
         clock_cache[key] = {"first_paid_at": fp, "year_anchor_at": anchor}
         return clock_cache[key]
@@ -1169,18 +1234,24 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None, *,
             if _is_active_at(first_paid.get(aid, ()), at, months):
                 return True
             # Referrals whose first payment was never stamped (missed webhook):
-            # look them up once before declaring the partner lapsed.
-            pending, unresolved[aid] = unresolved.get(aid, []), []
-            for sub, r in pending:
+            # look them up once before declaring the partner lapsed. A Stripe
+            # failure raises StripeLookupError with the referral left
+            # unresolved: "could not ask" is never booked as "lapsed".
+            pending = unresolved.get(aid, [])
+            if not pending:
+                return False
+            while pending:
+                sub, r = pending[0]
                 found = _first_paid_invoice(getattr(r, "stripe_customer_id", None),
                                             subscription_id=sub)
+                pending.pop(0)
                 if found:
                     first_paid.setdefault(aid, []).append(found["paid_at"])
                     if discovered is not None and sub not in discovered:
                         discovered[sub] = {"first_paid_at": found["paid_at"],
                                            "year_anchor_at": (_utc(getattr(r, "year_anchor_at", None))
                                                               or found["service_start"])}
-            return bool(pending) and _is_active_at(first_paid.get(aid, ()), at, months)
+            return _is_active_at(first_paid.get(aid, ()), at, months)
         return is_active
 
     def price(aff, ref, invd):
@@ -1262,13 +1333,24 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None, *,
         entry["detail"].append(line)
         return line
 
+    def skip(source, sid, err):
+        """A Stripe lookup failed: leave the source out of this run entirely."""
+        log.warning("compute %04d-%02d: %s %s SKIPPED for this run (not booked, retried on "
+                    "the next run): %s", year, month, source, sid, err)
+        if skipped is not None:
+            skipped.append({"source": source, "id": sid, "error": str(err)})
+
     # --- pass 1: payments ---------------------------------------------------
     invoices = _paid_invoices_in(start, end)
     # Deliberately NOT caught: if Stripe can't list refunds/disputes, the
     # compute fails rather than over-paying with the clawback silently skipped.
     reversal_events = []
     for ev in _month_reversals(start, end):
-        invd = _invoice_for_reversal(ev)
+        try:
+            invd = _invoice_for_reversal(ev)
+        except StripeLookupError as e:
+            skip(ev["kind"], ev["id"], e)
+            continue
         if invd:
             reversal_events.append((ev, invd))
     book = ledger
@@ -1294,8 +1376,15 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None, *,
         attributed.append((aff, ref, invd))
     # Start every clock BEFORE pricing, so a first payment earlier in the month
     # counts toward the activity rule of a renewal paid later in it.
+    priceable = []
     for aff, ref, invd in attributed:
-        clock(aff, ref, invd)
+        try:
+            clock(aff, ref, invd)
+        except StripeLookupError as e:
+            skip("invoice", invd.get("id"), e)
+            continue
+        priceable.append((aff, ref, invd))
+    attributed = priceable
 
     def show_persisted(aff, persisted):
         """A line already in the ledger is never re-priced. Show it in the
@@ -1319,7 +1408,11 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None, *,
         if persisted is not None:
             show_persisted(aff, persisted)
             continue
-        fields = price(aff, ref, invd)
+        try:
+            fields = price(aff, ref, invd)
+        except StripeLookupError as e:
+            skip("invoice", invd.get("id"), e)
+            continue
         if fields is None:
             continue
         this_run[(str(aff.id), invd.get("id"))] = add_line(aff, ref, invd, fields, {
@@ -1333,6 +1426,40 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None, *,
         if aff is None or is_self_referral(aff, invd):
             continue
         booked = book.line(aff.id, ev["id"])
+        if ev.get("undo"):
+            # Dispute WON / refund FAILED: the money came back, so give the
+            # booked clawback back - once (keyed on '<id>:won' / ':failed').
+            # Nothing was booked -> nothing to give back.
+            if booked is not None:
+                show_persisted(aff, booked)
+            undo_id = undo_source_id(ev)
+            given_back = book.line(aff.id, undo_id)
+            if given_back is not None:
+                show_persisted(aff, given_back)
+                continue
+            claw = _dec(booked.get("amount")) if booked is not None else Decimal("0")
+            if claw >= 0 or booked.get("state") == "void":
+                continue
+            add_line(aff, ref, invd, {
+                "kind": ev["kind"],
+                "amount": -claw,
+                "basis_cents": -int(booked.get("basis_cents") or 0),
+                "net_paid_cents": -int(booked.get("net_paid_cents") or 0),
+                "rate_pct": booked.get("rate_pct"),
+                "year_number": booked.get("year_number"),
+                "offer_type": booked.get("offer_type"),
+                "service_period_start": _from_iso(booked.get("service_period_start")),
+            }, {
+                "source_id": undo_id,
+                ev["kind"]: ev["id"],
+                "outcome": "won" if ev["kind"] == "dispute" else "failed",
+                "restores": ev["id"],
+                "reverses_kind": booked.get("reverses_kind"),
+                "created": ev.get("created"),
+                "event_at": min(end - dt.timedelta(seconds=1),
+                                max(start, dt.datetime.now(dt.timezone.utc))),
+            })
+            continue
         if booked is not None:
             show_persisted(aff, booked)               # this reversal is already booked
             continue
@@ -1343,7 +1470,11 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None, *,
         # now from the same immutable referral snapshot.
         orig = book.sale(aff.id, invd.get("id")) or this_run.get((str(aff.id), invd.get("id")))
         if orig is None:
-            fields = price(aff, ref, invd)
+            try:
+                fields = price(aff, ref, invd)
+            except StripeLookupError as e:
+                skip(ev["kind"], ev["id"], e)
+                continue
             if fields is None:
                 continue
             orig = {"kind": fields["kind"], "amount": fields["amount"],
@@ -1378,7 +1509,9 @@ def _compute(affiliates, year: int, month: int, referrals_by_sub=None, *,
             "reverses_kind": orig.get("kind"),
             "reversed_cents": rev_cents,
             "created": ev.get("created"),
-            "event_at": _utc(ev.get("created")) or start,
+            # A dispute first seen after its own month (an escalated inquiry)
+            # is dated into THIS month, where it is booked.
+            "event_at": max(start, _utc(ev.get("created")) or start),
         })
 
     if unattributed:
@@ -1544,7 +1677,8 @@ def _persist_lines(session, rows, period_start, frozen) -> int:
                 kind=ln["kind"],
                 source_id=ln["source_id"],
                 stripe_invoice_id=ln.get("invoice"),
-                stripe_reversal_id=ln["source_id"] if ln["kind"] in REVERSAL_KINDS else None,
+                stripe_reversal_id=((ln.get(ln["kind"]) or ln["source_id"])
+                                    if ln["kind"] in REVERSAL_KINDS else None),
                 stripe_customer_id=ln.get("customer"),
                 stripe_subscription_id=ln.get("subscription"),
                 currency=ln["currency"],
@@ -1617,7 +1751,12 @@ def upsert_month(session, year: int, month: int) -> list:
                         AffiliateReferral)
 
     discovered: dict = {}
-    rows = compute_month(session, year, month, discovered=discovered)
+    skipped: list = []
+    rows = compute_month(session, year, month, discovered=discovered, skipped=skipped)
+    if skipped:
+        log.warning("upsert %04d-%02d: %d source(s) skipped after a Stripe lookup failure - "
+                    "nothing was booked for them; commit the month again: %s",
+                    year, month, len(skipped), [x["id"] for x in skipped][:25])
     _, _, period_start, period_end = _month_window(year, month)
 
     # Persist the commission clocks the engine had to derive from Stripe.

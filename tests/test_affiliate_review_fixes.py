@@ -203,3 +203,221 @@ class TestTerminationWithoutCause:
         html = text_of(admin.get("/admin/affiliate_change_terms/?id=%s" % aid))
         assert "Release held lines" not in html.split("</h1>", 1)[1].replace(
             "1 held line(s) of ANNE released", "")
+
+
+# ============================================================================
+# Finding 3 - a transient Stripe error must never become a permanent line
+# ============================================================================
+
+def flaky_customer_lookups(monkeypatch, failures=1):
+    """Make the per-customer invoice history lookup raise `failures` times."""
+    real = stripe.Invoice.list
+    state = {"left": failures, "raised": 0}
+
+    def invoice_list(**kw):
+        if "customer" in kw and state["left"] > 0:
+            state["left"] -= 1
+            state["raised"] += 1
+            raise stripe.error.APIConnectionError("stripe timed out")
+        return real(**kw)
+    monkeypatch.setattr(stripe.Invoice, "list", invoice_list)
+    return state
+
+
+class TestTransientStripeError:
+    def _monthly_customer(self, db, world):
+        """A monthly customer who first paid in Jan 2025 (webhook missed: the
+        referral clock is not stamped). May 2026 is month 17: a RENEWAL."""
+        aff = make_partner(db)
+        ref = make_referral(db, aff, billing_interval="month", list_price_cents=5000)
+        make_referral(db, aff, sub="sub_new", customer="cus_new",       # keeps the partner active
+                      first_paid_at=day(2026, 3, 1), year_anchor_at=day(2026, 3, 1))
+        first = invoice("in_first", paid=4000, list_cents=5000, paid_at=ts(2025, 1, 10), interval="month")
+        may = invoice("in_may", paid=5000, paid_at=ts(2026, 5, 10), interval="month")
+        world.invoices = [first, may]
+        return aff, ref
+
+    def test_failed_clock_lookup_skips_the_invoice_and_persists_nothing(self, db, stripe_world,
+                                                                        monkeypatch, caplog):
+        aff, ref = self._monthly_customer(db, stripe_world)
+        state = flaky_customer_lookups(monkeypatch)
+        with caplog.at_level(logging.WARNING, logger=afs.log.name):
+            afs.upsert_month(db, *MAY)
+        assert state["raised"] == 1
+        assert ledger(db) == []                                        # not booked
+        db.refresh(ref)
+        assert ref.first_paid_at is None and ref.year_anchor_at is None    # no fallback anchor
+        assert "in_may" in caplog.text and "SKIPPED" in caplog.text
+
+        afs.upsert_month(db, *MAY)                                     # Stripe is back
+        (line,) = ledger(db)
+        assert (line.kind, line.year_number, line.amount) == ("renewal", 2, D("12.50"))
+        db.refresh(ref)
+        assert afs._utc(ref.first_paid_at) == day(2025, 1, 10)
+        assert afs._utc(ref.year_anchor_at) == day(2025, 1, 10)
+
+    def test_skipped_sources_are_reported(self, db, stripe_world, monkeypatch):
+        self._monthly_customer(db, stripe_world)
+        flaky_customer_lookups(monkeypatch)
+        skipped = []
+        assert afs.compute_month(db, *MAY, skipped=skipped) == []
+        assert [(x["source"], x["id"]) for x in skipped] == [("invoice", "in_may")]
+
+    def test_unresolved_activity_never_books_a_lapsed_line(self, db, stripe_world, monkeypatch):
+        """The renewal is only payable if the partner's other (unstamped)
+        referral paid recently. Stripe fails on that lookup: no lapsed line."""
+        aff = make_partner(db)
+        make_referral(db, aff, first_paid_at=day(2024, 5, 10), year_anchor_at=day(2024, 5, 10))
+        make_referral(db, aff, sub="sub_new", customer="cus_new")       # clock not stamped
+        stripe_world.invoices = [
+            invoice("in_renew", paid=39900, paid_at=ts(2026, 5, 10)),
+            invoice("in_new", paid=8000, list_cents=10000, paid_at=ts(2026, 2, 1),
+                    sub="sub_new", customer="cus_new"),
+        ]
+        flaky_customer_lookups(monkeypatch)
+        afs.upsert_month(db, *MAY)
+        assert ledger(db) == []                                        # NOT a lapsed line
+        afs.upsert_month(db, *MAY)
+        (line,) = ledger(db)
+        assert (line.kind, line.state, line.amount) == ("renewal", "pending", D("99.75"))
+
+    def test_a_guessed_anchor_is_used_but_never_persisted(self, db, stripe_world, monkeypatch):
+        """Stripe answers, but knows no earlier paid invoice: the invoice in
+        hand prices the line, and the referral row is left for the webhook."""
+        aff = make_partner(db)
+        ref = make_referral(db, aff)
+        stripe_world.invoices = [invoice(paid=8000, list_cents=10000, paid_at=PAID_MAY)]
+        real = stripe.Invoice.list
+        monkeypatch.setattr(stripe.Invoice, "list",
+                            lambda **kw: FakeList([]) if "customer" in kw else real(**kw))
+        afs.upsert_month(db, *MAY)
+        assert ledger(db)[0].kind == "first_year"
+        db.refresh(ref)
+        assert ref.first_paid_at is None and ref.year_anchor_at is None
+
+    def test_failed_reversal_lookup_is_skipped_not_dropped(self, db, stripe_world, monkeypatch):
+        aff = make_partner(db)
+        make_referral(db, aff, first_paid_at=day(2026, 4, 10), year_anchor_at=day(2026, 4, 10))
+        inv = invoice(paid=8000, list_cents=10000, paid_at=ts(2026, 4, 10))
+        stripe_world.invoices = [inv]
+        stripe_world.by_pi = {"pi_1": inv}
+        afs.upsert_month(db, 2026, 4)
+        stripe_world.refunds = [refund(8000, created=ts(2026, 5, 5))]
+        real = stripe.InvoicePayment.list
+        calls = {"n": 0}
+
+        def ip_list(**kw):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise stripe.error.APIConnectionError("stripe timed out")
+            return real(**kw)
+        monkeypatch.setattr(stripe.InvoicePayment, "list", ip_list)
+        skipped = []
+        afs.compute_month(db, *MAY, skipped=skipped)
+        assert [(x["source"], x["id"]) for x in skipped] == [("refund", "re_1")]
+        afs.upsert_month(db, *MAY)
+        assert [(l.kind, l.amount) for l in ledger(db)] == [("first_year", D("30")), ("refund", D("-30"))]
+
+
+# ============================================================================
+# Finding 5 - dispute won / inquiry escalated / refund failed AFTER the month
+# ============================================================================
+
+class TestReversalStatusChanges:
+    def _april_sale(self, db, world):
+        aff = make_partner(db)
+        make_referral(db, aff, first_paid_at=day(2026, 4, 10), year_anchor_at=day(2026, 4, 10))
+        inv = invoice(paid=8000, list_cents=10000, paid_at=ts(2026, 4, 10))
+        world.invoices = [inv]
+        world.by_pi = {"pi_1": inv}
+        afs.upsert_month(db, 2026, 4)
+        return aff
+
+    def _lines(self, db):
+        return [(l.source_id, l.kind, l.amount, l.period_month.month) for l in ledger(db)]
+
+    def test_a_dispute_that_is_later_won_gives_the_commission_back(self, db, stripe_world):
+        import affiliate_admin as afa
+        self._april_sale(db, stripe_world)
+        dispute = {"id": "dp_1", "amount": 8000, "payment_intent": "pi_1",
+                   "status": "needs_response", "created": ts(2026, 5, 9)}
+        stripe_world.disputes = [dispute]
+        afs.upsert_month(db, *MAY)
+        assert self._lines(db)[-1] == ("dp_1", "dispute", D("-30"), 5)
+        dispute["status"] = "won"
+        afs.upsert_month(db, 2026, 6)
+        afs.upsert_month(db, 2026, 6)                                  # idempotent
+        afs.upsert_month(db, 2026, 7)                                  # ... in later months too
+        assert self._lines(db) == [("in_1", "first_year", D("30"), 4),
+                                   ("dp_1", "dispute", D("-30"), 5),
+                                   ("dp_1:won", "dispute", D("30"), 6)]
+        won = ledger(db)[-1]
+        assert (won.detail["outcome"], won.stripe_reversal_id, won.stripe_invoice_id) == \
+            ("won", "dp_1", "in_1")
+        assert (won.basis_cents, won.net_paid_cents) == (10000, 8000)
+        assert afa.line_kind_label(won) == "Chargeback won - commission restored"
+        assert sum(l.amount for l in ledger(db)) == D("30")
+
+    def test_a_dispute_won_before_it_was_ever_clawed_back_books_nothing(self, db, stripe_world):
+        self._april_sale(db, stripe_world)
+        stripe_world.disputes = [{"id": "dp_1", "amount": 8000, "payment_intent": "pi_1",
+                                  "status": "won", "created": ts(2026, 5, 9)}]
+        afs.upsert_month(db, *MAY)
+        afs.upsert_month(db, 2026, 6)
+        assert self._lines(db) == [("in_1", "first_year", D("30"), 4)]
+
+    def test_an_inquiry_that_escalates_later_is_clawed_back(self, db, stripe_world):
+        self._april_sale(db, stripe_world)
+        dispute = {"id": "dp_1", "amount": 8000, "payment_intent": "pi_1",
+                   "status": "warning_needs_response", "created": ts(2026, 5, 9)}
+        stripe_world.disputes = [dispute]
+        afs.upsert_month(db, *MAY)
+        assert len(ledger(db)) == 1                                    # an inquiry moves no money
+        dispute["status"] = "needs_response"
+        afs.upsert_month(db, 2026, 6)
+        afs.upsert_month(db, 2026, 6)
+        assert self._lines(db)[1:] == [("dp_1", "dispute", D("-30"), 6)]
+        assert afs._utc(ledger(db)[1].event_at) == day(2026, 6, 1)
+
+    def test_a_pending_refund_that_fails_is_given_back(self, db, stripe_world):
+        import affiliate_admin as afa
+        self._april_sale(db, stripe_world)
+        pending = refund(8000, created=ts(2026, 5, 5), status="pending")
+        stripe_world.refunds = [pending]
+        afs.upsert_month(db, *MAY)
+        assert self._lines(db)[-1] == ("re_1", "refund", D("-30"), 5)
+        pending["status"] = "failed"
+        afs.upsert_month(db, 2026, 6)
+        afs.upsert_month(db, 2026, 6)
+        assert self._lines(db)[2:] == [("re_1:failed", "refund", D("30"), 6)]
+        assert afa.line_kind_label(ledger(db)[-1]) == "Refund failed - commission restored"
+        # the give-back frees the invoice: a later real refund is clawed back in full
+        stripe_world.refunds.append(refund(8000, rid="re_2", created=ts(2026, 7, 3)))
+        afs.upsert_month(db, 2026, 7)
+        assert self._lines(db)[3:] == [("re_2", "refund", D("-30"), 7)]
+        assert sum(l.amount for l in ledger(db)) == D("0")
+
+    def test_a_refund_that_failed_before_it_was_booked_books_nothing(self, db, stripe_world):
+        self._april_sale(db, stripe_world)
+        stripe_world.refunds = [refund(8000, created=ts(2026, 5, 5), status="failed")]
+        afs.upsert_month(db, *MAY)
+        assert len(ledger(db)) == 1
+
+    def test_an_earlier_months_booked_refund_is_not_booked_again(self, db, stripe_world):
+        self._april_sale(db, stripe_world)
+        stripe_world.refunds = [refund(4000, created=ts(2026, 5, 5))]
+        afs.upsert_month(db, *MAY)
+        afs.upsert_month(db, 2026, 6)
+        assert self._lines(db)[1:] == [("re_1", "refund", D("-15"), 5)]
+
+    def test_lookback_is_configurable(self, monkeypatch):
+        import config
+        assert config.AFFILIATE_REVERSAL_LOOKBACK_DAYS == 180
+        assert "TW2_AFFILIATE_REVERSAL_LOOKBACK_DAYS" in open(config.__file__).read()
+        seen = {}
+        monkeypatch.setattr(config, "AFFILIATE_REVERSAL_LOOKBACK_DAYS", 30)
+        monkeypatch.setattr(stripe.Refund, "list", lambda **kw: seen.update(kw) or FakeList([]))
+        monkeypatch.setattr(stripe.Dispute, "list", lambda **kw: FakeList([]))
+        start, end, _, _ = afs._month_window(*MAY)
+        afs._month_reversals(start, end)
+        assert seen["created"] == {"gte": ts(2026, 4, 1), "lt": ts(2026, 6, 1)}

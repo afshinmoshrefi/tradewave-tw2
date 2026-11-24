@@ -80,6 +80,10 @@ FOUNDER_BILLING_PORTAL_CONFIGURATION_ID = os.environ.get(
 # invoices by `created`, so the monthly compute lists this many days before
 # the month and filters on paid_at (covers late-paid / dunning-recovered ones).
 AFFILIATE_PAID_LOOKBACK_DAYS = int(os.environ.get('TW2_AFFILIATE_PAID_LOOKBACK_DAYS', '120'))
+# The monthly reversal pass re-reads disputes and refunds created this many
+# days before the month, to follow a status that changed later: a dispute
+# that was won, an inquiry that escalated, a pending refund that failed.
+AFFILIATE_REVERSAL_LOOKBACK_DAYS = int(os.environ.get('TW2_AFFILIATE_REVERSAL_LOOKBACK_DAYS', '180'))
 # Payout minimum (small-balance hold), in cents of the payout currency. A
 # month whose payable total is below it stays pending and is carried into the
 # partner's next month with activity; "mark paid" is refused below it.
