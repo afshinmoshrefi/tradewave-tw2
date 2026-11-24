@@ -1,11 +1,11 @@
 # TW-BUG-0037: Explorer row click leaves the chart blank when the pattern started before today
 
-- Status: open
+- Status: fixed on branch, dev verification pending
 - Confidence: reproduced
 - Priority: P1. Every free Explorer user who clicks an already-started pattern sees an empty Gain-Loss Bar Chart. On Monday 2026-11-23 all five DJ30 rows were dated 2026-11-21 or 2026-11-22, so every Explorer row click failed. It also blocks the mandatory level-1 Wave Viewer staging gate.
 - First observed / last updated: 2026-11-23T19:15Z
-- Executor/session/claim time: unassigned (found by Claude during staging qualification tw2-20261123-01)
-- Authorization: documentation only. Repair needs an owner decision on intended behavior.
+- Executor/session/claim time: Claude, claimed 2026-11-24T08:50Z (found during staging qualification tw2-20261123-01)
+- Authorization: Afshin, 2026-11-24 08:49Z: fix before the staging release; Explorer row clicks request today's date; server lock and entitlements unchanged.
 
 ## User Impact and Reproduction
 
@@ -28,7 +28,7 @@ Explorer row click on a past-dated row draws the chart (canvas in `.seasonal-bar
 
 ## Implementation and Handoff
 
-Pending owner decision: either the level-1 row click requests today's date (matching the date-lock the appserver enforces), or the guard accepts the documented Explorer date-lock normalization.
+Branch `claude/explorer-row-date-20261124`. New `web-react/src/components/oppRowStartDate.js`: a logged-in user on a free ("F", date-locked) market requests the US market date (America/New_York, `currentNewYorkMarketDate`) when the clicked row started before today; rows dated today or later, paid markets and admins keep the row date. `OppTable.js` uses it in the row-click handler, including the same-opportunity check. The appserver date-lock, the response guard and entitlements are unchanged. Jest: `oppRowStartDate.test.js` (5 cases) plus the full suite, 503 passed.
 
 ## Environment Verification
 
@@ -36,4 +36,5 @@ Dev: reproduced 2026-11-23. Staging: not checked. Production: not checked (same 
 
 ## History
 
+- 2026-11-24T08:55Z, Claude: Afshin confirmed the blank chart and approved the fix; branch claude/explorer-row-date-20261124.
 - 2026-11-23T19:20Z, Claude (staging release tw2-20261123-01): reproduced on dev with candidate and prior frontend; staging deploy paused on the mandatory level-1 gate.
