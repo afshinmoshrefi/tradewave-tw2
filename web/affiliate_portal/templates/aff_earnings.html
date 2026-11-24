@@ -6,7 +6,7 @@
 
 {% if aff.status == 'paused' %}
 <div class="strip amber">
-  <div class="txt"><b>Your account is paused.</b><span>Commissions keep adding up and are paid when it is unpaused.</span></div>
+  <div class="txt"><b>Your account is paused.</b><span>Commissions keep adding up and are paid when it is reactivated.</span></div>
 </div>
 {% endif %}
 
@@ -15,15 +15,15 @@
     <div class="k">Estimated this month</div>
     <div class="v">
       {% if est_rows is none %}-{% elif est_money %}
-        {% for ccy, payable, held in est_money %}<div>{{ (payable + held)|aff_money(ccy) }}</div>{% endfor %}
+        {% for ccy, payable, held in est_money %}<div>{{ payable|aff_money(ccy) }}</div>{% endfor %}
       {% else %}$0.00{% endif %}
     </div>
-    <div class="s">{% if est_rows is none %}Not available right now.{% elif aff.status == 'paused' %}Held while paused. As of {{ est_stamp }}.{% else %}As of {{ est_stamp }}, refreshed hourly.{% endif %}</div>
+    <div class="s">{% if est_rows is none %}Not available right now.{% elif aff.status == 'paused' %}This month is in Held while you are paused. As of {{ est_stamp }}.{% else %}As of {{ est_stamp }}, refreshed hourly.{% endif %}</div>
   </div>
   {% set usd = (all_totals|selectattr('0', 'equalto', 'usd')|map(attribute='1')|list|first) or {} %}
   <div class="card tile"><div class="k">Pending</div><div class="v">{{ (usd.pending or 0)|aff_money }}</div><div class="s">Final, waiting for payout.</div></div>
   <div class="card tile"><div class="k">Paid</div><div class="v">{{ (usd.paid or 0)|aff_money }}</div><div class="s">Sent to you.</div></div>
-  <div class="card tile"><div class="k">Held</div><div class="v">{{ (usd.held or 0)|aff_money }}</div><div class="s">Earned, waiting on something.</div></div>
+  <div class="card tile"><div class="k">Held</div><div class="v">{{ (usd.held or 0)|aff_money }}</div><div class="s">Earned, not payable yet. Each line says why.</div></div>
 </div>
 
 <div class="card">
@@ -32,7 +32,7 @@
     <div><b>Estimated</b> - this month so far, can still change.</div>
     <div><b>Pending</b> - final, waiting for payout.</div>
     <div><b>Paid</b> - sent to you.</div>
-    <div><b>Held</b> - earned but waiting on something; see the reason.</div>
+    <div><b>Held</b> - earned, not payable yet. Each line says why.</div>
   </div>
 </div>
 
@@ -63,8 +63,8 @@
   {% endif %}
 
   {% if lines %}
-  <table class="stack">
-    <thead><tr><th>Date</th><th>Customer</th><th>Plan</th><th>Type</th><th class="num">Customer paid</th><th class="num">Rate</th><th class="num">Amount</th><th>State</th></tr></thead>
+  <table class="lines-desk">
+    <thead><tr><th>Date</th><th>Customer</th><th>Plan</th><th>Type</th><th class="num">Customer paid</th><th>How it's worked out</th><th class="num">Amount</th><th style="min-width:170px;">State</th></tr></thead>
     <tbody>
     {% for ln in lines %}
     <tr>
@@ -73,13 +73,41 @@
       <td data-label="Plan" class="nw">{{ ln.plan }}</td>
       <td data-label="Type">{{ ln.type }}{% if ln.is_dispute %} <span class="muted tiny">(dispute)</span>{% endif %}{% if ln.year and ln.kind in ('renewal', 'lapsed') %} <span class="muted tiny">year {{ ln.year }}</span>{% endif %}</td>
       <td data-label="Customer paid" class="num {{ 'neg' if ln.paid < 0 else '' }}">{{ ln.paid|aff_money(ln.currency) }}</td>
-      <td data-label="Rate" class="num">{{ ln.rate }}%</td>
+      <td data-label="How it's worked out" class="how">{{ ln.how }}</td>
       <td data-label="Amount" class="num {{ 'neg' if ln.amount < 0 else '' }}"><b>{{ ln.amount|aff_money(ln.currency) }}</b></td>
       <td data-label="State">{{ m.state_pill(ln.state_key, ln.state) }}{% if ln.reason %}<div class="tiny soft" style="margin-top:4px;">{{ ln.reason }}</div>{% endif %}</td>
     </tr>
     {% endfor %}
     </tbody>
   </table>
+
+  {# phone: one collapsible block per month, with the month total #}
+  <div class="lines-phone">
+    {% for g in months %}
+    <details class="month" {{ 'open' if loop.index <= 2 else '' }}>
+      <summary>
+        <span class="mname">{{ g.label }}</span>
+        <span class="mmeta">{{ g.count }} line{{ '' if g.count == 1 else 's' }}</span>
+        <span class="mtotal">{% for ccy, amt in g.totals %}<span class="{{ 'neg' if amt < 0 else '' }}">{{ amt|aff_money(ccy) }}</span>{% endfor %}</span>
+      </summary>
+      {% for ln in g.lines %}
+      <div class="line">
+        <div class="spread">
+          <b>{{ ln.customer }}</b>
+          <b class="amt {{ 'neg' if ln.amount < 0 else '' }}">{{ ln.amount|aff_money(ln.currency) }}</b>
+        </div>
+        <div class="spread soft small">
+          <span>{{ ln.date }} - {{ ln.plan }}</span>
+          {{ m.state_pill(ln.state_key, ln.state) }}
+        </div>
+        <div class="small">{{ ln.type }}{% if ln.is_dispute %} (dispute){% endif %}{% if ln.year and ln.kind in ('renewal', 'lapsed') %}, year {{ ln.year }}{% endif %}: <span class="soft">{{ ln.how }}</span></div>
+        <div class="tiny soft">Customer paid {{ ln.paid|aff_money(ln.currency) }}</div>
+        {% if ln.reason %}<div class="tiny why">{{ ln.reason }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </details>
+    {% endfor %}
+  </div>
   {% for ccy, t in totals %}
   <div class="totals">
     <span>{{ line_count }} line{{ '' if line_count == 1 else 's' }}{% if totals|length > 1 %} ({{ ccy|upper }}){% endif %}</span>
@@ -105,5 +133,23 @@
   .totals { display:flex; gap:8px 22px; flex-wrap:wrap; padding:14px 10px 2px; border-top:1px solid var(--line);
             font-size:13.5px; color:var(--muted); }
   .totals b { color:var(--text); font-variant-numeric:tabular-nums; }
+  td.how { color:var(--muted); font-size:13px; font-variant-numeric:tabular-nums; }
+  .lines-phone { display:none; }
+  details.month { border:1px solid var(--line); border-radius:12px; background:#0f0b17; margin-bottom:10px; }
+  details.month > summary { display:flex; align-items:center; gap:10px; padding:13px 12px; min-height:48px; cursor:pointer; list-style:none; }
+  details.month > summary::-webkit-details-marker { display:none; }
+  details.month > summary::before { content:"+"; color:var(--brand-text); font-weight:800; width:12px; flex:none; }
+  details.month[open] > summary::before { content:"-"; }
+  .mname { font-weight:700; }
+  .mmeta { color:var(--faint); font-size:12.5px; }
+  .mtotal { margin-left:auto; font-weight:750; font-variant-numeric:tabular-nums; text-align:right; }
+  .mtotal span { display:block; }
+  .line { border-top:1px solid var(--line-soft); padding:11px 12px; display:grid; gap:4px; }
+  .line .amt { font-variant-numeric:tabular-nums; }
+  .line .why { color:var(--warn); }
+  @media (max-width:640px) {
+    .lines-desk { display:none; }
+    .lines-phone { display:block; }
+  }
 </style>
 {% endblock %}

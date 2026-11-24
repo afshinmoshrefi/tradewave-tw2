@@ -1,9 +1,10 @@
 {% extends "aff_base.html" %}
 {% import "aff_macros.html" as m %}
-{% block heading %}Welcome back{% if aff.page_display_name or aff.name %}, {{ (aff.page_display_name or aff.name).split(' ')[0] }}{% endif %}{% endblock %}
+{% block heading %}{{ 'Welcome back' if welcome_back else 'Welcome' }}{% if aff.page_display_name or aff.name %}, {{ (aff.page_display_name or aff.name).split(' ')[0] }}{% endif %}{% endblock %}
 {% block subtitle %}Here is how your TradeWave partnership is doing.{% endblock %}
 {% block headright %}
-  <span class="pill {{ 'ok' if aff.status == 'active' else 'warn' }}">{{ 'Active' if aff.status == 'active' else ('Awaiting signature' if not aff.agreement_signed_at else 'Paused') }}</span>
+  {% set live_ok = aff.status == 'active' and aff.agreement_signed_at %}
+  <span class="pill {{ 'ok' if live_ok else 'warn' }}">{{ 'Active' if live_ok else ('Awaiting signature' if not aff.agreement_signed_at else 'Paused') }}</span>
 {% endblock %}
 {% block content %}
 
@@ -22,18 +23,31 @@
 </div>
 {% endfor %}
 
-{# ---- tiles ---- #}
-<div class="grid4">
+{# ---- first five minutes: no paying customer yet ---- #}
+{% if steps %}
+<div class="card tone-brand">
+  <h3>How you get paid</h3>
+  <ol class="steps">
+    {% for st in steps %}<li><span class="n">{{ loop.index }}</span><span>{{ st }}</span></li>{% endfor %}
+  </ol>
+  {% if not link_block %}
+  <div class="linkbox" style="margin-top:14px;"><code>{{ links.join }}</code>{{ m.copy(links.join, 'Copy link') }}</div>
+  {% else %}{{ m.copy_note(link_block) }}{% endif %}
+</div>
+{% endif %}
+
+{# ---- tiles: every dollar sits in exactly one of them ---- #}
+<div class="{{ 'grid5' if held_usd else 'grid4' }}">
   <div class="card tile">
     <div class="k">Estimated this month</div>
     <div class="v">
       {% if est_rows is none %}-{% elif est_money %}
-        {% for ccy, payable, held in est_money %}<div>{{ (payable + held)|aff_money(ccy) }}</div>{% endfor %}
+        {% for ccy, payable, held in est_money %}<div>{{ payable|aff_money(ccy) }}</div>{% endfor %}
       {% else %}$0.00{% endif %}
     </div>
     <div class="s">
       {% if est_rows is none %}Not available right now. Your statement stays the number of record.
-      {% elif aff.status == 'paused' %}Held while your account is paused. As of {{ est_stamp }}.
+      {% elif aff.status == 'paused' %}This month's commissions are in Held while you are paused. As of {{ est_stamp }}.
       {% else %}So far, can still change. As of {{ est_stamp }}.{% endif %}
     </div>
   </div>
@@ -52,10 +66,17 @@
     <div class="v">{{ active_customers }}</div>
     <div class="s">{% if total_customers %}<a href="{{ url_for('affiliate_portal.customers') }}">See all {{ total_customers }}</a>{% else %}Paying right now.{% endif %}</div>
   </div>
+  {% if held_usd %}
+  <div class="card tile">
+    <div class="k">Held</div>
+    <div class="v">{{ held_usd|aff_money }}</div>
+    <div class="s">Earned, not payable yet. <a href="{{ url_for('affiliate_portal.earnings', state='held') }}">See why</a></div>
+  </div>
+  {% endif %}
 </div>
 
 {# ---- live promotion(s) ---- #}
-{% for p in promos %}{{ m.promo_card(p, links, aff, offer.promo_pct) }}{% endfor %}
+{% for p in promos %}{{ m.promo_card(p, links, aff, offer.promo_pct, block=link_block) }}{% endfor %}
 
 {# ---- activity rule ---- #}
 {% if activity.tone != 'none' %}
@@ -90,7 +111,7 @@
     {% for s in funnel.steps %}
     <div class="fstep">
       <div class="spread">
-        <span><b>{{ s.label }}</b> <span class="muted small">{{ s.hint }}</span></span>
+        <span><b>{{ s.label }}</b> <span class="muted small{{ ' keep' if s.keep_hint else '' }}">{{ s.hint }}</span></span>
         <span><span class="fval">{{ '{:,}'.format(s.value) }}</span>{% if s.rate %} <span class="pill dim" title="Share of the step before">{{ s.rate }}</span>{% endif %}</span>
       </div>
       <div class="bar" style="margin-top:6px;"><i style="width:{{ s.pct }}%;"></i></div>
@@ -116,10 +137,16 @@
     {% if plans %}
     <table class="compact">
       <tr class="head"><th>Plan</th><th class="num">They pay</th><th class="num">You earn</th></tr>
+      {% set ns = namespace(sale=none) %}
       {% for p in plans if p.interval == 'year' %}
+      {% if p.sale %}{% set ns.sale = p %}
+      <tr><td>{{ p.plan }} <span class="pill warn">Sale</span></td><td class="num">{{ p.sale_customer_cents|aff_price }}</td><td class="num"><b>{{ p.sale_first_cents|aff_cents }}</b></td></tr>
+      {% else %}
       <tr><td>{{ p.plan }}</td><td class="num">{{ p.customer_cents|aff_price }}</td><td class="num"><b>{{ p.first_cents|aff_cents }}</b></td></tr>
+      {% endif %}
       {% endfor %}
     </table>
+    {% if ns.sale %}<p class="tiny soft" style="margin:10px 0 0;">Sale = the {{ ns.sale.sale_name }} price, until {{ ns.sale.sale_ends }}. After that {{ ns.sale.plan }} goes back to {{ ns.sale.customer_cents|aff_price }} and you earn {{ ns.sale.first_cents|aff_cents }}.</p>{% endif %}
     <p class="tiny muted" style="margin:10px 0 0;">First annual payment. <a href="{{ url_for('affiliate_portal.settings') }}#offer">All plans and renewals</a></p>
     {% endif %}
   </div>
@@ -129,18 +156,17 @@
     <h3>Share your link <span class="right"><a href="{{ url_for('affiliate_portal.links') }}">More links</a></span></h3>
     <label style="margin-top:0;">Your join page</label>
     <div class="linkbox"><code>{{ links.join }}</code>
-      <button class="copybtn" type="button" onclick="twCopy(this, '{{ links.join }}')">Copy</button></div>
+      {{ m.copy(links.join, 'Copy', link_block) }}</div>
+    {{ m.copy_note(link_block) }}
     {% if has_code %}
     <label>Your code</label>
     <div class="row">
       <span class="big mono">{{ aff.code }}</span>
-      <button class="copybtn" type="button" onclick="twCopy(this, '{{ aff.code }}')">Copy code</button>
+      {{ m.copy(aff.code, 'Copy code', link_block) }}
     </div>
-    <p class="tiny muted" style="margin:12px 0 0;">Customers can also type {{ aff.code }} at checkout.
-      {% if aff.status != 'active' %}Your link and code switch on when your account is active.{% endif %}</p>
+    <p class="tiny muted" style="margin:12px 0 0;">Customers can also type {{ aff.code }} at checkout.</p>
     {% else %}
-    <p class="small soft" style="margin:14px 0 0;">Share your link - at 0% off there is no checkout code.
-      {% if aff.status != 'active' %}Your link switches on when your account is active.{% endif %}</p>
+    <p class="small soft" style="margin:14px 0 0;">Share your link - at 0% off there is no checkout code.</p>
     {% endif %}
   </div>
 </div>
@@ -173,6 +199,12 @@
   .fval { font-weight:750; font-size:18px; font-variant-numeric:tabular-nums; }
   .mid { font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; }
   table.compact th, table.compact td { padding:8px 6px; }
+  .steps { list-style:none; margin:0; padding:0; display:grid; gap:10px; }
+  .steps li { display:flex; gap:12px; align-items:flex-start; font-size:15.5px; }
+  .steps .n { flex:none; width:26px; height:26px; border-radius:50%; background:var(--brand-soft); color:var(--brand-text);
+              font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; }
+  .compare { margin:0 0 14px; padding:10px 12px; border-radius:10px; background:rgba(15,10,21,0.45);
+             border:1px solid rgba(139,92,246,0.35); font-size:14px; }
   .chart { display:flex; gap:6px; align-items:flex-end; height:170px; }
   .chart .col { flex:1; min-width:0; height:100%; display:flex; flex-direction:column; align-items:center; gap:4px; }
   .chart .amt { font-size:10.5px; color:var(--muted); height:14px; white-space:nowrap; font-variant-numeric:tabular-nums; }
@@ -183,6 +215,7 @@
     .chart { gap:3px; height:150px; }
     .chart .amt { display:none; }
     .fstep .muted { display:none; }
+    .fstep .muted.keep { display:inline; }
   }
 </style>
 {% endblock %}

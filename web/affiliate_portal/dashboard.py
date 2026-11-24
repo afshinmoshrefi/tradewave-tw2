@@ -28,8 +28,23 @@ KIND_LABELS = {"first_year": "First year", "promo": "Promotion", "renewal": "Ren
                "lapsed": "Lapsed", "payment": "First year"}
 STATE_LABELS = {"estimated": "Estimated", "pending": "Pending", "paid": "Paid",
                 "held": "Held", "lapsed": "Lapsed", "void": "Void"}
-HOLD_REASONS = {"paused": "Account paused", "terminated": "Under review",
-                "terminated_for_cause": "Forfeited", "tax_form": "Tax form needed"}
+HELP_EMAIL = "help@tradewave.ai"
+_HELD_REVIEW = "Held for review - we'll email you. Questions: %s" % HELP_EMAIL
+HOLD_REASONS = {"paused": "Held while your account is paused - paid when it's reactivated.",
+                "unsigned": "Held until you sign your agreement.",
+                "agreement": "Held until you sign your agreement.",
+                "review": _HELD_REVIEW, "terminated": _HELD_REVIEW,
+                "terminated_for_cause": "Not payable - the account was closed for cause.",
+                "tax_form": "Held until we have your tax form."}
+# One friendly sentence for every failed discount save. Raw service / Stripe
+# text never reaches the partner (it is logged instead).
+DISCOUNT_SAVE_FAILED = ("We couldn't update your discount. Nothing changed - "
+                        "try again in a few minutes.")
+PAYOUT_SEND_RULE = "Usually sent by the 15th of the month after the statement"
+TAX_FORM_HELP = ("Don't email your tax form. Reply to your welcome email or contact %s "
+                 "and we'll send you a secure upload link." % HELP_EMAIL)
+PAYOUT_METHOD_HELP = ("Contact %s to add your PayPal or Wise email. Don't email bank or card "
+                      "details - if we need more, we'll send you a secure link." % HELP_EMAIL)
 SOURCE_LABELS = {"checkout": "Your link", "promo_code": "Typed code",
                  "signup": "Signup link", "return": "Returning customer"}
 STATUS_LABELS = {"trial": "Not paid yet", "paying": "Paying", "ended": "Ended"}
@@ -84,6 +99,29 @@ def fmt_day(value):
     """'30 Nov' - for deadlines inside the current year."""
     v = _as_date(value)
     return "%d %s" % (v.day, v.strftime("%b")) if v else "-"
+
+
+def fmt_sale_end(value, tz_name="America/New_York"):
+    """A sale deadline with its time and zone: '30 Nov, 11:59 pm ET'. The
+    campaign's ends_at is stored in UTC; shoppers read US Eastern time."""
+    v = afs._utc(_parse_iso(value))
+    if v is None:
+        return ""
+    try:
+        from zoneinfo import ZoneInfo
+        local = v.astimezone(ZoneInfo(tz_name))
+        zone = "ET"
+    except Exception:   # noqa: BLE001 - no tz database: say UTC rather than guess
+        local, zone = v, "UTC"
+    hour = local.hour % 12 or 12
+    return "%d %s, %d:%02d %s %s" % (local.day, local.strftime("%b"), hour, local.minute,
+                                     "am" if local.hour < 12 else "pm", zone)
+
+
+def fmt_sale_day(value):
+    """The calendar day of a sale deadline on the same clock as fmt_sale_end
+    ('30 Nov'), so the dashboard and the join page never disagree by a day."""
+    return fmt_sale_end(value).split(",")[0] or fmt_day(value)
 
 
 def _as_date(value):
@@ -162,10 +200,20 @@ def offer_summary(aff, terms):
     }
 
 
-def plan_table(catalog, aff, terms):
+def plan_table(catalog, aff, terms, promos=None):
     """Per plan + interval at the partner's CURRENT discount: list price,
     customer pays, partner earns on a first-year payment, partner earns per
-    renewal payment (renewal at today's list price)."""
+    renewal payment (renewal at today's list price).
+
+    `promos` (the cards from promotions()) marks the plans a live sale wins:
+    those rows carry sale=True with the SALE price and the promo commission
+    in sale_customer_cents / sale_first_cents, so the offer table and the
+    promotion card show the same numbers."""
+    sales = {}
+    for card in (promos or []):
+        for pl in card["plans"]:
+            if pl["sale_wins"]:
+                sales[pl["key"]] = (card, pl)
     out = []
     for tier, iv, lp in _catalog_rows(catalog):
         disc = afs.clamp_discount(afs.effective_discount_pct(aff, iv), terms)
@@ -176,7 +224,12 @@ def plan_table(catalog, aff, terms):
                     "list_cents": lp, "discount_pct": fmt_pct(disc),
                     "customer_cents": o["customer_pays_cents"],
                     "first_cents": o["partner_earns_cents"],
-                    "renewal_cents": r["partner_earns_cents"]})
+                    "renewal_cents": r["partner_earns_cents"], "sale": False})
+        hit = sales.get(out[-1]["key"])
+        if hit:
+            card, pl = hit
+            out[-1].update(sale=True, sale_name=card["name"], sale_ends=card["ends"],
+                           sale_customer_cents=pl["pays_cents"], sale_first_cents=pl["earn_cents"])
     return out
 
 
@@ -246,21 +299,27 @@ def promotions(session, aff, catalog, terms, now=None):
             continue
         card = cards.setdefault(camp.code, {
             "code": camp.code, "name": camp.name, "ends_at": afs._utc(camp.ends_at),
-            "ends": fmt_day(camp.ends_at), "ends_full": fmt_date(camp.ends_at),
+            "ends": fmt_sale_day(camp.ends_at), "ends_full": fmt_date(camp.ends_at),
+            "ends_time": fmt_sale_end(camp.ends_at),
             "days_left": max(0, (afs._utc(camp.ends_at) - now).days), "plans": []})
         iv = row["interval"]
         lp = row["list_price_cents"]
         sale_wins = row.get("offer") == "campaign"
+        disc = afs.clamp_discount(afs.effective_discount_pct(aff, iv), terms)
+        regular = afs.preview_offer(lp, disc, terms)
         if sale_wins:
             earn = afs.preview_promo(price, lp, terms)["partner_earns_cents"]
             pays = price
         else:
-            disc = afs.clamp_discount(afs.effective_discount_pct(aff, iv), terms)
-            o = afs.preview_offer(lp, disc, terms)
-            earn, pays = o["partner_earns_cents"], o["customer_pays_cents"]
+            earn, pays = regular["partner_earns_cents"], regular["customer_pays_cents"]
         intro_months = int(camp.intro_months or 12)
         card["plans"].append({
             "plan": plan_label(row["tier"], iv), "interval": iv,
+            "key": afs.offer_key(row["tier"], iv),
+            # what the same sale would look like at the partner's own discount
+            "regular_earn_cents": regular["partner_earns_cents"],
+            "regular_pays_cents": regular["customer_pays_cents"],
+            "extra_saving_cents": max(0, regular["customer_pays_cents"] - pays),
             "sale_cents": price, "list_cents": lp, "pays_cents": pays, "earn_cents": earn,
             "sale_wins": sale_wins,
             "term": ("first year" if iv == "year" else
@@ -270,7 +329,25 @@ def promotions(session, aff, catalog, terms, now=None):
             "earn_term": "" if iv == "year" else " a month",
             "renews_term": "" if iv == "year" else " a month",
         })
+    plan_count = len(offers)
+    for card in cards.values():
+        won = [pl for pl in card["plans"] if pl["sale_wins"]]
+        card["compare"] = [_promo_compare(card["name"], pl) for pl in won]
+        card["other_plans"] = bool(won) and plan_count > len(won)
     return sorted(cards.values(), key=lambda c: c["ends_at"])
+
+
+def _promo_compare(name, pl):
+    """'During Black Friday, Analyst annual through your link pays you $49.50
+    instead of $119.70 - your customer saves $220.20 more.' All computed."""
+    per = "" if pl["interval"] == "year" else " a month"
+    text = "During %s, %s through your link pays you %s%s" % (
+        name, pl["plan"], fmt_cents(pl["earn_cents"]), per)
+    if pl["earn_cents"] != pl["regular_earn_cents"]:
+        text += " instead of %s" % fmt_cents(pl["regular_earn_cents"])
+    if pl["extra_saving_cents"] > 0:
+        text += " - your customer saves %s more%s" % (fmt_cents(pl["extra_saving_cents"]), per)
+    return text + "."
 
 
 # ---------------------------------------------------------------------------
@@ -502,7 +579,44 @@ def forecast(session, aff, catalog, terms, now=None, months=12):
 # ---------------------------------------------------------------------------
 # earnings ledger
 # ---------------------------------------------------------------------------
-def _line_view(d, numbers, ref_by_id, ref_by_sub, tax_ok):
+def _how(kind, rate, basis_cents, net_cents, currency, list_cents=0, reverses=None):
+    """'30% of $29.00 list' / '50% of $99.00 paid' / 'Reverses 30% of $29.00
+    list': the sum a partner can check on a calculator. First-year commission
+    is a share of the LIST price; promotions and renewals are a share of what
+    the customer paid."""
+    pct = fmt_pct(rate) or "0"
+    if kind == "lapsed":
+        return "No commission - renewals were off"
+    if kind in ("refund", "dispute"):
+        on_list = (reverses in ("first_year", "payment") if reverses
+                   else abs(int(basis_cents or 0)) != abs(int(net_cents or 0)))
+        base = abs(int(basis_cents or 0)) or abs(int(net_cents or 0))
+        return "Reverses %s%% of %s %s" % (pct, fmt_cents(base, currency),
+                                           "list" if on_list else "paid")
+    if kind in ("first_year", "payment"):
+        base = int(basis_cents or 0) or int(list_cents or 0) or int(net_cents or 0)
+        return "%s%% of %s list" % (pct, fmt_cents(base, currency))
+    base = int(basis_cents or 0) or int(net_cents or 0)
+    return "%s%% of %s paid" % (pct, fmt_cents(base, currency))
+
+
+def _lapsed_reason(when, first_paid_dates, rule_months=12):
+    """'Renewals were off: no new paying customer since <date>' - the date is
+    the last NEW paying customer before this renewal. The date is only named
+    when it explains the lapse (it is outside the activity window)."""
+    before = [d for d in first_paid_dates if when is None or d <= when]
+    if before and when is not None:
+        last = max(before)
+        window_end = (afs._add_months(last, int(rule_months or 12))
+                      + dt.timedelta(days=int(getattr(afs, "ACTIVITY_GRACE_DAYS", 30))))
+        if window_end <= when:
+            return "Renewals were off: no new paying customer since %s" % fmt_date(last)
+    return ("Renewals were off: no new paying customer in the %d months before this renewal"
+            % int(rule_months or 12))
+
+
+def _line_view(d, numbers, ref_by_id, ref_by_sub, tax_ok, first_paid_dates=(), signed=True,
+               rule_months=12):
     """A ledger line (engine/detail dict) as a display row."""
     ref = ref_by_id.get(d.get("referral_id")) or ref_by_sub.get(d.get("subscription"))
     key = d.get("customer") or d.get("subscription")
@@ -515,9 +629,12 @@ def _line_view(d, numbers, ref_by_id, ref_by_sub, tax_ok):
     amount = afs._dec(d.get("amount")).quantize(_CENT, rounding=ROUND_HALF_UP)
     if state == "pending" and not tax_ok and amount > 0:
         state, reason = "held", HOLD_REASONS["tax_form"]
-    if state == "lapsed" or kind == "lapsed":
-        reason = "No new paying customer in the 12 months (plus the 30-day grace) before this renewal"
+    if state == "held" and reason is None:
+        # never an unexplained hold
+        reason = HOLD_REASONS["review" if signed else "unsigned"]
     when = afs._utc(_parse_iso(d.get("event_at")))
+    if state == "lapsed" or kind == "lapsed":
+        reason = _lapsed_reason(when, first_paid_dates, rule_months)
     interval = d.get("interval") or getattr(ref, "billing_interval", None)
     tier = getattr(ref, "tier", None)
     year = d.get("year_number")
@@ -532,6 +649,10 @@ def _line_view(d, numbers, ref_by_id, ref_by_sub, tax_ok):
         "year": year,
         "paid": (Decimal(int(d.get("net_paid_cents") or 0)) / 100).quantize(_CENT),
         "rate": fmt_pct(d.get("rate_pct")),
+        "how": _how(kind, d.get("rate_pct"), d.get("basis_cents"), d.get("net_paid_cents"),
+                    (d.get("currency") or "usd").lower(),
+                    list_cents=getattr(ref, "list_price_cents", 0) or 0,
+                    reverses=d.get("reverses_kind")),
         "amount": amount,
         "currency": (d.get("currency") or "usd").lower(),
         "state_key": state, "state": STATE_LABELS.get(state, state.capitalize()),
@@ -549,16 +670,20 @@ def ledger(session, aff, estimate_lines=None):
     ref_by_id = {str(r.id): r for r in refs}
     ref_by_sub = {r.stripe_subscription_id: r for r in refs}
     tax_ok = aff.tax_form_received_at is not None
+    signed = aff.agreement_signed_at is not None
+    new_paid = [afs._utc(r.first_paid_at) for r in refs
+                if r.first_paid_at is not None and r.source != "return"]
+    rule = int(getattr(afs.terms_for(session, aff), "activity_rule_months", 12) or 12)
     out, seen = [], set()
     for row in (session.query(L).filter(L.affiliate_id == aff.id).all()):
         d = afs._line_dict_from_row(row)
         seen.add(d["source_id"])
-        out.append(_line_view(d, numbers, ref_by_id, ref_by_sub, tax_ok))
+        out.append(_line_view(d, numbers, ref_by_id, ref_by_sub, tax_ok, new_paid, signed, rule))
     for d in (estimate_lines or []):
         if d.get("persisted") or d.get("source_id") in seen:
             continue
         seen.add(d.get("source_id"))
-        out.append(_line_view(d, numbers, ref_by_id, ref_by_sub, tax_ok))
+        out.append(_line_view(d, numbers, ref_by_id, ref_by_sub, tax_ok, new_paid, signed, rule))
     floor = dt.datetime.min.replace(tzinfo=UTC)
     out.sort(key=lambda x: x["when"] or floor, reverse=True)
     return out
@@ -593,14 +718,34 @@ def ledger_totals(lines):
     return totals
 
 
+def ledger_by_month(lines):
+    """Lines (already newest first) grouped per calendar month for the phone
+    layout: [{label, count, totals [(currency, Decimal)], lines}]. A month
+    total counts what the ledger total counts (void and lapsed add nothing)."""
+    groups = []
+    for ln in lines:
+        key = (ln["when"].year, ln["when"].month) if ln["when"] else None
+        if not groups or groups[-1]["key"] != key:
+            groups.append({"key": key, "lines": [], "_totals": {},
+                           "label": ln["when"].strftime("%B %Y") if ln["when"] else "Undated"})
+        g = groups[-1]
+        g["lines"].append(ln)
+        if ln["state_key"] not in ("void", "lapsed"):
+            g["_totals"][ln["currency"]] = g["_totals"].get(ln["currency"], Decimal("0")) + ln["amount"]
+    for g in groups:
+        g["count"] = len(g["lines"])
+        g["totals"] = sorted(g.pop("_totals").items()) or [("usd", Decimal("0"))]
+    return groups
+
+
 def ledger_csv(lines):
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["Date", "Customer", "Plan", "Type", "Commission year", "Customer paid",
-                "Rate %", "Amount", "Currency", "State", "Reason"])
+                "How it's worked out", "Amount", "Currency", "State", "Reason"])
     for ln in lines:
         w.writerow([ln["when"].strftime("%Y-%m-%d") if ln["when"] else "", ln["customer"],
-                    ln["plan"], ln["type"], ln["year"] or "", "%.2f" % ln["paid"], ln["rate"],
+                    ln["plan"], ln["type"], ln["year"] or "", "%.2f" % ln["paid"], ln["how"],
                     "%.2f" % ln["amount"], ln["currency"].upper(), ln["state"], ln["reason"] or ""])
     return buf.getvalue()
 
@@ -609,8 +754,9 @@ def ledger_csv(lines):
 # funnel
 # ---------------------------------------------------------------------------
 def funnel(session, aff, lines, range_key="30d", now=None):
-    """Clicks > Signups > Trials started > Paid for a date range, with step
-    rates, click-to-paid and earnings per click. Counts only."""
+    """Clicks > Signups > Paid for a date range, with step rates,
+    click-to-paid and earnings per click. Counts only. Every signup starts
+    the 7-day trial, so there is no separate trial step."""
     from sqlalchemy import func as safunc
     from models import AffiliateClick, AffiliateReferral, User
     now = _now(now)
@@ -656,10 +802,8 @@ def funnel(session, aff, lines, range_key="30d", now=None):
         {"key": "clicks", "label": "Clicks", "value": clicks, "rate": None,
          "hint": "New visitors who opened your link or join page"},
         {"key": "signups", "label": "Signups", "value": signups, "rate": rate(signups, clicks),
-         "hint": "Free accounts created after a click"},
-        {"key": "trials", "label": "Trials started", "value": trials, "rate": rate(trials, signups),
-         "hint": "Signups that began the 7-day free trial"},
-        {"key": "paid", "label": "Paid", "value": paid, "rate": rate(paid, trials),
+         "hint": "(each starts a 7-day trial)", "keep_hint": True},
+        {"key": "paid", "label": "Paid", "value": paid, "rate": rate(paid, signups),
          "hint": "New customers whose first payment went through"},
     ]
     peak = max([s["value"] for s in steps] or [0])
@@ -755,10 +899,9 @@ def payout_checklist(aff, pending, held_cents=0, now=None):
         "items": [
             {"key": "tax", "ok": tax_ok, "label": "Tax form on file",
              "help": None if tax_ok else
-             "Email a W-9 (U.S.) or W-8BEN / W-8BEN-E (non-U.S.) to help@tradewave.ai."},
+             "W-9 (U.S.) or W-8BEN / W-8BEN-E (non-U.S.). " + TAX_FORM_HELP},
             {"key": "method", "ok": method_ok, "label": "Payout method set",
-             "help": None if method_ok else
-             "Tell us your PayPal or Wise email at help@tradewave.ai."},
+             "help": None if method_ok else PAYOUT_METHOD_HELP},
             {"key": "minimum", "ok": min_ok,
              "label": "%s minimum reached" % fmt_price(PAYOUT_MINIMUM_CENTS),
              "help": None if min_ok else
@@ -770,8 +913,112 @@ def payout_checklist(aff, pending, held_cents=0, now=None):
         "minimum_cents": PAYOUT_MINIMUM_CENTS,
         "progress_pct": max(0, min(100, int(round(100.0 * cents / PAYOUT_MINIMUM_CENTS)))),
         "next_date": fmt_date(next_payout_date(now)),
+        "send_by": fmt_date(next_payout_date(now).replace(day=15)),
+        "send_rule": PAYOUT_SEND_RULE,
         "held_cents": held_cents,
     }
+
+
+def _month_span(months):
+    """[date] -> 'Sep 2026' / 'Sep and Oct 2026' / 'Sep to Nov 2026' (a run of
+    consecutive months) / 'Jul, Sep and Oct 2026'."""
+    ms = sorted(set(months))
+    if not ms:
+        return ""
+    same_year = ms[0].year == ms[-1].year
+    names = [m.strftime("%b" if same_year else "%b %Y") for m in ms]
+    tail = (" %d" % ms[0].year) if same_year else ""
+    idx = [m.year * 12 + m.month for m in ms]
+    if len(ms) >= 3 and idx[-1] - idx[0] == len(ms) - 1:
+        return "%s to %s%s" % (names[0], names[-1], tail)
+    if len(ms) == 1:
+        return names[0] + tail
+    return "%s and %s%s" % (", ".join(names[:-1]), names[-1], tail)
+
+
+def payout_history(session, aff, now=None, limit=60):
+    """Payout rows as statements: which months each one includes (its own
+    month plus any small or negative months carried into it), and when a
+    pending one is expected. Read from affiliate_payouts (detail.carry_in,
+    the carried:<month> reference) and the lines booked to each payout."""
+    from models import AffiliateCommissionLine as L, AffiliatePayout as P
+    today = _now(now).date()
+    rows = (session.query(P).filter(P.affiliate_id == aff.id)
+            .order_by(P.period_start.desc()).limit(limit).all())
+    line_months = {}
+    for pid, month in (session.query(L.payout_id, L.period_month)
+                       .filter(L.affiliate_id == aff.id, L.payout_id.isnot(None)).distinct().all()):
+        if month is not None:
+            line_months.setdefault(pid, set()).add(dt.date(month.year, month.month, 1))
+    out = []
+    for p in rows:
+        own = dt.date(p.period_start.year, p.period_start.month, 1)
+        months = {own} | line_months.get(p.id, set())
+        for c in ((p.detail or {}).get("carry_in") or []):
+            m = _as_date(c.get("period"))
+            if m:
+                months.add(dt.date(m.year, m.month, 1))
+        ref = p.external_ref or ""
+        carried_to = None
+        if ref.startswith("carried:"):
+            try:
+                carried_to = dt.datetime.strptime(ref[len("carried:"):], "%Y-%m").strftime("%b %Y")
+            except ValueError:
+                carried_to = ref[len("carried:"):]
+        send_by = (own + dt.timedelta(days=32)).replace(day=15)
+        out.append({
+            "period": p.period_start.strftime("%B %Y"),
+            "statement": "Statement for %s" % p.period_start.strftime("%b %Y"),
+            "includes": ("includes %s lines" % _month_span(months)) if len(months) > 1 else None,
+            "currency": p.currency, "commission": p.commission_amount, "status": p.status,
+            "paid_at": fmt_date(p.paid_at) if p.paid_at else None,
+            "expected": (fmt_date(send_by) if p.status == "pending" and not carried_to
+                         and send_by >= today else None),
+            "external_ref": p.external_ref, "carried_to": carried_to,
+        })
+    return out
+
+
+def link_block(aff):
+    """Why the partner's links and code do NOT credit them right now (shown
+    on every disabled Copy button), or None when they work."""
+    if aff.agreement_signed_at is None:
+        return "Works after you sign your agreement"
+    if aff.status == "paused":
+        return "Paused - links don't credit you right now"
+    if aff.status != "active":
+        return "Not active - links don't credit you right now"
+    return None
+
+
+def getting_started(plans, offer, has_paying):
+    """The 3-step card for a partner with no paying customer yet (None once
+    they have one). The dollar range is the first-year commission over the
+    annual plans at the partner's current discount."""
+    if has_paying:
+        return None
+    earns = (sorted(p["first_cents"] for p in plans if p["interval"] == "year")
+             or sorted(p["first_cents"] for p in plans))
+    if earns and earns[0] != earns[-1]:
+        earn = "%s to %s (first year, depending on plan)" % (fmt_cents(earns[0]), fmt_cents(earns[-1]))
+    elif earns:
+        earn = "%s (first year)" % fmt_cents(earns[0])
+    else:
+        earn = "%s%% of the list price (first year)" % offer["rate_year"]
+    return ["Share your link.",
+            "When someone pays, you earn %s." % earn,
+            "We pay you monthly by PayPal or Wise once you're over %s."
+            % fmt_price(PAYOUT_MINIMUM_CENTS)]
+
+
+def welcome_back(aff, user, has_activity):
+    """'Welcome back' only for a partner who has been here before: they have
+    activity, or their login is from a later day than the day they joined."""
+    if has_activity:
+        return True
+    last = afs._utc(getattr(user, "last_login_at", None))
+    joined = afs._utc(getattr(aff, "agreement_signed_at", None) or getattr(aff, "created_at", None))
+    return bool(last and joined and last - joined > dt.timedelta(days=1))
 
 
 def action_items(aff, activity, urls):
@@ -784,13 +1031,14 @@ def action_items(aff, activity, urls):
                       "post": urls.get("resend"), "cta": "Email me the link"})
     elif aff.status == "paused":
         items.append({"key": "paused", "tone": "amber", "title": "Your account is paused",
-                      "text": "Commissions keep adding up and are paid when it is unpaused. "
-                              "Your link does not apply a discount while paused.",
+                      "text": "Commissions keep adding up and are paid when it is reactivated. "
+                              "Your links don't credit you while paused.",
                       "href": "mailto:help@tradewave.ai", "cta": "Contact us"})
     if aff.tax_form_received_at is None:
         items.append({"key": "tax", "tone": "red", "title": "Send your tax form",
                       "text": "Payouts are held until we have a W-9 (U.S.) or "
-                              "W-8BEN / W-8BEN-E (non-U.S.).",
+                              "W-8BEN / W-8BEN-E (non-U.S.). Don't email it - "
+                              "we'll send you a secure upload link.",
                       "href": urls.get("payouts"), "cta": "How to send it"})
     if not (aff.payout_method and aff.payout_email):
         items.append({"key": "payout", "tone": "amber", "title": "Add a payout method",

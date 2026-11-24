@@ -50,6 +50,13 @@ def get(portal, path, **kw):
     return r, r.get_data(as_text=True)
 
 
+def save_discount(portal, pct, **extra):
+    """The second (confirmed) step of a discount change."""
+    data = {"discount_pct": str(pct), "confirm": "yes"}
+    data.update(extra)
+    return portal.client.post(BASE + "/settings/discount", data=data)
+
+
 def flashes(portal):
     with portal.client.session_transaction() as sess:
         return [m for _c, m in sess.get("_flashes", [])]
@@ -75,8 +82,11 @@ class TestPagesRender:
         assert "You&#39;re active until" in home
         assert "Refer 1 new paying customer before then to keep your renewal commissions." in home
         assert "with a 30-day grace" in home
-        for step in ("Clicks", "Signups", "Trials started", "Paid"):
+        for step in ("Clicks", "Signups", "Paid"):
             assert "<b>%s</b>" % step in home
+        # every signup starts a trial, so there is no separate trial step
+        assert "Trials started" not in home and "(each starts a 7-day trial)" in home
+        assert "Welcome back, Anne" in home and "How you get paid" not in home
         assert "Click to paid" in home and "Earnings per click" in home
         assert "If every customer renews at today's price" in home
         # live promotion card, in the owner's words and dollars
@@ -133,14 +143,18 @@ class TestPagesRender:
             assert r.status_code == 200, path
         _r, home = get(portal, "/")
         assert "Your account is paused" in home
-        assert "Held while your account is paused" in home and "$8.70" in home
+        # buckets add up: this month's $8.70 sits in the Held tile, not in Estimated
+        assert '<div class="k">Held</div>' in home and "$58.20" in home
+        assert "are in Held while you are paused" in home
         _r, earn = get(portal, "/earnings")
         assert ("Your account is paused.</b><span>Commissions keep adding up and are paid when it "
-                "is unpaused.") in earn
-        assert "Account paused" in earn                       # the hold reason on the lines
+                "is reactivated.") in earn
+        # the hold reason on the lines, in plain words
+        assert "Held while your account is paused - paid when it&#39;s reactivated." in earn
+        assert "Account paused" not in earn and "waiting on something" not in earn
         assert "$58.20" in earn                               # held tile: 49.50 + 8.70
         _r, pay = get(portal, "/payouts")
-        assert "Commissions keep adding up and are paid when it is unpaused." in pay
+        assert "Commissions keep adding up and are paid when it is reactivated." in pay
 
     def test_new_partner_empty_states_and_actions(self, portal):
         aff, user = h.seed_empty(portal.db)
@@ -239,12 +253,14 @@ class TestDiscount:
     def test_page_shows_the_pool_copy_and_live_table(self, portal, partner):
         _r, html = get(portal, "/settings")
         assert "You have 50% of the list price to split." in html
-        assert "Give your audience up to 25% off and keep the rest." in html
+        assert "Give your audience up to 25% off. You earn the rest." in html
+        assert "keep the rest" not in html and "You keep" not in html
         assert re.search(r"Example: \$100 plan at <span id=\"ex-pct\">20</span>% off - they pay "
                          r"<span id=\"ex-pay\">\$80</span>, you earn <span id=\"ex-earn\">\$30</span>", html)
-        for head in ("List price", "Your customer pays", "You earn on this payment (first year)",
-                     "You earn per renewal"):
-            assert head in html
+        for head in ("List price", "Customer pays", "You earn (year 1)", "Per renewal"):
+            assert '<th class="num">%s</th>' % head in html
+            assert 'data-label="%s"' % head in html                # short stacked labels (phone)
+        assert "You earn on this payment (first year)" not in html
         assert ("New discount applies to customers who sign up after you save. "
                 "Nothing changes for customers you already have.") in html
         assert "$319.20" in html and "$119.70" in html and "$99.75" in html     # Analyst annual @20%
@@ -257,13 +273,30 @@ class TestDiscount:
         assert grid["plans"]["25"]["analyst:year"] == [29925, 9975]
 
     def test_save_valid_discount(self, portal, partner):
+        # step 1: nothing is saved, the page asks first
         r = portal.client.post(BASE + "/settings/discount", data={"discount_pct": "15"})
-        assert r.status_code == 302 and r.headers["Location"].endswith("/settings#offer")
+        assert r.status_code == 302
+        assert r.headers["Location"].endswith("/settings?confirm=15#offer-status")
+        assert self._pct(portal, partner.aff) == Decimal("20.00") and partner.calls == []
+        _r, html = get(portal, "/settings?confirm=15")
+        assert "Change your discount from 20% to 15%?" in html
+        assert "Posts and videos that say 20% off will now be wrong. New customers get 15%." in html
+        assert 'name="confirm" value="yes"' in html and "Keep 20%" in html
+        # a confirmation for another number does not save
+        save_discount(portal, 10, confirm_for="15")
+        assert self._pct(portal, partner.aff) == Decimal("20.00")
+        # step 2
+        r = save_discount(portal, 15, confirm_for="15")
+        assert r.status_code == 302 and r.headers["Location"].endswith("/settings#offer-status")
         assert self._pct(portal, partner.aff) == Decimal("15.00")
         assert partner.calls == [Decimal("15.00")]
         msg = flashes(portal)[-1]
         assert "New customers now get 15% off" in msg and "already have" in msg
         _r, html = get(portal, "/settings")
+        # the result is shown beside the Save button, not at the top of the page
+        status = html.split('id="offer-status"')[1].split("</form>")[0]
+        assert 'class="inline-msg success"' in status and "New customers now get 15% off" in status
+        assert 'class="flash' not in html
         assert "20% to <b>15%</b>" in html and ">You<" in html              # history row
         assert "You can change your discount once every 24 hours. Next change available" in html
 
@@ -278,23 +311,66 @@ class TestDiscount:
 
     @pytest.mark.parametrize("edge", ["0", "25"])
     def test_accepts_the_edges(self, portal, partner, edge):
-        portal.client.post(BASE + "/settings/discount", data={"discount_pct": edge})
+        save_discount(portal, edge)
         assert self._pct(portal, partner.aff) == Decimal(edge)
 
     def test_cooldown_one_change_per_24h(self, portal, partner):
-        portal.client.post(BASE + "/settings/discount", data={"discount_pct": "15"})
+        save_discount(portal, 15)
         flashes(portal)
-        portal.client.post(BASE + "/settings/discount", data={"discount_pct": "10"})
-        assert self._pct(portal, partner.aff) == Decimal("15.00")
-        assert "once every 24 hours" in flashes(portal)[-1]
+        for data in ({"discount_pct": "10"}, {"discount_pct": "10", "confirm": "yes"}):
+            portal.client.post(BASE + "/settings/discount", data=data)
+            assert self._pct(portal, partner.aff) == Decimal("15.00")
+            assert "once every 24 hours" in flashes(portal)[-1]      # the specific text stays
+        assert "Change your discount from" not in get(portal, "/settings?confirm=10")[1]
         # ... and it opens again after 24h
         s = portal.factory()
         live = s.get(type(partner.aff), partner.aff.id)
         live.discount_changed_at = dt.datetime.now(UTC) - dt.timedelta(hours=25)
         s.commit()
         s.close()
-        portal.client.post(BASE + "/settings/discount", data={"discount_pct": "10"})
+        save_discount(portal, 10)
         assert self._pct(portal, partner.aff) == Decimal("10.00")
+
+    @pytest.mark.parametrize("boom", [
+        "Stripe coupon create failed: Request req_8sK2: No such coupon: 'cpn_disc'",
+        "Could not deactivate the promo code: (psycopg2.OperationalError) server closed",
+        "RuntimeError",
+    ])
+    def test_errors_never_show_raw_exception_text(self, portal, partner, boom):
+        import affiliate_service as afs
+        from affiliate_portal import dashboard as dash
+
+        def fail(*a, **k):
+            raise RuntimeError("Traceback: db host 10.0.0.5") if boom == "RuntimeError" \
+                else afs.AffiliateError(boom)
+        portal.patch(afs, "set_partner_discount", fail)
+        save_discount(portal, 15)
+        assert self._pct(portal, partner.aff) == Decimal("20.00")
+        assert flashes(portal)[-1] == dash.DISCOUNT_SAVE_FAILED
+        html = get(portal, "/settings")[1]
+        assert "We couldn&#39;t update your discount. Nothing changed - try again in a few minutes." in html
+        assert 'class="inline-msg error"' in html
+        for leak in ("Stripe", "req_8sK2", "psycopg2", "Traceback", "10.0.0.5", "coupon create"):
+            assert leak not in html
+
+    def test_error_text_mapping(self):
+        import affiliate_service as afs
+        from affiliate_portal import dashboard as dash, routes
+        cooldown = ("You can change your discount once every 24 hours. Next change available "
+                    "2026-11-25 14:03 UTC.")
+        assert routes._discount_error_text(afs.AffiliateError(cooldown)) == cooldown
+        assert routes._discount_error_text(afs.AffiliateError(
+            "No change - the discount is already 20%.")).startswith("No change")
+        for raw in ("interval must be 'year' or 'month'", "Stripe monthly coupon create failed: x",
+                    "a terminated partner cannot change the discount", ""):
+            assert routes._discount_error_text(afs.AffiliateError(raw)) == dash.DISCOUNT_SAVE_FAILED
+
+    def test_zero_to_some_discount_confirm_copy(self, portal):
+        aff, user = h.seed_empty(portal.db, code="ZED", discount_pct=h.D(0))
+        login(portal, user)
+        html = get(portal, "/settings?confirm=10")[1]
+        assert "Change your discount from 0% to 10%?" in html
+        assert "New customers get 10% off from now on." in html and "say 0% off" not in html
 
     def test_same_value_is_a_no_op(self, portal, partner):
         portal.client.post(BASE + "/settings/discount", data={"discount_pct": "20"})
@@ -446,7 +522,7 @@ class TestEarnings:
         for legend in ("<b>Estimated</b> - this month so far, can still change.",
                        "<b>Pending</b> - final, waiting for payout.",
                        "<b>Paid</b> - sent to you.",
-                       "<b>Held</b> - earned but waiting on something; see the reason."):
+                       "<b>Held</b> - earned, not payable yet. Each line says why."):
             assert legend in html
         for kind in ("First year", "Promotion", "Renewal", "Refund adjustment", "Lapsed"):
             assert kind in html
@@ -454,6 +530,15 @@ class TestEarnings:
             assert ">%s</span>" % state in html
         assert "-$8.70" in html and "$99.75" in html and "$49.50" in html
         assert "Your account is paused" not in html
+        # "How it's worked out" replaces the bare rate (first year is a share of LIST)
+        assert "<th>How it's worked out</th>" in html and ">Rate<" not in html
+        for how in ("30% of $29.00 list", "50% of $99.00 paid", "25% of $399.00 paid",
+                    "30% of $399.00 list", "Reverses 30% of $29.00 list"):
+            assert how in html
+        assert "waiting on something" not in html
+        # phone: lines grouped per month, collapsible, with a month total
+        assert html.count('<details class="month"') >= 5
+        assert re.search(r'<span class="mname">\w+ \d{4}</span>\s*<span class="mmeta">\d+ lines?</span>', html)
 
     def test_lines_states_and_totals(self, portal):
         import models
@@ -470,6 +555,7 @@ class TestEarnings:
         assert (newest["state_key"], newest["type"], newest["amount"]) == \
             ("estimated", "First year", Decimal("8.70"))
         assert newest["customer"].startswith("Customer #") and newest["rate"] == "30"
+        assert newest["how"] == "30% of $29.00 list"          # engine line: basis is the list price
         t = dash.ledger_totals(lines)["usd"]
         assert t["estimated"] == Decimal("8.70")
         assert t["pending"] == Decimal("99.75") + Decimal("8.70") + Decimal("49.50")
@@ -479,11 +565,17 @@ class TestEarnings:
         assert len(dash.filter_ledger(lines, state="paid")) == 4
         assert len(dash.filter_ledger(lines, days=30)) == 2
         lapsed = dash.filter_ledger(lines, state="lapsed")[0]
-        assert lapsed["amount"] == 0 and "30-day grace" in lapsed["reason"]
+        assert lapsed["amount"] == 0
+        assert lapsed["reason"].startswith("Renewals were off: no new paying customer")
+        months = dash.ledger_by_month(lines)
+        assert sum(g["count"] for g in months) == len(lines)
+        assert months[0]["label"] == lines[0]["when"].strftime("%B %Y")
+        assert sum(amt for g in months for _c, amt in g["totals"]) == t["total"]
         # no tax form on file: pending money shows as Held with the reason
         live.tax_form_received_at = None
         held = dash.ledger(s, live, est["lines"])
-        assert {ln["reason"] for ln in held if ln["state_key"] == "held"} == {"Tax form needed"}
+        assert {ln["reason"] for ln in held if ln["state_key"] == "held"} == \
+            {"Held until we have your tax form."}
         s.rollback()
         s.close()
 
@@ -496,7 +588,10 @@ class TestEarnings:
         assert not PRIVATE.search(body)
         rows = list(csv.reader(io.StringIO(body)))
         assert rows[0] == ["Date", "Customer", "Plan", "Type", "Commission year", "Customer paid",
-                           "Rate %", "Amount", "Currency", "State", "Reason"]
+                           "How it's worked out", "Amount", "Currency", "State", "Reason"]
+        hows = {r[6] for r in rows[1:]}
+        assert {"30% of $29.00 list", "50% of $99.00 paid", "25% of $399.00 paid",
+                "Reverses 30% of $29.00 list"} <= hows
         assert len(rows) == 10
         assert sum(Decimal(r[7]) for r in rows[1:]) == Decimal("295.05")
         paid = list(csv.reader(io.StringIO(
@@ -603,6 +698,219 @@ class TestLinksAndPromote:
 
 
 # ---------------------------------------------------------------------------
+# UX review fixes: sale vs offer table, held copy, disabled links, buckets,
+# statements, first five minutes
+# ---------------------------------------------------------------------------
+class TestUxReview:
+    def test_offer_table_and_promo_card_agree_during_a_sale(self, portal):
+        import models
+        import affiliate_service as afs
+        from affiliate_portal import dashboard as dash
+        aff, user = h.seed_rich(portal.db, portal.world)
+        login(portal, user)
+        s = portal.factory()
+        live = s.get(models.Affiliate, aff.id)
+        terms = afs.terms_for(s, live)
+        promos = dash.promotions(s, live, h.CATALOG, terms)
+        assert promos[0]["compare"] == [
+            "During Black Friday, Analyst annual through your link pays you $49.50 instead of "
+            "$119.70 - your customer saves $220.20 more."]
+        assert promos[0]["other_plans"] is True
+        rows = {r["key"]: r for r in dash.plan_table(h.CATALOG, live, terms, promos)}
+        sale = rows["analyst:year"]
+        assert sale["sale"] and sale["sale_customer_cents"] == 9900 and sale["sale_first_cents"] == 4950
+        assert (sale["customer_cents"], sale["first_cents"]) == (31920, 11970)    # after the sale
+        assert not rows["navigator:year"]["sale"] and not rows["analyst:month"]["sale"]
+        assert not any(r["sale"] for r in dash.plan_table(h.CATALOG, live, terms))
+        s.close()
+        for path in ("/", "/settings"):
+            html = get(portal, path)[1]
+            assert '<span class="pill warn">Sale</span>' in html, path
+            assert "$49.50" in html
+        home = get(portal, "/")[1]
+        assert ("During Black Friday, Analyst annual through your link pays you $49.50 instead of "
+                "$119.70 - your customer saves $220.20 more. Other plans are unchanged.") in home
+        assert "After that Analyst annual goes back to $319.20 and you earn $119.70." in home
+        settings = get(portal, "/settings")[1]
+        assert 'data-sale-pay="9900" data-sale-earn="4950"' in settings
+
+    def test_held_reasons_are_plain_and_never_blank(self):
+        from affiliate_portal import dashboard as dash
+        r = dash.HOLD_REASONS
+        assert r["paused"] == "Held while your account is paused - paid when it's reactivated."
+        assert r["unsigned"] == "Held until you sign your agreement."
+        review = "Held for review - we'll email you. Questions: help@tradewave.ai"
+        assert r["review"] == review and r["terminated"] == review
+
+        def view(hold, signed=True, state="held"):
+            d = {"kind": "first_year", "state": state, "hold_reason": hold, "amount": "8.70",
+                 "rate_pct": "30", "basis_cents": 2900, "net_paid_cents": 2320,
+                 "event_at": "2026-11-02T00:00:00+00:00"}
+            return dash._line_view(d, {}, {}, {}, True, (), signed)
+        assert view("paused")["reason"] == r["paused"]
+        assert view("terminated")["reason"] == review
+        assert view(None)["reason"] == review                    # unknown hold: still explained
+        assert view("something_new")["reason"] == review
+        assert view(None, signed=False)["reason"] == r["unsigned"]
+        assert view(None, state="pending")["reason"] is None
+
+    def test_lapsed_line_says_since_when(self):
+        from affiliate_portal import dashboard as dash
+        when = dt.datetime(2026, 10, 24, tzinfo=UTC)
+        old = dt.datetime(2025, 3, 1, tzinfo=UTC)
+        assert dash._lapsed_reason(when, [old, dt.datetime(2024, 1, 1, tzinfo=UTC)]) == \
+            "Renewals were off: no new paying customer since 1 Mar 2025"
+        # a customer inside the window cannot explain a lapse: no misleading date
+        recent = dt.datetime(2026, 10, 5, tzinfo=UTC)
+        assert "since" not in dash._lapsed_reason(when, [old, recent])
+        assert dash._lapsed_reason(when, []).startswith("Renewals were off: no new paying customer")
+
+    def test_how_its_worked_out(self):
+        from affiliate_portal import dashboard as dash
+        assert dash._how("first_year", "30", 2900, 2320, "usd") == "30% of $29.00 list"
+        assert dash._how("first_year", "30", 0, 2320, "usd", list_cents=2900) == "30% of $29.00 list"
+        assert dash._how("promo", "50", 9900, 9900, "usd") == "50% of $99.00 paid"
+        assert dash._how("renewal", "25.00", 39900, 39900, "usd") == "25% of $399.00 paid"
+        assert dash._how("refund", "30", -2900, -2320, "usd", reverses="first_year") == \
+            "Reverses 30% of $29.00 list"
+        assert dash._how("refund", "30", -2900, -2320, "usd") == "Reverses 30% of $29.00 list"
+        assert dash._how("dispute", "25", -39900, -39900, "usd", reverses="renewal") == \
+            "Reverses 25% of $399.00 paid"
+        assert dash._how("refund", "30", -1450, -1160, "usd", reverses="first_year") == \
+            "Reverses 30% of $14.50 list"                       # partial refund
+
+    def test_copy_is_disabled_for_unsigned_and_paused_partners(self, portal):
+        unsigned = "Works after you sign your agreement"
+        paused = "Paused - links don&#39;t credit you right now"
+        aff, user = h.seed_empty(portal.db, code="UNSIGNED", agreement_signed_at=None)
+        login(portal, user)
+        for path in ("/", "/links", "/promote"):
+            html = get(portal, path)[1]
+            assert unsigned in html, path
+            assert "twCopy(this, 'http" not in html, path           # no live Copy on a link
+            assert "twCopy(this, 'UNSIGNED')" not in html, path
+            assert 'class="stickycopy"' not in html, path
+        links = get(portal, "/links")[1]
+        assert links.count('disabled aria-disabled="true" title="%s"' % unsigned) >= 4
+        assert "Awaiting signature" in get(portal, "/")[1]
+        aff2, user2 = h.seed_rich(portal.db, portal.world, code="PAUL", status="paused")
+        login(portal, user2)
+        for path in ("/", "/links", "/promote"):
+            html = get(portal, path)[1]
+            assert paused in html, path
+            assert "twCopy(this, 'http" not in html and "twCopy(this, 'PAUL')" not in html, path
+        # swipe copy carries the link too
+        assert "getElementById('sw-social')" not in get(portal, "/promote")[1]
+        aff3, user3 = h.seed_rich(portal.db, portal.world, code="ANNE")
+        login(portal, user3)
+        html = get(portal, "/links")[1]
+        assert "disabled" not in html.split("<body>")[1].split("<script>")[0]
+        assert "twCopy(this, 'ANNE')" in html and "don&#39;t credit you" not in html
+        assert "getElementById('sw-social')" in get(portal, "/promote")[1]
+
+    def test_link_block_reasons(self):
+        from affiliate_portal import dashboard as dash
+        signed = dt.datetime(2026, 1, 5, tzinfo=UTC)
+        mk = lambda **k: SimpleNamespace(**k)        # noqa: E731
+        assert dash.link_block(mk(agreement_signed_at=signed, status="active")) is None
+        assert dash.link_block(mk(agreement_signed_at=None, status="active")) == \
+            "Works after you sign your agreement"
+        assert dash.link_block(mk(agreement_signed_at=None, status="paused")) == \
+            "Works after you sign your agreement"
+        assert dash.link_block(mk(agreement_signed_at=signed, status="paused")) == \
+            "Paused - links don't credit you right now"
+
+    def test_held_tile_only_when_money_is_held(self, portal):
+        aff, user = h.seed_rich(portal.db, portal.world)
+        login(portal, user)
+        home = get(portal, "/")[1]
+        assert '<div class="k">Held</div>' not in home and 'class="grid4"' in home
+        s = portal.factory()
+        live = s.get(type(aff), aff.id)
+        live.tax_form_received_at = None            # pending lines are now held for the tax form
+        s.commit()
+        s.close()
+        home = get(portal, "/")[1]
+        assert '<div class="k">Held</div>' in home and 'class="grid5"' in home
+        assert "$157.95" in home                    # 99.75 + 8.70 + 49.50
+        assert "Earned, not payable yet." in home and "waiting on something" not in home
+        assert "state=held" in home
+
+    def test_payout_rows_are_statements_with_the_months_they_include(self, portal):
+        import models
+        import affiliate_service as afs
+        from affiliate_portal import dashboard as dash
+        aff, user = h.seed_rich(portal.db, portal.world, now=dt.datetime(2026, 11, 24, 12, tzinfo=UTC))
+        login(portal, user)
+        s = portal.factory()
+        pend = s.query(models.AffiliatePayout).filter_by(affiliate_id=aff.id, status="pending").one()
+        sep = dt.date(2026, 9, 1)
+        pend.detail = {"carry_in": [{"period": sep.isoformat(), "amount": "23.40"}]}
+        s.add(models.AffiliatePayout(affiliate_id=aff.id, period_start=sep, period_end=sep,
+                                     currency="usd", gross_revenue=h.D("62.40"),
+                                     commission_amount=h.D("23.40"), status="void",
+                                     external_ref=afs.carry_ref(pend.period_start)))
+        s.commit()
+        rows = dash.payout_history(s, s.get(models.Affiliate, aff.id),
+                                   now=dt.datetime(2026, 11, 3, tzinfo=UTC))
+        s.close()
+        by = {r["statement"]: r for r in rows}
+        octo = by["Statement for Oct 2026"]
+        assert octo["includes"] == "includes Sep and Oct 2026 lines"
+        assert octo["expected"] == "15 Nov 2026"            # 15th of the month after the statement
+        assert by["Statement for Sep 2026"]["carried_to"] == "Oct 2026"
+        assert by["Statement for Sep 2026"]["expected"] is None
+        html = get(portal, "/payouts")[1]
+        assert "Statement for Oct 2026" in html and "includes Sep and Oct 2026 lines" in html
+        assert "Moved into the Oct 2026 statement" in html
+        assert "Usually sent by the 15th of the month after the statement" in html
+        assert dash._month_span([dt.date(2026, 9, 1), dt.date(2026, 10, 1), dt.date(2026, 11, 1)]) == \
+            "Sep to Nov 2026"
+        assert dash._month_span([dt.date(2026, 7, 1), dt.date(2026, 9, 1), dt.date(2026, 10, 1)]) == \
+            "Jul, Sep and Oct 2026"
+        assert dash._month_span([dt.date(2025, 12, 1), dt.date(2026, 1, 1)]) == "Dec 2025 and Jan 2026"
+
+    def test_tax_form_copy_never_invites_emailing_it(self, portal):
+        from affiliate_portal import dashboard as dash
+        aff, user = h.seed_empty(portal.db)
+        login(portal, user)
+        pay = get(portal, "/payouts")[1]
+        assert ("Don&#39;t email your tax form. Reply to your welcome email or contact "
+                "help@tradewave.ai and we&#39;ll send you a secure upload link.") in pay
+        assert "Don&#39;t email bank or card details" in pay
+        pages = pay + get(portal, "/")[1] + portal.client.get(BASE + "/guide.md").get_data(as_text=True)
+        for bad in ("Email a W-9", "Email it to help@", "send a W-9", "Tell us your PayPal"):
+            assert bad not in pages
+        assert "Email a W-9" not in dash.payout_checklist(aff, {})["items"][0]["help"]
+
+    def test_first_five_minutes(self, portal):
+        from affiliate_portal import dashboard as dash
+        aff, user = h.seed_empty(portal.db, name="Nadia Okafor")
+        login(portal, user)
+        home = get(portal, "/")[1]
+        assert "Welcome, Nadia" in home and "Welcome back" not in home
+        assert "How you get paid" in home
+        for step in ("Share your link.",
+                     "When someone pays, you earn $99.60 to $319.60 (first year, depending on plan).",
+                     "We pay you monthly by PayPal or Wise once you&#39;re over $50."):
+            assert step in home
+        # logged in on a later day than they joined: a returning partner
+        user.last_login_at = aff.agreement_signed_at + dt.timedelta(days=3)
+        assert "Welcome back, Nadia" in get(portal, "/")[1]
+        assert dash.welcome_back(aff, SimpleNamespace(last_login_at=None), False) is False
+        assert dash.welcome_back(aff, SimpleNamespace(last_login_at=None), True) is True
+        assert dash.getting_started([], {"rate_year": "40"}, False)[1] == \
+            "When someone pays, you earn 40% of the list price (first year)."
+        assert dash.getting_started([], {"rate_year": "40"}, True) is None
+
+    def test_guide_points_to_promote(self):
+        guide = (h._REPO_ROOT / "docs" / "AFFILIATE_PARTNER_GUIDE.md").read_text(encoding="utf-8")
+        assert 'The **Promote** page there has a "Copy for my AI"' in guide
+        assert "**Guide** page" not in guide and "Email it to help@" not in guide
+        assert EM_DASH not in guide
+
+
+# ---------------------------------------------------------------------------
 # /join/<code>: real dollar prices
 # ---------------------------------------------------------------------------
 class TestJoinPage:
@@ -623,18 +931,61 @@ class TestJoinPage:
         live = s.get(type(aff), aff.id)
         html = self._render(portal, afs.display_offers(s, live, h.CATALOG))
         assert "$99<small>first year</small>" in html              # Black Friday beats 20% off
-        assert "Black Friday</b> is on. Sale prices end" in html
+        assert "<b>Black Friday price, through Anne.</b> Sale ends" in html
+        assert "got you an exclusive discount" not in html          # the sale won, not Anne's discount
+        assert "Start with a 7-day free trial - your sale price is locked in." in html
         assert "$639.20<small>first year</small>" in html          # partner discount elsewhere
         assert "<s>$799</s>" in html and "You save $159.80" in html
         assert "$23.20/mo</b> for 12 months, then $29" in html
-        assert "Claim your price" in html and EM_DASH not in html
+        assert EM_DASH not in html
         plain = self._render(portal, afs.display_offers(s, live, h.CATALOG, is_new_customer=False))
-        assert "$319.20<small>first year</small>" in plain and "is on. Sale prices" not in plain
+        assert "$319.20<small>first year</small>" in plain and "Sale ends" not in plain
+        assert "got you an exclusive discount" in plain
+        assert "Start with a 7-day free trial - your price is locked in." in plain
+        s.close()
+
+    def test_each_plan_has_its_own_subscribe_button(self, portal):
+        import affiliate_service as afs
+        aff, user = h.seed_rich(portal.db, portal.world)
+        s = portal.factory()
+        html = self._render(portal, afs.display_offers(s, s.get(type(aff), aff.id), h.CATALOG))
+        s.close()
+        hrefs = re.findall(r'<a class="buy[^"]*" href="([^"]+)" data-plan="([^"]+)"', html)
+        assert len(hrefs) == 6
+        # same route and params as the pricing page CTAs (web/app.py stripe_create_checkout)
+        want = {("%s:%s" % (t, iv)): "/api/stripe/create-checkout?code=ANNE&amp;tier=%s&amp;period=%s"
+                % (t, per) for t in ("navigator", "analyst", "strategist")
+                for iv, per in (("year", "yearly"), ("month", "monthly"))}
+        assert {plan: href for href, plan in hrefs} == want
+        assert "Subscribe - $99 first year" in html and "Subscribe monthly - $23.20/mo" in html
+        assert "Black Friday price, through Anne</div>" in html     # on the sale card
+        assert "Anne's discount</div>" in html                       # on the other cards
+
+    def test_sale_end_has_a_time_and_a_zone(self, portal):
+        import affiliate_service as afs
+        from affiliate_portal import dashboard as dash
+        # stored in UTC, shown in US Eastern (EST in November, EDT in July)
+        assert dash.fmt_sale_end("2026-12-01T04:59:00+00:00") == "30 Nov, 11:59 pm ET"
+        assert dash.fmt_sale_end(dt.datetime(2026, 7, 5, 3, 59, tzinfo=UTC)) == "4 Jul, 11:59 pm ET"
+        assert dash.fmt_sale_end("2026-11-30T17:00:00Z") == "30 Nov, 12:00 pm ET"
+        assert dash.fmt_sale_end(None) == "" and dash.fmt_sale_end("junk") == ""
+        aff, user = h.seed_rich(portal.db, portal.world)
+        s = portal.factory()
+        camp = s.query(__import__("models").PromoCampaign).one()
+        camp.ends_at = dt.datetime(2026, 12, 1, 4, 59, tzinfo=UTC)
+        s.commit()
+        html = self._render(portal, afs.display_offers(s, s.get(type(aff), aff.id), h.CATALOG))
+        assert "Sale ends 30 Nov, 11:59 pm ET." in html
+        # the dashboard card names the same day and time
+        login(portal, user)
+        home = get(portal, "/")[1]
+        assert "Ends 30 Nov, 11:59 pm ET." in home and "Ends 1 Dec" not in home
         s.close()
 
     def test_falls_back_to_percent_when_prices_are_unavailable(self, portal):
         html = self._render(portal, {})
         assert "20% OFF" in html and "Claim your discount" in html
+        assert 'class="buy' not in html
         two = self._render(portal, {}, two_tier=True, monthly_discount="10")
         assert "10% <span" in two
 

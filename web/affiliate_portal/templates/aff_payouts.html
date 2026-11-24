@@ -15,14 +15,15 @@
     </div>
     {% endfor %}
     {% if aff.status == 'paused' %}
-    <p class="small" style="color:var(--warn); margin:12px 0 0;">Your account is paused. Commissions keep adding up and are paid when it is unpaused.</p>
+    <p class="small" style="color:var(--warn); margin:12px 0 0;">Your account is paused. Commissions keep adding up and are paid when it is reactivated.</p>
     {% endif %}
   </div>
 
   <div class="card">
     <h3>Next payout</h3>
     <div class="big">{{ checklist.pending_cents|aff_cents }}</div>
-    <p class="soft small" style="margin:4px 0 12px;">Pending balance. Next statement on <b style="color:var(--text);">{{ checklist.next_date }}</b>; payouts go out after we review it.</p>
+    <p class="soft small" style="margin:4px 0 12px;">Pending balance. Next statement on <b style="color:var(--text);">{{ checklist.next_date }}</b>.
+      {{ checklist.send_rule }}, so that one by <b style="color:var(--text);">{{ checklist.send_by }}</b>.</p>
     <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ checklist.progress_pct }}"
          aria-label="Progress toward the payout minimum"><i style="width:{{ checklist.progress_pct }}%;"></i></div>
     <p class="tiny muted" style="margin:8px 0 0;">{{ checklist.progress_pct }}% of the {{ checklist.minimum_cents|aff_price }} minimum.
@@ -31,7 +32,7 @@
     <p class="small soft" style="margin:8px 0 0;">Also pending: {{ amt|aff_money(ccy) }}</p>
     {% endfor %}
     {% if checklist.held_cents %}
-    <p class="small soft" style="margin:8px 0 0;">Held this month: {{ checklist.held_cents|aff_cents }}</p>
+    <p class="small soft" style="margin:8px 0 0;">Held this month: {{ checklist.held_cents|aff_cents }}. Not in the pending balance. <a href="{{ url_for('affiliate_portal.earnings', state='held') }}">See why</a></p>
     {% endif %}
   </div>
 </div>
@@ -44,27 +45,27 @@
     <tr><td class="soft">Tax form</td><td>{% if aff.tax_form_received_at %}<span class="pill ok">{{ {'w9':'W-9','w8ben':'W-8BEN','w8bene':'W-8BEN-E'}.get(aff.tax_form_type, aff.tax_form_type or 'Received') }}</span> on file{% else %}<span class="pill bad">Needed</span>{% endif %}</td></tr>
     <tr><td class="soft">Paid to date</td><td>{{ m.money_list(lifetime_paid) }}</td></tr>
   </table>
-  <p class="tiny muted" style="margin:12px 0 0;">To change payout details, write to help@tradewave.ai. We check every change by hand because it moves real money.</p>
+  <p class="tiny muted" style="margin:12px 0 0;">To change payout details, contact help@tradewave.ai. Don't email bank details, card numbers or tax forms - we'll send you a secure link. We check every change by hand because it moves real money.</p>
 </div>
 
 <div class="card">
   <h3>Payout history</h3>
   {% if ledger %}
   <table class="stack">
-    <thead><tr><th>Month</th><th class="num">Amount</th><th>Status</th><th>Paid on</th><th>Reference</th></tr></thead>
+    <thead><tr><th>Statement</th><th class="num">Amount</th><th>Status</th><th>Sent</th><th>Reference</th></tr></thead>
     <tbody>
     {% for p in ledger %}
     <tr>
-      <td data-label="Month" class="title">{{ p.period }}</td>
+      <td data-label="Statement" class="title"><span>{{ p.statement }}{% if p.includes %}<span class="tiny soft" style="font-weight:400; display:block;">{{ p.includes }}</span>{% endif %}</span></td>
       <td data-label="Amount" class="num {{ 'neg' if p.commission < 0 else '' }}"><b>{{ p.commission|aff_money(p.currency) }}</b></td>
-      <td data-label="Status">{% if p.carried_to %}<span class="pill warn">Moved into {{ p.carried_to }}</span>{% else %}<span class="pill {{ 'ok' if p.status == 'paid' else ('' if p.status == 'pending' else 'dim') }}">{{ p.status|capitalize }}</span>{% endif %}</td>
-      <td data-label="Paid on">{{ p.paid_at or '-' }}</td>
+      <td data-label="Status">{% if p.carried_to %}<span class="pill warn">Moved into the {{ p.carried_to }} statement</span>{% else %}<span class="pill {{ 'ok' if p.status == 'paid' else ('' if p.status == 'pending' else 'dim') }}">{{ p.status|capitalize }}</span>{% endif %}</td>
+      <td data-label="Sent">{% if p.paid_at %}{{ p.paid_at }}{% elif p.expected %}<span class="soft">Expected by {{ p.expected }}</span>{% elif p.status == 'pending' and not p.carried_to %}<span class="soft">Being sent</span>{% else %}-{% endif %}</td>
       <td data-label="Reference" class="mono">{{ '-' if p.carried_to else (p.external_ref or '-') }}</td>
     </tr>
     {% endfor %}
     </tbody>
   </table>
-  <p class="tiny muted" style="margin:12px 0 0;">A month can be negative when refunds outweigh sales. It is then taken off your next payable month.</p>
+  <p class="tiny muted" style="margin:12px 0 0;">{{ checklist.send_rule }}. A month under {{ checklist.minimum_cents|aff_price }}, or a negative month (refunds outweigh sales), moves into your next statement, so one statement can include lines from several months.</p>
   {% else %}
   <div class="empty"><b>No payouts yet</b>
     Your first monthly statement appears here on the 2nd of the month after your first sale.</div>

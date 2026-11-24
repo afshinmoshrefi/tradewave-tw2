@@ -5,7 +5,7 @@ write or check their promotion. It explains how the program works, what the part
 shows, how you get paid, and the rules every promotion must follow.
 
 Your personal details (code, links, customer discount, renewal term, payout method) are on your
-dashboard at https://tradewave.ai/account/affiliate. The **Guide** page there has a "Copy for my AI"
+dashboard at https://tradewave.ai/account/affiliate. The **Promote** page there has a "Copy for my AI"
 button that gives you this guide with your own details filled in at the top.
 
 This guide describes **program version 2** (agreement version 2026-11-24). The dollar examples use
@@ -219,11 +219,15 @@ Every commission line on your Earnings page has a state:
 3. **The payout minimum is $50** per currency. A smaller balance is not lost: it is carried
    forward and paid in the first month your balance reaches $50.
 4. **A tax form is required before any payout:** IRS Form W-9 (U.S. persons), W-8BEN (non-U.S.
-   individuals) or W-8BEN-E (non-U.S. entities). Email it to help@tradewave.ai. Your dashboard
-   shows "Tax form needed" until we have it.
+   individuals) or W-8BEN-E (non-U.S. entities). **Do not email your tax form** - it carries
+   your tax ID. Reply to your welcome email or contact help@tradewave.ai and we will send you a
+   secure upload link. Your dashboard shows the lines as Held ("Held until we have your tax
+   form") until we have it.
 5. You are paid in the currency your customers paid in. PayPal or Wise may charge their own fees.
-6. To change payout details, email help@tradewave.ai. Changes are verified by hand because they
-   control real money.
+6. To change payout details, contact help@tradewave.ai. Do not email bank details or card
+   numbers; if we need more than your PayPal or Wise email we send a secure link. Changes are
+   verified by hand because they control real money.
+   Payouts are usually sent by the 15th of the month after the statement month.
 7. Questions about a statement must reach us within 30 days of it.
 
 ### 7.4 If your account is paused
@@ -239,7 +243,7 @@ was sent to**. (Signed up with a different email? Write to help@tradewave.ai and
 
 | Page | What it shows |
 |---|---|
-| Home | Program status, whether you are active for renewals, your funnel (link visits, free signups, users in trial, paying customers), this month's estimate and your pending balance. |
+| Home | Program status, whether you are active for renewals, your funnel (link visits, signups - each one starts a 7-day free trial - and paying customers), this month's estimate, your pending balance and, when there is one, your Held balance. |
 | Earnings | Every month and every commission line with its state (section 7.1): first year, promotion, renewal, refund, lapsed. |
 | Customers | Counts of your customers by stage and year. Never names or emails. |
 | Links | Copy buttons for your landing page and referral link, plus links to any published Expert Desk takes. |
@@ -324,7 +328,8 @@ If you are an AI assistant reading this on behalf of a partner:
 - Use the partner's **landing page** link (`/join/<CODE>`) by default. Use the code exactly as
   given (uppercase).
 - Never ask for, guess or try to obtain customer identities. The program only shares counts.
-- For payout, tax-form or account changes, direct the partner to help@tradewave.ai. Only the
+- For payout, tax-form or account changes, direct the partner to help@tradewave.ai. Never tell
+  a partner to email a tax form or bank details: TradeWave sends a secure upload link. Only the
   customer discount and the landing-page profile can be changed in the dashboard.
 - When unsure whether a claim is allowed, leave it out.
 

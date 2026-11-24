@@ -174,8 +174,16 @@ def make_partner(db, code="ANNE", **kw):
 
 
 def _line(aff, ref, kind, source, when, *, paid, rate, amount, state, year=1, hold=None,
-          payout_id=None, interval=None):
+          payout_id=None, interval=None, basis=None):
+    """A ledger line. Like the engine, a first-year line (and its refund) is
+    priced on the LIST price; promotions and renewals on what was paid."""
     import models
+    if basis is None:
+        basis = paid
+        if kind == "first_year" and ref.list_price_cents:
+            basis = int(ref.list_price_cents)
+        elif kind in ("refund", "dispute") and ref.list_price_cents and ref.offer_type != "promo":
+            basis = -int(ref.list_price_cents) if paid < 0 else int(ref.list_price_cents)
     return models.AffiliateCommissionLine(
         affiliate_id=aff.id, referral_id=ref.id, kind=kind, source_id=source,
         stripe_invoice_id=source if kind not in ("refund", "dispute") else "in_orig_" + source,
@@ -183,7 +191,7 @@ def _line(aff, ref, kind, source, when, *, paid, rate, amount, state, year=1, ho
         stripe_customer_id=ref.stripe_customer_id, stripe_subscription_id=ref.stripe_subscription_id,
         currency="usd", billing_interval=interval or ref.billing_interval,
         service_period_start=when, event_at=when, year_number=year, net_paid_cents=paid,
-        basis_cents=paid, rate_pct=D(rate), amount=D(amount), state=state, hold_reason=hold,
+        basis_cents=basis, rate_pct=D(rate), amount=D(amount), state=state, hold_reason=hold,
         period_month=dt.date(when.year, when.month, 1),
         payable_month=None if state == "held" else dt.date(when.year, when.month, 1),
         payout_id=payout_id, detail={})

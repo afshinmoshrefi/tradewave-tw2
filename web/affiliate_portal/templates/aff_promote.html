@@ -4,18 +4,19 @@
 {% block subtitle %}Ready-to-use copy, your join page and the partner guide.{% endblock %}
 {% block content %}
 
-{% for p in promos %}{{ m.promo_card(p, links, aff, offer.promo_pct) }}{% endfor %}
+{% for p in promos %}{{ m.promo_card(p, links, aff, offer.promo_pct, block=link_block) }}{% endfor %}
 
 <div class="card">
   <h3>Copy you can post today</h3>
   <p class="soft small" style="margin-top:0;">Already filled in with your code{% if offer.discount_year != '0' %}, your {{ offer.discount_year }}% discount{% endif %} and your link. Edit it to sound like you.
     Keep the last line: you must tell people you earn a commission.</p>
-  <div class="grid2" style="margin-bottom:0;">
+  {{ m.copy_note(link_block) }}
+  <div class="grid2" style="margin:{{ '10px' if link_block else '0' }} 0 0;">
     {% for sw in swipes %}
     <div class="swipe">
       <div class="spread" style="margin-bottom:8px;">
         <b>{{ sw.channel }}</b>
-        <button class="copybtn" type="button" onclick="twCopy(this, document.getElementById('sw-{{ sw.key }}').value)">Copy</button>
+        <button class="copybtn" type="button"{% if link_block %} disabled aria-disabled="true" title="{{ link_block }}"{% else %} onclick="twCopy(this, document.getElementById('sw-{{ sw.key }}').value)"{% endif %}>Copy</button>
       </div>
       <textarea id="sw-{{ sw.key }}" rows="7" spellcheck="true">{{ sw.text }}</textarea>
     </div>
@@ -66,6 +67,8 @@
 </div>
 <style>
   .swipe textarea { min-height:150px; font-size:14px; line-height:1.5; }
+  .compare { margin:0 0 14px; padding:10px 12px; border-radius:10px; background:rgba(15,10,21,0.45);
+             border:1px solid rgba(139,92,246,0.35); font-size:14px; }
   .guide h1 { font-size:22px; margin-top:0; }
   .guide h2 { font-size:17px; margin-top:28px; color:#c7d2fe; }
   .guide table { margin:10px 0; font-size:14px; display:block; overflow-x:auto; }
