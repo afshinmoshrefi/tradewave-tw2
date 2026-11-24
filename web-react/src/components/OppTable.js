@@ -42,6 +42,7 @@ import {
   selectOpportunityMLScoreSource,
 } from './opportunityMLSource'
 import { resolveOpportunityRecurrence } from './opportunityRecurrence'
+import { isStartDateLocked, oppRowStartDate } from './oppRowStartDate'
 import { normalizeRealtimeQuote } from './realtimePrices'
 import {
   advanceOpportunityAIPollBudget,
@@ -111,7 +112,10 @@ const OppTable = (props) => {
   const selectbox = document.getElementById('securityTypeList');
 
 
-  const { wpUserLevels, browserH, browserW, rdd, token, globalTextSize, debug, loggedinUser } = useContext(UserContext)
+  const { wpUserLevels, browserH, browserW, rdd, token, globalTextSize, debug, loggedinUser, selectedSecurityType } = useContext(UserContext)
+  // TW-BUG-0037: read inside the stable row-click handler below.
+  const startDateLockedRef = useRef(false)
+  startDateLockedRef.current = isStartDateLocked({ loggedinUser, selectedSecurityType })
 
   const phonePortrait = isPhonePortrait(rdd, browserH, browserW)
 
@@ -1498,13 +1502,14 @@ const OppTable = (props) => {
         mode: currentProps.showPEOpps ? 'pe' : 'consecutive',
         cycle: selectedCycle,
       })
+      const rowStartDate = oppRowStartDate({ rowDate: row.date, locked: startDateLockedRef.current })
       const sameOpportunity =
         currentProps.rowIndexClicked === rowIndex &&
         currentProps.symbol === row.symbol &&
-        currentProps.startDate === row.date &&
+        currentProps.startDate === rowStartDate &&
         parseInt(currentProps.daysOut, 10) === parseInt(row.daysOut, 10)
       if (!sameOpportunity) {
-        const opp_start_date = row.date;
+        const opp_start_date = rowStartDate;
 
         // Invalidate every payload that belongs to the previously selected
         // opportunity in this same click transaction. Leaving those objects in
