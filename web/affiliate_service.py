@@ -2001,16 +2001,7 @@ def set_partner_discount(session, affiliate, new_pct, *, interval="year", actor=
             if is_active:
                 undo = lambda: stripe.PromotionCode.modify(old_pid, active=True)   # noqa: E731
     elif new > 0 and new != _dec(affiliate.discount_pct):
-        try:
-            coupon = stripe.Coupon.create(
-                percent_off=_pct_to_float(new), duration="repeating",
-                duration_in_months=DISCOUNT_DURATION_MONTHS,
-                name=f"Affiliate {code} mo"[:40],
-                metadata={"tw2_affiliate_code": code, "tw2_purpose": "affiliate",
-                          "tw2_interval": "month"})
-        except Exception as e:
-            raise AffiliateError("Stripe monthly coupon create failed: %s" % e) from e
-        new_coupon = coupon.id
+        new_coupon = _mint_monthly_coupon(affiliate, new)
         undo = lambda: stripe.Coupon.delete(new_coupon)   # noqa: E731
 
     try:
@@ -2075,13 +2066,71 @@ def terminate_for_cause(session, affiliate, cause, actor=None, now=None):
     return affiliate
 
 
+def _mint_monthly_coupon(aff, pct) -> str:
+    """Create the partner's MONTHLY override coupon at `pct` and return its id."""
+    code = normalize_code(aff.code)
+    try:
+        coupon = stripe.Coupon.create(
+            percent_off=_pct_to_float(pct), duration="repeating",
+            duration_in_months=DISCOUNT_DURATION_MONTHS,
+            name=f"Affiliate {code} mo"[:40],
+            metadata={"tw2_affiliate_code": code, "tw2_purpose": "affiliate",
+                      "tw2_interval": "month"})
+    except Exception as e:
+        raise AffiliateError("Stripe monthly coupon create failed: %s" % e) from e
+    return coupon.id
+
+
+# Stripe coupon id -> percent_off. A coupon's percent_off can never be edited
+# in Stripe, so a successful lookup is cached for the life of the process.
+_coupon_pct_cache: dict = {}
+
+
+def coupon_percent_off(coupon_id):
+    """percent_off of a Stripe coupon as a Decimal; Decimal('0') for an
+    amount-off coupon; None when Stripe could not be asked (not cached, so
+    the next call asks again). Never raises."""
+    if not coupon_id:
+        return None
+    if coupon_id in _coupon_pct_cache:
+        return _coupon_pct_cache[coupon_id]
+    try:
+        coupon = stripe.Coupon.retrieve(coupon_id)
+        pct = coupon.get("percent_off") if isinstance(coupon, dict) else getattr(coupon, "percent_off", None)
+    except Exception as e:   # noqa: BLE001
+        log.warning("coupon %s: percent_off lookup failed: %s", coupon_id, e)
+        return None
+    value = _dec(pct) if pct is not None else Decimal("0")
+    _coupon_pct_cache[coupon_id] = value
+    return value
+
+
+def _coupon_matches(coupon_id, discount) -> bool:
+    """True unless Stripe says the coupon's percent_off DIFFERS from the
+    discount we are about to stamp. A coupon that could not be checked
+    (Stripe lookup failed) is not treated as a mismatch: the commission engine
+    still protects the payout (classify_invoice 'extra_discount' guard)."""
+    pct = coupon_percent_off(coupon_id)
+    if pct is None:
+        return True
+    if pct != _dec(discount):
+        log.warning("coupon %s is %s%% off but the partner discount is %s%% - not applied "
+                    "(run reconcile_v2_stripe)", coupon_id, pct, _dec(discount))
+        return False
+    return True
+
+
 def reconcile_v2_stripe(session) -> list[dict]:
     """One-off Stripe reconcile after migration b4d7e1f2a3c5 (a migration
     cannot call Stripe). For every non-terminated partner: a partner that is
     not ACTIVE gets its promotion code deactivated (v1 partners were paused
     pending re-signature of agreement v2), and a coupon whose percent no
-    longer matches the (clamped to 25%) discount is re-issued. Idempotent.
-    Returns one {"code", "action"} dict per change. Commits."""
+    longer matches the (clamped to 25%) discount is re-issued - the annual /
+    typed-code coupon AND the monthly override coupon. A monthly coupon that
+    is no longer needed (monthly now equals annual, or 0%) is dropped from the
+    partner row; the Stripe coupon itself is left alone because existing
+    subscriptions still carry it. Idempotent. Returns one {"code", "action"}
+    dict per change. Commits."""
     from models import Affiliate
     out = []
     for aff in session.query(Affiliate).filter(Affiliate.status != "terminated").all():
@@ -2095,6 +2144,29 @@ def reconcile_v2_stripe(session) -> list[dict]:
                     session.commit()
                     out.append({"code": aff.code, "action": "coupon_reissued",
                                 "old_coupon": old, "new_coupon": aff.stripe_coupon_id})
+            if aff.stripe_coupon_id_monthly:
+                old = aff.stripe_coupon_id_monthly
+                monthly = aff.discount_pct_monthly
+                if monthly is None or _dec(monthly) <= 0 or _dec(monthly) == _dec(aff.discount_pct):
+                    # No separate monthly discount any more: monthly follows annual.
+                    aff.stripe_coupon_id_monthly = None
+                    if monthly is not None and _dec(monthly) == _dec(aff.discount_pct):
+                        aff.discount_pct_monthly = None
+                    session.commit()
+                    out.append({"code": aff.code, "action": "monthly_coupon_dropped",
+                                "old_coupon": old})
+                else:
+                    coupon = stripe.Coupon.retrieve(old)
+                    pct = coupon.get("percent_off") if isinstance(coupon, dict) else getattr(coupon, "percent_off", None)
+                    if pct is None or _dec(pct) != _dec(monthly):
+                        aff.stripe_coupon_id_monthly = _mint_monthly_coupon(aff, monthly)
+                        try:
+                            session.commit()
+                        except Exception:
+                            _safe(lambda cid=aff.stripe_coupon_id_monthly: stripe.Coupon.delete(cid))
+                            raise
+                        out.append({"code": aff.code, "action": "monthly_coupon_reissued",
+                                    "old_coupon": old, "new_coupon": aff.stripe_coupon_id_monthly})
             if aff.status != "active" and aff.stripe_promotion_code_id:
                 stripe.PromotionCode.modify(aff.stripe_promotion_code_id, active=False)
                 out.append({"code": aff.code, "action": "promo_deactivated"})
@@ -2387,21 +2459,38 @@ def list_campaigns(session, include_archived=True) -> list:
 
 def _partner_spec(aff, interval, discount):
     """The Stripe `discounts=[...]` entry that applies the partner's discount
-    for a billing interval, or None (0% discount, or nothing provisioned)."""
+    for a billing interval, or None (0% discount, or nothing provisioned).
+
+    A coupon is only ever applied when its Stripe percent_off EQUALS
+    `discount` (the value stamped on the referral): a monthly coupon that is
+    out of step (for example a legacy 40% coupon after the cap was lowered to
+    25%) is skipped in favour of the annual / flat coupon when THAT one
+    matches, else no coupon at all. The caller then stamps 0%."""
     if discount <= 0:
         return None
-    override = (getattr(aff, "stripe_coupon_id_monthly", None)
-                if _norm_interval(interval) == "month" else None)
+    monthly = _norm_interval(interval) == "month"
+    override = getattr(aff, "stripe_coupon_id_monthly", None) if monthly else None
+    flat = getattr(aff, "stripe_coupon_id", None)
+
+    def flat_spec():
+        if getattr(aff, "stripe_promotion_code_id", None):
+            return {"promotion_code": aff.stripe_promotion_code_id}
+        return {"coupon": flat} if flat else None
+
     if override:
-        return {"coupon": override}
-    if _norm_interval(interval) == "month" and getattr(aff, "discount_pct_monthly", None) is not None \
+        if _coupon_matches(override, discount):
+            return {"coupon": override}
+        # Out-of-step monthly coupon: the flat coupon may stand in, but only
+        # when Stripe CONFIRMS it carries exactly this discount.
+        if flat and coupon_percent_off(flat) == _dec(discount):
+            return flat_spec()
+        return None
+    if monthly and getattr(aff, "discount_pct_monthly", None) is not None \
             and _dec(aff.discount_pct_monthly) != _dec(aff.discount_pct):
         return None                                # monthly override without its own coupon
-    if getattr(aff, "stripe_promotion_code_id", None):
-        return {"promotion_code": aff.stripe_promotion_code_id}
-    if getattr(aff, "stripe_coupon_id", None):
-        return {"coupon": aff.stripe_coupon_id}
-    return None
+    if flat and not _coupon_matches(flat, discount):
+        return None
+    return flat_spec()
 
 
 def find_returning_referral(session, customer_id, now=None):

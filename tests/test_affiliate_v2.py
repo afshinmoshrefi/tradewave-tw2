@@ -1027,9 +1027,23 @@ class TestCheckoutOffer:
         assert o["discount_spec"] is None and o["offer_type"] == "regular"
         assert o["metadata"]["tw2_discount_pct"] == "0.00" and o["first_period_cents"] == 39900
 
-    def test_legacy_discount_above_the_cap_is_clamped(self, db):
+    def test_legacy_discount_above_the_cap_is_clamped(self, db, monkeypatch):
+        """The stamp is capped at 25% AND the coupon must agree with it: a
+        legacy 40% coupon is never applied (the customer pays list price and
+        0% is stamped) until reconcile_v2_stripe re-issues it at 25%."""
+        pcts = {"cpn_anne": 40.0}
+        monkeypatch.setattr(afs, "_coupon_pct_cache", {})
+        monkeypatch.setattr(stripe.Coupon, "retrieve", lambda cid: {"id": cid, "percent_off": pcts[cid]})
         make_partner(db, discount_pct=D(40))
-        assert resolve(db, raw_code="ANNE")["metadata"]["tw2_discount_pct"] == "25.00"
+        o = resolve(db, raw_code="ANNE")
+        assert o["discount_spec"] is None                              # the 40% coupon is NOT applied
+        assert o["metadata"]["tw2_discount_pct"] == "0.00" and o["first_period_cents"] == 39900
+        # once the coupon is re-issued at the cap, stamp and coupon agree
+        monkeypatch.setattr(afs, "_coupon_pct_cache", {})
+        pcts["cpn_anne"] = 25.0
+        o = resolve(db, raw_code="ANNE")
+        assert o["discount_spec"] == {"promotion_code": "promo_anne"}
+        assert o["metadata"]["tw2_discount_pct"] == "25.00" and o["first_period_cents"] == 29925
 
     # --- campaign vs partner: the lower FIRST-PERIOD price wins, never both ---
     def test_campaign_wins_when_cheaper(self, db, campaign_stripe):
