@@ -766,6 +766,7 @@ def build_affiliate() -> tuple[str, dict]:
   .aff-cta-wrap .aff-cta:hover { transform:translateY(-1px); box-shadow:0 10px 28px rgba(139,92,246,0.3); }
   .aff-cta-note { font-size:13px; color:var(--text-muted); margin:16px 0 0; }
     .aff-uses .aff-card h3 { font-size:16px; }
+  .aff-uses .aff-card:last-child { grid-column:1 / -1; }
   @media (max-width:720px) { .aff-cards, .aff-steps, .aff-terms { grid-template-columns:1fr; } }
 </style>
 """
@@ -807,6 +808,10 @@ def build_affiliate() -> tuple[str, dict]:
   <div class="aff-card">
     <h3>"When is the worst time to hold?"</h3>
     <p>Find a stock's weakest stretches, like September for Apple, then exclude those dates to see how it performs without them.</p>
+  </div>
+  <div class="aff-card">
+    <h3>"How does this pattern do in a pre-election year?"</h3>
+    <p>Filter by the presidential election cycle, like midterm years or the year before an election such as 2027, and see how a pattern behaved in just those years.</p>
   </div>
   <div class="aff-card">
     <h3>"Did last month's ideas actually work?"</h3>
