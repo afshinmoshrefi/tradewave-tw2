@@ -775,8 +775,8 @@ def build_affiliate() -> tuple[str, dict]:
   .aff-tabs.js .aff-panel-h { display:none; }
   .aff-panel-h { margin:24px 0 0; font-size:17px; color:#fff; }
   .aff-tabs .aff-uses { grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); margin-top:16px; }
-  #panel-research .aff-uses { grid-template-columns:repeat(2,1fr); }
-  @media (max-width:720px) { .aff-cards, .aff-steps, .aff-terms, #panel-research .aff-uses { grid-template-columns:1fr; } }
+  #panel-research .aff-uses, .aff-fits { grid-template-columns:repeat(2,1fr); }
+  @media (max-width:720px) { .aff-cards, .aff-steps, .aff-terms, #panel-research .aff-uses, .aff-fits { grid-template-columns:1fr; } }
 </style>
 <script>
 document.addEventListener('DOMContentLoaded',function(){
@@ -893,19 +893,23 @@ document.addEventListener('DOMContentLoaded',function(){
   </div>
 </div>
 
-<h2>How creators use it</h2>
-<div class="aff-steps">
-  <div class="aff-step">
-    <h3>Discover</h3>
-    <p>Start each week with what is entering its seasonal window, and turn the best of it into a video, post or lesson.</p>
+<h2>How it fits what you already make</h2>
+<div class="aff-cards aff-fits">
+  <div class="aff-card">
+    <h3>YouTube</h3>
+    <p>A weekly "what's entering its season" episode with TradeWave charts on screen, then a follow-up on how it played out.</p>
   </div>
-  <div class="aff-step">
-    <h3>Check</h3>
-    <p>Before you call a trade, see whether history and the AI score agree with you. TradeWave sits beside your own strategy, it does not replace it.</p>
+  <div class="aff-card">
+    <h3>Newsletter</h3>
+    <p>A "pattern of the week" section, plus a short calendar of what opens next month.</p>
   </div>
-  <div class="aff-step">
-    <h3>Follow up</h3>
-    <p>Come back to the same stocks later and show how they did. Honest follow-ups build trust, and trust is what makes people use your link.</p>
+  <div class="aff-card">
+    <h3>Coaching or courses</h3>
+    <p>Teach with real examples, like September for Apple or pre-election years. Students repeat the research themselves as homework.</p>
+  </div>
+  <div class="aff-card">
+    <h3>Community or Discord</h3>
+    <p>Post what is starting today from the Opportunity table, and track a shared portfolio in public.</p>
   </div>
 </div>
 
