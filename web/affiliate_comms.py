@@ -1161,6 +1161,7 @@ def _welcome_event(session, aff, terms):
         "2. Add your payout method and send your tax form (Payouts page). We need both "
         "before we can pay you.\n"
         "3. Share your link. Always say that you earn a commission.\n\n"
+        "Watch the 2-minute tour: %s\n\n"
         "Questions: use Help in your dashboard, reply to this email or write to %s."
         % (first_name(aff), agr.join_link(aff), agr.referral_link(aff), code_line,
            _pct(discount), _pct(offer["commission_rate_pct"]),
@@ -1168,7 +1169,8 @@ def _welcome_event(session, aff, terms):
            money(Decimal(offer["customer_pays_cents"]) / 100),
            money(Decimal(offer["partner_earns_cents"]) / 100),
            _pct(getattr(terms, "pool_pct", 50)),
-           _pct(getattr(terms, "renewal_pct", 25)), _rule_text(terms), HELP_EMAIL))
+           _pct(getattr(terms, "renewal_pct", 25)), _rule_text(terms),
+           dashboard_url("#tour"), HELP_EMAIL))
     # ONE welcome per partner, ever: a constant key, so re-signing (new terms,
     # a regenerated link) never sends a second one. An older dated key
     # ('welcome:<date>') counts as already welcomed.
