@@ -48,6 +48,7 @@ log = logging.getLogger("affiliate_ops_summary")
 UTC = dt.timezone.utc
 SENT_ACTION = "affiliate_ops_summary_sent"
 ADMIN_LINKS = (
+    ("home", "Partner program (everything waiting for you)", "/admin/affiliate_home/"),
     ("bulk", "Bulk payouts (export and mark paid)", "/admin/affiliate_bulk_payouts/"),
     ("ledger", "Payout ledger", "/admin/affiliatepayout/?flt1_status_equals=pending"),
     ("tax", "Tax forms", "/admin/affiliate_tax_forms/"),
@@ -85,7 +86,7 @@ def build_summary(session, year: int, month: int, now=None) -> dict:
     import affiliate_ops as ops
     import affiliate_ops_models as om
     import affiliate_service as afs
-    from models import Affiliate, AffiliateCommissionLine as L, AffiliatePayout, AffiliateReferral
+    from models import Affiliate, AffiliateCommissionLine as L, AffiliatePayout
 
     now = afs._utc(now) or dt.datetime.now(UTC)
     period = dt.date(year, month, 1)
@@ -137,23 +138,9 @@ def build_summary(session, year: int, month: int, now=None) -> dict:
     carries = [r for r in blocked if r["short_reason"] in ("Below minimum, carried", "Negative, carried")]
     no_details = [r for r in blocked if r["short_reason"] in ("No payout method", "No payout email")]
 
+    import affiliate_owner as owner
     warn_days = int(getattr(config, "AFFILIATE_OPS_ACTIVITY_WARN_DAYS", 30))
-    activity = []
-    with_customers = {r[0] for r in session.query(AffiliateReferral.affiliate_id)
-                      .filter(AffiliateReferral.first_paid_at.isnot(None)).distinct().all()}
-    for aff in (session.query(Affiliate).filter(Affiliate.status.in_(("active", "paused")))
-                .order_by(Affiliate.code).all()):
-        if aff.id not in with_customers:
-            continue
-        st = afs.activity_status(aff, now, session=session, terms=afs.terms_for(session, aff))
-        if st["active_until"] is not None:
-            left = (st["active_until"] - now.date()).days
-            if left <= warn_days:
-                activity.append({"code": aff.code, "name": aff.name, "state": "closing",
-                                 "date": _d(st["active_until"]), "days": left})
-        elif st["lapsed_since"] is not None and (now.date() - st["lapsed_since"]).days <= 31:
-            activity.append({"code": aff.code, "name": aff.name, "state": "lapsed",
-                             "date": _d(st["lapsed_since"]), "days": 0})
+    activity = [dict(a, date=_d(a["date"])) for a in owner.activity_watch(session, now, warn_days)]
 
     flags = (len(large_refunds) + len(repeat_refunds) + len(held) + len(no_tax) + len(carries)
              + len(no_details) + len(activity) + (1 if forms_waiting else 0))
@@ -307,7 +294,8 @@ def send_summary(session, year: int, month: int, *, force=False, now=None) -> st
         log.info("summary for %s already sent; nothing to do (use --force to resend)", period.strftime("%Y-%m"))
         return "already_sent"
     summary = build_summary(session, year, month, now=now)
-    to = getattr(config, "AFFILIATE_OPS_EMAIL", "") or config.SUPPORT_EMAIL_TO
+    import affiliate_service as afs
+    to = afs.owner_email() or config.SUPPORT_EMAIL_TO      # the ONE owner address
     ok = resend_send_email(to=to, subject=subject_for(summary), body_text=render_text(summary),
                            html=render_html(summary))
     if not ok:

@@ -35,6 +35,27 @@ def _money_map(d):
     return {cur: str(Decimal(str(amt)).quantize(Decimal("0.01"))) for cur, amt in (d or {}).items()}
 
 
+def _tax_form_numbers(s, aff) -> dict:
+    """The partner's tax-form state for the assistant: status, form name and
+    (when rejected) the owner's reason. No file, no tax detail.
+    status: none | received (waiting for review) | accepted | rejected."""
+    try:
+        import affiliate_ops as ops
+        v = ops.tax_form_view(s, aff)
+        latest = v.get("latest")
+        if latest is not None and latest["status"] in ("received", "rejected"):
+            return {"status": latest["status"], "form": latest["form_label"],
+                    "reason": latest["reason"] if latest["status"] == "rejected" else None,
+                    "form_on_file": v["on_file_label"]}
+        if v["on_file"]:
+            return {"status": "accepted", "form": v["on_file_label"], "reason": None,
+                    "form_on_file": v["on_file_label"]}
+        return {"status": "none", "form": None, "reason": None, "form_on_file": None}
+    except Exception as e:   # noqa: BLE001
+        log.warning("help: tax form state unavailable for %s: %s", aff.code, type(e).__name__)
+        return {"status": "unknown", "form": None, "reason": None, "form_on_file": None}
+
+
 def partner_numbers(aff, s):
     """This partner's own numbers for the assistant: COUNTS AND TOTALS ONLY.
     Built from the same dashboard functions the pages use, so the assistant
@@ -57,6 +78,7 @@ def partner_numbers(aff, s):
                                          "paying_customers": f["paid"], "in_trial_now": f["in_trial"]}
         act = d["activity"]
         return {
+            "tax_form": _tax_form_numbers(s, live),
             "program_status": live.status,
             "agreement_signed": live.agreement_signed_at is not None,
             "customers": {

@@ -19,9 +19,7 @@ from affiliate_admin import _FOOT, _HEAD
 
 log = logging.getLogger("tw2.affiliate_help")
 
-_NAV = """<p style="margin:10px 0 0"><a href="{{ url_for('affiliate_help.index') }}">Partner questions</a>
- &nbsp;|&nbsp; <a href="{{ url_for('affiliate_help_kb.index') }}">Knowledge base</a></p>
-<style>
+_NAV = """<style>
  .qa{white-space:pre-wrap;overflow-wrap:anywhere;}
  .chat{background:#f7f7fb;border:1px solid #e6e6ef;border-radius:8px;padding:10px 14px;font-size:13px;}
  .chat div{margin:4px 0;white-space:pre-wrap;overflow-wrap:anywhere;}
@@ -228,7 +226,7 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
                 return render_template_string(
                     _LIST_TMPL, title="Partner questions", errors=None,
                     open=_affs(s, open_rows), closed=_affs(s, closed),
-                    inbound=ah.inbound_enabled(), support_email=ah.support_email(),
+                    inbound=ah.inbound_enabled(), support_email=ah.owner_email(),
                     model_ready=bool((getattr(config, "anthropic_token", "") or "").strip()))
             finally:
                 s.close()
@@ -378,10 +376,11 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
         @expose("/propose", methods=["POST"])
         def propose(self):
             def run(s, kb):
-                if ah.propose_general(s, kb):
-                    return "A general version is suggested below the entry. Approve it to use it for every partner."
-                return ("The assistant thinks this answer only applies to this partner, so it did "
-                        "not suggest a general version.")
+                # The model call runs in the background job runner, not here.
+                if ah.queue_proposal(s, kb, actor()) is None:
+                    raise ah.AssistantUnavailable("no_key")
+                return ("Asked the assistant for a general version. It appears below the entry "
+                        "within a few minutes if the answer can be made general.")
             return self._act(run, None, "affiliate_help_kb_proposed")
 
         @expose("/status", methods=["POST"])

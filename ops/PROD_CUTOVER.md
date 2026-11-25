@@ -208,6 +208,33 @@ steps/checks:
    owe" button (primary) and/or the optional `affiliate_report.py` cron; confirm
    whichever you rely on is in place. Watch logs for "discounted invoice(s) with NO
    active-affiliate attribution" (unattributed referrals needing review).
+   **One statement email, not two (TW-TASK-0039 fix):** the partner comms daily job
+   (`affiliate_comms.py`) is the ONLY sender of the monthly statement email, and only for
+   a month that has closed. If a prod `affiliate_report.py` cron line exists it must NOT
+   carry `--email`: `sudo bash ops/install_affiliate_crons.sh web` strips the flag (and
+   fails loudly if it is still there afterwards), and the script itself ignores the flag
+   and logs a warning. Verify: `sudo -u flask crontab -l | grep affiliate_report` shows
+   no `--email`.
+4a. **Partner-program crons + owner address (TW-TASK-0039)** - on the WEB box:
+   `sudo bash ops/install_affiliate_crons.sh web` installs the daily comms job
+   (14:10 UTC), the background job runner `affiliate_jobs.py` (every 2 minutes: group
+   message sends and suggested knowledge-base answers no longer run inside a web
+   request) and the monthly owner summary. Set **`AFFILIATE_OWNER_EMAIL`** in prod
+   `secrets.env`: the one address for applications, partner questions, tax-form alerts,
+   the monthly summary and the daily "waiting more than 48 hours" digest (falls back to
+   `AFFILIATE_SUPPORT_EMAIL`, then `SUPPORT_EMAIL_TO`). `TW2_AFFILIATE_OPS_EMAIL` is no
+   longer read.
+4b. **Web unit is gthread now** - `ops/systemd/tradewave-web.service` runs gunicorn with
+   `--worker-class gthread --threads 8` (2 workers = 16 concurrent requests) so one slow
+   call (model, Stripe, Resend) cannot stall the site. After the deploy installs the
+   unit: `systemctl daemon-reload && systemctl restart tradewave-web`, then confirm
+   `ps -o args= -C gunicorn | grep -c gthread` is non-zero and smoke `/`, `/account`,
+   `/admin/affiliate_home/` and one Stripe webhook delivery.
+4c. **Application form check** - `/partners/apply` shows the Cloudflare Turnstile widget
+   when `TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` are set (the contact-form keys). If
+   the widget does not render (a CSP in front of the web tier must allow
+   `https://challenges.cloudflare.com` in `script-src` and `frame-src`), every
+   application is refused: submit one test application before announcing the form.
 5. **First affiliate = go-live** — creating the first prod affiliate provisions a REAL
    (live-mode) Stripe coupon + promo code. Create one, sign via the magic link, confirm
    `paused`→`active` and the confirmation email lands, before announcing the program.

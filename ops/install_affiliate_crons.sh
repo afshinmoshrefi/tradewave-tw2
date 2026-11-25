@@ -13,8 +13,10 @@
 #                                              blocks, rebuilds /experts/ hubs
 #
 # Usage: sudo bash ops/install_affiliate_crons.sh [web|smn|both] [EXPERT_SYNC_PATH]
-# (the monthly affiliate_report.py --email cron is documented in that file
-# and is left untouched here)
+# (the monthly affiliate_report.py ledger sweep is documented in that file;
+# for the web role ops/install_affiliate_comms_cron.sh removes its old --email
+# flag, because the comms daily job is the one sender of statement emails, and
+# installs the every-2-minutes background job runner affiliate_jobs.py)
 set -euo pipefail
 
 ROLE="${1:-both}"
@@ -64,7 +66,8 @@ for l in "${lines[@]}"; do
   if sudo -u flask crontab -l | grep -qF "$l"; then echo "OK: $l"; else echo "FAIL: missing after install: $l" >&2; exit 1; fi
 done
 
-# Partner lifecycle emails (TW-TASK-0039 B): daily job on the web box.
+# Partner lifecycle emails + background job runner (TW-TASK-0039 B, fix-0039)
+# on the web box; also strips --email from the affiliate_report.py cron line.
 if [ "$ROLE" != smn ]; then
   bash "$(dirname "$0")/install_affiliate_comms_cron.sh"
 fi

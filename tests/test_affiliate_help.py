@@ -68,7 +68,7 @@ NEEDS_TEAM = {"outcome": "needs_team", "answer": "", "reason": "Wise fees are no
 
 @pytest.fixture
 def env(monkeypatch):
-    monkeypatch.setattr(h, "TABLES", h.TABLES + HELP_TABLES)
+    monkeypatch.setattr(h, "TABLES", h.all_tables())
     db, factory, _engine = h.make_db()
     world = h.fake_stripe(monkeypatch.setattr)
     state = SimpleNamespace(user=None, catalog=h.CATALOG)
@@ -446,6 +446,15 @@ class TestLimits:
 # ============================================================================
 # 5. Answering: back to the partner, into the knowledge base
 # ============================================================================
+def run_jobs(env):
+    """fix-0039 (4): the suggested general version is written by the job
+    runner (cron every 2 minutes), not inside the admin's request."""
+    import affiliate_jobs as jobs
+    out = jobs.run_pending(env.db)
+    env.db.expire_all()
+    return out
+
+
 def open_escalation(env, question="Does Wise charge me a fee?"):
     env.claude.payloads = [NEEDS_TEAM]
     ask(env, question)
@@ -468,7 +477,9 @@ class TestAnswerFlow:
         # knowledge base: partner-specific until the admin says otherwise
         assert (kb.scope, kb.source, kb.status, kb.affiliate_id) == ("partner", "escalation", "active", env.aff.id)
         assert kb.question == "Does Wise charge me a fee?" and kb.escalation_id == esc.id
-        # model-proposed general version waits for approval
+        # model-proposed general version: written by the job runner, then waits for approval
+        assert kb.proposed_question is None and env.claude.payloads
+        assert run_jobs(env) == {"done": 1, "failed": 0, "retry": 0}
         assert kb.proposed_question == "Does Wise charge a fee?"
         assert kb.proposed_answer == "Wise may charge a transfer fee - TradeWave does not add one."
         # partner: email + unread badge + the answer in the chat
@@ -486,6 +497,8 @@ class TestAnswerFlow:
         env.claude.calls.clear()
         env.claude.payloads = [{"generalisable": False, "question": "", "answer": ""}]
         kb = ah.answer_escalation(env.db, esc, "Your March payout was held for your tax form.", "admin:t")
+        assert env.claude.calls == []                 # no model call inside the request
+        run_jobs(env)
         assert kb.proposed_answer is None and kb.proposed_question is None
         (kw,) = env.claude.calls
         assert len(kw["system"]) == 1 and "knowledge base" in kw["system"][0]["text"]
@@ -513,6 +526,7 @@ class TestAnswerFlow:
         env.claude.payloads = [{"generalisable": True, "question": "Does Wise charge a fee?",
                                 "answer": "GENERAL-WISE-ANSWER"}]
         kb = ah.answer_escalation(env.db, esc, "ANNE-WISE-ANSWER", "admin:t")
+        run_jobs(env)
         _, paul = h.make_partner(env.db, "PAUL")
 
         def prompt_for(user):
@@ -747,6 +761,7 @@ class TestAdmin:
         # a second answer is refused, with the draft kept
         again = page(admin.c.post("/admin/affiliate_help/answer", data={"id": esc.id, "answer": "Other."}))
         assert "already answered" in again
+        run_jobs(env)
         kb_page = page(admin.c.get("/admin/affiliate_help_kb/"))
         assert "Suggested general version" in kb_page and "GENERAL VERSION" in kb_page
         assert "ANNE only" in kb_page and "Approve for all partners" in kb_page
@@ -792,6 +807,7 @@ class TestAdmin:
         esc = open_escalation(env)
         env.claude.payloads = [{"generalisable": True, "question": "Wise fee?", "answer": "GENERAL VERSION"}]
         kb = ah.answer_escalation(env.db, esc, "Anne, we add no fee.", "admin:t")
+        run_jobs(env)
         assert admin.c.post("/admin/affiliate_help_kb/approve", data={"id": kb.id}).status_code == 302
         (row,) = rows(env, K)
         assert (row.scope, row.answer, row.affiliate_id, row.proposed_answer) == ("general", "GENERAL VERSION", None, None)
@@ -806,6 +822,8 @@ class TestAdmin:
         env.patch.setattr(ah, "_client", lambda: env.claude)
         env.claude.payloads = [{"generalisable": True, "question": "Second?", "answer": "PROPOSED TWO"}]
         admin.c.post("/admin/affiliate_help_kb/propose", data={"id": kb2.id})
+        assert rows(env, K)[-1].proposed_answer is None            # queued, not in the request
+        run_jobs(env)
         assert rows(env, K)[-1].proposed_answer == "PROPOSED TWO"
         admin.c.post("/admin/affiliate_help_kb/discard", data={"id": kb2.id})
         assert rows(env, K)[-1].proposed_answer is None and rows(env, K)[-1].scope == "partner"
@@ -850,3 +868,201 @@ def test_migration_matches_the_models():
         for col in table.columns:
             assert "sa.Column('%s'" % col.name in block, (name, col.name)
         assert "op.drop_table('%s')" % name in text
+
+
+# ============================================================================
+# 9. fix-0039: review fixes
+# ============================================================================
+class TestModelCallNeverHoldsAWorker:
+    def test_client_has_a_hard_timeout_and_no_retries(self, monkeypatch):
+        import anthropic
+        seen = {}
+
+        class Fake:
+            def __init__(self, **kw):
+                seen.update(kw)
+        monkeypatch.setattr(anthropic, "Anthropic", Fake)
+        monkeypatch.setattr(config, "anthropic_token", "sk-ant-TESTKEY", raising=False)
+        monkeypatch.setattr(config, "AFFILIATE_HELP_MODEL_TIMEOUT", 25, raising=False)
+        assert isinstance(ah._client(), Fake)
+        assert seen["timeout"] == 25.0 and seen["max_retries"] == 0
+        # the cap stays well under the gunicorn worker timeout whatever is configured
+        for raw, want in ((500, 45.0), (1, 5.0), ("junk", 25.0), (None, 25.0), (30, 30.0)):
+            monkeypatch.setattr(config, "AFFILIATE_HELP_MODEL_TIMEOUT", raw, raising=False)
+            assert ah.model_timeout() == want
+        assert "AFFILIATE_HELP_MODEL_TIMEOUT" in Path(config.__file__).read_text()
+
+    def test_the_proposal_is_never_made_inside_the_request(self, env):
+        import models
+        esc = open_escalation(env)
+        env.claude.calls.clear()
+        env.claude.payloads = [{"generalisable": True, "question": "Wise fee?", "answer": "GENERAL"}]
+        kb = ah.answer_escalation(env.db, esc, "We add no fee.", "admin:t")
+        assert env.claude.calls == [] and len(env.sent) == 1          # the partner already has the answer
+        (job,) = rows(env, models.AffiliateJob)
+        assert (job.kind, job.status, job.payload) == ("propose_general", "queued", {"kb_id": kb.id})
+        assert run_jobs(env) == {"done": 1, "retry": 0, "failed": 0}
+        assert len(env.claude.calls) == 1 and rows(env, models.AffiliateJob)[0].result == {"proposed": True}
+
+    def test_a_model_failure_in_the_job_is_retried_later(self, env):
+        import models
+        esc = open_escalation(env)
+        ah.answer_escalation(env.db, esc, "We add no fee.", "admin:t")
+        env.claude.payloads = [RuntimeError("overloaded"), RuntimeError("overloaded")]
+        out = run_jobs(env)
+        (job,) = rows(env, models.AffiliateJob)
+        # either the handler reports "no proposal" or the job is queued again: never an error to the admin
+        assert out["failed"] == 0 and job.status in ("done", "queued")
+
+    def test_no_job_when_the_model_is_not_configured_or_not_wanted(self, env):
+        import models
+        esc = open_escalation(env)
+        ah.answer_escalation(env.db, esc, "First.", "admin:t", propose=False)
+        assert rows(env, models.AffiliateJob) == []
+        esc2 = open_escalation(env, "Another question?")
+        env.patch.setattr(ah, "_client", lambda: None)
+        kb = ah.answer_escalation(env.db, esc2, "Second.", "admin:t")
+        assert ah.queue_proposal(env.db, kb) is None and rows(env, models.AffiliateJob) == []
+
+    def test_a_retired_entry_is_skipped_by_the_job(self, env):
+        import models
+        esc = open_escalation(env)
+        kb = ah.answer_escalation(env.db, esc, "We add no fee.", "admin:t")
+        kb.status = "retired"
+        env.db.commit()
+        env.claude.calls.clear()
+        assert run_jobs(env)["done"] == 1 and env.claude.calls == []
+        assert "skipped" in rows(env, models.AffiliateJob)[0].result
+
+
+class TestOwnerAddress:
+    def test_escalations_go_to_the_one_owner_address_with_a_deep_link(self, env):
+        env.patch.setattr(config, "AFFILIATE_OWNER_EMAIL", "boss@tradewave.test", raising=False)
+        env.claude.payloads = [NEEDS_TEAM]
+        ask(env, "Does Wise charge me a fee?")
+        (mail,) = env.sent
+        assert mail["to"] == "boss@tradewave.test" == ah.owner_email()
+        assert re.search(r"https?://\S+/admin/affiliate_help/answer\?t=\S+", mail["body_text"])
+
+    def test_falls_back_to_the_support_address(self, env):
+        env.patch.setattr(config, "AFFILIATE_OWNER_EMAIL", "", raising=False)
+        assert ah.owner_email() == "owner@tradewave.test"
+        env.patch.setattr(config, "AFFILIATE_SUPPORT_EMAIL", "", raising=False)
+        env.patch.setattr(config, "SUPPORT_EMAIL_TO", "support@tradewave.test", raising=False)
+        assert ah.owner_email() == "support@tradewave.test"
+
+    def test_the_owner_address_may_answer_by_email(self, env):
+        env.patch.setattr(config, "AFFILIATE_OWNER_EMAIL", "boss@tradewave.test", raising=False)
+        esc = open_escalation(env)
+        env.patch.setattr(ah, "_client", lambda: None)
+        assert ah.handle_inbound(env.db, inbound_event(esc.id, sender="Boss <boss@tradewave.test>")) == "answered"
+
+    def test_admin_page_names_the_address(self, env, admin):
+        env.patch.setattr(config, "AFFILIATE_OWNER_EMAIL", "boss@tradewave.test", raising=False)
+        html = page(admin.c.get("/admin/affiliate_help/"))
+        assert "boss@tradewave.test" in html and 'class="twp-nav"' in html and "—" not in html
+
+
+class TestInboundAutoReplies:
+    @pytest.mark.parametrize("extra", [
+        {"headers": {"Auto-Submitted": "auto-replied"}},
+        {"headers": [{"name": "auto-submitted", "value": "auto-generated"}]},
+        {"headers": {"X-Autoreply": "yes"}},
+        {"headers": {"X-Autorespond": "1"}},
+        {"headers": {"Precedence": "auto_reply"}},
+        {"headers": {"Precedence": "bulk"}},
+        {"headers": {"List-Id": "<news.example.com>"}},
+        {"subject": "Automatic reply: Re: q"},
+        {"subject": "Out of Office: back Monday"},
+        {"sender": "MAILER-DAEMON@tradewave.test"},
+    ])
+    def test_machine_mail_never_becomes_an_answer(self, env, extra):
+        esc = open_escalation(env)
+        env.patch.setattr(config, "AFFILIATE_HELP_REPLY_FROM", "mailer-daemon@tradewave.test", raising=False)
+        text = "I am out of the office until Monday and will reply when I am back."
+        assert ah.handle_inbound(env.db, inbound_event(esc.id, text=text, **extra)) == "auto_reply"
+        assert rows(env, models_help().AffiliateHelpEscalation)[0].status == "open"
+        assert env.sent == [] and rows(env, models_help().AffiliateHelpKb) == []
+
+    def test_a_person_s_reply_still_works(self, env):
+        esc = open_escalation(env)
+        env.patch.setattr(ah, "_client", lambda: None)
+        ev = inbound_event(esc.id, headers={"Auto-Submitted": "no", "X-Auto-Response-Suppress": "All"})
+        assert ah.is_auto_reply(ev["data"]) is False
+        assert ah.handle_inbound(env.db, ev) == "answered"
+
+    @pytest.mark.parametrize("text", ["ok", "Thanks!", "yes\n\n> the quoted question", "  .  "])
+    def test_a_very_short_body_is_not_an_answer(self, env, text):
+        esc = open_escalation(env)
+        out = ah.handle_inbound(env.db, inbound_event(esc.id, text=text))
+        assert out in ("too_short", "empty") and ah.MIN_REPLY_CHARS == 10
+        assert rows(env, models_help().AffiliateHelpEscalation)[0].status == "open" and env.sent == []
+
+
+class TestRetention:
+    def test_the_chat_copy_on_an_old_escalation_is_cleared_too(self, env):
+        m = models_help()
+        old = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=400)
+        turns = [{"role": "partner", "body": "PRIVATE-OLD-CHAT"}]
+        env.db.add(m.AffiliateHelpEscalation(affiliate_id=env.aff.id, question="ancient q", status="answered",
+                                             answer="the answer", created_at=old, context=turns))
+        env.db.add(m.AffiliateHelpEscalation(affiliate_id=env.aff.id, question="recent q", status="open",
+                                             context=[{"role": "partner", "body": "RECENT-CHAT"}],
+                                             created_at=dt.datetime.now(dt.timezone.utc)))
+        env.db.commit()
+        assert ah.purge_old(env.db, force=True) == 1
+        ancient, recent = rows(env, m.AffiliateHelpEscalation)
+        assert not ancient.context                                   # the copy is gone
+        assert (ancient.question, ancient.answer) == ("ancient q", "the answer")   # the record stays
+        assert recent.context == [{"role": "partner", "body": "RECENT-CHAT"}]
+        assert ah.purge_old(env.db, force=True) == 0                 # nothing left to clear
+
+    def test_the_daily_job_forces_the_purge(self):
+        import inspect
+        import affiliate_comms
+        assert "ah.purge_old(session, force=True)" in inspect.getsource(affiliate_comms._daily_housekeeping)
+
+
+class TestTaxFormInTheNumbers:
+    def _numbers(self, env):
+        from affiliate_portal import help_routes, routes
+        with env.app.test_request_context(BASE + "/"):
+            s = routes._db()
+            try:
+                return help_routes.partner_numbers(s.get(type(env.aff), env.aff.id), s)
+            finally:
+                s.close()
+
+    def _form(self, env, status, reason=None, form_type="w8ben"):
+        import affiliate_ops_models as om
+        env.db.add(om.AffiliateTaxForm(affiliate_id=env.aff.id, form_type=form_type, status=status,
+                                       storage_name=None, original_filename="f.pdf", size_bytes=10,
+                                       reject_reason=reason, uploaded_at=dt.datetime.now(dt.timezone.utc)))
+        env.db.commit()
+
+    def test_states(self, env):
+        env.aff.tax_form_type, env.aff.tax_form_received_at = None, None
+        env.db.commit()
+        assert self._numbers(env)["tax_form"] == {"status": "none", "form": None, "reason": None,
+                                                 "form_on_file": None}
+        self._form(env, "received")
+        assert self._numbers(env)["tax_form"] == {"status": "received", "form": "W-8BEN", "reason": None,
+                                                 "form_on_file": None}
+        env.db.query(__import__("affiliate_ops_models").AffiliateTaxForm).delete()
+        self._form(env, "rejected", reason="The signature line is empty.")
+        got = self._numbers(env)["tax_form"]
+        assert (got["status"], got["form"], got["reason"]) == ("rejected", "W-8BEN", "The signature line is empty.")
+        env.aff.tax_form_type, env.aff.tax_form_received_at = "w9", dt.datetime.now(dt.timezone.utc)
+        env.db.query(__import__("affiliate_ops_models").AffiliateTaxForm).delete()
+        env.db.commit()
+        assert self._numbers(env)["tax_form"] == {"status": "accepted", "form": "W-9", "reason": None,
+                                                 "form_on_file": "W-9"}
+
+    def test_the_assistant_is_told_and_no_file_detail_leaks(self, env):
+        self._form(env, "rejected", reason="The signature line is empty.")
+        env.claude.payloads = [answered("Your W-8BEN was not accepted: the signature line is empty.")]
+        ask(env, "Why was my tax form rejected?")
+        prompt = env.claude.prompt()
+        assert '"tax_form"' in prompt and "The signature line is empty." in prompt
+        assert "f.pdf" not in prompt and "storage_name" not in prompt
+        assert "partner_numbers.tax_form is the state of this partner's own tax form" in prompt

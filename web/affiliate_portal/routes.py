@@ -303,7 +303,9 @@ def _plain_text(value, maxlen, label):
 def _notify_operator(subject, body):
     try:
         from email_utils import resend_send_email
-        resend_send_email(to=config.SUPPORT_EMAIL_TO, subject=subject, body_text=body)
+        import affiliate_service as _asvc
+        resend_send_email(to=_asvc.owner_email() or config.SUPPORT_EMAIL_TO, subject=subject,
+                          body_text=body)
     except Exception as e:   # noqa: BLE001
         log.warning("affiliate portal notify failed: %s", e)
 

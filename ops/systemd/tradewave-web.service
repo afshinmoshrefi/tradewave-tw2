@@ -18,10 +18,18 @@ ProtectControlGroups=true
 RestrictSUIDSGID=true
 LockPersonality=true
 ExecStartPre=/home/flask/venv/bin/python -m web.react_build
+# gthread (2 workers x 8 threads = 16 concurrent requests), mirroring the API
+# gateway unit: the web tier is I/O-bound (Postgres, Stripe, WorkOS, Resend and
+# the partner help assistant's model call, capped at 25s). With 2 sync workers
+# two slow calls blocked every other visitor. SQLAlchemy sessions are
+# thread-scoped (models.Session is a scoped_session; pool 10 + 20 overflow per
+# worker). --timeout 60 still bounds a stuck worker.
 ExecStart=/home/flask/venv/bin/gunicorn \
     --workers 2 \
-    --worker-class sync \
+    --worker-class gthread \
+    --threads 8 \
     --timeout 60 \
+    --keep-alive 5 \
     --bind 127.0.0.1:5500 \
     --bind __TW2_WEB_VLAN__:5500 \
     --access-logfile /var/log/tradewave/web.access.log \

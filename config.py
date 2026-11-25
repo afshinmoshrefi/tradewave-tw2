@@ -61,9 +61,28 @@ API_CONSOLE_ENABLED = os.environ.get('TW2_API_CONSOLE_ENABLED', '').strip().lowe
 AFFILIATE_DEFAULT_DISCOUNT_PCT = 20
 AFFILIATE_DEFAULT_COMMISSION_PCT = 30
 
+# ONE owner address for every partner-program notice to the owner: help
+# escalations, new applications, tax-form alerts, the monthly operations
+# summary and the daily "waiting more than 48 hours" digest. Empty falls back
+# to AFFILIATE_SUPPORT_EMAIL, then SUPPORT_EMAIL_TO
+# (affiliate_service.owner_email()).
+AFFILIATE_OWNER_EMAIL = os.environ.get('AFFILIATE_OWNER_EMAIL', '').strip()
+# First-touch attribution window: how long the tw_ref / tw_ref_sub cookies
+# live (days). Shown to partners via affiliate_service.attribution_window_days().
+# The static home page JS (site/templates/index-dark-blue.html) carries the
+# same 60 as a literal: change both together and regenerate the site.
+AFFILIATE_ATTRIBUTION_WINDOW_DAYS = int(os.environ.get('TW2_AFFILIATE_ATTRIBUTION_WINDOW_DAYS', '60'))
+# Public application form: at most this many applications per hour from ALL
+# networks together (on top of the per-network daily cap and Turnstile).
+AFFILIATE_APPLY_MAX_PER_HOUR = int(os.environ.get('TW2_AFFILIATE_APPLY_MAX_PER_HOUR', '30'))
+
 # --- Partner help assistant (TW-TASK-0039 A; web/affiliate_help.py) ---
-# Uses anthropic_token (below). Unanswerable questions are emailed here.
+# Uses anthropic_token (below). AFFILIATE_SUPPORT_EMAIL is the address
+# PARTNERS are told to write to; owner notices go to AFFILIATE_OWNER_EMAIL.
 AFFILIATE_SUPPORT_EMAIL = os.environ.get('AFFILIATE_SUPPORT_EMAIL', 'help@tradewave.ai')
+# One model call is capped at this many seconds and is never retried, so a
+# slow model cannot hold a web worker thread (gunicorn --timeout is 60).
+AFFILIATE_HELP_MODEL_TIMEOUT = float(os.environ.get('TW2_AFFILIATE_HELP_MODEL_TIMEOUT', '25'))
 AFFILIATE_HELP_MODEL = os.environ.get('TW2_AFFILIATE_HELP_MODEL', 'claude-sonnet-5-5')
 # Optional reply-by-email (Resend inbound). OFF unless BOTH are set:
 #   secret  = the Resend webhook signing secret (whsec_...)
@@ -116,8 +135,8 @@ TAX_FORM_MAX_BYTES = int(os.environ.get('TW2_TAX_FORM_MAX_BYTES', str(5 * 1024 *
 # Creative library images (banners / logos): a PUBLIC asset folder so a
 # partner can embed them. Empty = <web_root_dir>/assets/affiliate-creatives.
 AFFILIATE_CREATIVE_DIR = os.environ.get('TW2_AFFILIATE_CREATIVE_DIR', '').strip()
-# Monthly operations summary: who gets it, and what counts as a large refund.
-AFFILIATE_OPS_EMAIL = os.environ.get('TW2_AFFILIATE_OPS_EMAIL', '').strip()   # empty = SUPPORT_EMAIL_TO
+# Monthly operations summary (sent to AFFILIATE_OWNER_EMAIL): what counts as
+# a large refund, and how close to the activity deadline is worth a line.
 AFFILIATE_OPS_LARGE_REFUND_CENTS = int(os.environ.get('TW2_AFFILIATE_OPS_LARGE_REFUND_CENTS', '20000'))
 AFFILIATE_OPS_ACTIVITY_WARN_DAYS = int(os.environ.get('TW2_AFFILIATE_OPS_ACTIVITY_WARN_DAYS', '30'))
 # Wise batch CSV: the currency the TradeWave Wise balance pays from.

@@ -83,6 +83,7 @@ REQUIRED_NOTICES = (
     ("Discount change confirmed", "So you know right away if your customer discount changes."),
     ("Final activity warning", "7 days before your renewal commissions would stop."),
     ("Renewal commissions stopped", "When the activity window ends."),
+    ("Tax form result", "Whether the tax form you uploaded was accepted, and what to fix if not."),
     ("Program notices", "Rare notices about the program or your agreement."),
 )
 
@@ -103,6 +104,9 @@ EVENT_PREF = {
     "discount_changed": None,
     "message": "announcement",
     "program_notice": None,
+    "tax_form_accepted": None,
+    "tax_form_rejected": None,
+    "signing_reminder": None,
 }
 EVENT_LABEL = {
     "welcome": "Welcome", "first_click": "First click", "new_customer": "New paying customer",
@@ -113,8 +117,13 @@ EVENT_LABEL = {
     "renewals_lapsed": "Renewals stopped", "renewals_resumed": "Renewals resumed",
     "campaign_started": "New sale", "discount_changed": "Discount change",
     "message": "Message from TradeWave", "program_notice": "Program notice",
+    "tax_form_accepted": "Tax form accepted", "tax_form_rejected": "Tax form not accepted",
+    "signing_reminder": "Signing reminder",
 }
 ACTIVITY_WARNING_DAYS = (60, 30, 7)
+SIGNING_REMINDER_DAYS = (3, 10)        # days after a partner was created, still unsigned
+OWNER_WAIT_HOURS = 48                  # the owner digest lists what waited longer than this
+DIGEST_ACTION = "affiliate_owner_digest_sent"
 MAX_SEND_ATTEMPTS = 3
 PENDING_RETRY_AFTER = dt.timedelta(minutes=30)
 
@@ -380,7 +389,9 @@ def deliver(session, aff, ev, now=None, disabled=None):
     elif not (aff.email or "").strip():
         row.email_status, row.email_reason = "skipped", "no_email"
     elif not email_configured():
-        row.email_status, row.email_reason = "skipped", "email_not_configured"
+        # Not permanent: the row stays 'failed' WITHOUT using up an attempt, so
+        # the next run sends it once the Resend key is configured.
+        row.email_status, row.email_reason = "failed", "email_not_configured"
     else:
         text, html, headers = render_email(aff, ev.subject, ev.body, link=ev.link, pref=pref)
         row.attempts = int(row.attempts or 0) + 1
@@ -548,10 +559,45 @@ def validate_message(subject, body) -> tuple:
     return subject, body
 
 
+def deliver_message(session, msg, recipient_ids=None, now=None) -> dict:
+    """Deliver a stored admin message to its recipients (inbox + email), once
+    per partner (event key msg:<id>), so it is safe to run again after a
+    crash. Returns {sent, skipped, failed, recipients}."""
+    from models import Affiliate
+    now = _now(now)
+    ids = []
+    for raw in recipient_ids or []:
+        try:
+            ids.append(uuid.UUID(str(raw)))
+        except (ValueError, TypeError, AttributeError):
+            continue
+    recipients = [a for a in (session.get(Affiliate, i) for i in ids) if a is not None]
+    stats = {"sent": 0, "skipped": 0, "failed": 0, "recipients": len(recipients)}
+    etype = "program_notice" if msg.required else "message"
+    for aff in recipients:
+        ev = make_event(etype, "msg:%s" % msg.id, personalize(msg.subject, aff),
+                        personalize(msg.body, aff), occurred_at=now, message_id=msg.id)
+        try:
+            row = deliver(session, aff, ev, now)
+        except Exception as e:   # noqa: BLE001  (one partner must not stop the rest)
+            session.rollback()
+            log.warning("message %s to %s failed: %s", msg.id, aff.code, e)
+            stats["failed"] += 1
+            continue
+        if row is not None:
+            stats[row.email_status if row.email_status in stats else "failed"] += 1
+    return stats
+
+
 def send_message(session, *, subject, body, audience, param=None, required=False,
-                 sent_by=None, now=None):
+                 sent_by=None, now=None, background=False):
     """Store the message, then deliver it to every recipient (inbox + email).
-    Returns (message, {sent, skipped, failed, recipients})."""
+    Returns (message, {sent, skipped, failed, recipients}).
+
+    background=True (the admin screen, for a group): the recipients are fixed
+    now, a 'send_message' job is queued (web/affiliate_jobs.py) and the call
+    returns at once with stats {"queued": True, "job": id, "recipients": n}.
+    A single recipient is always sent inline."""
     from models import AffiliateMessage
     now = _now(now)
     subject, body = validate_message(subject, body)
@@ -564,21 +610,14 @@ def send_message(session, *, subject, body, audience, param=None, required=False
                            recipient_count=len(recipients), created_at=now)
     session.add(msg)
     session.commit()
-    stats = {"sent": 0, "skipped": 0, "failed": 0, "recipients": len(recipients)}
-    etype = "program_notice" if required else "message"
-    for aff in recipients:
-        ev = make_event(etype, "msg:%s" % msg.id, personalize(subject, aff),
-                        personalize(body, aff), occurred_at=now, message_id=msg.id)
-        try:
-            row = deliver(session, aff, ev, now)
-        except Exception as e:   # noqa: BLE001  (one partner must not stop the rest)
-            session.rollback()
-            log.warning("message %s to %s failed: %s", msg.id, aff.code, e)
-            stats["failed"] += 1
-            continue
-        if row is not None:
-            stats[row.email_status if row.email_status in stats else "failed"] += 1
-    return msg, stats
+    ids = [str(a.id) for a in recipients]
+    if background and len(recipients) > 1:
+        import affiliate_jobs as jobs
+        job = jobs.enqueue(session, "send_message", {"message_id": msg.id, "recipient_ids": ids},
+                           created_by=sent_by, now=now)
+        return msg, {"queued": True, "job": job.id, "sent": 0, "skipped": 0, "failed": 0,
+                     "recipients": len(recipients)}
+    return msg, deliver_message(session, msg, ids, now)
 
 
 def message_log(session, limit=100) -> list:
@@ -632,15 +671,27 @@ APPLY_LIMIT_PER_IP_DAY = 3
 _EMAIL_RE = re.compile(r"^[^@\s<>\"',;]+@[^@\s<>\"',;]+\.[A-Za-z]{2,}$")
 _SITE_RE = re.compile(r"^(https?://)?[A-Za-z0-9][A-Za-z0-9.\-]*\.[A-Za-z]{2,}(/\S*)?$")
 _MARKUP_RE = re.compile(r"[<>]")
+# A "name" that carries a link is how a form gets abused to make us email
+# someone a URL: never greet with it.
+_LINK_RE = re.compile(r"(?i)(https?:|www\.|://|\b[a-z0-9-]+\.(?:com|net|org|io|co|ru|cn|info|biz|xyz|top|ly|me|app|dev|site|online|link|click|shop)\b)")
+
+
+def has_link(text) -> bool:
+    return bool(_LINK_RE.search(text or ""))
+
+
+def greeting_name(name) -> str:
+    """First name for an email greeting, or 'there' when the name is empty or
+    looks like it carries a link."""
+    name = (name or "").strip()
+    if not name or has_link(name):
+        return "there"
+    return name.split(" ")[0] or "there"
 
 
 def hash_ip(ip):
     """Salted hash for the per-network rate limit (the raw IP is not stored)."""
-    if not ip:
-        return None
-    salt = (getattr(config, "SUPPORT_IP_HASH_SALT", "") or
-            getattr(config, "API_KEY_HMAC_SECRET", "") or "tw2-partner-apply")
-    return hashlib.sha256(("%s|%s" % (ip, salt)).encode("utf-8")).hexdigest()
+    return afs.hash_ip(ip)
 
 
 def clean_application(form) -> dict:
@@ -655,6 +706,8 @@ def clean_application(form) -> dict:
     name = get("name", 120)
     if not 2 <= len(name) <= 120:
         errors.append("Please enter your name (2 to 120 characters).")
+    elif has_link(name):
+        errors.append("Please enter your name only (no web address). Use the website field for links.")
     email = get("email", 320).lower()
     if not _EMAIL_RE.match(email) or len(email) > 320:
         errors.append("Please enter a valid email address.")
@@ -692,9 +745,12 @@ def submit_application(session, form, *, ip=None, user_agent=None, now=None):
     """Handle one public submission. Returns (outcome, application | None):
 
       'honeypot'      a bot filled the hidden field - nothing stored, no email
-      'rate_limited'  too many from this network today - nothing stored
+      'rate_limited'  too many from this network today, or too many from
+                      everyone in the last hour - nothing stored
       'duplicate'     this email already has an application waiting - nothing new
-      'ok'            stored; confirmation + owner notification sent
+      'ok'            stored; confirmation + owner notification sent. If the
+                      owner's auto-approve rules match, the partner is created
+                      and the signing link is emailed (they still must sign).
 
     Raises CommsError (all problems) when the form is invalid."""
     from models import AffiliateApplication
@@ -711,6 +767,11 @@ def submit_application(session, form, *, ip=None, user_agent=None, now=None):
         if recent >= APPLY_LIMIT_PER_IP_DAY:
             log.info("partner application rate limited")
             return "rate_limited", None
+    hourly = (session.query(AffiliateApplication)
+              .filter(AffiliateApplication.created_at > now - dt.timedelta(hours=1)).count())
+    if hourly >= apply_limit_per_hour():
+        log.warning("partner application global hourly cap reached (%d)", hourly)
+        return "rate_limited", None
     waiting = (session.query(AffiliateApplication)
                .filter(AffiliateApplication.email == data["email"],
                        AffiliateApplication.status == "new").first())
@@ -722,13 +783,27 @@ def submit_application(session, form, *, ip=None, user_agent=None, now=None):
     session.add(app_row)
     session.commit()
     _email_application_received(app_row)
-    _email_owner_new_application(session, app_row)
+    auto = None
+    try:
+        import affiliate_owner as owner
+        auto = owner.try_auto_approve(session, app_row, now=now)
+    except Exception:   # noqa: BLE001  (the application is stored; the owner reviews it)
+        session.rollback()
+        log.exception("auto-approve failed for application %s", app_row.id)
+    _email_owner_new_application(session, app_row, auto=auto)
     return "ok", app_row
 
 
+def apply_limit_per_hour() -> int:
+    try:
+        return max(1, int(getattr(config, "AFFILIATE_APPLY_MAX_PER_HOUR", 30) or 30))
+    except (TypeError, ValueError):
+        return 30
+
+
 def owner_email() -> str:
-    return (getattr(config, "AFFILIATE_SUPPORT_EMAIL", "") or
-            getattr(config, "SUPPORT_EMAIL_TO", "") or HELP_EMAIL)
+    """The one owner address (affiliate_service.owner_email)."""
+    return afs.owner_email()
 
 
 def admin_applications_url(app_id=None) -> str:
@@ -737,7 +812,7 @@ def admin_applications_url(app_id=None) -> str:
 
 
 def _email_application_received(app_row) -> bool:
-    first = (app_row.name or "").split(" ")[0] or "there"
+    first = greeting_name(app_row.name)
     body = ("Hi %s,\n\n"
             "Thanks for applying to the TradeWave partner program. We have your application "
             "and we read every one personally. You will hear from us by email, usually within "
@@ -749,23 +824,31 @@ def _email_application_received(app_row) -> bool:
     return _send(app_row.email, "We received your TradeWave partner application", body)
 
 
-def _email_owner_new_application(session, app_row) -> bool:
+def _email_owner_new_application(session, app_row, auto=None) -> bool:
     flags = application_flags(session, app_row)
     notes = []
-    if flags["affiliate"] is not None:
+    if auto is not None:
+        notes.append("AUTO-APPROVED by your rules: partner %s was created (paused until they "
+                     "sign) and the signing link was %s."
+                     % (auto["code"], "emailed" if auto["emailed"] else "NOT emailed - send it yourself"))
+    if flags["affiliate"] is not None and auto is None:
         notes.append("ALREADY A PARTNER: %s (%s)" % (flags["affiliate"].code, flags["affiliate"].status))
     if flags["earlier"]:
         notes.append("Earlier applications from this email: %d" % len(flags["earlier"]))
     body = ("New partner application.\n\n"
             "Name      : %s\nEmail     : %s\nWebsite   : %s\nAudience  : %s\nCountry   : %s\n\n"
             "Channels:\n%s\n\nHow they will promote:\n%s\n\n%s"
-            "Approve or reject:\n%s\n"
+            "%s:\n%s\n"
             % (app_row.name, app_row.email, app_row.website or "-",
                AUDIENCE_SIZE_LABEL.get(app_row.audience_size, app_row.audience_size or "-"),
                app_row.country or "-", app_row.channels or "-", app_row.promo_plan or "-",
                ("\n".join(notes) + "\n\n") if notes else "",
+               "Open the application" if auto is not None else "Approve or reject",
                admin_applications_url(app_row.id)))
-    return _send(owner_email(), "New partner application: %s" % app_row.name, body)
+    subject = "%s partner application: %s" % ("Auto-approved" if auto is not None else "New",
+                                              "(name hidden: contains a link)" if has_link(app_row.name)
+                                              else app_row.name)
+    return _send(owner_email(), subject, body)
 
 
 def application_flags(session, app_row) -> dict:
@@ -897,7 +980,7 @@ def reject_application(session, app_row, *, actor, reason=None, send_email=True,
     session.commit()
     if not send_email:
         return False
-    first = (app_row.name or "").split(" ")[0] or "there"
+    first = greeting_name(app_row.name)
     body = ("Hi %s,\n\n"
             "Thank you for applying to the TradeWave partner program and for the time you "
             "put into it. We are not able to offer you a place right now.\n\n%s"
@@ -929,6 +1012,9 @@ def _rule_text(terms) -> str:
             % (months, afs.ACTIVITY_GRACE_DAYS))
 
 
+WELCOME_KEY = "welcome"
+
+
 def _welcome_event(session, aff, terms):
     signed = _utc(aff.agreement_signed_at)
     if signed is None:
@@ -957,7 +1043,16 @@ def _welcome_event(session, aff, terms):
            money(Decimal(offer["customer_pays_cents"]) / 100),
            money(Decimal(offer["partner_earns_cents"]) / 100),
            _pct(getattr(terms, "renewal_pct", 25)), HELP_EMAIL))
-    return make_event("welcome", "welcome:%s" % signed.date().isoformat(),
+    # ONE welcome per partner, ever: a constant key, so re-signing (new terms,
+    # a regenerated link) never sends a second one. An older dated key
+    # ('welcome:<date>') counts as already welcomed.
+    from models import AffiliateNotification
+    if (session.query(AffiliateNotification.id)
+            .filter(AffiliateNotification.affiliate_id == aff.id,
+                    AffiliateNotification.event_type == "welcome",
+                    AffiliateNotification.event_key != WELCOME_KEY).first()) is not None:
+        return None
+    return make_event("welcome", WELCOME_KEY,
                       "Welcome to the TradeWave partner program", body, occurred_at=signed,
                       link=("Open your partner dashboard", dashboard_url()))
 
@@ -1024,6 +1119,10 @@ def _new_customer_events(session, aff, terms, status):
     return out
 
 
+NEGATIVE_MONTH_TEXT = ("No payout this month - refunds were larger than sales; "
+                       "the balance carries forward")
+
+
 def _statement_events(session, aff, now):
     from models import AffiliatePayout
     # Only a recent month is news: re-computing an old month must not
@@ -1035,23 +1134,39 @@ def _statement_events(session, aff, now):
                     AffiliatePayout.status.in_(("pending", "paid"))).all())
     months = {}
     for r in rows:
+        # FINALIZED months only: a row for the month still running (a mid-month
+        # preview that was committed) is not a statement yet.
+        if r.period_end is None or r.period_end >= now.date():
+            continue
         months.setdefault(r.period_start, []).append(r)
     out = []
     for period, items in months.items():
         label = period.strftime("%B %Y")
-        totals = ", ".join(money(i.commission_amount, i.currency)
-                           for i in sorted(items, key=lambda i: i.currency or ""))
-        body = ("Hi %s,\n\n"
-                "Your %s statement is ready. Commission for the month: %s.\n\n"
-                "Payouts are sent by the 15th of the month after the statement month, once "
-                "your balance is at least %s and your tax form is on file. A smaller balance "
-                "is not lost: it carries forward.\n\n"
-                "The line-by-line breakdown is on your Earnings page."
-                % (first_name(aff), label, totals, money(afs.payout_minimum())))
+        items = sorted(items, key=lambda i: i.currency or "")
+        amounts = [Decimal(str(i.commission_amount or 0)) for i in items]
+        totals = ", ".join(money(i.commission_amount, i.currency) for i in items)
+        if any(a < 0 for a in amounts) and not any(a > 0 for a in amounts):
+            subject = "Your %s statement: no payout this month" % label
+            body = ("Hi %s,\n\n"
+                    "Your %s statement is ready. %s.\n\n"
+                    "Month total: %s. Nothing is owed by you and nothing is taken from your "
+                    "bank or PayPal. The amount is set against your next month with "
+                    "commission.\n\n"
+                    "The line-by-line breakdown is on your Earnings page."
+                    % (first_name(aff), label, NEGATIVE_MONTH_TEXT, totals))
+        else:
+            subject = "Your %s statement is ready" % label
+            body = ("Hi %s,\n\n"
+                    "Your %s statement is ready. Commission for the month: %s.\n\n"
+                    "Payouts are sent by the 15th of the month after the statement month, once "
+                    "your balance is at least %s and your tax form is on file. A smaller balance "
+                    "is not lost: it carries forward.\n\n"
+                    "The line-by-line breakdown is on your Earnings page."
+                    % (first_name(aff), label, totals, money(afs.payout_minimum())))
         occurred = max((_utc(i.computed_at) for i in items if i.computed_at is not None),
                        default=None)
         out.append(make_event("statement_ready", "statement:%s" % period.strftime("%Y-%m"),
-                              "Your %s statement is ready" % label, body, occurred_at=occurred,
+                              subject, body, occurred_at=occurred,
                               link=("Open your Payouts page", dashboard_url("/payouts"))))
     return out
 
@@ -1063,13 +1178,16 @@ def _payout_events(session, aff):
                     AffiliatePayout.paid_at.isnot(None)).all())
     out = []
     for r in rows:
-        if Decimal(str(r.commission_amount or 0)) <= 0:
+        # The amount actually SENT: a row marked paid at its exported amount
+        # carries it in paid_amount; otherwise it is the ledger amount.
+        sent = r.paid_amount if getattr(r, "paid_amount", None) is not None else r.commission_amount
+        if Decimal(str(sent or 0)) <= 0:
             continue
         ref = (r.external_ref or "").strip()
         if ref.startswith(("carried:", "forfeited:")):
             continue                              # bookkeeping rows, not a payment
         method = {"paypal": "PayPal", "wise": "Wise"}.get((aff.payout_method or "").lower(), "")
-        amount = money(r.commission_amount, r.currency)
+        amount = money(sent, r.currency)
         body = ("Hi %s,\n\n"
                 "We sent your payout of %s for %s%s.%s\n\n"
                 "Depending on the provider it can take a few days to arrive. If it has not "
@@ -1239,6 +1357,40 @@ def _discount_events(session, aff, terms):
     return out
 
 
+def _signing_reminder_events(aff, now):
+    """A reminder 3 and 10 days after an approved partner was created and has
+    still not signed. Only the latest one that is due is returned; the age
+    cut-off in run_for_affiliate keeps an old unsigned row from being mailed."""
+    if aff.agreement_signed_at is not None or aff.status != "paused":
+        return []
+    created = _utc(aff.created_at)
+    if created is None or not (aff.email or "").strip():
+        return []
+    due = [d for d in SIGNING_REMINDER_DAYS if now - created >= dt.timedelta(days=d)]
+    if not due:
+        return []
+    d = max(due)
+    try:
+        url = agr.signing_url(aff)
+    except Exception:   # noqa: BLE001  (no signing secret configured)
+        return []
+    last = d == max(SIGNING_REMINDER_DAYS)
+    body = ("Hi %s,\n\n"
+            "Your TradeWave partner application was approved, and one step is left: review "
+            "and sign the partner agreement. It takes a few minutes. Your link and your "
+            "code %s start working the moment you sign.\n\n"
+            "%s"
+            "If the link has expired or you have a question first, reply to this email or "
+            "write to %s."
+            % (first_name(aff), aff.code,
+               "This is our last reminder. Your place stays open, and you can ask us for a "
+               "fresh link at any time.\n\n" if last else "", HELP_EMAIL))
+    return [make_event("signing_reminder", "signing_reminder:%d" % d,
+                       "Reminder: sign your TradeWave partner agreement", body,
+                       occurred_at=created + dt.timedelta(days=d),
+                       link=("Review and sign the agreement", url))]
+
+
 def collect_events(session, aff, now=None, campaigns=None) -> list:
     """Every lifecycle event that currently applies to this partner (old and
     new alike - deliver() and the age cut-off decide what is actually sent)."""
@@ -1246,7 +1398,7 @@ def collect_events(session, aff, now=None, campaigns=None) -> list:
     if aff.status == "terminated":
         return _payout_events(session, aff)       # a final balance is still confirmed
     if aff.agreement_signed_at is None:
-        return []                                 # not a partner yet: admin messages only
+        return _signing_reminder_events(aff, now)  # not a partner yet: reminders + admin messages
     terms = afs.terms_for(session, aff) or afs.DEFAULT_TERMS
     status = afs.activity_status(aff, now, session=session, terms=terms)
     if campaigns is None:
@@ -1291,6 +1443,107 @@ def run_for_affiliate(session, aff, now=None, campaigns=None, dry_run=False) -> 
     return out
 
 
+def notify_tax_form(session, form, now=None):
+    """Tell the partner the result of a tax-form review: a Messages inbox row
+    plus a REQUIRED email (the partner cannot be paid until a form is on
+    file, so this is not optional). Once per form and result. Returns the
+    notification row or None."""
+    aff = form.affiliate
+    if aff is None or form.status not in ("accepted", "rejected"):
+        return None
+    import affiliate_ops as ops
+    label = ops.TAX_FORM_LABELS.get(form.form_type, "tax form")
+    if form.status == "accepted":
+        ev = make_event(
+            "tax_form_accepted", "tax_form:%s:accepted" % form.id,
+            "Your %s is on file" % label,
+            "Hi %s,\n\n"
+            "We have accepted your %s. Your tax form is now on file, so nothing more is "
+            "needed from you for payouts.\n\n"
+            "Payouts are sent by the 15th of the month after the statement month, once your "
+            "balance is at least %s." % (first_name(aff), label, money(afs.payout_minimum())),
+            occurred_at=_now(now), link=("Open your Payouts page", dashboard_url("/payouts")))
+    else:
+        ev = make_event(
+            "tax_form_rejected", "tax_form:%s:rejected" % form.id,
+            "Your %s needs a fix" % label,
+            "Hi %s,\n\n"
+            "We could not accept the %s you uploaded.\n\n"
+            "What to fix: %s\n\n"
+            "Please upload a corrected form on the Payouts page of your partner dashboard. "
+            "Do not email the form. We cannot send a payout until a form is on file."
+            % (first_name(aff), label, form.reject_reason or "see the note on your Payouts page"),
+            occurred_at=_now(now),
+            link=("Upload a corrected form", dashboard_url("/payouts#tax-form")))
+    return deliver(session, aff, ev, now)
+
+
+# Events that are delivered at the moment they happen (not found again by
+# collect_events): the daily job retries their failed sends.
+_ONE_SHOT_EVENTS = ("message", "program_notice", "tax_form_accepted", "tax_form_rejected")
+
+
+def retry_failed(session, now=None) -> int:
+    """Send again the one-shot notices whose email failed (provider refused,
+    or email was not configured at the time) and that still have retries
+    left. Returns how many were sent."""
+    from models import Affiliate, AffiliateNotification as N
+    now = _now(now)
+    rows = (session.query(N)
+            .filter(N.email_status == "failed", N.event_type.in_(_ONE_SHOT_EVENTS),
+                    N.attempts < MAX_SEND_ATTEMPTS, N.created_at >= now - max_event_age()).all())
+    sent = 0
+    for row in rows:
+        aff = session.get(Affiliate, row.affiliate_id)
+        if aff is None:
+            continue
+        ev = make_event(row.event_type, row.event_key, row.subject, row.body, occurred_at=now,
+                        link=((row.link_label, row.link_url) if row.link_url else None),
+                        message_id=row.message_id)
+        try:
+            out = deliver(session, aff, ev, now)
+        except Exception:   # noqa: BLE001
+            session.rollback()
+            log.exception("retry of notification %s failed", row.id)
+            continue
+        if out is not None and out.email_status == "sent":
+            sent += 1
+    return sent
+
+
+def _daily_housekeeping(session, now, stats) -> None:
+    """Everything the daily job does besides the per-partner events. Each step
+    is isolated: one failing step never stops the others."""
+    steps = []
+
+    def jobs_step():
+        import affiliate_jobs as jobs
+        stats["jobs"] = jobs.run_pending(session, now=now)
+    steps.append(("background jobs", jobs_step))
+
+    def retry_step():
+        stats["retried"] = retry_failed(session, now)
+    steps.append(("retry failed notices", retry_step))
+
+    def digest_step():
+        import affiliate_owner as owner
+        stats["owner_digest"] = owner.send_digest(session, now=now)
+    steps.append(("owner digest", digest_step))
+
+    def purge_step():
+        import affiliate_help as ah
+        stats["help_purged"] = ah.purge_old(session, force=True)
+    steps.append(("help retention purge", purge_step))
+
+    for label, fn in steps:
+        try:
+            fn()
+        except Exception:   # noqa: BLE001
+            session.rollback()
+            stats["errors"] += 1
+            log.exception("daily step failed: %s", label)
+
+
 def run_daily(session, now=None, dry_run=False) -> dict:
     """The daily job. Idempotent: safe to run any number of times a day."""
     from models import Affiliate
@@ -1318,6 +1571,8 @@ def run_daily(session, now=None, dry_run=False) -> dict:
             session.rollback()
             stats["errors"] += 1
             log.exception("partner comms failed for affiliate %s", aid)
+    if not dry_run:
+        _daily_housekeeping(session, now, stats)
     return stats
 
 

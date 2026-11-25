@@ -208,8 +208,8 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   signoff` on `Affiliate`); magic-link e-signature flow (`web/affiliate_agreement.py`,
   `/affiliate/sign/<token>`, immutable snapshot + audit fields, affiliates are
   created PAUSED and flip active only on signing); monthly/annual interval-split
-  coupons; anonymized monthly statement emails (`web/affiliate_report.py`, cron 2nd
-  03:30). Affiliates are NOT users yet (no `users` linkage; magic links only). The
+  coupons; monthly ledger sweep (`web/affiliate_report.py`, cron 2nd 03:30; it no
+  longer emails statements, see fix-0039 below). Affiliates are NOT users yet (no `users` linkage; magic links only). The
   affiliate-facing login dashboard + optional SMN expert module:
   `docs/AFFILIATE_DASHBOARD_SPEC.md` - BUILT + tested on dev 2026-07-07 (32/32
   integration checks, `tests/test_affiliate_portal_dev.py`). Pieces: blueprint
@@ -315,8 +315,76 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   email is sent inline (at signing). Preferences = JSON list of disabled pref
   ids; required notices (payout sent, discount change, 7-day warning, renewals
   lapsed, program notice) ignore preferences and carry no unsubscribe link.
-  The statement-ready notice duplicates `affiliate_report.py --email` until
-  that flag is removed from its cron.
+  ONE statement email: the daily job is the only sender, and only for a month that
+  has closed (`period_end < today`); `affiliate_report.py --email` is ignored (logs a
+  warning) and `ops/install_affiliate_comms_cron.sh` strips the flag from the cron line.
+- **Partner program review fixes + owner tools (TW-TASK-0039 fix-0039, 2026-11-24,
+  migration `e2f3a4b5c6d7` on `d1e2f3a4b5c6`).**
+  - **One owner address.** `affiliate_service.owner_email()` = `AFFILIATE_OWNER_EMAIL`, else
+    `AFFILIATE_SUPPORT_EMAIL`, else `SUPPORT_EMAIL_TO`. Every owner notice uses it (applications,
+    help escalations, tax-form alerts, monthly operations summary, 48-hour digest) and carries a
+    deep link built by `affiliate_service.admin_url()`. `TW2_AFFILIATE_OPS_EMAIL` is gone.
+    `AFFILIATE_SUPPORT_EMAIL` stays the address PARTNERS write to.
+  - **Background jobs** (`web/affiliate_jobs.py`, table `affiliate_jobs`, cron every 2 minutes
+    + the daily job). Group message sends and "suggest a general knowledge-base answer" model
+    calls are queued by the request and run by the cron: queued -> running -> done | failed,
+    5 attempts, a row stuck `running` for 15 minutes is queued again, handlers are idempotent.
+    Chosen over a thread because a web restart loses nothing. Job kinds are storage ids.
+    `python web/affiliate_jobs.py --list` shows the newest jobs.
+  - **Web capacity.** `ops/systemd/tradewave-web.service` runs gunicorn `gthread`, 2 workers x
+    8 threads. The help-assistant model call has a hard timeout
+    (`TW2_AFFILIATE_HELP_MODEL_TIMEOUT`, 25s, clamped 5..45) and `max_retries=0`.
+  - **Bulk payouts: export vs mark-paid.** An export stamps `affiliate_payouts.exported_at` +
+    `exported_amount`. A second export of the same row is refused unless the owner ticks
+    "Include rows I already exported". On import a row whose ledger amount no longer equals
+    the exported amount is REFUSED, unless the owner ticks "I paid the exported amounts": then
+    it is marked paid with `paid_amount` = the exported amount (the difference is settled by
+    hand). `apply_paid_batch` re-reads each row under a lock (`populate_existing` +
+    `with_for_update`) and re-runs `_block_reason`. The "Payout sent" email and the year-end
+    report use `paid_amount`. `unclaimed` is not a paid status. CSV cells starting with
+    `= + - @ tab CR` are prefixed with `'`.
+  - **Delivery.** A missing Resend key is a retryable `failed/email_not_configured` (no
+    attempt used), not a permanent skip; the daily job retries failed one-shot notices
+    (`retry_failed`). The welcome email key is the constant `welcome`.
+  - **Application form.** Cloudflare Turnstile on `/partners/apply` when BOTH
+    `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set (same keys as the contact form;
+    skipped otherwise); global cap `TW2_AFFILIATE_APPLY_MAX_PER_HOUR` (30); a name that
+    contains a link is refused and never used in a greeting.
+  - **Reply-by-email.** Auto-replies (Auto-Submitted, X-Autoreply, Precedence bulk/list,
+    List-Id, mailer-daemon, "Out of office" subjects) and bodies under 10 characters are
+    ignored, never sent to the partner as the answer.
+  - **Retention.** The help purge also clears the chat copy on old escalations
+    (`affiliate_help_escalations.context`); the daily job forces it.
+  - **Tax forms.** `affiliate_tax_forms.affiliate_id` is `ON DELETE CASCADE`; an admin
+    hard-delete of a partner first removes the encrypted files (`affiliate_ops.purge_tax_forms`).
+    Accept / reject send a REQUIRED notice (email + Messages inbox) through
+    `affiliate_comms.notify_tax_form`; the help assistant sees `partner_numbers.tax_form`
+    {status, form, reason}.
+  - **Owner tools** (`web/affiliate_owner.py` service, `web/affiliate_owner_admin.py` views):
+    admin home `/admin/affiliate_home/` (first item of the Affiliates menu, live counts);
+    one shared sub-nav `web/affiliate_nav.py` on every partner-program admin page (Jinja
+    global `affiliate_subnav`; Flask-Admin list pages via `templates/admin/affiliate_list.html`);
+    owner digest once per UTC day only when an application, question or tax form has waited
+    more than 48 hours (audit action `affiliate_owner_digest_sent`); signing reminders 3 and 10
+    days after approval + "Resend signing link"; auto-approve rules (table
+    `affiliate_program_settings`, key `auto_approve`: off | all | rules by country list and
+    minimum audience; never for an existing partner or repeat applicant; the partner is still
+    created PAUSED and must sign); fraud signals on Bulk payouts and the Payout ledger
+    (self-referral by email / domain / network, signup-to-click ratio, shared network; they
+    never block a payout; `users.referred_ip_hash` is stamped for NEW signups only);
+    year-end tax report `/admin/affiliate_tax_report/` + CSV (paid per partner per currency,
+    country, form type, "1099-NEC likely" = W-9 and >= $600 USD).
+  - **Attribution window.** `TW2_AFFILIATE_ATTRIBUTION_WINDOW_DAYS` (60) ->
+    `affiliate_service.attribution_window_days()` drives the `tw_ref` / `tw_ref_sub` cookie
+    max-age and is exposed to templates (`affiliate_attribution_days()`, portal context
+    `aff_attribution_days`). `sub_from_cookie` decodes a percent-encoded value
+    (`ANNE%3Ayoutube`); the static page JS now writes the cookie raw.
+  - **Migrations cannot be replayed from an empty database:** the baseline `c0d92cd5de83` is
+    stamp-only. To prove a new revision locally, build the previous-head schema
+    (`Base.metadata.create_all` from the previous commit's models, after
+    `CREATE SEQUENCE support_tickets_number_seq`), `alembic stamp <previous head>`, then
+    upgrade / downgrade / upgrade. Run alembic from `web/` (`-c alembic.ini`) with
+    `TW2_ALEMBIC_DSN_OVERRIDE` and `POSTGRES_DSN` set.
 - **Affiliate program v2 (TW-TASK-0038, backend built 2026-11-24, branch
   `claude/affiliate-v2-20261124`; NOT yet on dev/staging/prod).** Rules of
   record + the dollar acceptance table: `docs/tasks/TW-TASK-0038.md`. Tests:
@@ -536,7 +604,7 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   - **Monthly operations summary.** `web/affiliate_ops_summary.py --email`, cron `30 6 3 * *`
     (installed by `ops/install_affiliate_crons.sh web`), one day after the ledger sweep. Reads
     the ledger only (no Stripe call, no compute, never marks paid); plain rules, no LLM. One
-    email per month to `TW2_AFFILIATE_OPS_EMAIL` (default `SUPPORT_EMAIL_TO`), made idempotent
+    email per month to the owner address (`AFFILIATE_OWNER_EMAIL`, see fix-0039), made idempotent
     by `audit_log` action `affiliate_ops_summary_sent`. Thresholds:
     `TW2_AFFILIATE_OPS_LARGE_REFUND_CENTS` (20000), `TW2_AFFILIATE_OPS_ACTIVITY_WARN_DAYS` (30).
 - **Standalone promo coupons (Coupons tab)** - plain marketing discount codes

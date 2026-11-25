@@ -32,7 +32,7 @@ class AffiliateTaxForm(Base):
     (rejected / replaced forms are not kept)."""
     __tablename__ = "affiliate_tax_forms"
     id            = Column(_BIGPK, primary_key=True)
-    affiliate_id  = Column(PG_UUID(as_uuid=True), ForeignKey("affiliates.id", ondelete="RESTRICT"), nullable=False)
+    affiliate_id  = Column(PG_UUID(as_uuid=True), ForeignKey("affiliates.id", ondelete="CASCADE"), nullable=False)
     form_type     = Column(Text, nullable=False)
     status        = Column(Text, nullable=False, server_default=sa_text("'received'"))
     reject_reason = Column(Text)                 # shown to the partner

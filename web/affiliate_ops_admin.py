@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 
+import affiliate_nav
 import affiliate_ops as ops
 import affiliate_ops_models as om
 
@@ -51,16 +52,28 @@ _CSS = """
  .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;}
  img.thumb{max-width:160px;max-height:80px;display:block;border:1px solid #e1e4ec;border-radius:6px;background:#0b0f1a;}
  form.inline{display:inline;}
+ .flag{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:20px;background:#fff1e6;color:#9a4a00;border:1px solid #f3cfa8;white-space:nowrap;margin:0 4px 3px 0;}
+ .flagbox{border-top:1px solid #e3e6ee;padding:10px 0;} .flagbox ul{margin:4px 0 0 18px;padding:0;}
+ label.inline{display:inline;font-weight:400;}
+ .only-card{display:none;}
+ @media (max-width:700px){
+  table.cards,table.cards tbody,table.cards tr,table.cards td{display:block;width:auto;}
+  table.cards tr.head{display:none;}
+  table.cards tr{border:1px solid #e1e4ec;border-radius:10px;padding:8px 12px;margin:10px 0;background:#fff;}
+  table.cards td{border:0;padding:3px 0;text-align:left;white-space:normal;overflow-wrap:anywhere;}
+  table.cards td.num{text-align:left;}
+  table.cards td[data-label]::before{content:attr(data-label) ": ";font-weight:600;color:#555;}
+  table.cards td.card-title{font-size:15px;padding-bottom:4px;}
+  table.cards td.card-amount{font-size:16px;}
+  table.cards td.pick{float:right;padding:0 0 0 8px;}
+  .only-card{display:inline;}
+ }
  @media (max-width:640px){.wrap{padding:16px 12px 48px;} .doc{padding:14px 14px;} input[type=text]{width:100%;}}
 """
 
 _HEAD = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>{{ title }}</title><style>""" + _CSS + """</style></head><body><div class="wrap">
-<nav><a href="/admin">&larr; Admin</a><a href="/admin/affiliate/">Affiliates</a>
-<a href="/admin/affiliatepayout/">Payout ledger</a>
-<a href="{{ url_for('affiliate_bulk_payouts.index') }}">Bulk payouts</a>
-<a href="{{ url_for('affiliate_tax_forms.index') }}">Tax forms</a>
-<a href="{{ url_for('affiliate_creatives.index') }}">Creative library</a></nav>
+""" + affiliate_nav.NAV_HTML + """
 {% with msgs = get_flashed_messages(with_categories=true) %}
   {% if msgs %}{% for cat, m in msgs %}<div class="flash flash-{{ cat }}">{{ m }}</div>{% endfor %}{% endif %}
 {% endwith %}
@@ -75,21 +88,37 @@ contacts PayPal or Wise.</p>
 
 {% if preview is not none %}
 <div class="doc"><h2>Check before marking paid</h2>
- <div class="scroll"><table>
-  <tr><th>Reference</th><th>Partner</th><th>Statement</th><th class="num">Amount</th><th>Payment reference</th><th>Result</th></tr>
+ <div class="scroll"><table class="cards">
+  <tr class="head"><th>Reference</th><th>Partner</th><th>Statement</th><th class="num">Amount</th><th>Payment reference</th><th>Result</th></tr>
   {% for e in preview %}
-  <tr><td class="mono">{{ e.ref or '-' }}</td><td>{{ e.code or '-' }}</td><td>{{ e.period or '-' }}</td>
-   <td class="num">{% if e.amount is not none %}{{ '%.2f'|format(e.amount) }} {{ e.currency|upper }}{% else %}-{% endif %}</td>
-   <td class="mono">{{ e.reference or '-' }}</td>
-   <td class="{{ 'ok' if e.ok else 'err' }}">{{ e.message }}</td></tr>
+  <tr><td class="mono" data-label="Reference">{{ e.ref or '-' }}</td><td class="card-title" data-label="Partner">{{ e.code or '-' }}</td><td data-label="Statement">{{ e.period or '-' }}</td>
+   <td class="num card-amount" data-label="Amount">{% if e.amount is not none %}{{ '%.2f'|format(e.amount) }} {{ e.currency|upper }}{% else %}-{% endif %}</td>
+   <td class="mono" data-label="Payment reference">{{ e.reference or '-' }}</td>
+   <td class="{{ 'ok' if e.ok else 'err' }}" data-label="Result">{{ e.message }}</td></tr>
   {% endfor %}
  </table></div>
+ {% if preview_drift %}
+ <div class="warn"><strong>{{ preview_drift }} row{{ '' if preview_drift == 1 else 's' }} changed amount after the export.</strong>
+  The file you uploaded to PayPal or Wise carried the exported amount, so that is what was sent. A refund or a
+  re-compute moved the ledger afterwards.
+  {% if not accept_exported %}
+  <form method="post" action="{{ url_for('affiliate_bulk_payouts.mark_paid') }}" style="margin-top:6px;">
+   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+   <textarea name="batch" hidden>{{ batch_text }}</textarea>
+   <input type="hidden" name="default_reference" value="{{ default_reference }}">
+   <input type="hidden" name="accept_exported" value="yes">
+   <button type="submit" class="small secondary">I paid the exported amounts - preview again</button>
+  </form>
+  {% else %}These rows will be marked paid at the exported amount. The partner's "Payout sent" email states that
+  amount. Settle the difference yourself (for example by editing the next statement).{% endif %}</div>
+ {% endif %}
  {% if preview_ok %}
  <form method="post" action="{{ url_for('affiliate_bulk_payouts.mark_paid') }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="confirm" value="yes">
   <textarea name="batch" hidden>{{ batch_text }}</textarea>
   <input type="hidden" name="default_reference" value="{{ default_reference }}">
+  {% if accept_exported %}<input type="hidden" name="accept_exported" value="yes">{% endif %}
   <button type="submit">Mark {{ preview_ok }} row{{ '' if preview_ok == 1 else 's' }} paid</button>
   <a class="btn secondary" href="{{ url_for('affiliate_bulk_payouts.index') }}">Cancel</a>
  </form>
@@ -107,34 +136,56 @@ contacts PayPal or Wise.</p>
   <input type="hidden" name="method" value="{{ g.method }}"><input type="hidden" name="currency" value="{{ g.currency }}">
   <h3 style="margin:14px 0 2px;font-size:15px;">{{ g.method_label }} - {{ g.currency|upper }}
     <span class="muted" style="font-weight:400;">{{ g.rows|length }} row{{ '' if g.rows|length == 1 else 's' }}, {{ '%.2f'|format(g.total) }} {{ g.currency|upper }}</span></h3>
-  <div class="scroll"><table>
-   <tr><th><input type="checkbox" checked aria-label="Select all" onclick="var b=this.form.querySelectorAll('input[name=ids]');for(var i=0;i<b.length;i++)b[i].checked=this.checked;"></th>
-     <th>Reference</th><th>Partner</th><th>Statement</th><th>Pay to</th><th class="num">Amount</th></tr>
+  <div class="scroll"><table class="cards">
+   <tr class="head"><th><input type="checkbox" checked aria-label="Select all rows not exported yet" onclick="var b=this.form.querySelectorAll('input[name=ids]');for(var i=0;i<b.length;i++)if(!b[i].hasAttribute('data-exported'))b[i].checked=this.checked;"></th>
+     <th>Reference</th><th>Partner</th><th>Statement</th><th>Pay to</th><th class="num">Amount</th><th>Export</th><th>Flags</th></tr>
    {% for r in g.rows %}
-   <tr><td><input type="checkbox" name="ids" value="{{ r.id }}" checked aria-label="Select {{ r.ref }}"></td>
-     <td class="mono">{{ r.ref }}</td><td><strong>{{ r.code }}</strong> {{ r.name }}</td><td>{{ r.period }}</td>
-     <td class="mono">{{ r.email }}</td><td class="num"><strong>{{ '%.2f'|format(r.amount) }}</strong></td></tr>
+   <tr><td class="pick"><input type="checkbox" name="ids" value="{{ r.id }}"{% if r.exported_at %} data-exported="1"{% else %} checked{% endif %} aria-label="Select {{ r.ref }}"></td>
+     <td class="mono" data-label="Reference">{{ r.ref }}</td><td class="card-title"><strong>{{ r.code }}</strong> {{ r.name }}</td><td data-label="Statement">{{ r.period }}</td>
+     <td class="mono" data-label="Pay to">{{ r.email }}</td>
+     <td class="num card-amount" data-label="Amount"><strong>{{ '%.2f'|format(r.amount) }}</strong><span class="only-card"> {{ r.currency|upper }} by {{ g.method_label }}</span></td>
+     <td data-label="Export">{% if r.exported_at %}<span class="pill {{ 'bad' if r.changed else 'warnp' }}">Exported {{ r.exported_at.strftime('%d %b') }}</span>
+       {% if r.changed %}<div class="err">File said {{ '%.2f'|format(r.exported_amount) }}, ledger now {{ '%.2f'|format(r.amount) }}</div>{% endif %}
+       {% else %}<span class="muted">Not yet</span>{% endif %}</td>
+     <td data-label="Flags">{% for f in flags.get(r.affiliate.id, []) %}<span class="flag" title="{{ f.reason }}">{{ f.label }}</span>{% else %}<span class="muted">-</span>{% endfor %}</td></tr>
    {% endfor %}
   </table></div>
+  {% if g.rows|selectattr('exported_at')|list %}
+  <label class="inline"><input type="checkbox" name="reexport" value="yes"> Include rows I already exported
+   (only if the earlier file was never uploaded - uploading a row twice pays the partner twice)</label><br>
+  {% endif %}
   <button type="submit">Export {{ g.method_label }} CSV ({{ g.currency|upper }})</button>
  </form>
  {% endfor %}
  <p class="muted">One file per payout method and currency. PayPal: Payouts - Upload a file (no header row: email, amount,
  currency, reference, note, wallet). Wise: Batch transfers - Upload (header row: {{ wise_columns|join(', ') }}).
- The Reference column is how the rows are matched when you mark them paid.</p>
+ The Reference column is how the rows are matched when you mark them paid. Each export records the amount in the
+ file; if the ledger amount changes afterwards, the row is marked here and refused when you mark it paid.</p>
 {% else %}
  <p class="muted">No payable rows right now. Commit the month on <a href="/admin/affiliate_compute/">Compute / What I owe</a> first.</p>
 {% endif %}
 {% if blocked %}
  <h3 style="margin:18px 0 2px;font-size:15px;">Not payable yet ({{ blocked|length }})</h3>
- <div class="scroll"><table>
-  <tr><th>Reference</th><th>Partner</th><th>Statement</th><th class="num">Amount</th><th>Why</th></tr>
+ <div class="scroll"><table class="cards">
+  <tr class="head"><th>Reference</th><th>Partner</th><th>Statement</th><th class="num">Amount</th><th>Why</th><th>Flags</th></tr>
   {% for r in blocked %}
-  <tr><td class="mono">{{ r.ref }}</td><td><strong>{{ r.code }}</strong> {{ r.name }}</td><td>{{ r.period }}</td>
-    <td class="num">{{ '%.2f'|format(r.amount) }} {{ r.currency|upper }}</td><td>{{ r.short_reason }}</td></tr>
+  <tr><td class="mono" data-label="Reference">{{ r.ref }}</td><td class="card-title"><strong>{{ r.code }}</strong> {{ r.name }}</td><td data-label="Statement">{{ r.period }}</td>
+    <td class="num card-amount" data-label="Amount">{{ '%.2f'|format(r.amount) }} {{ r.currency|upper }}<span class="only-card"> by {{ method_labels.get(r.method, 'no payout method yet') }}</span></td>
+    <td class="err" data-label="Not payable">{{ r.short_reason }}</td>
+    <td data-label="Flags">{% for f in flags.get(r.affiliate.id, []) %}<span class="flag" title="{{ f.reason }}">{{ f.label }}</span>{% else %}<span class="muted">-</span>{% endfor %}</td></tr>
   {% endfor %}
  </table></div>
 {% endif %}
+</div>
+
+<div class="doc" id="flags"><h2>Fraud signals ({{ flagged|length }})</h2>
+ <p class="muted">Things worth a look before you pay. They are <strong>information only</strong>: a flag never blocks, holds
+ or changes a payout, and each one has innocent explanations (a partner testing their own link, two people on one
+ home network). You decide.</p>
+ {% for a, fl in flagged %}
+ <div class="flagbox"><strong>{{ a.code }}</strong> {{ a.name }} <span class="muted">({{ a.status }})</span>
+  <ul>{% for f in fl %}<li><span class="flag">{{ f.label }}</span> {{ f.reason }}</li>{% endfor %}</ul></div>
+ {% else %}<p class="muted" style="margin:0;">No signals on any partner.</p>{% endfor %}
 </div>
 
 <div class="doc"><h2>2. Mark rows paid</h2>
@@ -257,13 +308,18 @@ tracked link filled in. Tie an item to a campaign and it shows only while that c
 """ + _FOOT
 
 
-def _email_partner(affiliate, subject, body):
+def _notify_tax_result(session, form) -> bool:
+    """Tell the partner the result (Messages inbox + required email) through
+    affiliate_comms. True when the notice was delivered or queued for a
+    retry; a failure never undoes the review."""
     try:
-        from email_utils import resend_send_email
-        if affiliate is not None and affiliate.email:
-            resend_send_email(to=affiliate.email, subject=subject, body_text=body)
-    except Exception as e:   # noqa: BLE001 - best effort
-        log.warning("tax form email to partner failed: %s", e)
+        import affiliate_comms as comms
+        row = comms.notify_tax_form(session, form)
+        return row is not None and row.email_status == "sent"
+    except Exception as e:   # noqa: BLE001 - best effort; the daily job retries failed sends
+        session.rollback()
+        log.warning("tax form notice to partner failed: %s", type(e).__name__)
+        return False
 
 
 def make_views(auth_cls, *, audit_fn, current_user_fn):
@@ -287,11 +343,18 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
     class BulkPayoutsView(auth_cls, BaseView):
 
         def _page(self, s, **extra):
+            import affiliate_owner as owner
+            from models import Affiliate
             rows = ops.pending_payout_rows(s)
+            flags = owner.fraud_signals(s)
+            affs = {a.id: a for a in s.query(Affiliate).filter(
+                Affiliate.id.in_(list(flags) or [None])).all()} if flags else {}
+            flagged = sorted(((affs[i], fl) for i, fl in flags.items() if i in affs),
+                             key=lambda t: t[0].code)
             ctx = dict(title="Bulk payouts", groups=ops.payout_groups(rows),
-                       blocked=[r for r in rows if not r["payable"]],
-                       wise_columns=ops.WISE_COLUMNS, preview=None, preview_ok=0,
-                       batch_text="", default_reference="")
+                       blocked=[r for r in rows if not r["payable"]], flags=flags, flagged=flagged,
+                       wise_columns=ops.WISE_COLUMNS, method_labels=ops.PAYOUT_METHOD_LABELS, preview=None, preview_ok=0, preview_drift=0,
+                       accept_exported=False, batch_text="", default_reference="")
             ctx.update(extra)
             return render_template_string(_BULK_TMPL, **ctx)
 
@@ -310,18 +373,31 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
             s = _S()
             try:
                 try:
-                    rows, skipped = ops.select_for_export(s, request.form.getlist("ids"), method, currency)
+                    reexport = request.form.get("reexport") == "yes"
+                    rows, skipped = ops.select_for_export(s, request.form.getlist("ids"), method, currency,
+                                                          allow_reexport=reexport)
                     text = ops.paypal_csv(rows) if method == "paypal" else ops.wise_csv(rows)
                 except ops.OpsError as e:
                     flash(str(e), "error")
                     return redirect(url_for("affiliate_bulk_payouts.index"))
                 refs = [r["ref"] for r in rows]
+                again = [r["ref"] for r in rows if r["exported_at"] is not None]
                 total = "%.2f" % sum(r["amount"] for r in rows)
+                # Record what this file says, so the import can refuse a row
+                # whose ledger amount moves afterwards.
+                ops.mark_exported(s, rows)
+                if again:
+                    flash("Warning: %d row(s) in the file you just downloaded were ALREADY in an earlier "
+                          "export (%s). Upload only one of the two files, or those partners are paid twice."
+                          % (len(again), ", ".join(again[:10])), "warning")
+                if skipped:
+                    flash("Left out of the file: " + "; ".join("%s (%s)" % rw for rw in skipped[:20]),
+                          "warning")
             finally:
                 s.close()
             audit_fn(actor_user_id=actor_id(), actor_label=actor(), action="affiliate_payout_export",
                      details={"method": method, "currency": currency, "rows": refs, "total": total,
-                              "skipped": [r for r, _why in skipped]})
+                              "skipped": [r for r, _why in skipped], "re_exported": again})
             return Response(text, mimetype="text/csv; charset=utf-8", headers={
                 "Content-Disposition": 'attachment; filename="%s"' % ops.export_filename(method, currency),
                 "Cache-Control": "private, no-store"})
@@ -333,6 +409,7 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
             if f is not None and f.filename:
                 text = f.read(2 * 1024 * 1024).decode("utf-8-sig", errors="replace")
             default_ref = (request.form.get("default_reference") or "").strip()
+            accept = request.form.get("accept_exported") == "yes"
             entries = ops.parse_paid_batch(text)
             s = _S()
             try:
@@ -340,10 +417,11 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
                     flash("Paste the paid rows or choose a file first.", "error")
                     return redirect(url_for("affiliate_bulk_payouts.index"))
                 if request.form.get("confirm") != "yes":
-                    ops.check_paid_batch(s, entries, default_ref)
+                    ops.check_paid_batch(s, entries, default_ref, accept_exported=accept)
                     return self._page(s, preview=entries, preview_ok=sum(1 for e in entries if e["ok"]),
-                                      batch_text=text, default_reference=default_ref)
-                result = ops.apply_paid_batch(s, entries, default_ref)
+                                      preview_drift=sum(1 for e in entries if e["drift"]),
+                                      accept_exported=accept, batch_text=text, default_reference=default_ref)
+                result = ops.apply_paid_batch(s, entries, default_ref, accept_exported=accept)
             except Exception as e:   # noqa: BLE001
                 s.rollback()
                 log.exception("bulk mark-paid failed")
@@ -353,7 +431,12 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
                 s.close()
             audit_fn(actor_user_id=actor_id(), actor_label=actor(), action="affiliate_payout_bulk_paid",
                      details={"paid": result["paid"], "refused": [r for r, _why in result["refused"]],
-                              "ledger_lines": result["lines"]})
+                              "ledger_lines": result["lines"],
+                              "paid_at_exported_amount": result["drift"]})
+            if result["drift"]:
+                flash("%d row(s) were marked paid at the EXPORTED amount, which differs from the ledger: %s. "
+                      "Settle the difference by hand." % (len(result["drift"]), ", ".join(result["drift"][:20])),
+                      "warning")
             if result["paid"]:
                 flash("%d row(s) marked paid, %d ledger line(s) updated."
                       % (len(result["paid"]), result["lines"]), "success")
@@ -427,15 +510,15 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
                     return redirect(url_for("affiliate_tax_forms.index"))
                 aff, label = form.affiliate, ops.TAX_FORM_LABELS[form.form_type]
                 code, target = aff.code, aff.user_id
-                _email_partner(aff, "Your TradeWave tax form is on file",
-                               "Hi %s,\n\nWe have accepted your %s. Your tax form is now on file, so "
-                               "nothing more is needed from you for payouts.\n\nTradeWave Partners"
-                               % (aff.name, label))
+                told = _notify_tax_result(s, form)
             finally:
                 s.close()
             audit_fn(actor_user_id=actor_id(), actor_label=actor(), action="affiliate_tax_form_accepted",
                      target_user_id=target, details={"form_id": form_id, "affiliate": code})
-            flash("Accepted. %s now has a %s on file and can be paid." % (code, label), "success")
+            flash("Accepted. %s now has a %s on file and can be paid. %s"
+                  % (code, label, "They were told by email and in their Messages inbox." if told
+                     else "The notice is in their Messages inbox; the email was not sent (it is retried "
+                          "by the daily job)."), "success")
             return redirect(url_for("affiliate_tax_forms.index"))
 
         @expose("/reject/<int:form_id>", methods=["POST"])
@@ -454,15 +537,15 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
                     return redirect(url_for("affiliate_tax_forms.index"))
                 aff, reason = form.affiliate, form.reject_reason
                 code, target = aff.code, aff.user_id
-                _email_partner(aff, "Your TradeWave tax form needs a fix",
-                               "Hi %s,\n\nWe could not accept the tax form you uploaded.\n\nWhat to fix: %s\n\n"
-                               "Please upload a corrected form on the Payouts page of your partner "
-                               "dashboard. Do not email the form.\n\nTradeWave Partners" % (aff.name, reason))
+                told = _notify_tax_result(s, form)
             finally:
                 s.close()
             audit_fn(actor_user_id=actor_id(), actor_label=actor(), action="affiliate_tax_form_rejected",
                      target_user_id=target, details={"form_id": form_id, "affiliate": code, "reason": reason})
-            flash("Rejected. %s sees the reason on their Payouts page. The file was deleted." % code, "success")
+            flash("Rejected. %s sees the reason on their Payouts page%s. The file was deleted."
+                  % (code, ", by email and in their Messages inbox" if told
+                     else " and in their Messages inbox (the email was not sent; the daily job retries it)"),
+                  "success")
             return redirect(url_for("affiliate_tax_forms.index"))
 
     # ------------------------------------------------------ Creative library

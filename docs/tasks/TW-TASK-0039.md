@@ -82,8 +82,48 @@ Limits and open points:
 
 Owner actions: set `TW2_TAX_FORM_KEY` in secrets.env on each box (and back it up), make sure
 `/var/lib/tradewave/affiliate-tax-forms` is writable by `flask` and in the backup, run
-`sudo bash ops/install_affiliate_crons.sh web`, optionally set `TW2_AFFILIATE_OPS_EMAIL`,
+`sudo bash ops/install_affiliate_crons.sh web`, set `AFFILIATE_OWNER_EMAIL` (replaces `TW2_AFFILIATE_OPS_EMAIL`),
 download one Wise batch template and compare its header.
+
+## fix-0039 - review fixes + owner-side gap closure (2026-11-24, branch `fix-0039-backend`)
+
+State: built and committed locally on `fix-0039-backend` (base `1fb7779`). NOT pushed, NOT
+integrated, NOT on dev. A second agent changed the partner-facing templates in parallel; this
+branch touched `web/templates/partner_apply.html` only for the Turnstile widget.
+
+Done (details in `docs/TRADEWAVE_ECOSYSTEM.md`, "Partner program review fixes + owner tools"):
+one statement email; export / mark-paid drift guard with `exported_amount` and `paid_amount`;
+`unclaimed` not paid; gthread web unit, 25s model cap, DB job queue for group sends and
+proposals; sub-link cookie decoding; constant welcome key; Turnstile + hourly cap + no links
+in names on the application form; retryable delivery without a Resend key; auto-reply and
+short-body filter on reply-by-email; locked re-read on import; CSV formula guard; one owner
+address with deep links; finalized-month statements with negative-month wording; escalation
+chat copies purged; tax-form FK cascade. Owner tools: admin home + shared sub-nav, 48-hour
+digest, tax-form result notices, signing reminders + resend, auto-approve rules, fraud
+signals, year-end tax report, attribution-window helper.
+
+Evidence: `pytest tests/test_affiliate*.py tests/test_promo*.py` 729 passed, 1 skipped
+(baseline 621). Migration `e2f3a4b5c6d7` proven on a scratch Postgres 16 cluster from the
+previous-head schema: upgrade, downgrade, upgrade, cascade delete checked, no model drift;
+cluster dropped. Screenshots: `/mnt/project-files/affiliate/gap-closure/admin-program-home-*`,
+`admin-bulk-payouts-fraud-flags-*`, `admin-payout-ledger-fraud-signals-*`,
+`admin-year-end-tax-report-*`, `admin-applications-auto-approve-*` (desktop + phone).
+
+Limits / to verify at integration:
+- gthread on the web unit is untested under real load; watch dev after the unit restart.
+- Turnstile: the nginx CSP for the main site must allow `challenges.cloudflare.com` before the
+  keys are relied on for `/partners/apply` (check in a browser on dev).
+- The static site must be regenerated for the raw `tw_ref_sub` cookie JS; the server decodes
+  old encoded cookies either way.
+- `users.referred_ip_hash` exists only for signups after this ships, so the network signals
+  start empty.
+- A row paid at the exported amount leaves a difference the owner settles by hand.
+- The Wise CSV header was not compared with a live Wise template (open since package C).
+- The migration chain cannot be replayed from an empty database (stamp-only baseline).
+
+Owner actions: set `AFFILIATE_OWNER_EMAIL` in secrets.env; apply the migration; run
+`sudo bash ops/install_affiliate_crons.sh web` (adds the 2-minute jobs cron, strips `--email`);
+reinstall + restart the web unit; choose auto-approve rules (off by default).
 
 ## Evidence
 Filled in at integration.

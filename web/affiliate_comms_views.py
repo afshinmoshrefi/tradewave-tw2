@@ -57,6 +57,26 @@ def _program_facts():
             "last_year": int(t.renewal_years) if t.renewal_years else None}
 
 
+def turnstile_site_key():
+    """The public Turnstile site key when the check is ON for the application
+    form, else None. Like the contact form, it needs both keys in secrets.env;
+    with either one unset (or a placeholder) the form works without it."""
+    import config
+    site = (getattr(config, "TURNSTILE_SITE_KEY", "") or "").strip()
+    secret = (getattr(config, "TURNSTILE_SECRET_KEY", "") or "").strip()
+    if not site or not secret or "PLACEHOLDER" in site.upper() or "PLACEHOLDER" in secret.upper():
+        return None
+    return site
+
+
+def _turnstile_ok() -> bool:
+    if turnstile_site_key() is None:
+        return True
+    from contact_form import verify_turnstile
+    return bool(verify_turnstile((request.form.get("cf-turnstile-response") or "").strip(),
+                                 remote_ip=_ip()))
+
+
 def _no_store(resp, status=200):
     from flask import make_response
     resp = make_response(resp, status)
@@ -67,9 +87,17 @@ def _no_store(resp, status=200):
 @bp.route("/partners/apply", methods=["GET", "POST"])
 def apply():
     ctx = {"sizes": comms.AUDIENCE_SIZES, "f": {}, "errors": None, "done": False,
-           "limited": False, "t": _program_facts()}
+           "limited": False, "t": _program_facts(), "turnstile_site_key": turnstile_site_key(),
+           "attribution_days": afs.attribution_window_days()}
     if request.method == "GET":
         return render_template("partner_apply.html", **ctx)
+    # A bot that fills the hidden field gets the same "thanks" page as before
+    # (submit_application drops it); everyone else must pass the Turnstile
+    # check when it is configured.
+    if not str(request.form.get(comms.HONEYPOT_FIELD) or "").strip() and not _turnstile_ok():
+        ctx.update(errors=["Please complete the \"I am a person\" check just above the Send button, "
+                           "then send again."], f=request.form)
+        return _no_store(render_template("partner_apply.html", **ctx), 400)
     s = _db()
     try:
         try:

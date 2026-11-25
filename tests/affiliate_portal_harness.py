@@ -22,6 +22,20 @@ UTC = dt.timezone.utc
 TABLES = ["affiliate_terms", "affiliates", "affiliate_referrals", "affiliate_payouts",
           "affiliate_commission_lines", "affiliate_discount_changes", "promo_campaigns",
           "audit_log", "users", "affiliate_clicks", "affiliate_smn_profiles", "expert_takes"]
+# Every TW-TASK-0039 table (help assistant, comms, ops, owner tools, job
+# queue). The 0039 suites build their DB from TABLES + PROGRAM_TABLES, because
+# those features now reach across each other (a tax-form review writes a
+# notification, an answered question queues a job, the admin home counts all).
+PROGRAM_TABLES = ["affiliate_applications", "affiliate_messages", "affiliate_notifications",
+                  "affiliate_email_prefs", "affiliate_help_escalations", "affiliate_help_messages",
+                  "affiliate_help_kb", "affiliate_tax_forms", "affiliate_sublinks",
+                  "affiliate_sublink_clicks", "affiliate_creatives", "affiliate_jobs",
+                  "affiliate_program_settings"]
+
+
+def all_tables():
+    import affiliate_ops_models  # noqa: F401  (registers the ops tables on Base.metadata)
+    return TABLES + [t for t in PROGRAM_TABLES if t not in TABLES]
 
 # Stripe price catalog stand-in: (tier, interval) -> list price.
 CATALOG = {

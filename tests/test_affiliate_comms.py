@@ -49,7 +49,7 @@ def world(monkeypatch):
     """DB + mocked Resend. world.outbox collects every email 'sent'."""
     import config
     import email_utils
-    monkeypatch.setattr(h, "TABLES", h.TABLES + COMMS_TABLES)
+    monkeypatch.setattr(h, "TABLES", h.all_tables())
     db, factory, engine = h.make_db()
     with engine.begin() as conn:
         conn.exec_driver_sql("CREATE UNIQUE INDEX uq_notif ON affiliate_notifications "
@@ -388,13 +388,20 @@ class TestDelivery:
         assert c.deliver(world.db, aff, self._event(), NOW + dt.timedelta(hours=2)).email_status == "sent"
 
     def test_without_resend_the_inbox_still_gets_it(self, world):
+        # fix-0039 (8): a missing Resend key is a RETRYABLE failure, not a
+        # permanent skip - the email goes out once the key is set.
         import config
         c = comms()
         world.patch(config, "RESEND_API_KEY", "")
         aff, _ = partner(world.db)
         row = c.deliver(world.db, aff, self._event(), NOW)
-        assert (row.email_status, row.email_reason) == ("skipped", "email_not_configured")
-        assert world.outbox == []
+        assert (row.email_status, row.email_reason) == ("failed", "email_not_configured")
+        assert row.attempts == 0                                   # no attempt was used up
+        assert world.outbox == [] and len(notes(world.db, aff)) == 1   # the inbox has it
+        world.patch(config, "RESEND_API_KEY", "re_test_key")
+        row = c.deliver(world.db, aff, self._event(), NOW)
+        assert row.email_status == "sent" and len(world.outbox) == 1
+        assert len(notes(world.db, aff)) == 1                      # still one inbox row
 
     def test_preferences_round_trip(self, world):
         c = comms()
@@ -1129,10 +1136,19 @@ class TestAdminMessages:
         assert admin.outbox == []                                  # a preview sends nothing
         r = admin.client.post("/admin/affiliate_messages/send", data=form)
         assert r.status_code == 302 and "/admin/affiliate_messages/log?id=1" in r.headers["Location"]
-        assert [x.to for x in admin.outbox] == ["anne@partner.example"]
+        # fix-0039 (4): a group send is queued, not sent inside the request
+        assert admin.outbox == []
         assert admin.audit[-1]["action"] == "affiliate_message_sent"
         html = body(admin.client.get("/admin/affiliate_messages/log?id=1"))
-        for needle in ("Message recipients", "Sent to 2 partners: 1 emailed, 1 inbox only, 0 failed.",
+        for needle in ("Queued for 2 partners", "waiting to start", "0 of 2 delivered so far"):
+            assert needle in html
+        import affiliate_jobs as jobs
+        assert jobs.run_pending(admin.db) == {"done": 1, "failed": 0, "retry": 0}
+        assert [x.to for x in admin.outbox] == ["anne@partner.example"]
+        assert jobs.run_pending(admin.db) == {"done": 0, "failed": 0, "retry": 0}   # nothing is sent twice
+        assert len(admin.outbox) == 1
+        html = body(admin.client.get("/admin/affiliate_messages/log?id=1"))
+        for needle in ("Message recipients", "finished", "2 of 2 delivered so far",
                        "Partner turned this email off", "Active partners (2)", "Hello Bob"):
             assert needle in html
         html = body(admin.client.get("/admin/affiliate_messages/log"))
@@ -1199,3 +1215,564 @@ def test_docs_and_admin_guide_cover_the_new_features():
         text = (REPO / src).read_text()
         # the only long dash allowed is the one the validators look for
         assert text.count(EM_DASH) == text.count('"%s"' % EM_DASH), src
+
+
+# ---------------------------------------------------------------------------
+# 8. fix-0039: review fixes + owner-side tools
+# ---------------------------------------------------------------------------
+def audit_actions(db):
+    m = models()
+    return [a.action for a in db.query(m.AuditLog).order_by(m.AuditLog.id).all()]
+
+
+class TestOneStatementEmail:
+    def _payout(self, world, aff, start, end, amount, **kw):
+        m = models()
+        kw.setdefault("computed_at", NOW - dt.timedelta(days=1))
+        p = m.AffiliatePayout(affiliate_id=aff.id, period_start=start, period_end=end, currency="usd",
+                              commission_amount=D(amount), status=kw.pop("status", "pending"), **kw)
+        world.db.add(p)
+        world.db.commit()
+        return p
+
+    def test_a_month_still_running_is_not_announced(self, world):
+        aff, _ = partner(world.db)
+        # a mid-month preview of November that was committed: not a statement yet
+        p = self._payout(world, aff, dt.date(2026, 11, 1), dt.date(2026, 11, 30), "55.00")
+        assert run(world)["sent"] == 0 and mails(world, "statement") == []
+        p.computed_at = dt.datetime(2026, 12, 2, 3, 30, tzinfo=UTC)      # the monthly sweep finalizes it
+        world.db.commit()
+        # the month has closed: now it is announced, once
+        later = dt.datetime(2026, 12, 2, 15, 0, tzinfo=UTC)
+        assert run(world, now=later)["sent"] == 1
+        (mail,) = mails(world, "statement")
+        assert mail.subject == "Your November 2026 statement is ready"
+        assert run(world, now=later + dt.timedelta(days=1))["sent"] == 0
+
+    def test_negative_month_says_there_is_no_payout(self, world):
+        c = comms()
+        aff, _ = partner(world.db)
+        self._payout(world, aff, dt.date(2026, 10, 1), dt.date(2026, 10, 31), "-42.50")
+        assert run(world)["sent"] == 1
+        (mail,) = mails(world, "statement")
+        assert mail.subject == "Your October 2026 statement: no payout this month"
+        assert c.NEGATIVE_MONTH_TEXT == ("No payout this month - refunds were larger than sales; "
+                                         "the balance carries forward")
+        assert c.NEGATIVE_MONTH_TEXT in mail.text and "Month total: -$42.50" in mail.text
+        assert "Commission for the month" not in mail.text and EM_DASH not in mail.text
+
+    def test_the_report_script_no_longer_sends_a_second_email(self):
+        src = (REPO / "web" / "affiliate_report.py").read_text()
+        main_src = src[src.index("def main("):]
+        assert "send_monthly_statements(" not in main_src
+        assert "--email is ignored" in main_src and "IGNORED" in src
+        guide = (REPO / "web" / "app.py").read_text()
+        assert "the daily job is the only sender of the monthly statement email" in guide
+        cutover = (REPO / "ops" / "PROD_CUTOVER.md").read_text()
+        assert "install_affiliate_crons.sh web" in cutover and "--email" in cutover
+        assert "ONLY sender of the monthly statement email" in cutover
+
+    def test_payout_email_states_the_amount_actually_paid(self, world):
+        aff, _ = partner(world.db)
+        # exported at 108.45, then a refund moved the ledger to 88.45; the owner
+        # recorded the exported amount that was really sent
+        self._payout(world, aff, dt.date(2026, 10, 1), dt.date(2026, 10, 31), "88.45", status="paid",
+                     paid_amount=D("108.45"), external_ref="PP-1", paid_at=NOW - dt.timedelta(hours=2),
+                     computed_at=NOW - dt.timedelta(days=60))
+        run(world)
+        (mail,) = mails(world, "Payout sent")
+        assert mail.subject == "Payout sent: $108.45" and "payout of $108.45 for October 2026" in mail.text
+        assert "88.45" not in mail.text
+
+
+class TestWelcomeOnce:
+    def test_constant_key_so_a_re_sign_sends_no_second_welcome(self, world):
+        c = comms()
+        aff, _ = partner(world.db, signed_days_ago=1)
+        run(world)
+        assert len(mails(world, "Welcome to the TradeWave partner program")) == 1
+        assert [n.event_key for n in notes(world.db, aff, "welcome")] == ["welcome"] == [c.WELCOME_KEY]
+        # the partner signs again (new terms): a new date, still the same welcome
+        aff.agreement_signed_at = NOW + dt.timedelta(days=3)
+        world.db.commit()
+        world.outbox.clear()
+        run(world, now=NOW + dt.timedelta(days=4))
+        assert mails(world, "Welcome") == [] and len(notes(world.db, aff, "welcome")) == 1
+
+    def test_a_partner_welcomed_under_the_old_dated_key_is_not_welcomed_again(self, world):
+        m = models()
+        aff, _ = partner(world.db, signed_days_ago=1)
+        world.db.add(m.AffiliateNotification(
+            affiliate_id=aff.id, event_type="welcome", event_key="welcome:2026-11-23", subject="Welcome",
+            body="x", email_status="sent", attempts=1, created_at=NOW - dt.timedelta(days=1)))
+        world.db.commit()
+        run(world)
+        assert mails(world, "Welcome") == [] and len(notes(world.db, aff, "welcome")) == 1
+
+
+class TestApplicationAbuse:
+    def test_global_hourly_cap(self, world):
+        import config
+        c = comms()
+        world.patch(config, "AFFILIATE_APPLY_MAX_PER_HOUR", 3)
+        for i in range(3):
+            assert c.submit_application(world.db, dict(GOOD_FORM, email="h%d@example.com" % i),
+                                        ip="198.51.100.%d" % i, now=NOW)[0] == "ok"
+        outcome, row = c.submit_application(world.db, dict(GOOD_FORM, email="h9@example.com"),
+                                            ip="203.0.113.200", now=NOW + dt.timedelta(minutes=30))
+        assert (outcome, row) == ("rate_limited", None)
+        assert world.db.query(models().AffiliateApplication).count() == 3
+        # an hour later the door is open again
+        assert c.submit_application(world.db, dict(GOOD_FORM, email="h9@example.com"),
+                                    ip="203.0.113.200", now=NOW + dt.timedelta(minutes=61))[0] == "ok"
+        assert c.apply_limit_per_hour() == 3
+        world.patch(config, "AFFILIATE_APPLY_MAX_PER_HOUR", "junk")
+        assert c.apply_limit_per_hour() == 30
+
+    @pytest.mark.parametrize("name", ["Visit http://evil.example now", "win at www.evil.example",
+                                      "Maya evil.com/free"])
+    def test_a_name_with_a_link_is_refused(self, world, name):
+        c = comms()
+        with pytest.raises(c.CommsError):
+            c.submit_application(world.db, dict(GOOD_FORM, name=name), now=NOW)
+        assert world.outbox == []
+
+    def test_a_link_never_reaches_a_greeting(self, world):
+        c = comms()
+        assert c.greeting_name("Maya Stone") == "Maya"
+        assert c.greeting_name("") == "there" and c.greeting_name(None) == "there"
+        assert c.greeting_name("http://evil.example Maya") == "there"
+        assert c.greeting_name("www.evil.example") == "there"
+        assert c.has_link("see evil.com/x") and not c.has_link("Maya St. Stone Jr.")
+
+
+class TestDeliveryRetry:
+    def test_notices_that_failed_without_a_key_go_out_once_it_is_set(self, world):
+        import config
+        c = comms()
+        aff, _ = partner(world.db)
+        world.patch(config, "RESEND_API_KEY", "")
+        c.send_message(world.db, subject="Program change", body="Hi {first_name}, please read this.",
+                       audience="one", param=str(aff.id), required=True, sent_by="admin:t", now=NOW)
+        (row,) = notes(world.db, aff, "program_notice")
+        assert (row.email_status, row.email_reason, row.attempts) == ("failed", "email_not_configured", 0)
+        assert world.outbox == []
+        assert c.retry_failed(world.db, NOW) == 0                 # still no key: still waiting
+        world.db.expire_all()
+        assert notes(world.db, aff, "program_notice")[0].attempts == 0
+        world.patch(config, "RESEND_API_KEY", "re_test_key")
+        assert c.retry_failed(world.db, NOW + dt.timedelta(hours=1)) == 1
+        (mail,) = world.outbox
+        assert mail.to == aff.email and mail.subject == "Program change"
+        world.db.expire_all()
+        assert notes(world.db, aff, "program_notice")[0].email_status == "sent"
+        assert c.retry_failed(world.db, NOW + dt.timedelta(hours=2)) == 0 and len(world.outbox) == 1
+
+    def test_the_daily_job_retries_them(self, world):
+        import config
+        c = comms()
+        aff, _ = partner(world.db)
+        world.patch(config, "RESEND_API_KEY", "")
+        c.send_message(world.db, subject="Program change", body="Please read this notice.",
+                       audience="one", param=str(aff.id), required=True, sent_by="admin:t", now=NOW)
+        world.patch(config, "RESEND_API_KEY", "re_test_key")
+        stats = run(world)
+        assert stats["retried"] == 1 and stats["errors"] == 0
+        assert [x.subject for x in world.outbox] == ["Program change"]
+
+
+class TestBackgroundJobs:
+    def _cast(self, world):
+        anne, _ = partner(world.db, "ANNE")
+        bob, _ = partner(world.db, "BOB")
+        cara, _ = partner(world.db, "CARA")
+        return anne, bob, cara
+
+    def test_a_group_send_is_queued_and_a_single_send_is_not(self, world):
+        import affiliate_jobs as jobs
+        c, m = comms(), models()
+        anne, bob, cara = self._cast(world)
+        msg, stats = c.send_message(world.db, subject="Hello all", body="Hi {first_name}, news.",
+                                    audience="active", sent_by="admin:t", now=NOW, background=True)
+        assert stats["queued"] is True and stats["recipients"] == 3 and world.outbox == []
+        (job,) = world.db.query(m.AffiliateJob).all()
+        assert (job.kind, job.status, job.attempts) == ("send_message", "queued", 0)
+        assert job.payload["message_id"] == msg.id and len(job.payload["recipient_ids"]) == 3
+        assert jobs.counts(world.db) == {"queued": 1, "running": 0, "failed": 0}
+        assert jobs.job_for_message(world.db, msg.id).id == job.id
+        assert jobs.run_pending(world.db) == {"done": 1, "retry": 0, "failed": 0}
+        assert sorted(x.to for x in world.outbox) == sorted(a.email for a in (anne, bob, cara))
+        world.db.expire_all()
+        job = world.db.query(m.AffiliateJob).one()
+        assert job.status == "done" and job.result["sent"] == 3 and job.finished_at is not None
+        # one partner: sent in the request, no job
+        _msg2, stats2 = c.send_message(world.db, subject="Just you", body="Hi {first_name}, a note.",
+                                       audience="one", param=str(anne.id), sent_by="admin:t", now=NOW,
+                                       background=True)
+        assert "queued" not in stats2 and stats2["sent"] == 1
+        assert world.db.query(m.AffiliateJob).count() == 1
+
+    def test_a_failed_send_is_retried_and_nobody_gets_it_twice(self, world):
+        import affiliate_jobs as jobs
+        c, m = comms(), models()
+        anne, bob, cara = self._cast(world)
+        c.send_message(world.db, subject="Hello all", body="Hi {first_name}, news.", audience="active",
+                       sent_by="admin:t", now=NOW, background=True)
+        world.send.ok = False                                      # the provider refuses everything
+        assert jobs.run_pending(world.db) == {"done": 0, "retry": 1, "failed": 0}
+        world.db.expire_all()
+        job = world.db.query(m.AffiliateJob).one()
+        assert job.status == "queued" and "3 of 3 sends failed" in job.error
+        world.send.ok = True
+        world.outbox.clear()
+        assert jobs.run_pending(world.db) == {"done": 1, "retry": 0, "failed": 0}
+        assert sorted(x.to for x in world.outbox) == sorted(a.email for a in (anne, bob, cara))
+        assert jobs.run_pending(world.db) == {"done": 0, "retry": 0, "failed": 0}
+        assert len(world.outbox) == 3
+
+    def test_a_job_whose_runner_died_is_picked_up_again(self, world):
+        import affiliate_jobs as jobs
+        c, m = comms(), models()
+        self._cast(world)
+        c.send_message(world.db, subject="Hello all", body="Hi {first_name}, news.", audience="active",
+                       sent_by="admin:t", now=NOW, background=True)
+        job = world.db.query(m.AffiliateJob).one()
+        job.status, job.started_at, job.attempts = "running", NOW - dt.timedelta(minutes=5), 1
+        world.db.commit()
+        assert jobs.run_pending(world.db, now=NOW) == {"done": 0, "retry": 0, "failed": 0}   # still fresh
+        assert jobs.run_pending(world.db, now=NOW + dt.timedelta(minutes=20))["done"] == 1
+        assert len(world.outbox) == 3
+
+    def test_a_job_that_keeps_failing_stops_and_shows_as_failed(self, world, monkeypatch):
+        import affiliate_jobs as jobs
+        m = models()
+
+        def boom(session, payload):
+            raise RuntimeError("nope")
+        monkeypatch.setitem(jobs.HANDLERS, "send_message", boom)
+        jobs.enqueue(world.db, "send_message", {"message_id": 1, "recipient_ids": []}, now=NOW)
+        for _ in range(jobs.MAX_ATTEMPTS - 1):
+            assert jobs.run_pending(world.db)["retry"] == 1
+        assert jobs.run_pending(world.db) == {"done": 0, "retry": 0, "failed": 1}
+        job = world.db.query(m.AffiliateJob).one()
+        assert (job.status, job.attempts) == ("failed", jobs.MAX_ATTEMPTS) and "RuntimeError: nope" in job.error
+        assert jobs.counts(world.db)["failed"] == 1
+        assert jobs.run_pending(world.db) == {"done": 0, "retry": 0, "failed": 0}
+        with pytest.raises(ValueError):
+            jobs.enqueue(world.db, "made_up", {})
+
+    def test_the_daily_job_also_drains_the_queue(self, world):
+        c = comms()
+        self._cast(world)
+        c.send_message(world.db, subject="Hello all", body="Hi {first_name}, news.", audience="active",
+                       sent_by="admin:t", now=NOW, background=True)
+        stats = run(world)
+        assert stats["jobs"]["done"] == 1 and len(mails(world, "Hello all")) == 3
+
+    def test_cron_runs_the_queue_every_two_minutes(self):
+        text = (REPO / "ops" / "install_affiliate_comms_cron.sh").read_text()
+        assert '"*/2 * * * * ' in text and "affiliate_jobs.py" in text and "flock -n" in text
+        unit = (REPO / "ops" / "systemd" / "tradewave-web.service").read_text()
+        assert "--worker-class gthread" in unit and "--threads" in unit
+
+
+class TestSigningReminders:
+    def _unsigned(self, world, days, code="UNA"):
+        aff, _ = partner(world.db, code, status="paused", agreement_signed_at=None,
+                         created_at=NOW - dt.timedelta(days=days))
+        return aff
+
+    def test_reminders_at_3_and_10_days_then_nothing(self, world):
+        c = comms()
+        aff = self._unsigned(world, 0)
+        created = NOW
+        assert run(world, now=created + dt.timedelta(days=2))["sent"] == 0
+        assert run(world, now=created + dt.timedelta(days=3, hours=1))["sent"] == 1
+        (mail,) = world.outbox
+        assert mail.to == aff.email and mail.subject == "Reminder: sign your TradeWave partner agreement"
+        assert "/affiliate/sign/" in mail.text and "last reminder" not in mail.text
+        assert "required program notice" in mail.text and "List-Unsubscribe" not in mail.headers
+        assert EM_DASH not in mail.text
+        assert run(world, now=created + dt.timedelta(days=6))["sent"] == 0
+        assert run(world, now=created + dt.timedelta(days=10, hours=1))["sent"] == 1
+        assert "This is our last reminder" in world.outbox[-1].text
+        assert run(world, now=created + dt.timedelta(days=20))["sent"] == 0
+        assert [n.event_key for n in notes(world.db, aff)] == ["signing_reminder:3", "signing_reminder:10"]
+        assert c.EVENT_PREF["signing_reminder"] is None and c.SIGNING_REMINDER_DAYS == (3, 10)
+
+    def test_signed_or_terminated_partners_get_none(self, world):
+        signed, _ = partner(world.db, "SIG", signed_days_ago=30,
+                            created_at=NOW - dt.timedelta(days=40))
+        gone = self._unsigned(world, 5, "GONE")
+        gone.status = "terminated"
+        world.db.commit()
+        run(world)
+        assert mails(world, "Reminder: sign") == []
+
+    def test_only_the_latest_due_reminder_on_a_first_run(self, world):
+        aff = self._unsigned(world, 11)
+        assert run(world)["sent"] == 1
+        assert [n.event_key for n in notes(world.db, aff)] == ["signing_reminder:10"]
+
+
+class TestAutoApprove:
+    def _rules(self, world, **form):
+        import affiliate_owner as owner
+        return owner.save_auto_approve(world.db, form, "admin:t", now=NOW)
+
+    def test_off_by_default(self, world, stripe_ok):
+        import affiliate_owner as owner
+        c, m = comms(), models()
+        assert owner.auto_approve_rules(world.db) == {"mode": "off", "countries": [], "min_audience": ""}
+        assert owner.auto_approve_text(owner.auto_approve_rules(world.db)) == "Off"
+        outcome, row = c.submit_application(world.db, GOOD_FORM, now=NOW)
+        assert (outcome, row.status) == ("ok", "new") and world.db.query(m.Affiliate).count() == 0
+
+    def test_all_applications(self, world, stripe_ok):
+        c, m = comms(), models()
+        self._rules(world, mode="all")
+        outcome, row = c.submit_application(world.db, GOOD_FORM, now=NOW)
+        world.db.expire_all()
+        row = world.db.get(m.AffiliateApplication, row.id)
+        aff = world.db.query(m.Affiliate).one()
+        assert (outcome, row.status, row.decided_by, row.affiliate_id) == ("ok", "approved", "auto-approve", aff.id)
+        # default terms, paused, and the signing link is sent: they must still sign
+        assert (aff.code, aff.status, aff.agreement_signed_at) == ("MAYA", "paused", None)
+        assert aff.discount_pct == D(20) and stripe_ok.promo_active == [("MAYA", False)]
+        subjects = [x.subject for x in world.outbox]
+        assert subjects[:2] == ["We received your TradeWave partner application",
+                                "Sign your TradeWave Affiliate Agreement"]
+        owner_mail = world.outbox[-1]
+        assert owner_mail.to == "owner@tradewave.test" and "auto-approved" in owner_mail.subject.lower()
+        assert "MAYA" in owner_mail.text and "/admin/affiliate_applications/view?id=" in owner_mail.text
+        assert "affiliate_application_auto_approved" in audit_actions(world.db)
+
+    def test_country_and_audience_rules_must_both_match(self, world, stripe_ok):
+        import affiliate_owner as owner
+        c, m = comms(), models()
+        value = self._rules(world, mode="rules", countries="USA, canada ; United Kingdom",
+                            min_audience="10k_50k")
+        assert value == {"mode": "rules", "countries": ["united states", "canada", "united kingdom"],
+                         "min_audience": "10k_50k"}
+        assert owner.auto_approve_text(owner.auto_approve_rules(world.db)) == (
+            "On - when country is one of: United States, Canada, United Kingdom and audience is at least "
+            + c.AUDIENCE_SIZE_LABEL["10k_50k"])
+
+        def status(**form):
+            _o, row = c.submit_application(world.db, dict(GOOD_FORM, **form), now=NOW)
+            world.db.expire_all()
+            return world.db.get(m.AffiliateApplication, row.id).status
+        assert status(email="a@example.com", name="Ann One", country="Germany") == "new"          # country
+        assert status(email="b@example.com", name="Ben Two", audience_size="1k_10k") == "new"     # too small
+        assert status(email="c@example.com", name="Cy Three", country="  u.s.a. ") == "approved"
+        assert status(email="d@example.com", name="Di Four", audience_size="50k_plus"
+                      if "50k_plus" in c.AUDIENCE_SIZE_LABEL else "10k_50k") == "approved"
+        assert sorted(a.code for a in world.db.query(m.Affiliate).all()) == ["CY", "DI"]
+
+    def test_never_for_an_existing_partner_or_a_repeat_applicant(self, world, stripe_ok):
+        c, m = comms(), models()
+        h.make_partner(world.db, "ZED", email="zed@example.com")
+        _o, old = c.submit_application(world.db, dict(GOOD_FORM, email="again@example.com"), now=NOW)
+        c.reject_application(world.db, old, actor="admin:t", reason=None, send_email=False, now=NOW)
+        self._rules(world, mode="all")
+        for email in ("zed@example.com", "again@example.com"):
+            _o, row = c.submit_application(world.db, dict(GOOD_FORM, email=email), now=NOW)
+            world.db.expire_all()
+            assert world.db.get(m.AffiliateApplication, row.id).status == "new"
+        assert world.db.query(m.Affiliate).count() == 1
+
+    def test_stripe_trouble_leaves_it_for_the_owner(self, world, stripe_ok):
+        c, m = comms(), models()
+        self._rules(world, mode="all")
+        stripe_ok.fail = True
+        outcome, row = c.submit_application(world.db, GOOD_FORM, now=NOW)
+        world.db.expire_all()
+        assert outcome == "ok" and world.db.get(m.AffiliateApplication, row.id).status == "new"
+        assert world.db.query(m.Affiliate).count() == 0
+        assert world.outbox[-1].subject == "New partner application: Maya Stone"
+
+    def test_bad_rules_are_refused(self, world):
+        import affiliate_owner as owner
+        import affiliate_service as afs
+        for form in ({"mode": "sometimes"}, {"mode": "rules"}, {"mode": "rules", "min_audience": "huge"},
+                     {"mode": "rules", "countries": "<b>x</b>"}):
+            with pytest.raises(afs.AffiliateError):
+                owner.save_auto_approve(world.db, form, "admin:t")
+        assert owner.auto_approve_rules(world.db)["mode"] == "off"
+        assert owner.norm_country(" U.S.A. ") == "united states" == owner.norm_country("America")
+
+
+class TestOwnerDigest:
+    def _waiting(self, world, hours):
+        m = models()
+        world.db.add(m.AffiliateApplication(
+            id=uuid.uuid4(), name="Old App", email="old%d@example.com" % hours, website="x.example",
+            channels="yt", audience_size="1k_10k", promo_plan="p", country="Canada", status="new",
+            created_at=NOW - dt.timedelta(hours=hours)))
+        world.db.commit()
+
+    def test_nothing_is_sent_while_everything_is_fresh(self, world):
+        import affiliate_owner as owner
+        self._waiting(world, 47)
+        assert owner.build_digest(world.db, NOW) is None
+        assert owner.send_digest(world.db, NOW) == "nothing" and world.outbox == []
+        assert run(world)["owner_digest"] == "nothing"
+
+    def test_one_email_a_day_with_deep_links(self, world):
+        import affiliate_help_models as hm
+        import affiliate_ops_models as om
+        import affiliate_owner as owner
+        import config
+        world.patch(config, "AFFILIATE_OWNER_EMAIL", "boss@tradewave.test")
+        aff, _ = partner(world.db)
+        self._waiting(world, 49)
+        self._waiting(world, 80)
+        self._waiting(world, 2)
+        world.db.add(hm.AffiliateHelpEscalation(affiliate_id=aff.id, question="q?", status="open",
+                                                created_at=NOW - dt.timedelta(days=3)))
+        world.db.add(om.AffiliateTaxForm(affiliate_id=aff.id, form_type="w9", status="received",
+                                         storage_name="x.bin", original_filename="w9.pdf", size_bytes=10,
+                                         uploaded_at=NOW - dt.timedelta(hours=10)))
+        world.db.commit()
+        stats = run(world)
+        assert stats["owner_digest"] == "sent" and stats["errors"] == 0
+        (mail,) = mails(world, "Partner program:")
+        assert mail.to == "boss@tradewave.test"
+        assert mail.subject == "Partner program: 3 items waiting more than 48 hours"
+        assert "2 partner applications waiting more than 48 hours (oldest: 3 days; 3 waiting in all)." in mail.text
+        assert "1 partner question waiting more than 48 hours" in mail.text
+        assert "tax form" not in mail.text                              # 10 hours: not late yet
+        for link in ("https://tw.test/admin/affiliate_applications/", "https://tw.test/admin/affiliate_help/",
+                     "https://tw.test/admin/affiliate_home/"):
+            assert link in mail.text
+        assert EM_DASH not in mail.text + mail.subject
+        # the same day: not again; the next day: again while it still waits
+        world.outbox.clear()
+        assert owner.send_digest(world.db, NOW + dt.timedelta(hours=2)) == "already"
+        assert run(world)["owner_digest"] == "already" and mails(world, "Partner program:") == []
+        assert owner.send_digest(world.db, NOW + dt.timedelta(days=1)) == "sent"
+        assert audit_actions(world.db).count("affiliate_owner_digest_sent") == 2
+
+    def test_a_failed_send_is_not_recorded_so_it_is_tried_again(self, world):
+        import affiliate_owner as owner
+        self._waiting(world, 60)
+        world.send.ok = False
+        assert owner.send_digest(world.db, NOW) == "not_sent"
+        world.send.ok = True
+        assert owner.send_digest(world.db, NOW) == "sent"
+
+    def test_dry_run_sends_no_digest(self, world):
+        self._waiting(world, 60)
+        stats = run(world, dry_run=True)
+        assert "owner_digest" not in stats and world.outbox == []
+
+
+class TestTurnstileOnApply:
+    def _on(self, site, monkeypatch, verdict):
+        import config
+        import contact_form
+        calls = []
+        monkeypatch.setattr(config, "TURNSTILE_SITE_KEY", "0x4AAA-site", raising=False)
+        monkeypatch.setattr(config, "TURNSTILE_SECRET_KEY", "0x4AAA-secret", raising=False)
+        monkeypatch.setattr(contact_form, "verify_turnstile",
+                            lambda token, remote_ip=None: calls.append(token) or verdict)
+        return calls
+
+    def test_off_when_the_keys_are_unset_or_placeholders(self, site, monkeypatch):
+        import affiliate_comms_views as views
+        import config
+        for site_key, secret in (("", ""), ("0x4AAA-site", ""), ("", "0x4AAA-secret"),
+                                 ("PLACEHOLDER_SITE", "0x4AAA-secret")):
+            monkeypatch.setattr(config, "TURNSTILE_SITE_KEY", site_key, raising=False)
+            monkeypatch.setattr(config, "TURNSTILE_SECRET_KEY", secret, raising=False)
+            assert views.turnstile_site_key() is None
+        html = body(site.client.get("/partners/apply"))
+        assert "cf-turnstile" not in html and "challenges.cloudflare.com" not in html
+        html = body(site.client.post("/partners/apply", data=GOOD_FORM))
+        assert "We have your application" in html                    # works without the check
+
+    def test_widget_is_shown_and_a_failed_check_stores_nothing(self, site, monkeypatch):
+        calls = self._on(site, monkeypatch, False)
+        html = body(site.client.get("/partners/apply"))
+        assert 'class="cf-turnstile" data-sitekey="0x4AAA-site"' in html
+        assert "https://challenges.cloudflare.com/turnstile/v0/api.js" in html
+        html = body(site.client.post("/partners/apply", data=dict(GOOD_FORM, **{"cf-turnstile-response": "tok"})),
+                    400)
+        assert "I am a person" in html and 'value="Maya Stone"' in html and EM_DASH not in html
+        assert calls == ["tok"] and site.outbox == []
+        assert site.db.query(models().AffiliateApplication).count() == 0
+
+    def test_a_passed_check_goes_through(self, site, monkeypatch):
+        calls = self._on(site, monkeypatch, True)
+        html = body(site.client.post("/partners/apply", data=dict(GOOD_FORM, **{"cf-turnstile-response": "tok"})))
+        assert "We have your application" in html and calls == ["tok"]
+        assert site.db.query(models().AffiliateApplication).count() == 1
+
+    def test_a_bot_in_the_honeypot_is_not_told_about_the_check(self, site, monkeypatch):
+        calls = self._on(site, monkeypatch, False)
+        c = comms()
+        html = body(site.client.post("/partners/apply", data=dict(GOOD_FORM, **{c.HONEYPOT_FIELD: "x"})))
+        assert "We have your application" in html and calls == []
+        assert site.db.query(models().AffiliateApplication).count() == 0
+
+
+class TestAdminOwnerTools:
+    def test_auto_approve_card_saves_the_rules(self, admin):
+        import affiliate_owner as owner
+        html = body(admin.client.get("/admin/affiliate_applications/"))
+        for needle in ('id="auto-approve"', "Now: <strong>Off</strong>", "paused until they sign the agreement",
+                       "Save auto-approve rules", 'name="min_audience"', "twp-nav"):
+            assert needle in html, needle
+        assert EM_DASH not in html
+        r = admin.client.post("/admin/affiliate_applications/auto-approve",
+                              data={"mode": "rules", "countries": "Canada, UK", "min_audience": "10k_50k"})
+        assert r.status_code == 302 and r.headers["Location"].endswith("#auto-approve")
+        assert owner.auto_approve_rules(admin.db) == {
+            "mode": "rules", "countries": ["canada", "united kingdom"], "min_audience": "10k_50k"}
+        assert admin.audit[-1]["action"] == "affiliate_auto_approve_rules_saved"
+        html = body(admin.client.get("/admin/affiliate_applications/"))
+        assert "On - when country is one of: Canada, United Kingdom" in html
+        assert 'value="Canada, United Kingdom"' in html
+        # an unusable form changes nothing
+        r = admin.client.post("/admin/affiliate_applications/auto-approve", data={"mode": "rules"})
+        assert r.status_code == 302 and owner.auto_approve_rules(admin.db)["countries"] == ["canada", "united kingdom"]
+
+    def test_resend_signing_link(self, admin, stripe_ok):
+        c, m = comms(), models()
+        _o, row = c.submit_application(admin.db, GOOD_FORM, now=NOW)
+        aff, _ = c.approve_application(admin.db, row, code="maya", discount_pct="15", actor="admin:t",
+                                       note=None, now=NOW)
+        admin.outbox.clear()
+        html = body(admin.client.get("/admin/affiliate_applications/view?id=%s" % row.id))
+        assert "Resend signing link to maya@example.com" in html and "MAYA has not signed yet" in html
+        assert "3 and 10 days after approval" in html
+        r = admin.client.post("/admin/affiliate_applications/resend", data={"id": str(row.id)})
+        assert r.status_code == 302
+        (mail,) = admin.outbox
+        assert mail.to == "maya@example.com" and "/affiliate/sign/" in mail.text
+        assert admin.audit[-1]["action"] == "affiliate_signing_link_resent"
+        # once signed there is nothing to resend
+        aff = admin.db.query(m.Affiliate).filter_by(code="MAYA").one()
+        aff.agreement_signed_at, aff.status = NOW, "active"
+        admin.db.commit()
+        admin.outbox.clear()
+        html = body(admin.client.get("/admin/affiliate_applications/view?id=%s" % row.id))
+        assert "Resend signing link" not in html
+        assert admin.client.post("/admin/affiliate_applications/resend",
+                                 data={"id": str(row.id)}).status_code == 302
+        assert admin.outbox == []
+
+    def test_resend_needs_a_partner(self, admin):
+        c = comms()
+        _o, row = c.submit_application(admin.db, GOOD_FORM, now=NOW)
+        admin.outbox.clear()
+        assert admin.client.post("/admin/affiliate_applications/resend",
+                                 data={"id": str(row.id)}).status_code == 302
+        assert admin.outbox == []
+
+    def test_owner_notice_of_an_application_goes_to_the_one_owner_address(self, admin):
+        import config
+        admin.patch(config, "AFFILIATE_OWNER_EMAIL", "boss@tradewave.test")
+        comms().submit_application(admin.db, GOOD_FORM, now=NOW)
+        assert admin.outbox[-1].to == "boss@tradewave.test"
+        assert "/admin/affiliate_applications/view?id=" in admin.outbox[-1].text

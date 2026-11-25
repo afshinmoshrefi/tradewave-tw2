@@ -1243,7 +1243,8 @@ body{background-image:none !important;}
         }
         if (newSub && RE.test(fromUrl) && code.toUpperCase() === fromUrl.toUpperCase()) {
             var sec2 = (location.protocol === 'https:') ? '; secure' : '';
-            document.cookie = 'tw_ref_sub=' + encodeURIComponent(subTag) + '; max-age=' + (60*24*60*60) + '; path=/; samesite=lax' + sec2;
+            // raw value (CODE:slug, both already validated): the server reads it as written
+            document.cookie = 'tw_ref_sub=' + subTag + '; max-age=' + (60*24*60*60) + '; path=/; samesite=lax' + sec2;
         }
         if (!code) return;
         function addParam(url){

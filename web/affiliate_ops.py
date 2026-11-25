@@ -232,6 +232,19 @@ def reject_tax_form(session, form, reason, actor, now=None):
     return form
 
 
+def purge_tax_forms(session, affiliate) -> int:
+    """Delete every stored tax-form FILE of this partner (called before an
+    admin hard-deletes a partner with no customers; the rows then go with the
+    partner through ON DELETE CASCADE). Does not commit. Returns files removed."""
+    n = 0
+    for form in session.query(om.AffiliateTaxForm).filter(
+            om.AffiliateTaxForm.affiliate_id == affiliate.id).all():
+        if form.storage_name:
+            _delete_tax_file(form)
+            n += 1
+    return n
+
+
 def tax_form_view(session, affiliate) -> dict:
     """What the partner sees on Payouts: the form on file and the latest
     upload, with a status label and (if rejected) the reason."""
@@ -469,8 +482,12 @@ _REF_RE = re.compile(r"^TWP0*(\d{1,12})$", re.I)
 # this one tuple (the columns below map by name).
 WISE_COLUMNS = ("name", "recipientEmail", "paymentReference", "receiverType",
                 "amountCurrency", "amount", "sourceCurrency", "targetCurrency")
+# Statuses in a PayPal / Wise result file that mean THE MONEY ARRIVED OR IS ON
+# ITS WAY to an account. PayPal "UNCLAIMED" is deliberately NOT here: the
+# recipient has no PayPal account for that email, nothing was received, and
+# the payout is returned after 30 days. Such a row must stay pending.
 _PAID_WORDS = ("success", "succeeded", "completed", "complete", "paid", "sent",
-               "outgoing_payment_sent", "funds_converted", "claimed", "unclaimed")
+               "outgoing_payment_sent", "funds_converted", "claimed")
 PAYOUT_METHOD_LABELS = {"paypal": "PayPal", "wise": "Wise"}
 
 
@@ -533,8 +550,23 @@ def pending_payout_rows(session) -> list:
                     "name": a.name, "period": _period_label(p), "currency": (p.currency or "usd").lower(),
                     "amount": Decimal(str(p.commission_amount or 0)).quantize(Decimal("0.01")),
                     "method": a.payout_method or "", "email": (a.payout_email or "").strip(),
-                    "payable": reason is None, "reason": reason, "short_reason": _short_reason(reason)})
+                    "payable": reason is None, "reason": reason, "short_reason": _short_reason(reason),
+                    "exported_at": afs._utc(p.exported_at), "exported_amount": _exported_amount(p),
+                    "changed": amount_changed_since_export(p)})
     return out
+
+
+def _exported_amount(payout):
+    v = getattr(payout, "exported_amount", None)
+    return None if v is None else Decimal(str(v)).quantize(Decimal("0.01"))
+
+
+def amount_changed_since_export(payout) -> bool:
+    """True when the row was exported and its ledger amount is no longer the
+    amount in that file (a refund or a re-compute moved it afterwards)."""
+    exported = _exported_amount(payout)
+    return (exported is not None and
+            exported != Decimal(str(payout.commission_amount or 0)).quantize(Decimal("0.01")))
 
 
 def payout_groups(rows) -> list:
@@ -549,9 +581,11 @@ def payout_groups(rows) -> list:
             for (m, c), rs in sorted(groups.items())]
 
 
-def select_for_export(session, ids, method, currency):
+def select_for_export(session, ids, method, currency, allow_reexport=False):
     """(rows to export, [(ref, why skipped)]) for the ticked ledger ids. Only
-    payable rows of exactly this method and currency are exported."""
+    payable rows of exactly this method and currency are exported. A row that
+    is already in an earlier export file is skipped unless allow_reexport is
+    set: uploading it a second time would pay the partner twice."""
     wanted = set()
     for i in ids or []:
         try:
@@ -561,7 +595,7 @@ def select_for_export(session, ids, method, currency):
     if method not in PAYOUT_METHOD_LABELS:
         raise OpsError("Unknown payout method.")
     currency = (currency or "").lower()
-    chosen, skipped = [], []
+    chosen, skipped, again = [], [], 0
     for r in pending_payout_rows(session):
         if r["id"] not in wanted:
             continue
@@ -569,11 +603,40 @@ def select_for_export(session, ids, method, currency):
             skipped.append((r["ref"], r["short_reason"]))
         elif r["method"] != method or r["currency"] != currency:
             skipped.append((r["ref"], "different method or currency"))
+        elif r["exported_at"] is not None and not allow_reexport:
+            again += 1
+            skipped.append((r["ref"], "already exported on %s"
+                            % r["exported_at"].strftime("%d %b %Y").lstrip("0")))
         else:
             chosen.append(r)
     if not chosen:
+        if again:
+            raise OpsError("%d ticked row%s already in an earlier export file. Uploading a row "
+                           "twice pays the partner twice. If that file was never uploaded, tick "
+                           "\"Include rows I already exported\" and export again."
+                           % (again, " is" if again == 1 else "s are"))
         raise OpsError("Tick at least one payable row to export.")
     return chosen, skipped
+
+
+def mark_exported(session, rows, now=None) -> int:
+    """Stamp exported_at + exported_amount on the rows just written into an
+    export file. Commits. The import later compares the ledger amount with
+    this one."""
+    from models import AffiliatePayout
+    now = _now(now)
+    n = 0
+    for r in rows:
+        p = session.get(AffiliatePayout, r["id"])
+        if p is None or p.status != "pending":
+            continue
+        p.exported_at, p.exported_amount = now, r["amount"]
+        n += 1
+    session.commit()
+    return n
+
+
+_FORMULA_STARTS = ("=", "+", "-", "@", "\t", "\r")
 
 
 def _csv_text(rows, header=None) -> str:
@@ -582,8 +645,8 @@ def _csv_text(rows, header=None) -> str:
     if header:
         w.writerow(header)
     for row in rows:
-        # never let a cell start a spreadsheet formula
-        w.writerow([("'" + c) if isinstance(c, str) and c[:1] in ("=", "+", "@") else c for c in row])
+        # never let a cell start a spreadsheet formula (=, +, -, @, tab, CR)
+        w.writerow([("'" + c) if isinstance(c, str) and c[:1] in _FORMULA_STARTS else c for c in row])
     return buf.getvalue()
 
 
@@ -694,14 +757,37 @@ def parse_paid_batch(text) -> list:
     return out
 
 
-def check_paid_batch(session, entries, default_reference="") -> list:
+def _money(amount, currency) -> str:
+    return "%.2f %s" % (Decimal(str(amount or 0)), (currency or "usd").upper())
+
+
+def _drift_message(p, accept_exported):
+    """(ok, message, amount recorded as paid) for a row whose ledger amount
+    differs from the amount in its export file."""
+    exported, now_amt = _exported_amount(p), Decimal(str(p.commission_amount or 0))
+    if accept_exported:
+        return True, ("Will be marked paid at the EXPORTED amount %s (the ledger now says %s; "
+                      "settle the difference of %s by hand)"
+                      % (_money(exported, p.currency), _money(now_amt, p.currency),
+                         _money(now_amt - exported, p.currency))), exported
+    return False, ("Amount changed since the export: the file said %s, the ledger now says %s. "
+                   "Not marked paid" % (_money(exported, p.currency), _money(now_amt, p.currency))), None
+
+
+def check_paid_batch(session, entries, default_reference="", accept_exported=False) -> list:
     """Add to each parsed entry what would happen: {"ok", "message", "code",
-    "amount", "currency", "period"}. Read-only."""
+    "amount", "currency", "period", "pay_amount", "drift"}. Read-only.
+
+    A row whose ledger amount no longer matches the amount in its export file
+    is refused ("drift"), because the money that was sent is the exported
+    amount. accept_exported=True (the owner ticked "I paid the exported
+    amounts") marks such a row paid AT THE EXPORTED AMOUNT instead."""
     from models import Affiliate, AffiliatePayout
     default_reference = (default_reference or "").strip()[:120]
     seen = set()
     for e in entries:
-        e.update(ok=False, message=e.get("error") or "", code="", amount=None, currency="", period="")
+        e.update(ok=False, message=e.get("error") or "", code="", amount=None, currency="", period="",
+                 pay_amount=None, drift=False)
         if e.get("error"):
             continue
         if e["payout_id"] in seen:
@@ -723,40 +809,59 @@ def check_paid_batch(session, entries, default_reference="") -> list:
         elif not e["reference"]:
             e["message"] = "No payment reference - add one on the line or a batch reference"
         else:
-            import affiliate_admin as afa
-            reason = afa.payout_block_reason(p, a)
+            # the SAME gate as the export: tax form, negative, minimum, payout
+            # method / email, terminated for cause
+            reason = _block_reason(p, a)
             if reason:
                 e["message"] = _short_reason(reason)
+            elif amount_changed_since_export(p):
+                e["drift"] = True
+                e["ok"], e["message"], e["pay_amount"] = _drift_message(p, accept_exported)
             else:
-                e["ok"], e["message"] = True, "Will be marked paid"
+                e["ok"], e["message"], e["pay_amount"] = True, "Will be marked paid", e["amount"]
     return entries
 
 
-def apply_paid_batch(session, entries, default_reference="", paid_at=None) -> dict:
+def apply_paid_batch(session, entries, default_reference="", paid_at=None,
+                     accept_exported=False) -> dict:
     """Mark the OK rows paid with their references, then flip their ledger
     lines to paid (same as marking a row paid by hand). Every row goes back
-    through the payout gate under a row lock. Records only: no money moves.
-    Commits. Returns {"paid": [refs], "refused": [(ref, why)], "lines": n}."""
+    through the full gate under a row lock, re-read from the database
+    (populate_existing), so a change made after the preview is seen. Records
+    only: no money moves. Commits. Returns {"paid": [refs], "refused":
+    [(ref, why)], "lines": n, "drift": [refs paid at the exported amount]}."""
     from models import Affiliate, AffiliatePayout
-    import affiliate_admin as afa
     paid_at = _now(paid_at)
-    check_paid_batch(session, entries, default_reference)
-    done, refused = [], []
+    check_paid_batch(session, entries, default_reference, accept_exported)
+    done, refused, drift = [], [], []
     for e in entries:
         if not e["ok"]:
             refused.append((e["ref"] or "line %d" % e["line"], e["message"]))
             continue
         p = (session.query(AffiliatePayout).filter(AffiliatePayout.id == e["payout_id"])
-             .with_for_update().first())
-        a = session.get(Affiliate, p.affiliate_id) if p is not None else None
-        if p is None or p.status != "pending" or afa.payout_block_reason(p, a):
+             .populate_existing().with_for_update().first())
+        a = (session.query(Affiliate).filter(Affiliate.id == p.affiliate_id)
+             .populate_existing().first()) if p is not None else None
+        if p is None or a is None or p.status != "pending" or _block_reason(p, a):
             refused.append((e["ref"], "Changed since the preview - not marked paid"))
             continue
-        p.status, p.paid_at, p.external_ref = "paid", paid_at, e["reference"]
+        amount = Decimal(str(p.commission_amount or 0)).quantize(Decimal("0.01"))
+        if amount_changed_since_export(p):
+            if not accept_exported:
+                refused.append((e["ref"], _drift_message(p, False)[1]))
+                continue
+            amount = _exported_amount(p)
+            drift.append(e["ref"])
+        elif e.get("pay_amount") is not None and \
+                Decimal(str(e["pay_amount"])).quantize(Decimal("0.01")) != amount:
+            refused.append((e["ref"], "Changed since the preview - not marked paid"))
+            continue
+        p.status, p.paid_at, p.external_ref, p.paid_amount = "paid", paid_at, e["reference"], amount
         done.append(e["ref"])
     session.commit()
+    import affiliate_admin as afa
     lines = afa.sync_paid_lines(session) if done else 0
-    return {"paid": done, "refused": refused, "lines": lines}
+    return {"paid": done, "refused": refused, "lines": lines, "drift": drift}
 
 
 # ===========================================================================

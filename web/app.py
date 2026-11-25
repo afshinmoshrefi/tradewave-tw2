@@ -725,7 +725,7 @@ def auth_callback():
             try:
                 import affiliate_service as _afs
                 _afs.record_signup_referral(s, db_user_obj, request.cookies.get("tw_ref"),
-                                            request.cookies.get(_afs.SUB_COOKIE))
+                                            request.cookies.get(_afs.SUB_COOKIE), ip=_client_ip())
             except Exception:
                 s.rollback()
                 log.warning("auth_callback: affiliate signup stamp failed (non-fatal)")
@@ -2238,7 +2238,7 @@ def _set_sub_cookie(resp, code):
     sub = _request_sub()
     if sub:
         import affiliate_service as _afs
-        resp.set_cookie(_afs.SUB_COOKIE, "%s:%s" % (code, sub), max_age=60 * 60 * 24 * 60,
+        resp.set_cookie(_afs.SUB_COOKIE, "%s:%s" % (code, sub), max_age=_afs.attribution_cookie_max_age(),
                         samesite="Lax", secure=request.is_secure, path="/")
     return sub
 
@@ -2324,7 +2324,7 @@ def pricing():
                         "/?code=%s%s#pricing" % (aff.code, "&sub=%s" % _sub if _sub else ""), code=302))
                     # First-touch attribution cookie (60 days), same key the
                     # /join/<code> landing page + checkout use.
-                    resp.set_cookie("tw_ref", aff.code, max_age=60 * 60 * 24 * 60,
+                    resp.set_cookie("tw_ref", aff.code, max_age=afs.attribution_cookie_max_age(),
                                     samesite="Lax", secure=request.is_secure, path="/")
                     _set_sub_cookie(resp, aff.code)
                     return resp
@@ -3808,7 +3808,7 @@ def affiliate_join(code):
         s.close()
     resp = make_response(render_template("affiliate_landing.html", **ctx))
     # First-touch attribution cookie (60 days), same key the homepage + checkout use.
-    resp.set_cookie("tw_ref", ctx["code"], max_age=60 * 60 * 24 * 60,
+    resp.set_cookie("tw_ref", ctx["code"], max_age=afs.attribution_cookie_max_age(),
                     samesite="Lax", secure=request.is_secure, path="/")
     _set_sub_cookie(resp, ctx["code"])
     resp.headers["X-Robots-Tag"] = "noindex, nofollow"
@@ -5006,6 +5006,7 @@ def _affiliate_discount_cell(view, context, model, name):
 
 class AffiliateAdmin(_AdminAuth, ModelView):
     create_template = "admin/affiliate_create.html"
+    list_template = "admin/affiliate_list.html"      # + the shared partner-program sub-nav
     column_list = ("name", "code", "discount_pct", "discount_pct_monthly", "terms",
                    "status", "agreement_signed_at",
                    "tax_form_type", "user", "created_at")
@@ -5450,6 +5451,18 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                 "%s has referred customers / payout history - delete is blocked to "
                 "preserve records. Set status to 'Terminated' instead (it disables "
                 "their code and keeps the record)." % model.code)
+        # An uploaded tax form does not block the delete (its rows go with the
+        # partner, ON DELETE CASCADE), but the encrypted files must not be left
+        # behind on disk.
+        try:
+            import affiliate_ops as _aff_ops
+            _aff_ops.purge_tax_forms(self.session, model)
+        except Exception:
+            log.exception("affiliate delete: tax form file cleanup failed for %s", model.code)
+            raise Exception(
+                "%s has an uploaded tax form whose file could not be removed, so the "
+                "delete was stopped. Check TW2_TAX_FORM_DIR on this box, or set the "
+                "status to 'Terminated' instead." % model.code)
         # No customers: deactivate the promo + delete the coupon so we never leave
         # a live, unattributable discount code behind in Stripe.
         import affiliate_service as afs
@@ -5468,10 +5481,12 @@ class AffiliatePayoutAdmin(_AdminAuth, ModelView):
     can_create = False
     can_delete = False
     can_edit = True
+    list_template = "admin/affiliate_list.html"      # + the shared partner-program sub-nav
     column_list = ("affiliate", "period_start", "period_end", "currency",
                    "gross_revenue", "commission_amount", "ledger_lines", "status",
-                   "payout_note", "locked", "paid_at", "external_ref")
+                   "payout_note", "fraud_flags", "locked", "paid_at", "external_ref")
     column_labels = {
+        "fraud_flags": "Fraud signals",
         "gross_revenue": "Customer payments (before tax)",
         "commission_amount": "Commission to pay",
         "ledger_lines": "Ledger lines",
@@ -5525,7 +5540,13 @@ class AffiliatePayoutAdmin(_AdminAuth, ModelView):
         import affiliate_admin as afa
         return afa.payout_note(model)
 
-    column_formatters = {"ledger_lines": _fmt_lines, "payout_note": _fmt_note}
+    def _fmt_flags(self, context, model, name):
+        # Information only (hover for the reason): never blocks a payout.
+        import affiliate_owner_admin as aoa
+        return aoa.payout_flags_html(self.session, model)
+
+    column_formatters = {"ledger_lines": _fmt_lines, "payout_note": _fmt_note,
+                         "fraud_flags": _fmt_flags}
     column_formatters_detail = column_formatters
 
     def on_model_change(self, form, model, is_created):
@@ -5583,7 +5604,7 @@ _AFFILIATE_COMPUTE_TMPL = """
  .btn{background:#6366f1;color:#fff;border:0;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:600}
  .muted{color:#666;font-size:13px} a{color:#5b4bdb}
 </style></head><body>
-<p><a href="/admin">&larr; Admin</a> &middot; <a href="/admin/affiliatepayout/">Payout ledger</a> &middot; <a href="/admin/affiliatecommissionline/">Commission lines</a></p>
+{{ affiliate_subnav|safe }}
 <h1>Affiliate commission - what I owe</h1>
 {% if committed %}<div class="bar ok">Committed {{ '%04d-%02d'|format(y, m) }} to the payout ledger (idempotent - existing rows untouched).</div>{% endif %}
 {% if error %}<div class="bar err">Error: {{ error }}</div>{% endif %}
@@ -5705,7 +5726,7 @@ _AFFILIATE_GUIDE_TMPL = """
  .note{font-size:13px;color:#555;background:#fffbe6;border:1px solid #f0e6b0;border-radius:8px;padding:10px 14px;margin:14px 0}
  nav a{margin-right:14px}
 </style></head><body>
-<nav><a href="/admin">&larr; Admin</a><a href="/admin/affiliate/">Affiliates</a><a href="/admin/affiliate_terms/">Terms</a><a href="/admin/promo_campaigns/">Campaigns</a><a href="/admin/affiliatepayout/">Payout ledger</a><a href="/admin/affiliatecommissionline/">Commission lines</a><a href="/admin/affiliate_compute/">Compute / what I owe</a><a href="/admin/affiliate_applications/">Applications</a><a href="/admin/affiliate_messages/">Messages</a></nav>
+{{ affiliate_subnav|safe }}
 <h1>Affiliate program - how it works</h1>
 <p>An in-house partner program built on Stripe coupons. Every new affiliate starts <b>paused</b>, and their link and code stay off until they <b>e-sign the affiliate agreement</b> (step 2).</p>
 <p>Current mode: {% if livemode %}<span class="pill mode-live">LIVE - real money</span>{% else %}<span class="pill mode-test">TEST / sandbox - safe to experiment</span>{% endif %}</p>
@@ -5817,7 +5838,8 @@ _AFFILIATE_GUIDE_TMPL = """
   </ul>
   Partners choose their emails in the dashboard under Settings, and every optional email has an unsubscribe link. Payout sent, discount change, the 7-day warning and renewals stopped are always sent. Events older than 7 days are never emailed, so nothing old goes out when the job is first switched on. To see what would go out without sending: <code>python web/affiliate_comms.py --dry-run</code>.
 </div>
-<div class="note"><b>One statement email, not two:</b> the daily job now announces each monthly statement. Once it is running, remove <code>--email</code> from the monthly <code>affiliate_report.py</code> cron so partners do not get the older statement email as well.</div>
+<div class="note"><b>One statement email, not two:</b> the daily job is the only sender of the monthly statement email, and only for a month that has closed. The monthly <code>affiliate_report.py</code> sweep now only writes the ledger: its old <code>--email</code> flag is ignored, and <code>ops/install_affiliate_comms_cron.sh</code> removes the flag from the cron line.</div>
+<div class="note"><b>Where to start each day:</b> <a href="/admin/affiliate_home/"><b>Partner program</b></a> shows what is waiting for you (applications, partner questions, tax forms, payable rows, unsigned partners, the activity deadline, fraud signals). You also get one email a day, only when something has waited more than 48 hours. All owner notices go to one address: <code>AFFILIATE_OWNER_EMAIL</code> in secrets.env.</div>
 
 <h2>10. Test vs live</h2>
 <div class="step">On the dev box this is Stripe <b>test mode</b> - create affiliates, campaigns and payouts freely; nothing is real. On production the same actions create <b>real</b> coupons and apply <b>real</b> discounts.</div>
@@ -6279,6 +6301,7 @@ class AffiliateCommissionLineAdmin(_AdminAuth, ModelView):
     can_create = False
     can_edit = False
     can_delete = False
+    list_template = "admin/affiliate_list.html"      # + the shared partner-program sub-nav
     can_view_details = True
     column_list = ("affiliate", "period_month", "kind", "state", "hold_reason",
                    "billing_interval", "year_number", "net_paid_cents", "basis_cents",
@@ -6340,6 +6363,19 @@ class AffiliateCommissionLineAdmin(_AdminAuth, ModelView):
 _affiliate_views = _affiliate_admin.make_views(
     _AdminAuth, catalog_fn=lambda: _campaign_catalog(),
     audit_fn=lambda **kw: write_audit(**kw), current_user_fn=lambda: get_current_user())
+# --- Owner home + year-end tax report (fix-0039; web/affiliate_owner_admin.py).
+# "Partner program" is the FIRST item of the Affiliates menu. The shared
+# sub-nav (web/affiliate_nav.py) is a Jinja global so every affiliate admin
+# page, including the Flask-Admin list pages, shows the same links.
+import affiliate_nav as _affiliate_nav
+import affiliate_owner_admin as _affiliate_owner_admin
+app.jinja_env.globals["affiliate_subnav"] = _affiliate_nav.NAV_HTML
+app.jinja_env.globals["affiliate_attribution_days"] = (
+    lambda: __import__("affiliate_service").attribution_window_days())
+_affiliate_owner_views = _affiliate_owner_admin.make_views(
+    _AdminAuth, audit_fn=lambda **kw: write_audit(**kw), current_user_fn=lambda: get_current_user())
+admin.add_view(_affiliate_owner_views["home"](
+    name="Partner program", endpoint="affiliate_home", category="Affiliates"))
 admin.add_view(AffiliateGuideView(name="How it works", endpoint="affiliate_guide", category="Affiliates"))
 admin.add_view(AffiliateAdmin(Affiliate, ModelsSession, name="Affiliates", category="Affiliates"))
 admin.add_view(_affiliate_views["terms"](name="Terms", endpoint="affiliate_terms", category="Affiliates"))
@@ -6368,6 +6404,8 @@ _affiliate_ops_views = _affiliate_ops_admin.make_views(
 admin.add_view(_affiliate_ops_views["bulk_payouts"](name="Bulk payouts", endpoint="affiliate_bulk_payouts", category="Affiliates"))
 admin.add_view(_affiliate_ops_views["tax_forms"](name="Tax forms", endpoint="affiliate_tax_forms", category="Affiliates"))
 admin.add_view(_affiliate_ops_views["creatives"](name="Creative library", endpoint="affiliate_creatives", category="Affiliates"))
+admin.add_view(_affiliate_owner_views["tax_report"](
+    name="Year-end tax report", endpoint="affiliate_tax_report", category="Affiliates"))
 # --- Partner applications + messaging (TW-TASK-0039 B; web/affiliate_comms_admin.py) ---
 import affiliate_comms_admin as _affiliate_comms_admin
 _affiliate_comms_views = _affiliate_comms_admin.make_views(

@@ -81,11 +81,60 @@ def normalize_sub(raw):
 
 def sub_from_cookie(cookie_value, code):
     """The slug in a tw_ref_sub cookie ("<CODE>:<sub>") if it belongs to the
-    partner `code`, else None - a sub tag never travels to another partner."""
-    owner, sep, slug = (cookie_value or "").partition(":") if isinstance(cookie_value, str) else ("", "", "")
+    partner `code`, else None - a sub tag never travels to another partner.
+    A percent-encoded value ("ANNE%3Ayoutube", written by older page JS) is
+    decoded first."""
+    if not isinstance(cookie_value, str):
+        return None
+    if "%" in cookie_value:
+        from urllib.parse import unquote
+        cookie_value = unquote(cookie_value)
+    owner, sep, slug = cookie_value.partition(":")
     if not sep or normalize_code(owner) != normalize_code(code or "") or not owner:
         return None
     return normalize_sub(slug)
+
+
+def attribution_window_days() -> int:
+    """How long a referral link is remembered (the tw_ref cookie lifetime),
+    in days. One source for the cookie max-age and for partner-facing copy."""
+    try:
+        days = int(getattr(config, "AFFILIATE_ATTRIBUTION_WINDOW_DAYS", 60) or 60)
+    except (TypeError, ValueError):
+        days = 60
+    return max(1, days)
+
+
+def attribution_cookie_max_age() -> int:
+    return attribution_window_days() * 24 * 60 * 60
+
+
+def owner_email() -> str:
+    """THE address for every partner-program notice to the owner (help
+    escalations, applications, tax-form alerts, operations summary, digest):
+    AFFILIATE_OWNER_EMAIL, else AFFILIATE_SUPPORT_EMAIL, else SUPPORT_EMAIL_TO."""
+    for name in ("AFFILIATE_OWNER_EMAIL", "AFFILIATE_SUPPORT_EMAIL", "SUPPORT_EMAIL_TO"):
+        v = (getattr(config, name, "") or "").strip()
+        if v:
+            return v
+    return ""
+
+
+def admin_url(path="") -> str:
+    """Absolute link to an admin page, for owner emails."""
+    base = (getattr(config, "tw2_public_url", None) or "https://tradewave.ai/").rstrip("/")
+    return base + "/admin/" + path.lstrip("/")
+
+
+def hash_ip(ip):
+    """Salted hash of an IP (rate limits and fraud signals; the raw IP is
+    never stored)."""
+    if not ip:
+        return None
+    import hashlib
+    salt = (getattr(config, "SUPPORT_IP_HASH_SALT", "") or
+            getattr(config, "API_KEY_HMAC_SECRET", "") or "tw2-partner-apply")
+    return hashlib.sha256(("%s|%s" % (ip, salt)).encode("utf-8")).hexdigest()
 
 
 def validate_code(code: str) -> None:
@@ -1902,7 +1951,7 @@ def record_click(session, affiliate_id, day=None) -> None:
     session.commit()
 
 
-def record_signup_referral(session, user, raw_code, sub_cookie=None) -> bool:
+def record_signup_referral(session, user, raw_code, sub_cookie=None, ip=None) -> bool:
     """First-touch: stamp a brand-new user with the affiliate whose tw_ref
     code they arrived with. Never overwrites an existing stamp, skips
     self-referral and inactive codes. Commits; returns True if stamped.
@@ -1918,6 +1967,7 @@ def record_signup_referral(session, user, raw_code, sub_cookie=None) -> bool:
     user.referred_by_affiliate_id = aff.id
     user.referred_at = dt.datetime.now(dt.timezone.utc)
     user.referred_sub = sub_from_cookie(sub_cookie, aff.code)
+    user.referred_ip_hash = hash_ip(ip)     # fraud signals only; never the raw IP
     session.commit()
     return True
 

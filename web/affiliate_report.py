@@ -7,15 +7,20 @@ touches no billing path or webhook. Review + the manual PayPal/Wise payout
 happen in Flask-Admin (Affiliates -> Payout Ledger): mark each row paid and add
 the txn id.
 
-Cron (web box), 03:30 on the 2nd of each month (lets the prior month settle).
-Pass --email so each affiliate also gets their anonymized monthly statement
-(the cron is the ONLY place --email is set; manual re-runs without it stay
-side-effect-free / ledger-only, so affiliates don't get duplicate statements):
-  30 3 2 * * set -a; . /etc/tradewave/secrets.env; set +a; /home/flask/venv/bin/python /home/flask/web/affiliate_report.py --email >> /var/log/tradewave/affiliate_report.log 2>&1
+Cron (web box), 03:30 on the 2nd of each month (lets the prior month settle):
+  30 3 2 * * set -a; . /etc/tradewave/secrets.env; set +a; /home/flask/venv/bin/python /home/flask/web/affiliate_report.py >> /var/log/tradewave/affiliate_report.log 2>&1
 
-Usage: affiliate_report.py [--month YYYY-MM] [--dry-run] [--email]
-The ledger upsert is idempotent - safe to re-run. The --email send is NOT
-idempotent, hence it's opt-in (cron-only); --dry-run --email just logs who'd be emailed.
+Usage: affiliate_report.py [--month YYYY-MM] [--dry-run]
+The ledger upsert is idempotent - safe to re-run.
+
+STATEMENT EMAILS ARE NOT SENT HERE ANY MORE. The partner comms daily job
+(web/affiliate_comms.py, event "statement_ready") is the ONE sender of the
+monthly statement email: once per partner per month, logged, with the
+partner's email preferences applied. This script used to send a second,
+older statement email when run with --email. The flag is still accepted so an
+old cron line does not fail, but it is IGNORED and a line is logged saying
+so; ops/install_affiliate_comms_cron.sh removes it from the cron line.
+send_monthly_statements() is kept only for its tests and is not called.
 """
 from __future__ import annotations
 
@@ -147,10 +152,9 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true",
                     help="compute + log only; do not write the ledger or send email")
     ap.add_argument("--email", action="store_true",
-                    help="email each affiliate their anonymized monthly statement "
-                         "(off by default so manual re-runs stay side-effect-free; "
-                         "the monthly cron passes --email). With --dry-run, only logs "
-                         "who would be emailed.")
+                    help="IGNORED (kept so an old cron line does not fail). Statement "
+                         "emails are sent by the partner comms daily job "
+                         "(web/affiliate_comms.py), never by this script.")
     args = ap.parse_args()
 
     if not config.POSTGRES_DSN:
@@ -191,8 +195,9 @@ def main() -> int:
             afs.upsert_month(s, y, m)
             log.info("ledger upserted (idempotent) for %04d-%02d", y, m)
         if args.email:
-            n = send_monthly_statements(rows, y, m, dry_run=args.dry_run)
-            log.info("%smonthly statement emails: %d", "(dry-run) " if args.dry_run else "", n)
+            log.warning("--email is ignored: the partner comms daily job (affiliate_comms.py) "
+                        "owns the monthly statement email. Remove --email from this cron line "
+                        "(ops/install_affiliate_comms_cron.sh does it).")
     finally:
         s.close()
     return 0

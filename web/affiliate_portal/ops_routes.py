@@ -23,6 +23,11 @@ def _ops():
     return affiliate_ops
 
 
+def _asvc_admin_url(path):
+    import affiliate_service as asvc
+    return asvc.admin_url(path)
+
+
 class _PageData:
     """Lazy, per-request page data for the templates: aff_ops.tax(),
     aff_ops.links(), aff_ops.creatives(). Each opens its own short DB
@@ -63,7 +68,9 @@ class _PageData:
 
 @bp.context_processor
 def _inject_ops():
-    return {"aff_ops": _PageData()}
+    import affiliate_service as asvc
+    # aff_attribution_days: the referral-cookie window (60), for page copy.
+    return {"aff_ops": _PageData(), "aff_attribution_days": asvc.attribution_window_days()}
 
 
 # ------------------------------------------------------------------
@@ -104,7 +111,8 @@ def tax_form_upload():
         s.close()
     _routes._notify_operator(
         "Affiliate tax form to review: %s" % aff.code,
-        "Affiliate %s uploaded a %s. Review it in Admin - Affiliates - Tax forms." % (aff.code, label))
+        "Affiliate %s uploaded a %s. Review it here:\n%s"
+        % (aff.code, label, _asvc_admin_url("affiliate_tax_forms/")))
     flash("Thanks - we have your %s. We will review it and show the result here." % label, "success")
     return back
 

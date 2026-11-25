@@ -83,6 +83,9 @@ class User(Base):
     referred_at                 = Column(TIMESTAMP(timezone=True))
     # Sub-link slug the signup arrived with (TW-TASK-0039 C; reporting only).
     referred_sub                = Column(Text)
+    # Salted hash of the IP a REFERRED signup came from (fix-0039; fraud
+    # signals only - never the raw IP, never set for a non-referred signup).
+    referred_ip_hash            = Column(Text)
     # navigator_mcp_first_connect_at: stamped ONCE (idempotently) by the gateway on a
     # Navigator's first MCP/OAuth connect (apiserver/db.py arm_navigator_teaser_if_null),
     # anchoring the one-time 7-day first-connect teaser (Analyst scope in chat). The web
@@ -536,6 +539,14 @@ class AffiliatePayout(Base):
     computed_at   = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     paid_at       = Column(TIMESTAMP(timezone=True))
     external_ref  = Column(Text)  # PayPal/Wise transaction id once paid
+    # Bulk payouts (fix-0039): the amount written into the last PayPal / Wise
+    # export file and when. A row whose amount changed after it was exported
+    # is refused on import unless the owner confirms the exported amount.
+    exported_at     = Column(TIMESTAMP(timezone=True))
+    exported_amount = Column(Numeric(12, 2))
+    # What was actually sent (NULL = commission_amount). Differs only when a
+    # row was marked paid at its exported amount after the ledger changed.
+    paid_amount     = Column(Numeric(12, 2))
     detail        = Column(JSONB)  # {"lines": [...per-invoice...]}
     affiliate     = relationship("Affiliate")
 
@@ -1000,6 +1011,45 @@ class AffiliateEmailPref(Base):
     affiliate_id  = Column(PG_UUID(as_uuid=True), ForeignKey("affiliates.id", ondelete="CASCADE"), primary_key=True)
     disabled      = Column(JSONB, nullable=False, server_default=sa_text("'[]'"))
     updated_at    = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+AFFILIATE_JOB_STATUSES = ("queued", "running", "done", "failed")
+
+
+class AffiliateJob(Base):
+    """Durable background-job queue for slow partner-program work that must
+    not run inside a web request: group message sends and the model call that
+    proposes a general knowledge-base entry. Processed by web/affiliate_jobs.py
+    (cron every 2 minutes, and again by the daily comms job). This row IS the
+    status record the admin screens read."""
+    __tablename__ = "affiliate_jobs"
+    id          = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    kind        = Column(Text, nullable=False)          # storage id, see affiliate_jobs.HANDLERS
+    payload     = Column(JSONB, nullable=False, server_default=sa_text("'{}'"))
+    status      = Column(Text, nullable=False, server_default=sa_text("'queued'"))
+    attempts    = Column(Integer, nullable=False, server_default=sa_text("0"))
+    result      = Column(JSONB)
+    error       = Column(Text)
+    created_by  = Column(Text)
+    created_at  = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    started_at  = Column(TIMESTAMP(timezone=True))
+    finished_at = Column(TIMESTAMP(timezone=True))
+
+    __table_args__ = (
+        CheckConstraint("status IN ('queued','running','done','failed')",
+                        name="affiliate_jobs_status_check"),
+        Index("ix_affiliate_jobs_status", "status", "created_at"),
+    )
+
+
+class AffiliateProgramSetting(Base):
+    """Small owner-editable settings of the partner program (key -> JSON).
+    Keys are STORAGE IDs: 'auto_approve' (affiliate_owner.auto_approve_rules)."""
+    __tablename__ = "affiliate_program_settings"
+    key        = Column(Text, primary_key=True)
+    value      = Column(JSONB, nullable=False, server_default=sa_text("'{}'"))
+    updated_by = Column(Text)
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
 
 
 PROMO_DISCOUNT_TYPES = ("percent", "amount")

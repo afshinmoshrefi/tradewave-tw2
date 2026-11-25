@@ -23,6 +23,7 @@ import uuid
 from decimal import Decimal, InvalidOperation
 from types import SimpleNamespace
 
+import affiliate_nav
 import affiliate_service as afs
 import config
 
@@ -803,13 +804,10 @@ _CSS = """
  legend{font-weight:700;font-size:13px;padding:0 6px;color:#3a32a8;}
 """
 
-_HEAD = """<!doctype html><html><head><meta charset="utf-8"><meta name="robots" content="noindex">
+_HEAD = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
 <title>{{ title }}</title><style>""" + _CSS + """</style></head><body><div class="wrap">
-<nav><a href="/admin">&larr; Admin</a><a href="/admin/affiliate/">Affiliates</a>
-<a href="{{ url_for('affiliate_terms.index') }}">Terms</a>
-<a href="{{ url_for('promo_campaigns.index') }}">Campaigns</a>
-<a href="/admin/affiliatepayout/">Payout ledger</a>
-<a href="/admin/affiliatecommissionline/">Commission lines</a></nav>
+""" + affiliate_nav.NAV_HTML + """
 {% with msgs = get_flashed_messages(with_categories=true) %}
   {% if msgs %}{% for cat, m in msgs %}<div class="flash flash-{{ cat }}">{{ m }}</div>{% endfor %}{% endif %}
 {% endwith %}
@@ -818,6 +816,8 @@ _HEAD = """<!doctype html><html><head><meta charset="utf-8"><meta name="robots" 
 """
 _FOOT = "</div></body></html>"
 
+# The navigation at the top of every page is the ONE shared partner-program
+# sub-nav (web/affiliate_nav.py).
 # The live dollar-preview widget is templates/admin/_affiliate_offer_preview.html
 # (shared with the Flask-Admin affiliate create form).
 OFFER_PREVIEW_WIDGET = '{% include "admin/_affiliate_offer_preview.html" %}'

@@ -73,7 +73,16 @@ def _cfg(name, default):
 
 
 def support_email():
+    """The address PARTNERS are told to write to (shown in the chat)."""
     return (_cfg("AFFILIATE_SUPPORT_EMAIL", "") or "help@tradewave.ai").strip()
+
+
+def owner_email():
+    """Where escalations are SENT: the one owner address of the program
+    (affiliate_service.owner_email: AFFILIATE_OWNER_EMAIL, then
+    AFFILIATE_SUPPORT_EMAIL, then SUPPORT_EMAIL_TO)."""
+    import affiliate_service as afs
+    return afs.owner_email() or support_email()
 
 
 def _now():
@@ -198,6 +207,7 @@ When you do not know
 - A request to change something on the account (terms, payout details, code, status) is "needs_team" unless the guide says how the partner does it themselves.
 
 Privacy
+- partner_numbers.tax_form is the state of this partner's own tax form: "none", "received" (waiting for our review), "accepted" or "rejected", with the form name and, when rejected, the reason we gave. You may tell the partner exactly that and point them to the Payouts page to upload a form.
 - The numbers you were given are counts and totals for THIS partner only. You have no customer names or emails and no data about any other partner. If asked for either, say it is not available in the dashboard. Do not escalate that.
 
 Safety
@@ -255,7 +265,16 @@ def _client():
     if not key or "PLACEHOLDER" in key.upper():
         return None
     import anthropic
-    return anthropic.Anthropic(api_key=key, timeout=45.0, max_retries=1)
+    # One attempt, capped well under the gunicorn worker timeout (60s): a slow
+    # or failing model degrades to "ask the team", it never holds a worker.
+    return anthropic.Anthropic(api_key=key, timeout=model_timeout(), max_retries=0)
+
+
+def model_timeout() -> float:
+    try:
+        return min(45.0, max(5.0, float(_cfg("AFFILIATE_HELP_MODEL_TIMEOUT", 25) or 25)))
+    except (TypeError, ValueError):
+        return 25.0
 
 
 def _model():
@@ -403,20 +422,28 @@ _purged_at = [0.0]
 
 def purge_old(session, force=False):
     """Conversation-log retention: delete chat rows older than
-    AFFILIATE_HELP_RETENTION_DAYS. Runs at most once a day per process.
-    Escalations and knowledge-base entries are kept (they are the record of
-    what the team answered)."""
+    AFFILIATE_HELP_RETENTION_DAYS, and clear the COPY of the chat stored on
+    escalations of the same age (affiliate_help_escalations.context), so no
+    chat text outlives the retention period. Runs at most once a day per
+    process (the daily comms job forces it). The escalation's question and
+    answer and the knowledge-base entries are kept: they are the record of
+    what the team answered. Returns the number of rows deleted or cleared."""
     if not force and time.monotonic() - _purged_at[0] < 86400 and _purged_at[0]:
         return 0
     _purged_at[0] = time.monotonic()
     days = int(_cfg("AFFILIATE_HELP_RETENTION_DAYS", 365))
     if days <= 0:
         return 0
-    from affiliate_help_models import AffiliateHelpMessage as M
-    n = (session.query(M).filter(M.created_at < _now() - dt.timedelta(days=days))
-         .delete(synchronize_session=False))
+    from affiliate_help_models import AffiliateHelpEscalation as E, AffiliateHelpMessage as M
+    cutoff = _now() - dt.timedelta(days=days)
+    n = (session.query(M).filter(M.created_at < cutoff).delete(synchronize_session=False))
+    cleared = 0
+    for esc in session.query(E).filter(E.created_at < cutoff, E.context.isnot(None)).all():
+        if esc.context:
+            esc.context = None
+            cleared += 1
     session.commit()
-    return n
+    return int(n or 0) + cleared
 
 
 # ---------------------------------------------------------------------------
@@ -632,7 +659,7 @@ def notify_owner(aff, esc):
     lines += ["The answer appears in the partner's chat, is emailed to them, and is saved as a "
               "partner-specific knowledge-base entry you can generalise later."]
     subject = "Partner question #%d from %s: %s" % (esc.id, aff.code, esc.question[:70])
-    return _send(to=support_email(), subject=clean_text(subject).replace("\n", " "),
+    return _send(to=owner_email(), subject=clean_text(subject).replace("\n", " "),
                  body_text=clean_text("\n".join(lines)), reply_to=reply_to)
 
 
@@ -655,8 +682,9 @@ def notify_partner(aff, esc):
 # ---------------------------------------------------------------------------
 def answer_escalation(session, esc, answer, by, via="admin", propose=True):
     """Record the owner's answer: the partner sees it in the chat and gets an
-    email, and it becomes a PARTNER-SPECIFIC knowledge-base entry. Then (best
-    effort) the model proposes a generalised version for one-click approval.
+    email, and it becomes a PARTNER-SPECIFIC knowledge-base entry. Then a
+    background job (web/affiliate_jobs.py, NOT this request) asks the model
+    for a generalised version the admin can approve in one click.
     Returns the knowledge-base row."""
     from affiliate_help_models import AffiliateHelpKb as K
     from models import Affiliate
@@ -681,12 +709,23 @@ def answer_escalation(session, esc, answer, by, via="admin", propose=True):
     session.commit()
     notify_partner(aff, esc)
     if propose:
-        try:
-            propose_general(session, kb)
-        except Exception as e:   # noqa: BLE001 - the answer is already delivered
-            session.rollback()
-            log.info("help: no general version proposed: %s", type(e).__name__)
+        queue_proposal(session, kb, by)
     return kb
+
+
+def queue_proposal(session, kb, by=None):
+    """Queue the model call that proposes a general version of `kb`. The
+    call happens in the job runner, never in the web request. Best effort:
+    the answer is already delivered. Returns the job row or None."""
+    try:
+        if _client() is None:
+            return None           # no API key: nothing would ever be proposed
+        import affiliate_jobs as jobs
+        return jobs.enqueue(session, "propose_general", {"kb_id": kb.id}, created_by=by)
+    except Exception as e:   # noqa: BLE001
+        session.rollback()
+        log.info("help: could not queue a general version: %s", type(e).__name__)
+        return None
 
 
 def dismiss_escalation(session, esc, by):
@@ -858,7 +897,7 @@ def _addresses(value):
 
 def allowed_reply_senders():
     """Addresses whose email reply counts as the owner's answer."""
-    raw = ",".join([support_email(), _cfg("SUPPORT_EMAIL_TO", "") or "",
+    raw = ",".join([owner_email(), support_email(), _cfg("SUPPORT_EMAIL_TO", "") or "",
                     _cfg("AFFILIATE_HELP_REPLY_FROM", "") or ""])
     return set(_addresses(raw))
 
@@ -885,10 +924,51 @@ def fetch_inbound_text(email_id):
     return bleach.clean(re.sub(r"(?i)<br\s*/?>|</p>|</div>", "\n", html), tags=[], strip=True)
 
 
+MIN_REPLY_CHARS = 10
+_AUTO_SUBJECT_RE = re.compile(
+    r"(?i)^\s*(auto(matic)?[ -]?(reply|response)|autoreply|out of (the )?office|ooo\b|"
+    r"away from (my|the) (desk|office)|on vacation|on holiday|undeliverable|"
+    r"delivery status notification|mail delivery (failed|subsystem)|abwesenheit)")
+
+
+def _header_map(raw):
+    """Email headers from a Resend event as {lowercase name: value}. Accepts a
+    dict or a list of {"name", "value"} pairs."""
+    out = {}
+    if isinstance(raw, dict):
+        for k, v in raw.items():
+            out[str(k).strip().lower()] = str(v or "")
+    elif isinstance(raw, (list, tuple)):
+        for item in raw:
+            if isinstance(item, dict) and item.get("name"):
+                out[str(item["name"]).strip().lower()] = str(item.get("value") or "")
+    return out
+
+
+def is_auto_reply(data) -> bool:
+    """True for mail a machine wrote: out-of-office replies, vacation
+    responders, bounces, mailing-list traffic (RFC 3834 Auto-Submitted and the
+    usual vendor headers), or an auto-reply subject line. Such mail must never
+    be sent to a partner as "the answer"."""
+    h = _header_map((data or {}).get("headers"))
+    auto = h.get("auto-submitted", "").strip().lower()
+    if auto and auto != "no":
+        return True
+    if any(k in h for k in ("x-autoreply", "x-autorespond", "x-autoresponder", "x-failed-recipients",
+                            "list-id")):
+        return True
+    if h.get("precedence", "").strip().lower() in ("bulk", "junk", "list", "auto_reply"):
+        return True
+    sender = (_addresses((data or {}).get("from")) or [""])[0]
+    if sender.partition("@")[0] in ("mailer-daemon", "postmaster", "no-reply", "noreply"):
+        return True
+    return bool(_AUTO_SUBJECT_RE.match(str((data or {}).get("subject") or "")))
+
+
 def handle_inbound(session, event, fetch_text=fetch_inbound_text):
     """Apply one verified 'email.received' event. Returns a short status
     word (never raises for a bad email): answered | ignored | no_token |
-    bad_sender | closed | empty."""
+    bad_sender | closed | empty | auto_reply | too_short."""
     from affiliate_help_models import AffiliateHelpEscalation as E
     if (event or {}).get("type") != "email.received":
         return "ignored"
@@ -906,6 +986,9 @@ def handle_inbound(session, event, fetch_text=fetch_inbound_text):
     if sender not in allowed_reply_senders():
         log.warning("help: inbound reply for #%s from a sender that is not allowed", esc_id)
         return "bad_sender"
+    if is_auto_reply(data):
+        log.info("help: inbound reply for #%s ignored (automatic reply)", esc_id)
+        return "auto_reply"
     esc = session.get(E, esc_id)
     if esc is None or esc.status != "open":
         return "closed"
@@ -919,6 +1002,11 @@ def handle_inbound(session, event, fetch_text=fetch_inbound_text):
     answer = strip_quoted(text)
     if not answer:
         return "empty"
+    if len(answer) < MIN_REPLY_CHARS:
+        # "ok", "thanks", a stray signature: not an answer for a partner. The
+        # question stays open; the owner answers on the admin page.
+        log.info("help: inbound reply for #%s ignored (%d characters)", esc_id, len(answer))
+        return "too_short"
     try:
         answer_escalation(session, esc, answer[:MAX_ANSWER_CHARS], "email:%s" % sender, via="email")
     except HelpError:

@@ -18,10 +18,7 @@ import affiliate_service as afs
 
 log = logging.getLogger(__name__)
 
-# The shared admin head has no viewport tag; these screens are also used on a phone.
-_HEAD = afa._HEAD.replace(
-    '<meta charset="utf-8">',
-    '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">', 1)
+_HEAD = afa._HEAD      # shared head: viewport tag + the one partner-program sub-nav
 
 _SUBNAV = """
 <p style="margin:10px 0 0;"><a href="{{ url_for('affiliate_applications.index') }}">Applications</a> &middot;
@@ -81,6 +78,31 @@ Approving one creates the partner on the default terms and emails the agreement 
 <p class="muted" style="margin:0;">Nothing here.</p>
 {% endif %}
 </div>
+
+<div class="doc" id="auto-approve">
+<h2>Auto-approve</h2>
+<p class="muted">Now: <strong>{{ auto_text }}</strong>. An auto-approved applicant becomes a partner on the default terms
+(discount {{ default_discount }}%, code from their first name), <strong>paused until they sign the agreement</strong>, and is
+emailed the signing link at once. You still get the notification email. An email that is already a partner, or that
+applied before, is never auto-approved.</p>
+<form method="post" action="{{ url_for('affiliate_applications.auto_approve') }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% for key, label in auto_modes %}
+<label class="inline" style="display:block;font-weight:400;margin:6px 0 0;"><input type="radio" name="mode" value="{{ key }}" {{ 'checked' if auto.mode == key else '' }}> {{ label }}</label>
+{% endfor %}
+<div class="grid" style="margin-top:6px;">
+<div><label for="aa-countries">Countries (comma separated, as applicants type them)</label>
+<input type="text" id="aa-countries" name="countries" value="{{ auto.countries|map('title')|join(', ') }}" placeholder="United States, Canada, United Kingdom" style="width:100%;box-sizing:border-box;"></div>
+<div><label for="aa-size">Minimum audience size</label>
+<select id="aa-size" name="min_audience"><option value="">Any size</option>
+{% for key, label in size_choices %}<option value="{{ key }}" {{ 'selected' if auto.min_audience == key else '' }}>{{ label }} or more</option>{% endfor %}
+</select></div>
+</div>
+<div class="muted">With both rules set, an application must match both. Country names are compared without regard to case
+("USA" and "United States" count as the same).</div>
+<button type="submit">Save auto-approve rules</button>
+</form>
+</div>
 """ + afa._FOOT
 
 _APP_VIEW_TMPL = _HEAD + _SUBNAV + """
@@ -114,6 +136,14 @@ _APP_VIEW_TMPL = _HEAD + _SUBNAV + """
  ({{ partner.status }}{{ ', signed' if partner.agreement_signed_at else ', not signed yet' }})
  &middot; <a href="{{ url_for('affiliate_signed.index', id=partner.id) }}">signing link</a></td></tr>{% endif %}
 </table>
+{% if partner and not partner.agreement_signed_at and partner.status != 'terminated' %}
+<form method="post" action="{{ url_for('affiliate_applications.resend') }}" style="margin-top:4px;">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="id" value="{{ app.id }}">
+<button type="submit" class="secondary">Resend signing link to {{ partner.email }}</button>
+<span class="muted" style="margin-left:8px;">{{ partner.code }} has not signed yet. A reminder also goes out by itself 3 and 10 days after approval.</span>
+</form>
+{% endif %}
 </div>
 
 {% if app.status != 'approved' %}
@@ -264,6 +294,8 @@ _LOG_TMPL = _HEAD + _SUBNAV + """
 <tr><td>Subject</td><td>{{ message.subject }}</td></tr>
 <tr><td>Sent</td><td>{{ message.created_at.strftime('%Y-%m-%d %H:%M UTC') if message.created_at else '' }} by {{ message.sent_by or '-' }}</td></tr>
 <tr><td>To</td><td>{{ audience }} ({{ message.recipient_count }})</td></tr>
+{% if job %}<tr><td>Sending</td><td><span class="badge b-{{ {'done': 'sent', 'failed': 'failed'}.get(job.status, 'pending') }}">{{ {'queued': 'waiting to start', 'running': 'sending now', 'done': 'finished', 'failed': 'stopped with errors'}.get(job.status, job.status) }}</span>
+ {{ rows|length }} of {{ message.recipient_count }} delivered so far{% if job.error and job.status != 'done' %} <span class="err">({{ job.error }})</span>{% endif %}</td></tr>{% endif %}
 <tr><td>Message</td><td><pre class="msg">{{ message.body }}</pre></td></tr>
 </table></div>
 {% else %}
@@ -292,7 +324,7 @@ _LOG_TMPL = _HEAD + _SUBNAV + """
 REASON_LABELS = {
     "preference": "Partner turned this email off",
     "no_email": "No email address on file",
-    "email_not_configured": "Email sending is not set up on this server",
+    "email_not_configured": "Email sending is not set up on this server (sent once it is)",
     "send_failed": "The email provider refused it (retried up to 3 times)",
 }
 STATUS_TABS = (("new", "New"), ("approved", "Approved"), ("rejected", "Rejected"),
@@ -337,10 +369,14 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
                     q = q.filter(AffiliateApplication.status == status)
                 apps = q.order_by(AffiliateApplication.created_at.desc()).limit(300).all()
                 rows = [{"app": a, "flags": comms.application_flags(s, a)} for a in apps]
+                import affiliate_owner as owner
+                auto = owner.auto_approve_rules(s)
                 return render_template_string(
                     _APPS_LIST_TMPL, title="Partner applications", errors=None, rows=rows,
                     status=status, tabs=STATUS_TABS, counts=counts,
-                    sizes=comms.AUDIENCE_SIZE_LABEL)
+                    sizes=comms.AUDIENCE_SIZE_LABEL, size_choices=comms.AUDIENCE_SIZES,
+                    auto=auto, auto_text=owner.auto_approve_text(auto), auto_modes=owner.AUTO_MODES,
+                    default_discount=afa.pct(comms.default_discount(afs.get_terms(s))))
             finally:
                 s.close()
 
@@ -401,6 +437,51 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
                           "sent - copy this signing link and send it yourself: %s"
                           % (aff.code, agr.signing_url(aff)), "warning")
                 return redirect(url_for("affiliate_applications.view", id=app_row.id))
+            finally:
+                s.close()
+
+        @expose("/resend", methods=["POST"])
+        def resend(self):
+            """Email the signing link again to an approved partner who has
+            not signed. The link itself is unchanged (still valid)."""
+            import affiliate_agreement as agr
+            s = _S()
+            try:
+                app_row = load_app(s, request.form.get("id"))
+                partner = (s.get(Affiliate, app_row.affiliate_id)
+                           if app_row is not None and app_row.affiliate_id else None)
+                if partner is None:
+                    flash("That application has no partner yet.", "error")
+                    return redirect(url_for("affiliate_applications.index"))
+                if partner.agreement_signed_at is not None:
+                    flash("%s has already signed." % partner.code, "info")
+                elif partner.status == "terminated":
+                    flash("%s is terminated, so no link was sent." % partner.code, "error")
+                elif agr.email_signing_link(partner):
+                    audit_fn(actor_label=actor(), action="affiliate_signing_link_resent",
+                             details={"application": str(app_row.id), "code": partner.code})
+                    flash("Signing link emailed again to %s." % partner.email, "success")
+                else:
+                    flash("The email could NOT be sent. Copy this signing link and send it yourself: %s"
+                          % agr.signing_url(partner), "warning")
+                return redirect(url_for("affiliate_applications.view", id=app_row.id))
+            finally:
+                s.close()
+
+        @expose("/auto-approve", methods=["POST"])
+        def auto_approve(self):
+            import affiliate_owner as owner
+            s = _S()
+            try:
+                try:
+                    value = owner.save_auto_approve(s, request.form, actor())
+                except afs.AffiliateError as e:
+                    s.rollback()
+                    flash(str(e), "error")
+                    return redirect(url_for("affiliate_applications.index") + "#auto-approve")
+                audit_fn(actor_label=actor(), action="affiliate_auto_approve_rules_saved", details=value)
+                flash("Saved. Auto-approve is now: %s." % owner.auto_approve_text(value), "success")
+                return redirect(url_for("affiliate_applications.index") + "#auto-approve")
             finally:
                 s.close()
 
@@ -525,17 +606,23 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
                     msg, stats = comms.send_message(
                         s, subject=form.get("subject"), body=form.get("body"),
                         audience=audience, param=param,
-                        required=form.get("required") == "yes", sent_by=actor())
+                        required=form.get("required") == "yes", sent_by=actor(),
+                        background=True)
                 except comms.CommsError as e:
                     s.rollback()
                     return self._compose(s, form=form, errors=e.errors, code=400)
                 audit_fn(actor_label=actor(), action="affiliate_message_sent",
                          details={"message": msg.id, "audience": audience, "param": param,
                                   "stats": stats})
-                flash("Sent to %d partner%s: %d emailed, %d inbox only, %d failed."
-                      % (stats["recipients"], "" if stats["recipients"] == 1 else "s",
-                         stats["sent"], stats["skipped"], stats["failed"]),
-                      "warning" if stats["failed"] else "success")
+                if stats.get("queued"):
+                    flash("Queued for %d partners. The emails go out in the background within a few "
+                          "minutes; this page shows each one as it is sent. Reload to see progress."
+                          % stats["recipients"], "success")
+                else:
+                    flash("Sent to %d partner%s: %d emailed, %d inbox only, %d failed."
+                          % (stats["recipients"], "" if stats["recipients"] == 1 else "s",
+                             stats["sent"], stats["skipped"], stats["failed"]),
+                          "warning" if stats["failed"] else "success")
                 return redirect(url_for("affiliate_messages.log", id=msg.id))
             finally:
                 s.close()
@@ -554,8 +641,12 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
                 rows = comms.notification_log(
                     s, limit=500 if message else 200,
                     message_id=message.id if message else None)
+                job = None
+                if message is not None:
+                    import affiliate_jobs as jobs
+                    job = jobs.job_for_message(s, message.id)
                 return render_template_string(
-                    _LOG_TMPL, title="Partner email log", errors=None, message=message,
+                    _LOG_TMPL, title="Partner email log", errors=None, message=message, job=job,
                     audience=(comms.audience_text(s, message.audience, message.audience_param)
                               if message else None),
                     rows=rows, labels=comms.EVENT_LABEL, reasons=REASON_LABELS)
