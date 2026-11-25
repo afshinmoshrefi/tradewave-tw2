@@ -29,6 +29,11 @@
                        -webkit-text-fill-color:var(--muted); margin-left:8px; }
     .nav a.btn { color:#fff; background:linear-gradient(135deg,#6366f1,#8b5cf6);
                  padding:8px 18px; border-radius:8px; text-decoration:none; font-weight:600; font-size:14px; }
+    .nav .navright { display:flex; align-items:center; gap:10px; }
+    .navhelp { display:inline-flex; align-items:center; gap:7px; min-height:36px; padding:0 14px; border-radius:8px;
+               border:1px solid rgba(139,92,246,0.6); background:transparent; color:var(--text);
+               font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; }
+    .navhelp:hover { border-color:var(--brand2); }
     .container { max-width:1040px; margin:28px auto 64px; padding:0 24px; }
     .pagehead { display:flex; justify-content:space-between; align-items:flex-end; gap:16px;
                 flex-wrap:wrap; margin-bottom:18px; }
@@ -161,7 +166,12 @@
       .legend { grid-template-columns:1fr 1fr; }
     }
     @media (max-width:640px) {
-      .nav { padding:12px 16px; }
+      .nav { padding:10px 14px; gap:8px; }
+      .nav .logo { font-size:20px; white-space:nowrap; }
+      .nav .logo small { display:none; }           /* the header must fit a 320px phone */
+      .nav .navright { gap:8px; }
+      .navhelp { min-height:44px; padding:0 12px; }
+      .nav a.btn { min-height:44px; display:inline-flex; align-items:center; padding:8px 14px; }
       .container { margin:18px auto 150px; padding:0 14px; }
       h1 { font-size:24px; }
       .tabs { display:none; }
@@ -201,22 +211,32 @@
       .moresheet a { display:flex; align-items:center; min-height:48px; padding:0 14px; color:var(--text);
                      text-decoration:none; font-weight:600; border-radius:10px; }
       .moresheet a.active { background:var(--brand-soft); color:var(--brand-text); }
-      .stickycopy { display:flex; position:fixed; right:12px; z-index:39;
-                    bottom:calc(70px + env(safe-area-inset-bottom)); min-height:46px; padding:0 18px;
-                    align-items:center; gap:8px; border-radius:999px; border:none; font-family:inherit;
+      /* a slim bar docked on the bottom navigation, not a pill floating over the page */
+      .stickycopy { display:flex; position:fixed; left:0; right:0; z-index:39;
+                    bottom:calc(61px + env(safe-area-inset-bottom)); min-height:44px; padding:0 16px;
+                    align-items:center; justify-content:center; gap:8px; border:none; border-radius:0;
+                    border-top:1px solid rgba(139,92,246,0.5); font-family:inherit;
                     font-weight:700; font-size:14px; color:#fff; cursor:pointer;
-                    background:linear-gradient(135deg,#6366f1,#8b5cf6); box-shadow:0 8px 24px rgba(99,102,241,0.45); }
+                    background:#2a2260; }
     }
   </style>
   {% block head %}{% endblock %}
 </head>
 <body>
+  {% set is_aff = aff is defined and aff %}
   <nav class="nav">
     <a href="/" class="logo">TradeWave<small>Partners</small></a>
-    <a href="/account" class="btn">Account</a>
+    <div class="navright">
+      {% if is_aff %}
+      {# Help lives in the header on every screen, so it never covers page content #}
+      <button type="button" class="navhelp hlp-open" aria-haspopup="dialog" aria-controls="hlp-panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z"/></svg>
+        Help <span class="hlp-badge" hidden></span></button>
+      {% endif %}
+      <a href="/account" class="btn">Account</a>
+    </div>
   </nav>
   <div class="container">
-    {% set is_aff = aff is defined and aff %}
     {% set tabs = [
       ('home', 'Home', 'affiliate_portal.overview'),
       ('earnings', 'Earnings', 'affiliate_portal.earnings'),
@@ -259,7 +279,7 @@
 
   {% if is_aff %}
   {% if links is defined and links and aff.status == 'active' and not (link_block is defined and link_block) %}
-  <button class="stickycopy" type="button" onclick="twCopy(this, '{{ links.join }}')" aria-label="Copy your link">Copy link</button>
+  <button class="stickycopy" type="button" onclick="twCopy(this, '{{ links.join }}')" aria-label="Copy your link">Copy my link</button>
   {% endif %}
   <div class="moresheet" id="moresheet">
     <a href="{{ url_for('affiliate_portal.promote') }}" class="{{ 'active' if active_tab == 'promote' else '' }}">Promote</a>

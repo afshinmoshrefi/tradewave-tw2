@@ -102,8 +102,8 @@ chat copies purged; tax-form FK cascade. Owner tools: admin home + shared sub-na
 digest, tax-form result notices, signing reminders + resend, auto-approve rules, fraud
 signals, year-end tax report, attribution-window helper.
 
-Evidence: `pytest tests/test_affiliate*.py tests/test_promo*.py` 729 passed, 1 skipped
-(baseline 621). Migration `e2f3a4b5c6d7` proven on a scratch Postgres 16 cluster from the
+Evidence: merged with `claude/affiliate-v2-20261124` at `3b2b1d8` (partner-facing UX fixes); `pytest tests/test_affiliate*.py tests/test_promo*.py` 760 passed, 1 skipped
+(baseline 621 before both branches). Bulk payouts rows render as cards under 700px. Migration `e2f3a4b5c6d7` proven on a scratch Postgres 16 cluster from the
 previous-head schema: upgrade, downgrade, upgrade, cascade delete checked, no model drift;
 cluster dropped. Screenshots: `/mnt/project-files/affiliate/gap-closure/admin-program-home-*`,
 `admin-bulk-payouts-fraud-flags-*`, `admin-payout-ledger-fraud-signals-*`,

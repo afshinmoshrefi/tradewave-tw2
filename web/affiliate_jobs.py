@@ -86,7 +86,14 @@ def _run_propose_general(session, payload):
     kb = session.get(AffiliateHelpKb, int(payload["kb_id"]))
     if kb is None or kb.scope != "partner" or kb.status != "active":
         return {"skipped": "entry is gone, retired or already general"}
-    return {"proposed": bool(ah.propose_general(session, kb))}
+    try:
+        return {"proposed": bool(ah.propose_general(session, kb))}
+    except ah.HelpError as e:
+        # The suggestion was refused (for example much longer than the owner's
+        # answer). That is a final result, not a failure to retry: asking the
+        # model again would only spend another call. The reason is shown next
+        # to the entry on the knowledge-base page (proposal_notes).
+        return {"proposed": False, "refused": str(e)}
 
 
 HANDLERS = {"send_message": _run_send_message, "propose_general": _run_propose_general}
@@ -150,6 +157,33 @@ def counts(session) -> dict:
                       .filter(AffiliateJob.status.in_(tuple(out)))
                       .group_by(AffiliateJob.status).all()):
         out[status] = int(n)
+    return out
+
+
+def proposal_notes(session, limit=300) -> dict:
+    """{kb_id: note} from the newest 'propose_general' job of each entry, for
+    the knowledge-base admin page: still waiting, refused (with the reason),
+    or failed. Entries whose job finished normally have no note."""
+    from models import AffiliateJob
+    out, seen = {}, set()
+    for job in (session.query(AffiliateJob).filter(AffiliateJob.kind == "propose_general")
+                .order_by(AffiliateJob.id.desc()).limit(limit).all()):
+        try:
+            kb_id = int((job.payload or {}).get("kb_id"))
+        except (TypeError, ValueError):
+            continue
+        if kb_id in seen:
+            continue
+        seen.add(kb_id)
+        result = job.result if isinstance(job.result, dict) else {}
+        if job.status in ("queued", "running"):
+            out[kb_id] = ("wait", "The assistant is writing a suggested general version. "
+                                  "It appears here within a few minutes; reload to check.")
+        elif job.status == "failed":
+            out[kb_id] = ("bad", "The assistant could not be reached for a general version. "
+                                 "Try \"Suggest a general version\" again later.")
+        elif result.get("refused"):
+            out[kb_id] = ("bad", str(result["refused"]))
     return out
 
 

@@ -653,13 +653,42 @@ class TestLinksAndPromote:
             qr.matrix("x" * 332)
         assert qr.svg("abc").count("<path") == 1
 
+    def test_swipe_copy_follows_the_better_offer(self):
+        from affiliate_portal import dashboard as dash
+        aff = SimpleNamespace(code="ANNE")
+        links, offer = {"join": "https://t.example/join/ANNE"}, {"discount_year": "20"}
+        plan = {"plan": "Analyst annual", "interval": "year", "sale_cents": 9900, "list_cents": 39900,
+                "term": "first year", "sale_wins": True}
+        card = {"name": "Black Friday", "ends": "30 Nov", "plans": [plan]}
+        # no sale, or a sale the partner's own discount beats: the partner's discount copy
+        for promos in (None, [], [dict(card, plans=[dict(plan, sale_wins=False)])]):
+            assert dash.sale_for_copy(promos) is None
+            copy = dash.swipe_copy(aff, links, offer, promos)
+            assert all("sale" not in c for c in copy)
+            assert "20% off your first year with my code ANNE" in copy[0]["text"]
+        # the sale wins: every channel quotes the sale price and its end date
+        copy = dash.swipe_copy(aff, links, offer, [card])
+        assert [c["key"] for c in copy] == ["social", "email", "video", "bio"]
+        for c in copy:
+            assert c["sale"] == "Black Friday version - ends 30 Nov"
+            assert "$99" in c["text"] and "30 Nov" in c["text"] and c["text"].endswith(dash.DISCLOSURE)
+            assert "\u2014" not in c["text"]
+        assert "Black Friday Analyst annual for $99 first year (normally $399)" in copy[0]["text"]
+        assert "On the other plans my code ANNE gets you 20% off your first year." in copy[1]["text"]
+        # a partner at 0% has no code to mention
+        zero = dash.swipe_copy(aff, links, {"discount_year": "0"}, [card])
+        assert "my code" not in zero[0]["text"] and "$99" in zero[0]["text"]
+
     def test_promote_page(self, portal):
         aff, user = h.seed_rich(portal.db, portal.world)
         login(portal, user)
         _r, html = get(portal, "/promote")
         from affiliate_portal import dashboard as dash
         assert html.count(dash.DISCLOSURE) >= 4               # every swipe ends with it
-        assert "20% off your first year with my code ANNE" in html
+        # seed_rich has a live Black Friday sale that beats ANNE's 20%: the copy is the sale version
+        assert "Black Friday Analyst annual for $99 first year (normally $399)" in html
+        assert "Black Friday version - ends" in html and "quotes the" in html
+        assert "my code ANNE gets you 20% off" in html           # other plans still use the code
         assert "Copy for my AI" in html and "Your join page" in html and 'id="guide"' in html
         assert 'name="page_note"' in html and "Preview" in html
         # the AI text carries v2 terms, not the v1 commission model

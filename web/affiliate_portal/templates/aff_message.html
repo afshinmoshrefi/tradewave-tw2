@@ -12,10 +12,17 @@
   {% for para in msg.paragraphs %}
   <p style="margin:0 0 14px;font-size:15px;overflow-wrap:anywhere;">{% for line in para %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
   {% endfor %}
-  {% if msg.link_url %}
-  <a class="btn-primary" href="{{ msg.link_url }}">{{ msg.link_label or 'Open' }}</a>
-  {% endif %}
+  <div class="row">
+    {% if msg.is_help %}
+    <a class="btn-primary hlp-open" href="#help">Open Help to reply</a>
+    {% else %}
+    {% if msg.link_url %}<a class="btn-primary" href="{{ msg.link_url }}">{{ msg.link_label or 'Open' }}</a>{% endif %}
+    {# opens the Help panel with this message quoted; the question goes to the team #}
+    <button class="btn-secondary" type="button" data-help-about="{{ msg.id }}" data-help-subject="{{ msg.subject }}">Ask about this</button>
+    {% endif %}
+  </div>
   <p class="tiny muted" style="margin:18px 0 0;">{% if msg.emailed %}Also emailed to {{ msg.to_email }}.{% else %}Shown here only (not emailed).{% endif %}
-    <a href="{{ url_for('affiliate_portal.settings') }}#email">Email preferences</a></p>
+    <a href="{{ url_for('affiliate_portal.settings') }}#email">Email preferences</a>.
+    {% if not msg.is_help %}A question about this message? "Ask about this" sends it to the TradeWave team, and their answer comes back here and in Help.{% endif %}</p>
 </div>
 {% endblock %}

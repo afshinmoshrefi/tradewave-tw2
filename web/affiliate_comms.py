@@ -53,44 +53,72 @@ HELP_EMAIL = "help@tradewave.ai"
 
 
 class CommsError(afs.AffiliateError):
-    """A problem to show the admin / applicant. `errors` lists every one."""
+    """A problem to show the admin / applicant. `errors` lists every one.
+    `fields` (application form only) is [(field name, message)] in the order
+    the fields appear on the form, so the page can mark each field."""
 
-    def __init__(self, errors):
+    def __init__(self, errors, fields=None):
         self.errors = [errors] if isinstance(errors, str) else list(errors)
+        self.fields = list(fields or [])
         super().__init__("; ".join(self.errors))
 
 
 # ---------------------------------------------------------------------------
 # 1) Event catalog + preferences
 # ---------------------------------------------------------------------------
+# ONE name per kind of email. The same words are used for the Settings
+# toggle, the tag on a Messages entry, the admin send log and the "always
+# sent" list, so a partner (and the owner) never has to match two names.
+KIND_LABEL = {
+    "welcome": "Welcome",
+    "first_click": "First click",
+    "new_customer": "New paying customer",
+    "statement_ready": "Monthly statement",
+    "payout_sent": "Payout sent",
+    "activity_warning": "Activity reminder",
+    "activity_final": "Final activity warning",
+    "renewals_lapsed": "Renewal commissions stopped",
+    "renewals_resumed": "Renewal commissions resumed",
+    "campaign_started": "New TradeWave sale",
+    "discount_changed": "Discount change",
+    "announcement": "News from the TradeWave team",
+    "program_notice": "Program notice",
+    "help_answer": "Answer from the team",
+}
+
 # Preference ids (STORAGE IDs in affiliate_email_prefs.disabled - never rename).
+# "welcome" used to be a toggle; it is sent once, at signing, before a partner
+# can reach Settings, so it is now a required notice. A stored "welcome"
+# opt-out is simply ignored (disabled_prefs() drops unknown ids).
 PREFS = (
-    ("welcome", "Welcome email", "Sent when you sign your agreement, with your links and first steps."),
-    ("first_click", "First click", "Sent once, when your link gets its first visit."),
-    ("new_customer", "New paying customer", "Sent each time a customer you referred makes a first payment. Never says who."),
-    ("statement_ready", "Monthly statement ready", "Sent when a month's commission statement is on your Payouts page."),
-    ("activity_warning", "Activity reminders", "Sent 60 and 30 days before your renewal commissions would stop."),
-    ("renewals_resumed", "Renewals resumed", "Sent when your renewal commissions start again."),
-    ("campaign_started", "New TradeWave sale", "Sent when a company-wide sale starts that your link already applies."),
-    ("announcement", "News from the TradeWave team", "Program news and tips written by the TradeWave team."),
+    ("first_click", KIND_LABEL["first_click"], "Sent once, when your link gets its first visit."),
+    ("new_customer", KIND_LABEL["new_customer"], "Sent each time a customer you referred makes a first payment. Never says who."),
+    ("statement_ready", KIND_LABEL["statement_ready"], "Sent when a month's commission statement is on your Payouts page."),
+    ("activity_warning", KIND_LABEL["activity_warning"], "Sent 60 and 30 days before your renewal commissions would stop."),
+    ("renewals_resumed", KIND_LABEL["renewals_resumed"], "Sent when your renewal commissions start again."),
+    ("campaign_started", KIND_LABEL["campaign_started"], "Sent when a company-wide sale starts that your link already applies."),
+    ("announcement", KIND_LABEL["announcement"], "Program news and tips written by the TradeWave team."),
 )
 PREF_IDS = tuple(p[0] for p in PREFS)
 PREF_LABEL = {p[0]: p[1] for p in PREFS}
 
 # Notices every partner gets (money, account changes, loss of commission).
 REQUIRED_NOTICES = (
-    ("Payout sent", "A record of every payment we send you."),
-    ("Discount change confirmed", "So you know right away if your customer discount changes."),
-    ("Final activity warning", "7 days before your renewal commissions would stop."),
-    ("Renewal commissions stopped", "When the activity window ends."),
+    (KIND_LABEL["welcome"], "Sent once, when you sign your agreement, with your links and first steps."),
+    (KIND_LABEL["payout_sent"], "A record of every payment we send you."),
+    (KIND_LABEL["discount_changed"], "So you know right away if your customer discount changes."),
+    (KIND_LABEL["activity_final"], "7 days before your renewal commissions would stop."),
+    (KIND_LABEL["renewals_lapsed"], "When the activity window ends."),
+    (KIND_LABEL["help_answer"], "When the TradeWave team answers a question you asked in Help."),
     ("Tax form result", "Whether the tax form you uploaded was accepted, and what to fix if not."),
-    ("Program notices", "Rare notices about the program or your agreement."),
+    ("Signing reminder", "Until you sign your agreement: 3 and 10 days after you are approved."),
+    (KIND_LABEL["program_notice"], "Rare notices about the program or your agreement."),
 )
 
 # event_type (STORAGE ID in affiliate_notifications.event_type) -> preference
 # id, or None for a required notice.
 EVENT_PREF = {
-    "welcome": "welcome",
+    "welcome": None,
     "first_click": "first_click",
     "new_customer": "new_customer",
     "statement_ready": "statement_ready",
@@ -104,20 +132,25 @@ EVENT_PREF = {
     "discount_changed": None,
     "message": "announcement",
     "program_notice": None,
+    "help_answer": None,
     "tax_form_accepted": None,
     "tax_form_rejected": None,
     "signing_reminder": None,
 }
 EVENT_LABEL = {
-    "welcome": "Welcome", "first_click": "First click", "new_customer": "New paying customer",
-    "statement_ready": "Statement ready", "payout_sent": "Payout sent",
-    "activity_warning_60": "Activity reminder (60 days)",
-    "activity_warning_30": "Activity reminder (30 days)",
-    "activity_warning_7": "Final activity warning (7 days)",
-    "renewals_lapsed": "Renewals stopped", "renewals_resumed": "Renewals resumed",
-    "campaign_started": "New sale", "discount_changed": "Discount change",
-    "message": "Message from TradeWave", "program_notice": "Program notice",
-    "tax_form_accepted": "Tax form accepted", "tax_form_rejected": "Tax form not accepted",
+    "welcome": KIND_LABEL["welcome"], "first_click": KIND_LABEL["first_click"],
+    "new_customer": KIND_LABEL["new_customer"],
+    "statement_ready": KIND_LABEL["statement_ready"], "payout_sent": KIND_LABEL["payout_sent"],
+    "activity_warning_60": KIND_LABEL["activity_warning"],
+    "activity_warning_30": KIND_LABEL["activity_warning"],
+    "activity_warning_7": KIND_LABEL["activity_final"],
+    "renewals_lapsed": KIND_LABEL["renewals_lapsed"],
+    "renewals_resumed": KIND_LABEL["renewals_resumed"],
+    "campaign_started": KIND_LABEL["campaign_started"],
+    "discount_changed": KIND_LABEL["discount_changed"],
+    "message": KIND_LABEL["announcement"], "program_notice": KIND_LABEL["program_notice"],
+    "help_answer": KIND_LABEL["help_answer"],
+    "tax_form_accepted": "Tax form result", "tax_form_rejected": "Tax form result",
     "signing_reminder": "Signing reminder",
 }
 ACTIVITY_WARNING_DAYS = (60, 30, 7)
@@ -170,8 +203,53 @@ def _pct(v) -> str:
 
 
 def _day(d) -> str:
-    """'5 March 2027' (no leading zero)."""
-    return d.strftime("%d %B %Y").lstrip("0")
+    """'5 Mar 2027' (no leading zero) - the same date style as the portal."""
+    return "%d %s" % (d.day, d.strftime("%b %Y"))
+
+
+def _day_time(d) -> str:
+    """'5 Mar 2027, 14:05'."""
+    return "%s, %s" % (_day(d), d.strftime("%H:%M"))
+
+
+def support_inbox() -> str:
+    """Where a partner's reply to any partner email lands."""
+    return (getattr(config, "AFFILIATE_SUPPORT_EMAIL", "") or HELP_EMAIL).strip()
+
+
+# "Hi Anne," / "Hello there!" - a greeting word, at most three more words, then punctuation
+_GREETING_RE = re.compile(r"^\s*(?:hi|hello|hey|dear)\b(?:[ \t]+[^\s,!.:]+){0,3}[ \t]*[,!.:]\s+",
+                          re.IGNORECASE)
+
+
+def preview_text(body, limit=140) -> str:
+    """One line for the Messages list: the body without its greeting
+    ("Hi Anne,") so the list shows what each message is about."""
+    text = _GREETING_RE.sub("", (body or "").strip(), count=1)
+    return " ".join(text.split())[:limit]
+
+
+def attribution_days() -> int:
+    """Days a click stays credited to the partner. affiliate_service owns the
+    number when it exposes attribution_window_days(); otherwise config, with
+    the agreement's 60 days as the default."""
+    fn = getattr(afs, "attribution_window_days", None)
+    try:
+        if callable(fn):
+            return int(fn())
+        return int(getattr(config, "AFFILIATE_ATTRIBUTION_DAYS", None)
+                   or getattr(config, "AFFILIATE_COOKIE_DAYS", None) or 60)
+    except (TypeError, ValueError):
+        return 60
+
+
+def offer_example(terms=None, discount=None) -> dict:
+    """The discount trade-off as one line: '20% off for them = 30% for you'."""
+    t = terms or afs.DEFAULT_TERMS
+    d = default_discount(t) if discount is None else afs.clamp_discount(discount, t)
+    rate = afs.preview_offer(10000, d, t)["commission_rate_pct"]
+    return {"discount": _pct(d), "rate": _pct(rate),
+            "line": "%s%% off for them = %s%% for you" % (_pct(d), _pct(rate))}
 
 
 def dashboard_url(path="") -> str:
@@ -325,11 +403,14 @@ def email_configured() -> bool:
     return not email_utils._is_placeholder(getattr(config, "RESEND_API_KEY", ""))
 
 
-def _send(to, subject, text, html=None, headers=None) -> bool:
+def _send(to, subject, text, html=None, headers=None, reply_to=None) -> bool:
+    """Every partner email is answerable: Reply-To is the support inbox (the
+    From address is a no-reply sender), so "reply to this email" works."""
     import email_utils
     try:
         return bool(email_utils.resend_send_email(
-            to=to, subject=subject, body_text=text, html=html, headers=headers))
+            to=to, subject=subject, body_text=text, html=html, headers=headers,
+            reply_to=reply_to or support_inbox()))
     except Exception as e:   # noqa: BLE001
         log.warning("partner email send raised to=%s: %s", to, e)
         return False
@@ -374,9 +455,10 @@ def _claim(session, aff, ev, now):
     return row
 
 
-def deliver(session, aff, ev, now=None, disabled=None):
+def deliver(session, aff, ev, now=None, disabled=None, email=True):
     """Deliver one event to one partner, once. Returns the notification row
-    when this call created or retried it, else None. Commits."""
+    when this call created or retried it, else None. Commits.
+    email=False puts it in the partner's Messages only."""
     now = _now(now)
     row = _claim(session, aff, ev, now)
     if row is None:
@@ -384,7 +466,9 @@ def deliver(session, aff, ev, now=None, disabled=None):
     pref = EVENT_PREF[ev.type]
     if disabled is None:
         disabled = disabled_prefs(session, aff.id)
-    if pref and pref in disabled:
+    if not email:
+        row.email_status, row.email_reason = "skipped", "inbox_only"
+    elif pref and pref in disabled:
         row.email_status, row.email_reason = "skipped", "preference"
     elif not (aff.email or "").strip():
         row.email_status, row.email_reason = "skipped", "no_email"
@@ -402,6 +486,28 @@ def deliver(session, aff, ev, now=None, disabled=None):
             row.email_status, row.email_reason = "failed", "send_failed"
     session.commit()
     return row
+
+
+def deliver_help_reply(session, aff, esc, closed=False, now=None):
+    """Help <-> Messages bridge: the team's answer to a Help question (or the
+    note sent when a question is closed) also lands in Messages, linking back
+    to the Help chat where the partner can reply. An answer is emailed as a
+    required notice; a closing note is Messages-only."""
+    question = " ".join((esc.question or "").split())
+    short = question if len(question) <= 70 else question[:67].rstrip() + "..."
+    if closed:
+        subject = "We closed your question: %s" % short
+        body = ("Hi %s,\n\nYou asked:\n%s\n\nFrom the TradeWave team:\n%s"
+                % (first_name(aff), esc.question, esc.answer))
+    else:
+        subject = "Answer from the TradeWave team: %s" % short
+        body = ("Hi %s,\n\nYou asked:\n%s\n\nOur answer:\n%s\n\n"
+                "Need more? Open Help in your dashboard and ask again. You can also reply "
+                "to this email."
+                % (first_name(aff), esc.question, esc.answer))
+    ev = make_event("help_answer", "help:%s" % esc.id, subject, body, occurred_at=_now(now),
+                    link=("Open Help in your dashboard", dashboard_url("#help")))
+    return deliver(session, aff, ev, now, email=not closed)
 
 
 # --- inbox -------------------------------------------------------------------
@@ -651,7 +757,8 @@ def notification_log(session, limit=200, message_id=None) -> list:
          .join(Affiliate, Affiliate.id == AffiliateNotification.affiliate_id))
     if message_id is not None:
         q = q.filter(AffiliateNotification.message_id == message_id)
-    return q.order_by(AffiliateNotification.id.desc()).limit(limit).all()
+    return (q.order_by(AffiliateNotification.created_at.desc(), AffiliateNotification.id.desc())
+            .limit(limit).all())
 
 
 # ---------------------------------------------------------------------------
@@ -667,6 +774,9 @@ AUDIENCE_SIZES = (
 )
 AUDIENCE_SIZE_LABEL = dict(AUDIENCE_SIZES)
 HONEYPOT_FIELD = "company_url"          # hidden; humans leave it empty
+# the application form's fields, in the order they appear on the page
+APPLICATION_FIELDS = ("name", "email", "country", "audience_size", "website", "channels",
+                      "promo_plan", "agree")
 APPLY_LIMIT_PER_IP_DAY = 3
 _EMAIL_RE = re.compile(r"^[^@\s<>\"',;]+@[^@\s<>\"',;]+\.[A-Za-z]{2,}$")
 _SITE_RE = re.compile(r"^(https?://)?[A-Za-z0-9][A-Za-z0-9.\-]*\.[A-Za-z]{2,}(/\S*)?$")
@@ -702,40 +812,48 @@ def clean_application(form) -> dict:
     def long(key):
         return str(form.get(key) or "").replace("\r\n", "\n").strip()
 
-    errors = []
+    found = {}
+
+    def bad(field, message):
+        found.setdefault(field, message)        # one message per field: the first
+
     name = get("name", 120)
     if not 2 <= len(name) <= 120:
-        errors.append("Please enter your name (2 to 120 characters).")
+        bad("name", "Please enter your name (2 to 120 characters).")
     elif has_link(name):
-        errors.append("Please enter your name only (no web address). Use the website field for links.")
+        bad("name", "Please enter your name only (no web address). Use the website field for links.")
     email = get("email", 320).lower()
-    if not _EMAIL_RE.match(email) or len(email) > 320:
-        errors.append("Please enter a valid email address.")
+    if not email:
+        bad("email", "Please enter your email address.")
+    elif not _EMAIL_RE.match(email) or len(email) > 320:
+        bad("email", "That email address does not look right. Example: you@example.com")
     website = get("website", 300)
     if website and (len(website) > 300 or not _SITE_RE.match(website)):
-        errors.append("Website should look like example.com or https://example.com.")
+        bad("website", "Website should look like example.com or https://example.com.")
     channels = long("channels")
     if len(channels) > 1000:
-        errors.append("Channels: 1,000 characters at most.")
+        bad("channels", "Channels: 1,000 characters at most.")
     if not website and not channels:
-        errors.append("Tell us where you reach your audience: a website or your channels.")
+        bad("channels", "Tell us where you reach your audience: a website or your channels.")
     size = get("audience_size", 20)
     if size not in AUDIENCE_SIZE_LABEL:
-        errors.append("Please choose your audience size.")
+        bad("audience_size", "Please choose your audience size.")
     plan = long("promo_plan")
     if not 20 <= len(plan) <= 2000:
-        errors.append("Tell us how you will promote TradeWave (20 to 2,000 characters).")
+        bad("promo_plan", "Tell us how you will promote TradeWave (20 to 2,000 characters).")
     country = get("country", 80)
     if not 2 <= len(country) <= 80:
-        errors.append("Please enter your country.")
+        bad("country", "Please enter your country.")
     if str(form.get("agree") or "") != "yes":
-        errors.append("Please tick the box to agree to the program policies.")
-    for label, value in (("Name", name), ("Channels", channels), ("How you will promote", plan),
-                         ("Country", country)):
+        bad("agree", "Please tick the box to agree to the program policies.")
+    for field, label, value in (("name", "Name", name), ("channels", "Channels", channels),
+                                ("promo_plan", "How you will promote", plan),
+                                ("country", "Country", country)):
         if _MARKUP_RE.search(value):
-            errors.append("%s must be plain text (no < or >)." % label)
-    if errors:
-        raise CommsError(errors)
+            bad(field, "%s must be plain text (no < or >)." % label)
+    if found:
+        ordered = [(f, found[f]) for f in APPLICATION_FIELDS if f in found]
+        raise CommsError([m for _f, m in ordered], fields=ordered)
     return {"name": name, "email": email, "website": website or None,
             "channels": channels or None, "audience_size": size, "promo_plan": plan,
             "country": country}
@@ -848,7 +966,7 @@ def _email_owner_new_application(session, app_row, auto=None) -> bool:
     subject = "%s partner application: %s" % ("Auto-approved" if auto is not None else "New",
                                               "(name hidden: contains a link)" if has_link(app_row.name)
                                               else app_row.name)
-    return _send(owner_email(), subject, body)
+    return _send(owner_email(), subject, body, reply_to=app_row.email or None)
 
 
 def application_flags(session, app_row) -> dict:
@@ -1029,20 +1147,28 @@ def _welcome_event(session, aff, terms):
         "Your link: %s\n"
         "Your landing page: %s\n%s\n"
         "Right now your audience gets %s%% off and you earn %s%% of the list price in the "
-        "first year. On a $100 plan that is %s for the customer and %s for you. You can change "
-        "the discount any time in Settings. After the first year you earn %s%% of what the "
-        "customer pays on renewals.\n\n"
+        "first year (%s). On a $100 plan that is %s for the customer and %s for you. The "
+        "discount and your commission come out of the same %s%%, so a bigger discount means a "
+        "smaller commission. You can change the discount in Settings. After the first year "
+        "you earn %s%% of what the customer pays on renewals.\n\n"
+        "One rule to know about renewals: they keep paying while you bring in %s. If a "
+        "window ends without one, renewal payments from your existing customers earn $0 "
+        "until your next new paying customer, and renewals missed in that time are not paid "
+        "later. First-year commissions are never affected. We email you 60, 30 and 7 days "
+        "before a window ends, and your dashboard always shows the date.\n\n"
         "Three things to do first:\n"
         "1. Open your dashboard and copy your link.\n"
         "2. Add your payout method and send your tax form (Payouts page). We need both "
         "before we can pay you.\n"
         "3. Share your link. Always say that you earn a commission.\n\n"
-        "Questions: %s."
+        "Questions: use Help in your dashboard, reply to this email or write to %s."
         % (first_name(aff), agr.join_link(aff), agr.referral_link(aff), code_line,
            _pct(discount), _pct(offer["commission_rate_pct"]),
+           "%s%% off for them = %s%% for you" % (_pct(discount), _pct(offer["commission_rate_pct"])),
            money(Decimal(offer["customer_pays_cents"]) / 100),
            money(Decimal(offer["partner_earns_cents"]) / 100),
-           _pct(getattr(terms, "renewal_pct", 25)), HELP_EMAIL))
+           _pct(getattr(terms, "pool_pct", 50)),
+           _pct(getattr(terms, "renewal_pct", 25)), _rule_text(terms), HELP_EMAIL))
     # ONE welcome per partner, ever: a constant key, so re-signing (new terms,
     # a regenerated link) never sends a second one. An older dated key
     # ('welcome:<date>') counts as already welcomed.
@@ -1308,7 +1434,7 @@ def _campaign_events(aff, terms, campaigns, now):
                 "Your tracked link: %s\n"
                 "Short link: %s"
                 % (first_name(aff), c.name, campaign_offer_text(c),
-                   ends.strftime("%d %B %Y, %H:%M").lstrip("0"),
+                   _day_time(ends),
                    _pct(getattr(terms, "promo_commission_pct", 50)),
                    agr.join_link(aff), agr.referral_link(aff)))
         out.append(make_event("campaign_started", "campaign:%s" % c.id,
@@ -1348,7 +1474,7 @@ def _discount_events(session, aff, terms):
                 "change. You can change the discount again after 24 hours.\n\n"
                 "If you did not make this change, reply to this email or write to %s right "
                 "away."
-                % (first_name(aff), was, when.strftime("%d %B %Y, %H:%M").lstrip("0"), earn,
+                % (first_name(aff), was, _day_time(when), earn,
                    HELP_EMAIL))
         out.append(make_event("discount_changed", key,
                               "Your customer discount is now %s%%" % _pct(r.new_pct), body,
@@ -1480,7 +1606,8 @@ def notify_tax_form(session, form, now=None):
 
 # Events that are delivered at the moment they happen (not found again by
 # collect_events): the daily job retries their failed sends.
-_ONE_SHOT_EVENTS = ("message", "program_notice", "tax_form_accepted", "tax_form_rejected")
+_ONE_SHOT_EVENTS = ("message", "program_notice", "tax_form_accepted", "tax_form_rejected",
+                    "help_answer")
 
 
 def retry_failed(session, now=None) -> int:

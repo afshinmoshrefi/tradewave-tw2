@@ -60,7 +60,8 @@ def _comms_context():
 
 
 def _when(value):
-    return value.strftime("%d %b %Y").lstrip("0") if value else ""
+    """'24 Nov 2026' - the same date style as the rest of the portal."""
+    return "%d %s" % (value.day, value.strftime("%b %Y")) if value else ""
 
 
 @bp.route("/messages")
@@ -73,7 +74,7 @@ def messages():
         rows = [{"id": n.id, "subject": n.subject, "date": _when(n.created_at),
                  "unread": n.read_at is None,
                  "kind": comms.EVENT_LABEL.get(n.event_type, "Message"),
-                 "preview": " ".join((n.body or "").split())[:140]}
+                 "preview": comms.preview_text(n.body)}
                 for n in comms.inbox(s, aff.id)]
     finally:
         s.close()
@@ -97,7 +98,8 @@ def message(nid):
         if n.read_at is None:
             comms.mark_read(s, aff.id, n.id)
             g._aff_unread = None
-        msg = {"subject": n.subject, "date": _when(n.created_at),
+        msg = {"id": n.id, "subject": n.subject, "date": _when(n.created_at),
+               "is_help": n.event_type == "help_answer",
                "kind": comms.EVENT_LABEL.get(n.event_type, "Message"),
                "paragraphs": [p.split("\n") for p in (n.body or "").split("\n\n") if p.strip()],
                "link_label": n.link_label, "link_url": n.link_url,

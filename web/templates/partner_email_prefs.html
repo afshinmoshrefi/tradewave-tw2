@@ -14,19 +14,45 @@
 
   {% if saved %}<div class="ok" role="status">{{ saved }}</div>{% endif %}
 
+  {% if stop %}
+  <div class="panel stopbox" role="status">
+    {% if stop.state == 'ask' %}
+    <h2>Stop "{{ stop.label }}" emails?</h2>
+    <p class="hint" style="margin:0;">You will still see them in your dashboard Messages. Nothing else changes.</p>
+    <form method="post" action="{{ action }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="stop" value="{{ stop.id }}">
+      <div class="btnrow"><button class="btn" type="submit">Stop these emails</button></div>
+    </form>
+    {% elif stop.state == 'undone' %}
+    <h2>Undone.</h2>
+    <p class="hint" style="margin:0;">"{{ stop.label }}" emails are back on.</p>
+    {% else %}
+    <h2>Done.</h2>
+    <p class="hint" style="margin:0;">{% if stop.state == 'already' %}"{{ stop.label }}" emails are already off.{% else %}You will not get "{{ stop.label }}" emails any more.{% endif %}</p>
+    <form method="post" action="{{ action }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="undo" value="{{ stop.id }}">
+      <div class="btnrow"><button class="btn ghost" type="submit">Undo</button></div>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <form method="post" action="{{ action }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="panel">
-      <h2>Emails you can turn off</h2>
+      <h2>{{ 'All your optional emails' if stop else 'Emails you can turn off' }}</h2>
       {% for p in prefs %}
-      <label class="toggle{{ ' hl' if highlight == p.id else '' }}" for="pref-{{ p.id }}" style="margin:0;font-weight:400;">
-        <input type="checkbox" id="pref-{{ p.id }}" name="on" value="{{ p.id }}" {{ 'checked' if p.on and highlight != p.id else '' }}>
+      <label class="toggle" for="pref-{{ p.id }}" style="margin:0;font-weight:400;">
+        <input type="checkbox" id="pref-{{ p.id }}" name="on" value="{{ p.id }}" {{ 'checked' if p.on else '' }}>
         <div><b>{{ p.label }}</b><span>{{ p.help }}</span></div>
       </label>
       {% endfor %}
-      {% if highlight %}<p class="hint" style="margin-top:12px;">We unticked the email you asked to stop. Press Save to confirm.</p>{% endif %}
-      <button class="btn" type="submit">Save preferences</button>
-      <button class="btn ghost" type="submit" name="all_off" value="yes" style="margin-left:8px;">Turn all of these off</button>
+      <div class="btnrow">
+        <button class="btn" type="submit">Save preferences</button>
+        <button class="btn ghost" type="submit" name="all_off" value="yes">Turn all of these off</button>
+      </div>
     </div>
   </form>
 

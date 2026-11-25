@@ -15,7 +15,12 @@ from flask import Blueprint, request
 
 import config
 import affiliate_help as ah
-from affiliate_admin import _FOOT, _HEAD
+from affiliate_admin import _FOOT, _HEAD as _SHARED_HEAD
+
+# The shared admin head has no viewport tag; the owner opens these from an email, often on a phone.
+_HEAD = _SHARED_HEAD.replace(
+    '<meta charset="utf-8">',
+    '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">', 1)
 
 log = logging.getLogger("tw2.affiliate_help")
 
@@ -25,6 +30,13 @@ _NAV = """<style>
  .chat div{margin:4px 0;white-space:pre-wrap;overflow-wrap:anywhere;}
  .chat b{color:#3a32a8;}
  .proposal{background:#f0fbf4;border:1px solid #bfe6cb;border-radius:8px;padding:10px 14px;margin-top:8px;}
+ .proposal.adds{background:#fff8e6;border-color:#e8c97a;}
+ .diff{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;}
+ .diff ins{background:#ffe08a;color:#3d2c00;text-decoration:none;font-weight:700;padding:1px 3px;border-radius:3px;}
+ .diff del{color:#9a9aa6;text-decoration:line-through;}
+ .confirm{display:block;margin:10px 0 2px;font-weight:600;}
+ .closebox{border-top:1px solid #e6e6ef;margin-top:18px;padding-top:14px;}
+ .closebox textarea{min-height:70px;}
  .pill{white-space:nowrap;} .pill.partner{background:#fff4e5;color:#8a5a00;} .pill.retired{background:#eee;color:#666;}
  .pill.open{background:#fdeaea;color:#b00020;}
  form.inline{display:inline;} .actions button{margin:4px 6px 0 0;}
@@ -51,7 +63,7 @@ Notifications go to <strong>{{ support_email }}</strong>.</div>
 <table class="stack"><tr class="h"><th>#</th><th>Partner</th><th>Question</th><th>Asked</th><th></th></tr>
 {% for e, a in open %}
 <tr><td>{{ e.id }}</td><td><strong>{{ a.code if a else '?' }}</strong><br><span class="muted">{{ a.name if a else '' }}</span></td>
-  <td class="qa">{{ e.question }}</td><td>{{ e.created_at.strftime('%Y-%m-%d %H:%M') if e.created_at else '' }}</td>
+  <td class="qa">{{ e.question }}</td><td>{{ e.created_at.strftime('%Y-%m-%d %H:%M UTC') if e.created_at else '' }}</td>
   <td><a class="btn" style="margin-top:0" href="{{ url_for('affiliate_help.answer', id=e.id) }}">Answer</a></td></tr>
 {% else %}<tr><td colspan="5">Nothing is waiting.</td></tr>{% endfor %}
 </table></div>
@@ -60,8 +72,9 @@ Notifications go to <strong>{{ support_email }}</strong>.</div>
 <table class="stack"><tr class="h"><th>#</th><th>Partner</th><th>Question</th><th>Answer</th><th>Closed</th></tr>
 {% for e, a in closed %}
 <tr><td>{{ e.id }}</td><td><strong>{{ a.code if a else '?' }}</strong></td><td class="qa">{{ e.question }}</td>
-  <td class="qa">{% if e.status == 'dismissed' %}<span class="pill retired">closed without an answer</span>{% else %}{{ e.answer }}{% endif %}</td>
-  <td>{{ e.answered_at.strftime('%Y-%m-%d') if e.answered_at else '' }}<br><span class="muted">{{ e.answered_via or '' }}</span></td></tr>
+  <td class="qa">{% if e.status == 'dismissed' and e.answer %}<span class="pill retired">closed with a note</span><br>{{ e.answer }}
+      {% elif e.status == 'dismissed' %}<span class="pill retired">closed as spam / duplicate - partner not told</span>{% else %}{{ e.answer }}{% endif %}</td>
+  <td>{{ e.answered_at.strftime('%Y-%m-%d %H:%M UTC') if e.answered_at else '' }}<br><span class="muted">{{ e.answered_via or '' }}</span></td></tr>
 {% else %}<tr><td colspan="5">None yet.</td></tr>{% endfor %}
 </table></div>
 """ + _FOOT
@@ -93,14 +106,24 @@ _ANSWER_TMPL = _HEAD + _NAV + """
       (for every partner) on the Knowledge base page.</div>
     <button type="submit">Send answer to {{ aff.code if aff else 'partner' }}</button>
   </form>
-  <form method="post" action="{{ url_for('affiliate_help.dismiss') }}" style="margin-top:6px"
-        onsubmit="return confirm('Close this question without answering? The partner is not told.');">
+  <div class="closebox"><h3 style="margin-top:0">Or close it without answering</h3>
+  <form method="post" action="{{ url_for('affiliate_help.dismiss') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ esc.id }}">
-    <button type="submit" class="secondary">Close without answering</button>
+    <label for="close-note">Short message to the partner (edit it if you like)</label>
+    <textarea id="close-note" name="message" maxlength="1000">{{ close_text }}</textarea>
+    <div class="note">The partner sees this in their Help chat and in Messages, marked "Closed by the team", so they
+      are not left waiting. No email is sent and nothing is saved to the knowledge base.</div>
+    <button type="submit" class="secondary">Close and tell {{ aff.code if aff else 'the partner' }}</button>
   </form>
+  <form method="post" action="{{ url_for('affiliate_help.dismiss') }}" style="margin-top:10px"
+        onsubmit="return confirm('Close as spam or a duplicate? Nothing is sent to the partner.');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ esc.id }}">
+    <input type="hidden" name="silent" value="1">
+    <button type="submit" class="secondary">Spam / duplicate - close and send nothing</button>
+  </form></div>
 </div>
 {% else %}
-<div class="doc"><h2>{{ 'Answered' if esc.status == 'answered' else 'Closed without an answer' }}</h2>
+<div class="doc"><h2>{{ 'Answered' if esc.status == 'answered' else ('Closed with a note to the partner' if esc.answer else 'Closed as spam / duplicate - partner not told') }}</h2>
   {% if esc.answer %}<p class="qa">{{ esc.answer }}</p>{% endif %}
   <p class="muted">{{ esc.answered_by or '' }}{% if esc.answered_at %} &middot; {{ esc.answered_at.strftime('%Y-%m-%d %H:%M UTC') }}{% endif %}</p>
   {% if kb %}<p><a class="btn" href="{{ url_for('affiliate_help_kb.edit', id=kb.id) }}">Open the knowledge-base entry</a></p>{% endif %}
@@ -121,14 +144,24 @@ A retired entry is not used at all.</p>
 <tr><td><strong class="qa">{{ k.question }}</strong><div class="qa" style="margin-top:4px">{{ k.answer }}</div>
     <div class="muted" style="margin-top:4px">{{ 'From a partner question' if k.source == 'escalation' else 'Written by you' }}
       &middot; updated {{ k.updated_at.strftime('%Y-%m-%d') if k.updated_at else '' }}</div>
+    {% set jn = job_notes.get(k.id) %}
+    {% if jn and not k.proposed_answer and k.status == 'active' and k.scope == 'partner' %}
+    <div class="{{ 'warn' if jn[0] == 'bad' else 'note' }}" style="margin:8px 0 0">{{ jn[1] }}</div>{% endif %}
     {% if k.proposed_answer and k.status == 'active' %}
-    <div class="proposal"><strong>Suggested general version</strong> (partner details removed by the assistant)
+    {% set rv = review(k) %}
+    <div class="proposal{{ ' adds' if rv.needs_confirm else '' }}"><strong>Suggested general version</strong> (written by the assistant from your answer)
       <div class="qa" style="margin-top:6px"><b>Q:</b> {{ k.proposed_question }}</div>
-      <div class="qa"><b>A:</b> {{ k.proposed_answer }}</div>
+      <div class="diff"><b>A:</b> {% for op, text in rv.diff %}{% if op == 'add' %}<ins>{{ text }}</ins>{% elif op == 'del' %}<del>{{ text }}</del>{% else %}{{ text }}{% endif %}{% endfor %}</div>
+      <div class="muted" style="margin-top:6px"><ins style="background:#ffe08a;color:#3d2c00;text-decoration:none;font-weight:700;padding:1px 3px;border-radius:3px">Highlighted</ins> = added by the assistant, not in your answer.
+        <del style="color:#9a9aa6">Struck through</del> = removed from your answer.</div>
+      {% if rv.needs_confirm %}<div class="warn" style="margin:8px 0 0">The suggestion adds {{ rv.added|length }} word{{ '' if rv.added|length == 1 else 's' }} you did not write:
+        <strong>{{ rv.added[:12]|join(', ') }}{{ ' ...' if rv.added|length > 12 else '' }}</strong>. Check they are true for every partner, or edit the text.</div>{% endif %}
       <div class="actions">
       <form class="inline" method="post" action="{{ url_for('affiliate_help_kb.approve') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ k.id }}">
+        {% if rv.needs_confirm %}<label class="confirm"><input type="checkbox" name="confirm_added" value="1" required> I checked the highlighted text and it is correct for every partner</label>{% endif %}
         <button class="small" type="submit">Approve for all partners</button></form>
+      <a class="btn" style="margin-top:4px;padding:4px 10px;font-size:12px" href="{{ url_for('affiliate_help_kb.edit', id=k.id, use='suggestion') }}">Edit the suggestion</a>
       <form class="inline" method="post" action="{{ url_for('affiliate_help_kb.discard') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ k.id }}">
         <button class="small secondary" type="submit">Discard suggestion</button></form></div>
@@ -173,12 +206,16 @@ _KB_EDIT_TMPL = _HEAD + _NAV + """
 <div class="doc">
 <form method="post" action="{{ url_for('affiliate_help_kb.edit') }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ kb.id }}">
-  <label>Question <input type="text" name="question" style="width:100%;box-sizing:border-box" maxlength="1500" value="{{ f.get('question', kb.question) }}" required></label>
-  <label>Answer <textarea name="answer" maxlength="6000" required>{{ f.get('answer', kb.answer) }}</textarea></label>
+  {% if from_suggestion %}<input type="hidden" name="use" value="suggestion">{% endif %}
+  {% if from_suggestion %}<div class="note">This is the assistant's suggested general version. Change anything that is not
+    exactly what you want every partner to read, then save. Your original answer:
+    <div class="qa" style="margin-top:6px">{{ kb.answer }}</div></div>{% endif %}
+  <label>Question <input type="text" name="question" style="width:100%;box-sizing:border-box" maxlength="1500" value="{{ f.get('question', kb.proposed_question if from_suggestion else kb.question) }}" required></label>
+  <label>Answer <textarea name="answer" maxlength="6000" required>{{ f.get('answer', kb.proposed_answer if from_suggestion else kb.answer) }}</textarea></label>
   <label>Used for
     <select name="scope">
-      <option value="general"{% if kb.scope == 'general' %} selected{% endif %}>All partners (general)</option>
-      {% if kb.affiliate_id %}<option value="partner"{% if kb.scope == 'partner' %} selected{% endif %}>Only {{ aff.code if aff else 'this partner' }}</option>{% endif %}
+      <option value="general"{% if kb.scope == 'general' or from_suggestion %} selected{% endif %}>All partners (general)</option>
+      {% if kb.affiliate_id %}<option value="partner"{% if kb.scope == 'partner' and not from_suggestion %} selected{% endif %}>Only {{ aff.code if aff else 'this partner' }}</option>{% endif %}
     </select></label>
   {% if kb.scope == 'partner' %}<div class="note">Before choosing "All partners", remove anything that is only true for
     {{ aff.code if aff else 'this partner' }}: names, codes, amounts, dates.</div>{% endif %}
@@ -235,7 +272,8 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
             aff = s.get(Affiliate, esc.affiliate_id) if esc is not None else None
             kb = (s.query(K).filter(K.escalation_id == esc.id).first() if esc is not None else None)
             return render_template_string(_ANSWER_TMPL, title="Answer a partner question",
-                                          esc=esc, aff=aff, kb=kb, draft=draft, errors=errors)
+                                          esc=esc, aff=aff, kb=kb, draft=draft, errors=errors,
+                                          close_text=ah.close_text_default())
 
         @expose("/answer", methods=["GET", "POST"])
         def answer(self):
@@ -270,11 +308,16 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
             try:
                 esc = s.get(E, _int(request.form.get("id")) or 0)
                 if esc is not None:
+                    silent = request.form.get("silent") == "1"
                     try:
-                        ah.dismiss_escalation(s, esc, actor())
+                        ah.dismiss_escalation(s, esc, actor(), message=request.form.get("message"),
+                                              silent=silent)
                         audit_fn(actor_label=actor(), action="affiliate_help_dismissed",
-                                 details={"escalation_id": esc.id})
-                        flash("Question closed without an answer.", "success")
+                                 details={"escalation_id": esc.id, "partner_told": not silent})
+                        flash("Question closed as spam / duplicate. Nothing was sent to the partner."
+                              if silent else
+                              "Question closed. Your message is in the partner's Help chat and Messages.",
+                              "success")
                     except ah.HelpError as e:
                         s.rollback()
                         flash(str(e), "error")
@@ -285,8 +328,15 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
     class HelpKbView(auth_cls, BaseView):
         def _list(self, s, form=None, errors=None):
             rows = s.query(K).order_by(K.status, K.updated_at.desc(), K.id.desc()).limit(500).all()
+            try:
+                import affiliate_jobs as jobs
+                job_notes = jobs.proposal_notes(s)
+            except Exception:   # noqa: BLE001  (the queue table is missing before the migration)
+                s.rollback()
+                job_notes = {}
             return render_template_string(_KB_TMPL, title="Help knowledge base", rows=_affs(s, rows),
-                                          f=form or {}, errors=errors)
+                                          f=form or {}, errors=errors, review=ah.proposal_review,
+                                          job_notes=job_notes)
 
         @expose("/")
         def index(self):
@@ -329,8 +379,11 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
                     except ah.HelpError as e:
                         s.rollback()
                         errors, form = [str(e)], request.form
+                from_suggestion = bool(request.values.get("use") == "suggestion" and kb is not None
+                                       and kb.proposed_answer)
                 return render_template_string(_KB_EDIT_TMPL, title="Edit knowledge-base entry",
-                                              kb=kb, aff=aff, f=form, errors=errors)
+                                              kb=kb, aff=aff, f=form, errors=errors,
+                                              from_suggestion=from_suggestion)
             finally:
                 s.close()
 
@@ -358,7 +411,8 @@ def make_views(auth_cls, *, audit_fn, current_user_fn):
 
         @expose("/approve", methods=["POST"])
         def approve(self):
-            return self._act(lambda s, kb: ah.approve_proposal(s, kb, actor()),
+            confirmed = request.form.get("confirm_added") == "1"
+            return self._act(lambda s, kb: ah.approve_proposal(s, kb, actor(), confirm_added=confirmed),
                              "Approved. The general version is now used for every partner.",
                              "affiliate_help_kb_approved")
 

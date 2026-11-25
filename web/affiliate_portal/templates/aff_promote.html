@@ -8,14 +8,20 @@
 
 <div class="card">
   <h3>Copy you can post today</h3>
+  {% set sale_copy = swipes and swipes[0].sale %}
+  {% if sale_copy %}
+  <p class="soft small" style="margin-top:0;">A TradeWave sale is live and beats your {{ offer.discount_year }}% discount, so this copy quotes the <b style="color:var(--text);">sale price</b> your link gives people right now.
+    It switches back to your own discount when the sale ends. Edit it to sound like you. Keep the last line: you must tell people you earn a commission.</p>
+  {% else %}
   <p class="soft small" style="margin-top:0;">Already filled in with your code{% if offer.discount_year != '0' %}, your {{ offer.discount_year }}% discount{% endif %} and your link. Edit it to sound like you.
     Keep the last line: you must tell people you earn a commission.</p>
+  {% endif %}
   {{ m.copy_note(link_block) }}
   <div class="grid2" style="margin:{{ '10px' if link_block else '0' }} 0 0;">
     {% for sw in swipes %}
     <div class="swipe">
       <div class="spread" style="margin-bottom:8px;">
-        <b>{{ sw.channel }}</b>
+        <b>{{ sw.channel }}{% if sw.sale %} <span class="pill warn" style="margin-left:4px;">{{ sw.sale }}</span>{% endif %}</b>
         <button class="copybtn" type="button"{% if link_block %} disabled aria-disabled="true" title="{{ link_block }}"{% else %} onclick="twCopy(this, document.getElementById('sw-{{ sw.key }}').value)"{% endif %}>Copy</button>
       </div>
       <textarea id="sw-{{ sw.key }}" rows="7" spellcheck="true">{{ sw.text }}</textarea>
@@ -29,16 +35,19 @@
 {% if lib.images or lib.texts %}
 <div class="card" id="creatives">
   <h3>Creative library</h3>
-  <p class="soft small" style="margin-top:0;">Banners, logos and ready-written copy from the TradeWave team. Your tracked link is already filled in.</p>
+  <p class="soft small" style="margin-top:0;">Banners, logos and ready-written copy from the TradeWave team. Your tracked link is already filled in.
+    Items made for a sale are marked with its end date and leave this page by themselves when the sale ends.</p>
   {{ m.copy_note(link_block) }}
   {% if lib.images %}
   <div class="creatives">
     {% for c in lib.images %}
-    <div class="creative">
-      <div class="thumb"><img src="{{ url_for('affiliate_portal.creative_file', creative_id=c.id) }}" alt="{{ c.title }}" loading="lazy"></div>
+    <div class="creative{{ ' wide' if c.wide else '' }}">
+      <div class="thumb"><img src="{{ url_for('affiliate_portal.creative_file', creative_id=c.id) }}" alt="{{ c.title }}"{% if c.width %} width="{{ c.width }}" height="{{ c.height }}"{% endif %}
+        onerror="this.style.display='none';this.parentNode.classList.add('missing');this.parentNode.setAttribute('data-missing','Preview not available - use Download');"></div>
       <div class="spread" style="margin-top:10px; align-items:flex-start;">
         <div><b>{{ c.title }}</b>
           <div class="tiny soft">{{ c.kind_label }}{% if c.width %} - {{ c.width }} x {{ c.height }}{% endif %}{% if c.campaign %} - {{ c.campaign }}{% endif %}</div></div>
+        {% if c.campaign and c.ends %}<span class="pill warn">Until {{ c.ends }}</span>{% endif %}
       </div>
       {% if c.note %}<p class="tiny soft" style="margin:6px 0 0;">{{ c.note }}</p>{% endif %}
       <div class="row" style="margin-top:10px;">
@@ -55,10 +64,12 @@
     {% for c in lib.texts %}
     <div class="swipe">
       <div class="spread" style="margin-bottom:8px;">
-        <b>{{ c.title }} <span class="tiny soft" style="font-weight:400;">{{ c.kind_label }}{% if c.campaign %} - {{ c.campaign }}{% endif %}</span></b>
+        <b>{{ c.title }} <span class="tiny soft" style="font-weight:400;">{{ c.kind_label }}{% if c.campaign %} - {{ c.campaign }}{% endif %}</span>
+          {% if c.campaign and c.ends %}<span class="pill warn" style="margin-left:4px;">Until {{ c.ends }}</span>{% endif %}</b>
         <button class="copybtn" type="button"{% if link_block %} disabled aria-disabled="true" title="{{ link_block }}"{% else %} onclick="twCopy(this, document.getElementById('cr-copy-{{ c.id }}').value)"{% endif %}>Copy</button>
       </div>
       <textarea id="cr-copy-{{ c.id }}" rows="7" spellcheck="true">{{ c.text }}</textarea>
+      {% if sale_copy and c.quotes_discount %}<p class="tiny" style="color:var(--warn); margin:6px 0 0;">This one quotes your regular {{ offer.discount_year }}% discount. While the sale is live the sale price is lower - use the sale copy at the top of this page.</p>{% endif %}
     </div>
     {% endfor %}
   </div>
@@ -114,6 +125,9 @@
   .creative .thumb { display:flex; align-items:center; justify-content:center; min-height:120px; max-height:200px;
                      overflow:hidden; border-radius:8px; background:#0b0f1a; }
   .creative .thumb img { max-width:100%; max-height:200px; width:auto; height:auto; min-width:0; object-fit:contain; display:block; }
+  .creative.wide { grid-column:1 / -1; }
+  .creative.wide .thumb { min-height:0; padding:10px; }
+  .creative .thumb.missing::after { content:attr(data-missing); color:var(--muted); font-size:13px; padding:16px; text-align:center; }
   .compare { margin:0 0 14px; padding:10px 12px; border-radius:10px; background:rgba(15,10,21,0.45);
              border:1px solid rgba(139,92,246,0.35); font-size:14px; }
   .guide h1 { font-size:22px; margin-top:0; }

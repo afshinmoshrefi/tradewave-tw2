@@ -908,6 +908,27 @@ class TestCreativeLibrary:
         links = {"join": "J", "referral": "R"}
         titles = [c["title"] for c in ops.creatives_for_partner(env.db, anne, links)["texts"]]
         assert sorted(titles) == ["Black Friday post", "Evergreen post"]
+        # a sale item says when it leaves; general copy that quotes the discount is flagged
+        ops.save_creative(env.db, kind="social", title="Discount post", body="{discount}% off: {join_link}")
+        ops.save_creative(env.db, kind="banner", title="Leaderboard", blob=png_bytes((728, 90)), filename="l.png")
+        ops.save_creative(env.db, kind="banner", title="Square", blob=png_bytes((300, 250)), filename="s.png")
+        lib = ops.creatives_for_partner(env.db, anne, links, "20")
+        by = {c["title"]: c for c in lib["texts"] + lib["images"]}
+        ends = camp.ends_at
+        assert by["Black Friday post"]["ends"] == "%d %s" % (ends.day, ends.strftime("%b"))
+        assert by["Evergreen post"]["ends"] is None
+        assert by["Discount post"]["quotes_discount"] and not by["Black Friday post"]["quotes_discount"]
+        assert by["Leaderboard"]["wide"] is True and by["Square"]["wide"] is False
+        login(env, user)
+        html = page(env, "/promote")
+        assert '<div class="creative wide">' in html and "Until %d %s" % (ends.day, ends.strftime("%b")) in html
+        assert "leave this page by themselves when the sale ends" in html
+        # the live sale beats ANNE's 20%: the discount copy carries a warning, the sale copy does not
+        assert html.count("This one quotes your regular 20% discount.") == 1
+        assert "onerror=" in html and "Preview not available - use Download" in html
+        for row in env.db.query(om.AffiliateCreative).filter(om.AffiliateCreative.title.in_(
+                ["Discount post", "Leaderboard", "Square"])).all():
+            ops.delete_creative(env.db, row)
         later = dt.datetime.now(UTC) + dt.timedelta(days=30)
         titles = [c["title"] for c in ops.creatives_for_partner(env.db, anne, links, now=later)["texts"]]
         assert titles == ["Evergreen post"]
