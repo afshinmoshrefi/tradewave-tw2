@@ -19,12 +19,15 @@
 # installs the every-2-minutes background job runner affiliate_jobs.py)
 set -euo pipefail
 
+# Boxes that run from a release pointer (dev, staging, prod) use .tw2-app-current;
+# /home/flask/web is the legacy checkout and can be stale.
+if [ -d /home/flask/.tw2-app-current/web ]; then WEB_DIR=/home/flask/.tw2-app-current/web; else WEB_DIR=/home/flask/web; fi
 ROLE="${1:-both}"
 SYNC_PY="${2:-/home/flask/smn/expert_sync.py}"
 PY=/home/flask/venv/bin/python
 
-SCORE_LINE="15 2 * * * set -a; . /etc/tradewave/secrets.env; set +a; flock -n /var/log/tradewave/expert_scorecard.lock $PY /home/flask/web/expert_scorecard.py >> /var/log/tradewave/expert_scorecard.log 2>&1"
-SUMMARY_LINE="30 6 3 * * set -a; . /etc/tradewave/secrets.env; set +a; flock -n /var/log/tradewave/affiliate_ops_summary.lock $PY /home/flask/web/affiliate_ops_summary.py --email >> /var/log/tradewave/affiliate_ops_summary.log 2>&1"
+SCORE_LINE="15 2 * * * set -a; . /etc/tradewave/secrets.env; set +a; flock -n /var/log/tradewave/expert_scorecard.lock $PY $WEB_DIR/expert_scorecard.py >> /var/log/tradewave/expert_scorecard.log 2>&1"
+SUMMARY_LINE="30 6 3 * * set -a; . /etc/tradewave/secrets.env; set +a; flock -n /var/log/tradewave/affiliate_ops_summary.lock $PY $WEB_DIR/affiliate_ops_summary.py --email >> /var/log/tradewave/affiliate_ops_summary.log 2>&1"
 SYNC_LINE="*/2 * * * * set -a; . /etc/tradewave/secrets.env; set +a; flock -n /var/log/tradewave/expert_sync.lock $PY $SYNC_PY >> /var/log/tradewave/expert_sync.log 2>&1"
 
 sudo -u flask test -r /etc/tradewave/secrets.env || { echo "FAIL: secrets.env not readable by flask" >&2; exit 1; }
@@ -43,12 +46,12 @@ current=$(sudo -u flask crontab -l 2>/dev/null || true)
 lines=()
 for w in "${want[@]}"; do
   if [ "$w" = score ]; then
-    [ -f /home/flask/web/expert_scorecard.py ] || { echo "FAIL: expert_scorecard.py missing" >&2; exit 1; }
+    [ -f $WEB_DIR/expert_scorecard.py ] || { echo "FAIL: expert_scorecard.py missing" >&2; exit 1; }
     current=$(printf '%s\n' "$current" | grep -v 'expert_scorecard.py' || true)
     touch /var/log/tradewave/expert_scorecard.log; chown flask:flask /var/log/tradewave/expert_scorecard.log
     lines+=("$SCORE_LINE")
   elif [ "$w" = summary ]; then
-    [ -f /home/flask/web/affiliate_ops_summary.py ] || { echo "FAIL: affiliate_ops_summary.py missing" >&2; exit 1; }
+    [ -f $WEB_DIR/affiliate_ops_summary.py ] || { echo "FAIL: affiliate_ops_summary.py missing" >&2; exit 1; }
     current=$(printf '%s\n' "$current" | grep -v 'affiliate_ops_summary.py' || true)
     touch /var/log/tradewave/affiliate_ops_summary.log; chown flask:flask /var/log/tradewave/affiliate_ops_summary.log
     lines+=("$SUMMARY_LINE")

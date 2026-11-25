@@ -26,9 +26,12 @@
 # Preview without sending:  python /home/flask/web/affiliate_comms.py --dry-run
 set -euo pipefail
 
+# Boxes that run from a release pointer (dev, staging, prod) use .tw2-app-current;
+# /home/flask/web is the legacy checkout and can be stale.
+if [ -d /home/flask/.tw2-app-current/web ]; then WEB_DIR=/home/flask/.tw2-app-current/web; else WEB_DIR=/home/flask/web; fi
 PY=/home/flask/venv/bin/python
-JOB=/home/flask/web/affiliate_comms.py
-JOBS=/home/flask/web/affiliate_jobs.py
+JOB=$WEB_DIR/affiliate_comms.py
+JOBS=$WEB_DIR/affiliate_jobs.py
 LOG=/var/log/tradewave/affiliate_comms.log
 JOBS_LOG=/var/log/tradewave/affiliate_jobs.log
 LINE="10 14 * * * set -a; . /etc/tradewave/secrets.env; set +a; flock -n /var/log/tradewave/affiliate_comms.lock $PY $JOB >> $LOG 2>&1"
