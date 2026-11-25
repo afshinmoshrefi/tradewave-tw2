@@ -789,8 +789,8 @@ def build_affiliate() -> tuple[str, dict]:
     <p>Search for opportunities by how long you want to hold, anywhere from 2 to 365 days.</p>
   </div>
   <div class="aff-card">
-    <h3>"Would buy and hold have done better?"</h3>
-    <p>Run a buy-and-hold analysis on any stock, and compare it with trading only the strong seasonal windows.</p>
+    <h3>"Has this stock beaten the S&amp;P 500?"</h3>
+    <p>Run a buy-and-hold analysis on any stock and compare it with the S&amp;P 500, over however many years you want to look at.</p>
   </div>
   <div class="aff-card">
     <h3>"Which of these stocks has done best?"</h3>
