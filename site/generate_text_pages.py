@@ -766,85 +766,132 @@ def build_affiliate() -> tuple[str, dict]:
   .aff-cta-wrap .aff-cta:hover { transform:translateY(-1px); box-shadow:0 10px 28px rgba(139,92,246,0.3); }
   .aff-cta-note { font-size:13px; color:var(--text-muted); margin:16px 0 0; }
     .aff-uses .aff-card h3 { font-size:16px; }
-  .aff-more { margin:-8px 0 24px; }
-  .aff-more summary { cursor:pointer; color:#a78bfa; font-weight:600; font-size:15px; }
-  .aff-more[open] summary { margin-bottom:4px; }
-  @media (max-width:720px) { .aff-cards, .aff-steps, .aff-terms { grid-template-columns:1fr; } }
+  .aff-tablist { display:none; gap:8px; flex-wrap:wrap; margin:20px 0 4px; }
+  .aff-tabs.js .aff-tablist { display:flex; }
+  .aff-tablist button { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.12); color:var(--text-dim); font:inherit; font-size:14px; font-weight:600; padding:9px 16px; border-radius:999px; cursor:pointer; }
+  .aff-tablist button:hover { color:#fff; border-color:rgba(139,92,246,0.5); }
+  .aff-tablist button[aria-selected="true"] { background:linear-gradient(135deg,#6366f1,#8b5cf6); border-color:transparent; color:#fff; }
+  .aff-tablist button:focus-visible { outline:2px solid #a78bfa; outline-offset:2px; }
+  .aff-tabs.js .aff-panel-h { display:none; }
+  .aff-panel-h { margin:24px 0 0; font-size:17px; color:#fff; }
+  .aff-tabs .aff-uses { grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); margin-top:16px; }
+  #panel-research .aff-uses { grid-template-columns:repeat(2,1fr); }
+  @media (max-width:720px) { .aff-cards, .aff-steps, .aff-terms, #panel-research .aff-uses { grid-template-columns:1fr; } }
 </style>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  var root=document.querySelector('[data-tabs]'); if(!root) return;
+  root.classList.add('js');
+  var tabs=[].slice.call(root.querySelectorAll('[role=tab]'));
+  function show(t){ tabs.forEach(function(x){ var on=x===t; x.setAttribute('aria-selected',on); x.tabIndex=on?0:-1;
+    document.getElementById(x.getAttribute('aria-controls')).hidden=!on; }); }
+  tabs.forEach(function(t,i){ t.addEventListener('click',function(){show(t);});
+    t.addEventListener('keydown',function(e){ var d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;
+      if(d){ var n=tabs[(i+d+tabs.length)%tabs.length]; n.focus(); show(n); e.preventDefault(); } }); });
+  show(tabs[0]);
+});
+</script>
 """
     mailto = f"mailto:{PARTNER_EMAIL}?subject={quote(PARTNER_SUBJECT)}"
     body = css + f"""
 <p class="aff-lead">You already have an audience that trusts your take on the market. TradeWave gives you a research engine to back it up: it finds stocks that tend to move the same way at the same time each year, shows you the evidence, and scores each setup with a 62-feature AI model. Keep your own strategy. Use TradeWave to discover ideas, check them, and track how they play out, then share it with your audience for a cut of every sale.</p>
 
 <h2>What you can do with TradeWave</h2>
-<p>Each of these is a question your audience asks, and one you can answer on camera in a couple of minutes.</p>
-<div class="aff-cards aff-uses">
-  <div class="aff-card">
-    <h3>"Is MSFT usually up or down this time of year?"</h3>
-    <p>Look up any stock and see how it has behaved over the same dates, year after year.</p>
+<p>Each card is a question your audience asks, and one you can answer on camera in a couple of minutes.</p>
+<div class="aff-tabs" data-tabs>
+  <div class="aff-tablist" role="tablist">
+    <button type="button" role="tab" id="tab-find" aria-controls="panel-find" aria-selected="true">Find ideas</button>
+    <button type="button" role="tab" id="tab-research" aria-controls="panel-research" aria-selected="false">Research a stock</button>
+    <button type="button" role="tab" id="tab-compare" aria-controls="panel-compare" aria-selected="false">Compare</button>
+    <button type="button" role="tab" id="tab-track" aria-controls="panel-track" aria-selected="false">Track and alerts</button>
+    <button type="button" role="tab" id="tab-ai" aria-controls="panel-ai" aria-selected="false">Ask AI</button>
   </div>
-  <div class="aff-card">
-    <h3>"What is starting a strong pattern right now?"</h3>
-    <p>When a stock enters a high-probability seasonal window, TradeWave finds it for you, so you are not scanning charts by hand.</p>
-  </div>
-  <div class="aff-card">
-    <h3>"I only want to be in for a few weeks."</h3>
-    <p>Search for opportunities by how long you want to hold, anywhere from 2 to 365 days.</p>
-  </div>
-  <div class="aff-card">
-    <h3>"Has this stock beaten the S&amp;P 500?"</h3>
-    <p>Run a buy-and-hold analysis on any stock and compare it with the S&amp;P 500, over however many years you want to look at.</p>
-  </div>
-  <div class="aff-card">
-    <h3>"How does this pattern do in a pre-election year?"</h3>
-    <p>Filter by the presidential election cycle, like midterm years or the year before an election such as 2027, and see how a pattern behaved in just those years.</p>
-  </div>
-  <div class="aff-card">
-    <h3>"Can I use it inside ChatGPT?"</h3>
-    <p>Yes. TradeWave connects to ChatGPT, Claude and other AI assistants through MCP, and has an API for people who build their own tools.</p>
-  </div>
-</div>
-<details class="aff-more">
-  <summary>See 9 more things TradeWave does</summary>
-  <div class="aff-cards aff-uses">
-    <div class="aff-card">
+  <div class="aff-panel" role="tabpanel" id="panel-find" aria-labelledby="tab-find">
+    <h3 class="aff-panel-h">Find ideas</h3>
+    <div class="aff-cards aff-uses">
+      <div class="aff-card">
+      <h3>"What is starting a strong pattern right now?"</h3>
+      <p>When a stock enters a high-probability seasonal window, TradeWave finds it for you, so you are not scanning charts by hand.</p>
+      </div>
+      <div class="aff-card">
       <h3>"What starts today?"</h3>
       <p>The Opportunity table lists every pattern that starts on the current day, so nothing slips past you.</p>
-    </div>
-    <div class="aff-card">
-      <h3>"Which of these stocks has done best?"</h3>
-      <p>Compare the performance of several stocks side by side, over as many years of history as exist.</p>
-    </div>
-    <div class="aff-card">
-      <h3>"What does a typical year look like?"</h3>
-      <p>See the average price path over the last 10, 20 or any number of years, drawn as a chart you can show.</p>
-    </div>
-    <div class="aff-card">
-      <h3>"Where could my stocks be in 3 months?"</h3>
-      <p>Project where a portfolio would land if the market followed its historical average from here.</p>
-    </div>
-    <div class="aff-card">
-      <h3>"When is the worst time to hold?"</h3>
-      <p>Find a stock's weakest stretches, like September for Apple, then exclude those dates to see how it performs without them.</p>
-    </div>
-    <div class="aff-card">
-      <h3>"Can I just ask it?"</h3>
-      <p>Yes. Tara, the built-in research assistant, answers questions in plain English: find opportunities, explain a pattern, or compare stocks.</p>
-    </div>
-    <div class="aff-card">
-      <h3>"Can I build a portfolio around this pattern?"</h3>
-      <p>Group stocks or other securities that share a pattern into a portfolio. TradeWave writes a report on it, and tracks each portfolio's performance on its own.</p>
-    </div>
-    <div class="aff-card">
-      <h3>"Remind me when it starts."</h3>
-      <p>Found a pattern that opens next month? Add it to Google Calendar, or put it in a portfolio and set a notification.</p>
-    </div>
-    <div class="aff-card">
-      <h3>"Did last month's ideas actually work?"</h3>
-      <p>Track how picks and patterns played out, so you can show your audience real results, not just predictions.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"I only want to be in for a few weeks."</h3>
+      <p>Search for opportunities by how long you want to hold, anywhere from 2 to 365 days.</p>
+      </div>
     </div>
   </div>
-</details>
+  <div class="aff-panel" role="tabpanel" id="panel-research" aria-labelledby="tab-research">
+    <h3 class="aff-panel-h">Research a stock</h3>
+    <div class="aff-cards aff-uses">
+      <div class="aff-card">
+      <h3>"Is MSFT usually up or down this time of year?"</h3>
+      <p>Look up any stock and see how it has behaved over the same dates, year after year.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"What does a typical year look like?"</h3>
+      <p>See the average price path over the last 10, 20 or any number of years, drawn as a chart you can show.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"When is the worst time to hold?"</h3>
+      <p>Find a stock's weakest stretches, like September for Apple, then exclude those dates to see how it performs without them.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"How does this pattern do in a pre-election year?"</h3>
+      <p>Filter by the presidential election cycle, like midterm years or the year before an election such as 2027, and see how a pattern behaved in just those years.</p>
+      </div>
+    </div>
+  </div>
+  <div class="aff-panel" role="tabpanel" id="panel-compare" aria-labelledby="tab-compare">
+    <h3 class="aff-panel-h">Compare</h3>
+    <div class="aff-cards aff-uses">
+      <div class="aff-card">
+      <h3>"Has this stock beaten the S&amp;P 500?"</h3>
+      <p>Run a buy-and-hold analysis on any stock and compare it with the S&amp;P 500, over however many years you want to look at.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"Which of these stocks has done best?"</h3>
+      <p>Compare the performance of several stocks side by side, over as many years of history as exist.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"Where could my stocks be in 3 months?"</h3>
+      <p>Project where a portfolio would land if the market followed its historical average from here.</p>
+      </div>
+    </div>
+  </div>
+  <div class="aff-panel" role="tabpanel" id="panel-track" aria-labelledby="tab-track">
+    <h3 class="aff-panel-h">Track and alerts</h3>
+    <div class="aff-cards aff-uses">
+      <div class="aff-card">
+      <h3>"Can I build a portfolio around this pattern?"</h3>
+      <p>Group stocks or other securities that share a pattern into a portfolio. TradeWave writes a report on it, and tracks each portfolio's performance on its own.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"Remind me when it starts."</h3>
+      <p>Found a pattern that opens next month? Add it to Google Calendar, or put it in a portfolio and set a notification.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"Did last month's ideas actually work?"</h3>
+      <p>Track how picks and patterns played out, so you can show your audience real results, not just predictions.</p>
+      </div>
+    </div>
+  </div>
+  <div class="aff-panel" role="tabpanel" id="panel-ai" aria-labelledby="tab-ai">
+    <h3 class="aff-panel-h">Ask AI</h3>
+    <div class="aff-cards aff-uses">
+      <div class="aff-card">
+      <h3>"Can I just ask it?"</h3>
+      <p>Yes. Tara, the built-in research assistant, answers questions in plain English: find opportunities, explain a pattern, or compare stocks.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"Can I use it inside ChatGPT?"</h3>
+      <p>Yes. TradeWave connects to ChatGPT, Claude and other AI assistants through MCP, and has an API for people who build their own tools.</p>
+      </div>
+    </div>
+  </div>
+</div>
 
 <h2>How creators use it</h2>
 <div class="aff-steps">
