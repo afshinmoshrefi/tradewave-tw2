@@ -908,7 +908,7 @@ class TestUxReview:
         pay = get(portal, "/payouts")[1]
         assert ("Don&#39;t email your tax form. Reply to your welcome email or contact "
                 "help@tradewave.ai and we&#39;ll send you a secure upload link.") in pay
-        assert "Don&#39;t email bank or card details" in pay
+        assert "Never send bank details or card numbers" in pay      # self-serve payout form
         pages = pay + get(portal, "/")[1] + portal.client.get(BASE + "/guide.md").get_data(as_text=True)
         for bad in ("Email a W-9", "Email it to help@", "send a W-9", "Tell us your PayPal"):
             assert bad not in pages

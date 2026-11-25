@@ -2150,6 +2150,121 @@ def assign_terms(session, affiliate, terms_id, actor=None):
 
 
 # ---------------------------------------------------------------------------
+# 4b) Self-serve payout details (partner dashboard Payouts page)
+# ---------------------------------------------------------------------------
+# The partner sets the payout method, payout email and account holder name
+# themselves. Changing a method or payout email that was ALREADY on file is
+# the account-takeover path ("send my money somewhere else"), so it (a) is
+# written to audit_log, (b) is confirmed by email to the ACCOUNT email (never
+# the new payout address; affiliate_comms.notify_payout_details_changed) and
+# (c) holds payouts to that partner for 24 hours, enforced where a row is
+# marked paid or exported (affiliate_admin.payout_block_reason).
+PAYOUT_METHOD_LABELS = {"paypal": "PayPal", "wise": "Wise"}   # storage ids, see models.Affiliate
+PAYOUT_DETAILS_HOLD = dt.timedelta(hours=24)
+PAYOUT_DETAILS_ACTION = "affiliate_payout_details_changed"
+PAYOUT_NAME_MAX = 120
+_PAYOUT_EMAIL_RE = re.compile(r"^[^@\s<>\"',;]+@[^@\s<>\"',;]+\.[A-Za-z]{2,}$")
+_PAYOUT_NAME_BAN = re.compile(r"[<>@\r\n\t]|https?://", re.IGNORECASE)
+
+
+def mask_email(email) -> str:
+    """'jane.doe@example.com' -> 'j***e@example.com' (safe to put in an email
+    or on a page: enough to recognise, not enough to reuse)."""
+    e = (email or "").strip()
+    local, sep, domain = e.partition("@")
+    if not sep or not local:
+        return "***" if e else ""
+    if len(local) <= 2:
+        return "%s***@%s" % (local[0], domain)
+    return "%s***%s@%s" % (local[0], local[-1], domain)
+
+
+def payout_details_hold_until(affiliate, now=None):
+    """End of the 24-hour payout hold after the partner changed payout details
+    that were already on file, or None when no hold is active."""
+    changed = _utc(getattr(affiliate, "payout_details_changed_at", None))
+    if changed is None:
+        return None
+    now = _utc(now) or dt.datetime.now(dt.timezone.utc)
+    until = changed + PAYOUT_DETAILS_HOLD
+    return until if now < until else None
+
+
+def clean_payout_details(method, email, account_name) -> dict:
+    """Validated {method, email, account_name}. Raises AffiliateError with a
+    message that is safe to show the partner."""
+    method = (method or "").strip().lower()
+    if method not in PAYOUT_METHOD_LABELS:
+        raise AffiliateError("Choose PayPal or Wise.")
+    email = (email or "").strip()
+    if not email:
+        raise AffiliateError("Enter the email address of your %s account."
+                             % PAYOUT_METHOD_LABELS[method])
+    if len(email) > 254 or not _PAYOUT_EMAIL_RE.match(email):
+        raise AffiliateError("That email address does not look right. Check it and try again.")
+    name = " ".join((account_name or "").split())
+    if len(name) > PAYOUT_NAME_MAX:
+        raise AffiliateError("The account holder name is too long (%d characters max)."
+                             % PAYOUT_NAME_MAX)
+    if name and _PAYOUT_NAME_BAN.search(name):
+        raise AffiliateError("Enter the account holder name as plain text.")
+    if method == "wise" and not name:
+        raise AffiliateError("Enter the account holder name exactly as it is on your Wise "
+                             "account. Wise needs it to send a payment.")
+    return {"method": method, "email": email, "account_name": name or None}
+
+
+def set_payout_details(session, affiliate, *, method, email, account_name=None,
+                       actor_user_id=None, ip=None, now=None) -> dict:
+    """Save a partner's own payout details. Validates, writes an audit_log row
+    and, when a method / payout email that was already on file changes, starts
+    the 24-hour payout hold. Commits.
+
+    Returns {changed, had_details, replaced, old_method, old_email, new_method,
+    new_email, changed_at, hold_until}. `replaced` is True when the destination
+    of the money changed on an account that already had one."""
+    from models import AuditLog
+    clean = clean_payout_details(method, email, account_name)
+    now = _utc(now) or dt.datetime.now(dt.timezone.utc)
+    old_method = (affiliate.payout_method or "").strip().lower()
+    old_email = (affiliate.payout_email or "").strip()
+    old_name = (getattr(affiliate, "payout_account_name", None) or "").strip()
+    had_details = bool(old_method and old_email)
+    destination_changed = (old_method != clean["method"]
+                           or old_email.lower() != clean["email"].lower())
+    changed = (destination_changed or old_email != clean["email"]
+               or old_name != (clean["account_name"] or ""))
+    out = {"changed": changed, "had_details": had_details,
+           "replaced": had_details and destination_changed,
+           "old_method": old_method, "old_email": old_email,
+           "new_method": clean["method"], "new_email": clean["email"],
+           "changed_at": now, "hold_until": payout_details_hold_until(affiliate, now)}
+    if not changed:
+        return out
+    affiliate.payout_method = clean["method"]
+    affiliate.payout_email = clean["email"]
+    affiliate.payout_account_name = clean["account_name"]
+    if out["replaced"]:
+        affiliate.payout_details_changed_at = now
+        out["hold_until"] = now + PAYOUT_DETAILS_HOLD
+    session.add(AuditLog(
+        actor_user_id=actor_user_id,
+        actor_label=None if actor_user_id else "partner",
+        action=PAYOUT_DETAILS_ACTION,
+        target_user_id=getattr(affiliate, "user_id", None),
+        details={"affiliate_id": str(affiliate.id), "code": affiliate.code,
+                 "old_method": old_method or None, "old_email": old_email or None,
+                 "old_account_name": old_name or None,
+                 "new_method": clean["method"], "new_email": clean["email"],
+                 "new_account_name": clean["account_name"],
+                 "first_time": not had_details,
+                 "hold_until": out["hold_until"].isoformat() if out["hold_until"] else None,
+                 "ip": ip or None}))
+    session.commit()
+    return out
+
+
+# ---------------------------------------------------------------------------
 # 5) Self-serve partner discount (0..max, once per 24h, no pause, no re-sign)
 # ---------------------------------------------------------------------------
 

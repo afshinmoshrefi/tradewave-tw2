@@ -116,7 +116,7 @@ details - are set out in **Exhibit A**, which is part of this Agreement.
 
 5.1 **Cadence.** Company calculates Commissions after each calendar month closes and once the underlying payments have settled, and pays earned Commissions on a **monthly** basis thereafter, by the **15th day of the month following the statement month** (subject to Sections 5.3, 5.5 and 6).
 
-5.2 **Method.** Company pays by **PayPal or Wise** to the account you specify in Exhibit A. You are responsible for keeping your payout details current; Company is not liable for amounts misdirected due to inaccurate details you provide.
+5.2 **Method and payout details.** Company pays by **PayPal or Wise** to the payout account you set in your partner dashboard (shown in Exhibit A on the signing date). You may change your payout method, payout email and account holder name at any time from your partner dashboard. For your security, when you change a payout method or payout email that was already on file, Company sends a confirmation to your account email (not to the new payout address) and holds payouts to you for **24 hours** after the change; a payout that falls in that window is sent once the hold ends. You are responsible for keeping your payout details current; Company is not liable for amounts misdirected due to inaccurate details you provide or due to a change made through your account.
 
 5.3 **Payout minimum.** Commissions are computed and ledgered per calendar month and per currency. The payout minimum is **$50** (or the equivalent in another currency). If your payable balance in a currency is below the payout minimum, it is not paid that month; it is **carried forward** and paid in the first month in which your balance reaches the minimum. A carried-forward balance is never forfeited because it is small. When this Agreement ends other than for Cause, Company will pay any remaining earned balance regardless of the minimum.
 
@@ -134,7 +134,7 @@ details - are set out in **Exhibit A**, which is part of this Agreement.
 
 6.1 You are solely responsible for all taxes on Commissions you receive.
 
-6.2 As a condition of payment, you must provide a completed **IRS Form W-9** (U.S. persons), **Form W-8BEN** (non-U.S. individuals), or **Form W-8BEN-E** (non-U.S. entities), or other documentation Company reasonably requires. A valid tax form must be on file before any payout is made. Company may withhold payment until it receives valid documentation and may issue a Form 1099 or other information return as required by law.
+6.2 As a condition of payment, you must provide a completed **IRS Form W-9** (U.S. persons), **Form W-8BEN** (non-U.S. individuals), or **Form W-8BEN-E** (non-U.S. entities), or other documentation Company reasonably requires. You upload it from your partner dashboard, and a valid tax form must be on file before any payout is made. Company may withhold payment until it receives valid documentation and may issue a Form 1099 or other information return as required by law.
 
 ## 7. Acceptable Promotion and Compliance
 

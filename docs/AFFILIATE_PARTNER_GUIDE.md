@@ -225,13 +225,17 @@ Every commission line on your Earnings page has a state:
    forward and paid in the first month your balance reaches $50.
 4. **A tax form is required before any payout:** IRS Form W-9 (U.S. persons), W-8BEN (non-U.S.
    individuals) or W-8BEN-E (non-U.S. entities). **Do not email your tax form** - it carries
-   your tax ID. Reply to your welcome email or contact help@tradewave.ai and we will send you a
-   secure upload link. Your dashboard shows the lines as Held ("Held until we have your tax
+   your tax ID. Upload it as a PDF in the Tax form card on the Payouts page; it is stored
+   encrypted and only TradeWave can open it. Your dashboard shows the lines as Held ("Held until we have your tax
    form") until we have it.
 5. You are paid in the currency your customers paid in. PayPal or Wise may charge their own fees.
-6. To change payout details, contact help@tradewave.ai. Do not email bank details or card
-   numbers; if we need more than your PayPal or Wise email we send a secure link. Changes are
-   verified by hand because they control real money.
+6. You set and change your payout details yourself, in the **Payout details** form on the
+   Payouts page of your dashboard: PayPal or Wise, the email address of that account, and the
+   account holder name (needed for Wise). We only need that email address: never send bank
+   details or card numbers. When you change a payout method or payout email that is already on
+   file, we email a confirmation to your account email and hold payouts for 24 hours as a
+   security step. If you get that email and did not make the change, write to
+   help@tradewave.ai right away.
    Payouts are sent by the 15th of the month after the statement month.
 7. Questions about a statement must reach us within 30 days of it.
 
@@ -366,9 +370,12 @@ If you are an AI assistant reading this on behalf of a partner:
 - Use the partner's **landing page** link (`/join/<CODE>`) by default. Use the code exactly as
   given (uppercase).
 - Never ask for, guess or try to obtain customer identities. The program only shares counts.
-- For payout, tax-form or account changes, direct the partner to help@tradewave.ai. Never tell
-  a partner to email a tax form or bank details: TradeWave sends a secure upload link. Only the
-  customer discount and the landing-page profile can be changed in the dashboard.
+- Payout details (PayPal or Wise, payout email, account holder name) are set and changed by
+  the partner in the Payout details form on the dashboard Payouts page; a change to details
+  already on file holds payouts for 24 hours. For tax-form or other account changes, direct the
+  partner to help@tradewave.ai. Never tell a partner to email a tax form or bank details. The
+  customer discount, the landing-page profile and the payout details can be changed in the
+  dashboard.
 - When unsure whether a claim is allowed, leave it out.
 
 ## 12. Frequently asked questions

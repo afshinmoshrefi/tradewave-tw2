@@ -588,7 +588,8 @@ def payout_below_minimum(payout) -> bool:
 
 def payout_block_reason(payout, affiliate=None):
     """Why this payout row may NOT be marked paid, or None when it may.
-    Order: tax form (a condition of payment), negative month, payout minimum.
+    Order: tax form (a condition of payment), negative month, the 24-hour
+    hold after a partner changed their payout details, payout minimum.
     The minimum does not apply to a partner terminated WITHOUT cause: their
     final balance is paid whatever its size (agreement 5.3 / 11.3)."""
     aff = affiliate if affiliate is not None else getattr(payout, "affiliate", None)
@@ -601,6 +602,12 @@ def payout_block_reason(payout, affiliate=None):
         return ("This row is negative (refunds or chargebacks were more than sales). It is "
                 "carried into the affiliate's next payable month automatically - leave it "
                 "pending.")
+    hold = afs.payout_details_hold_until(aff) if aff is not None else None
+    if hold is not None:
+        return ("Can't mark paid yet: %s changed their payout details. Payouts to this "
+                "partner are on a 24-hour security hold until %s UTC. If the partner did "
+                "not make the change, correct the details on the affiliate first."
+                % (aff.code, "%d %s" % (hold.day, hold.strftime("%b %Y, %H:%M"))))
     if amount > 0 and aff is not None and afs.final_balance_due(aff):
         return None
     if amount < afs.payout_minimum():

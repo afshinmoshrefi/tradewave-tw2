@@ -5073,7 +5073,8 @@ class AffiliateAdmin(_AdminAuth, ModelView):
     column_details_list = ("code", "name", "email", "status",
                            "discount_pct", "discount_pct_monthly", "terms",
                            "discount_changed_at",
-                           "payout_method", "payout_email", "stripe_coupon_id",
+                           "payout_method", "payout_email", "payout_account_name",
+                           "payout_details_changed_at", "stripe_coupon_id",
                            "stripe_coupon_id_monthly",
                            "page_display_name", "page_logo", "page_photo",
                            "page_note", "page_signoff",
@@ -5091,14 +5092,15 @@ class AffiliateAdmin(_AdminAuth, ModelView):
     # terms version; the create page shows the result in dollars.
     form_columns = ("name", "email", "code",
                     "terms", "discount_pct", "discount_pct_monthly",
-                    "payout_method", "payout_email",
+                    "payout_method", "payout_email", "payout_account_name",
+                    "payout_details_changed_at",
                     "tax_form_type", "tax_form_received_at",
                     "agreement_addendum",
                     "page_display_name", "page_logo", "page_photo",
                     "page_note", "page_signoff",
                     "user",
                     "status", "notes")
-    form_create_rules = form_columns
+    form_create_rules = tuple(c for c in form_columns if c != "payout_details_changed_at")
     # Code, customer discount and terms version are NOT on the edit form: the
     # code is permanent, and the other two change on the Change terms page
     # (discount: no pause, no re-sign; terms version: future customers only).
@@ -5109,7 +5111,8 @@ class AffiliateAdmin(_AdminAuth, ModelView):
             'discount and the terms version are not edited here. Use the <b>Change terms</b> '
             'icon on the affiliate row: a discount change there takes effect at once, with no '
             'pause and no new signature.</div>'),
-        "payout_method", "payout_email",
+        "payout_method", "payout_email", "payout_account_name",
+        "payout_details_changed_at",
         "tax_form_type", "tax_form_received_at",
         "agreement_addendum",
         "page_display_name", "page_logo", "page_photo",
@@ -5157,6 +5160,16 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                                         "of the list price. Also used for monthly plans unless you set a monthly "
                                         "discount below, and it is the discount behind the typed code. 0 = no "
                                         "discount, the partner earns the whole pool."},
+        "payout_account_name": {"description": "Account holder name for the payout (Wise needs it; the Wise "
+                                               "export file uses it, else the affiliate name). Partners "
+                                               "set payout details themselves on their Payouts page; "
+                                               "you can still edit them here."},
+        "payout_details_changed_at": {"description": "Set when the PARTNER changes a payout method or payout "
+                                                     "email that was already on file. Payouts to them are "
+                                                     "blocked for 24 hours after this time. Clear it to "
+                                                     "release the hold early (only after you confirmed the "
+                                                     "change with the partner). Editing the details here "
+                                                     "does not start a hold."},
         "discount_pct_monthly": {"description": "OPTIONAL - customer discount on MONTHLY plans, 0 to 25, only if "
                                                 "it differs from annual. Leave blank to use the annual discount."},
         "status": {"description": "New affiliates always start Paused until they sign. Paused: their link and "
