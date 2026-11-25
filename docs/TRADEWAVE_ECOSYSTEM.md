@@ -583,6 +583,18 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
     Download is admin-only and writes `audit_log` action `affiliate_tax_form_downloaded` BEFORE
     the bytes are sent. INVARIANT: losing the key makes stored forms unreadable - back it up
     with secrets.env; `TAX_FORM_DIR` must be in the box backup and never under nginx.
+  - **Self-serve payout details.** The partner sets PayPal / Wise, the payout email and the
+    account holder name on the Payouts page (`POST /account/affiliate/payouts/details` ->
+    `affiliate_service.set_payout_details`; columns `payout_method`, `payout_email`,
+    `payout_account_name`, migration `f3a4b5c6d7e8`). Every save writes `audit_log` action
+    `affiliate_payout_details_changed` and sends the required notice `payout_details_changed`
+    to the ACCOUNT email, addresses masked (`affiliate_comms.notify_payout_details_changed`).
+    Changing a method / payout email that was already on file also stamps
+    `affiliates.payout_details_changed_at`; for 24 hours after it
+    `affiliate_admin.payout_block_reason` refuses mark-paid and the bulk export skips the row
+    ("Payout details changed, 24h hold"). Admin edits in Flask-Admin start no hold; clearing
+    `payout_details_changed_at` there releases one. The Wise export file uses
+    `payout_account_name` when set, else `name`.
   - **Sub-links.** `?code=ANNE&sub=youtube` and `/join/ANNE?sub=youtube`; slug
     `^[a-z0-9][a-z0-9_-]{0,39}$`. Cookie `tw_ref_sub` = `<CODE>:<sub>` set beside `tw_ref`
     (server on `/join` and `/pricing`, home-page JS otherwise). Stored on

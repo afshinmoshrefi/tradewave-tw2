@@ -504,8 +504,8 @@ def _period_label(payout) -> str:
 
 def _block_reason(payout, affiliate):
     """Why a pending row cannot be exported / paid, or None. Same gate as the
-    Payout Ledger's mark-paid (tax form, negative, minimum) plus payout
-    details."""
+    Payout Ledger's mark-paid (tax form, negative, 24-hour hold after a
+    payout-details change, minimum) plus payout details."""
     import affiliate_admin as afa
     reason = afa.payout_block_reason(payout, affiliate)
     if reason:
@@ -527,6 +527,8 @@ def _short_reason(reason) -> str:
         return "Negative, carried"
     if "minimum" in r:
         return "Below minimum, carried"
+    if "security hold" in r:
+        return "Payout details changed, 24h hold"
     if "payout method" in r:
         return "No payout method"
     if "payout email" in r:
@@ -547,7 +549,10 @@ def pending_payout_rows(session) -> list:
     for p, a in rows:
         reason = _block_reason(p, a)
         out.append({"id": p.id, "ref": payout_ref(p), "payout": p, "affiliate": a, "code": a.code,
-                    "name": a.name, "period": _period_label(p), "currency": (p.currency or "usd").lower(),
+                    "name": a.name,
+                    # the Wise file pays the account holder, when the partner gave one
+                    "payout_name": (getattr(a, "payout_account_name", None) or "").strip() or a.name,
+                    "period": _period_label(p), "currency": (p.currency or "usd").lower(),
                     "amount": Decimal(str(p.commission_amount or 0)).quantize(Decimal("0.01")),
                     "method": a.payout_method or "", "email": (a.payout_email or "").strip(),
                     "payable": reason is None, "reason": reason, "short_reason": _short_reason(reason),
@@ -672,7 +677,7 @@ def wise_csv(rows) -> str:
     source = getattr(config, "AFFILIATE_WISE_SOURCE_CURRENCY", "USD") or "USD"
     out = []
     for r in rows:
-        cells = {"name": r["name"], "recipientEmail": r["email"], "paymentReference": r["ref"],
+        cells = {"name": r.get("payout_name") or r["name"], "recipientEmail": r["email"], "paymentReference": r["ref"],
                  "receiverType": "PERSON", "amountCurrency": "target", "amount": "%.2f" % r["amount"],
                  "sourceCurrency": source, "targetCurrency": r["currency"].upper()}
         out.append([cells[c] for c in WISE_COLUMNS])

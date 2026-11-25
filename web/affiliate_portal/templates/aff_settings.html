@@ -192,7 +192,7 @@
     <tr><td class="soft">Your terms</td><td>{{ offer.pool_pct }}% pool, up to {{ offer.max_discount_pct }}% discount, {{ offer.renewal_pct }}% on renewals{% if offer.lifetime %} for life{% else %} in years 2 to {{ offer.last_year }}{% endif %}{% if offer.terms_version %} <span class="muted tiny">({{ offer.terms_version }})</span>{% endif %}</td></tr>
     <tr><td class="soft">Contact email</td><td class="mono">{{ aff.email }}</td></tr>
   </table>
-  <p class="tiny muted" style="margin:12px 0 0;">Payout details are on the <a href="{{ url_for('affiliate_portal.payouts') }}">Payouts</a> page. Questions: help@tradewave.ai.</p>
+  <p class="tiny muted" style="margin:12px 0 0;">You set and change your payout details on the <a href="{{ url_for('affiliate_portal.payouts') }}#payout-details">Payouts</a> page. Questions: help@tradewave.ai.</p>
 </div>
 
 <style>

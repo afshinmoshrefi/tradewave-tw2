@@ -551,10 +551,74 @@ def payouts():
                    if r["currency"] == "usd")
         ctx = _ctx(aff, "payouts", ledger=ledger,
                    checklist=dash.payout_checklist(live, pending, held_cents=held),
+                   details=dash.payout_details(live),
                    pending=sorted(pending.items()), lifetime_paid=sorted(paid.items()))
     finally:
         s.close()
     return render_template("aff_payouts.html", **ctx)
+
+
+@bp.route("/payouts/details", methods=["POST"])
+@require_affiliate
+def payout_details_save():
+    """Self-serve payout details: method (PayPal / Wise), payout email and
+    account holder name. Validation, the audit_log row and the 24-hour hold
+    after a change live in affiliate_service.set_payout_details; the
+    confirmation goes to the partner's ACCOUNT email
+    (affiliate_comms.notify_payout_details_changed)."""
+    import affiliate_service as asvc
+    aff = get_current_affiliate()
+    back = redirect(url_for("affiliate_portal.payouts") + "#payout-details")
+    user = get_current_user()
+    s = _db()
+    try:
+        live = _fresh_affiliate(s)
+        if not _is_owner(live):
+            flash("Only the account owner can change payout details.", "error")
+            return back
+        try:
+            change = asvc.set_payout_details(
+                s, live, method=request.form.get("payout_method"),
+                email=request.form.get("payout_email"),
+                account_name=request.form.get("payout_account_name"),
+                actor_user_id=getattr(user, "id", None), ip=request.remote_addr)
+        except asvc.AffiliateError as e:
+            s.rollback()
+            flash(str(e), "error")
+            return back
+        except Exception:   # noqa: BLE001 - DB failure: nothing was saved
+            s.rollback()
+            log.exception("payout details save failed for %s", aff.code)
+            flash("We couldn't save your payout details. Nothing changed - try again in a "
+                  "few minutes.", "error")
+            return back
+        if not change["changed"]:
+            flash("No change - these are already your payout details.", "success")
+            return back
+        try:
+            import affiliate_comms as comms
+            comms.notify_payout_details_changed(s, live, change)
+        except Exception:   # noqa: BLE001 - the save stands; the daily job retries the email
+            s.rollback()
+            log.exception("payout details notice failed for %s", aff.code)
+        account_email = live.email
+    finally:
+        s.close()
+    from flask import g as _g
+    _g._aff_portal_affiliate = "unset"
+    if change["replaced"]:
+        _notify_operator(
+            "Affiliate payout details changed: %s" % aff.code,
+            "Affiliate %s changed their payout details in the dashboard (%s to %s). Payouts "
+            "to them are on a 24-hour hold. Nothing to do unless this looks wrong."
+            % (aff.code, asvc.PAYOUT_METHOD_LABELS.get(change["old_method"], change["old_method"]),
+               asvc.PAYOUT_METHOD_LABELS.get(change["new_method"], change["new_method"])))
+        flash("Saved. As a security step, payouts are on hold for 24 hours, until %s. We sent "
+              "a confirmation to %s." % (dash.fmt_utc_minute(change["hold_until"]), account_email),
+              "success")
+    else:
+        flash("Saved. We sent a confirmation to %s." % account_email, "success")
+    return back
 
 
 # ------------------------------------------------------------------

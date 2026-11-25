@@ -81,6 +81,7 @@ KIND_LABEL = {
     "renewals_resumed": "Renewal commissions resumed",
     "campaign_started": "New TradeWave sale",
     "discount_changed": "Discount change",
+    "payout_details_changed": "Payout details changed",
     "announcement": "News from the TradeWave team",
     "program_notice": "Program notice",
     "help_answer": "Answer from the team",
@@ -107,6 +108,8 @@ REQUIRED_NOTICES = (
     (KIND_LABEL["welcome"], "Sent once, when you sign your agreement, with your links and first steps."),
     (KIND_LABEL["payout_sent"], "A record of every payment we send you."),
     (KIND_LABEL["discount_changed"], "So you know right away if your customer discount changes."),
+    (KIND_LABEL["payout_details_changed"], "Every time the payout method or payout email on your "
+                                           "account is set or changed."),
     (KIND_LABEL["activity_final"], "7 days before your renewal commissions would stop."),
     (KIND_LABEL["renewals_lapsed"], "When the activity window ends."),
     (KIND_LABEL["help_answer"], "When the TradeWave team answers a question you asked in Help."),
@@ -130,6 +133,7 @@ EVENT_PREF = {
     "renewals_resumed": "renewals_resumed",
     "campaign_started": "campaign_started",
     "discount_changed": None,
+    "payout_details_changed": None,
     "message": "announcement",
     "program_notice": None,
     "help_answer": None,
@@ -148,6 +152,7 @@ EVENT_LABEL = {
     "renewals_resumed": KIND_LABEL["renewals_resumed"],
     "campaign_started": KIND_LABEL["campaign_started"],
     "discount_changed": KIND_LABEL["discount_changed"],
+    "payout_details_changed": KIND_LABEL["payout_details_changed"],
     "message": KIND_LABEL["announcement"], "program_notice": KIND_LABEL["program_notice"],
     "help_answer": KIND_LABEL["help_answer"],
     "tax_form_accepted": "Tax form result", "tax_form_rejected": "Tax form result",
@@ -1158,7 +1163,7 @@ def _welcome_event(session, aff, terms):
         "before a window ends, and your dashboard always shows the date.\n\n"
         "Three things to do first:\n"
         "1. Open your dashboard and copy your link.\n"
-        "2. Add your payout method and send your tax form (Payouts page). We need both "
+        "2. Add your PayPal or Wise details and upload your tax form (Payouts page). We need both "
         "before we can pay you.\n"
         "3. Share your link. Always say that you earn a commission.\n\n"
         "Watch the 2-minute tour: %s\n\n"
@@ -1606,10 +1611,56 @@ def notify_tax_form(session, form, now=None):
     return deliver(session, aff, ev, now)
 
 
+def notify_payout_details_changed(session, aff, change, now=None):
+    """Confirm a self-serve payout-details change to the partner: a Messages
+    inbox row plus a REQUIRED email to the ACCOUNT email (aff.email), never to
+    the new payout address, so the real owner hears about a change they did
+    not make. `change` is the dict from affiliate_service.set_payout_details.
+    Addresses are masked. Returns the notification row or None."""
+    if not change or not change.get("changed"):
+        return None
+    label = afs.PAYOUT_METHOD_LABELS
+    new = "%s, %s" % (label.get(change["new_method"], change["new_method"]),
+                      afs.mask_email(change["new_email"]))
+    when = _utc(change.get("changed_at")) or _now(now)
+    hold = _utc(change.get("hold_until"))
+    not_you = ("If you did not make this change, write to %s right away and we will stop "
+               "any payout and secure your account." % HELP_EMAIL)
+    if change.get("replaced"):
+        old = "%s, %s" % (label.get(change["old_method"], change["old_method"] or "not set"),
+                          afs.mask_email(change["old_email"]))
+        subject = "Your payout details were changed"
+        body = ("Hi %s,\n\n"
+                "The payout details on your TradeWave partner account were changed on %s UTC.\n\n"
+                "Before: %s\n"
+                "Now: %s\n\n"
+                "As a security step, payouts to you are on hold for 24 hours%s. You do not need "
+                "to do anything: after that, payouts go to the new details as usual.\n\n%s"
+                % (first_name(aff), _day_time(when), old, new,
+                   (", until %s UTC" % _day_time(hold)) if hold else "", not_you))
+    elif not change.get("had_details"):
+        subject = "Your payout details were added"
+        body = ("Hi %s,\n\n"
+                "Payout details were added to your TradeWave partner account on %s UTC.\n\n"
+                "Payouts go to: %s\n\n%s"
+                % (first_name(aff), _day_time(when), new, not_you))
+    else:
+        subject = "Your payout details were updated"
+        body = ("Hi %s,\n\n"
+                "The account holder name on your TradeWave payout details was updated on %s UTC. "
+                "The payout method and payout email did not change.\n\n"
+                "Payouts go to: %s\n\n%s"
+                % (first_name(aff), _day_time(when), new, not_you))
+    ev = make_event("payout_details_changed", "payout_details:%s" % when.strftime("%Y%m%dT%H%M%S%f"),
+                    subject, body, occurred_at=when,
+                    link=("Review your payout details", dashboard_url("/payouts#payout-details")))
+    return deliver(session, aff, ev, now)
+
+
 # Events that are delivered at the moment they happen (not found again by
 # collect_events): the daily job retries their failed sends.
 _ONE_SHOT_EVENTS = ("message", "program_notice", "tax_form_accepted", "tax_form_rejected",
-                    "help_answer")
+                    "help_answer", "payout_details_changed")
 
 
 def retry_failed(session, now=None) -> int:

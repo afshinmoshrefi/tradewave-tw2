@@ -19,6 +19,9 @@
     {% if aff.status == 'paused' %}
     <p class="small" style="color:var(--warn); margin:12px 0 0;">Your account is paused. Commissions keep adding up and are paid when it is reactivated.</p>
     {% endif %}
+    {% if checklist.hold_until %}
+    <p class="small" style="color:var(--warn); margin:12px 0 0;">Payouts are on a security hold until {{ checklist.hold_until }} because your payout details changed. <a href="#payout-details">Details</a></p>
+    {% endif %}
   </div>
 
   <div class="card">
@@ -39,15 +42,51 @@
   </div>
 </div>
 
-<div class="card">
-  <h3>Payout details</h3>
+<div class="card" id="payout-details">
+  <h3>Payout details
+    <span class="right">{% if details.hold_until %}<span class="pill warn">On hold for {{ details.hold_hours }} hours</span>
+      {% elif details.has_details %}<span class="pill ok">Set</span>
+      {% else %}<span class="pill warn">To do</span>{% endif %}</span></h3>
+  {% if details.hold_until %}
+  <div class="flash error" role="status" style="margin-bottom:14px;"><b>Payouts are on hold until {{ details.hold_until }}.</b>
+    Your payout details were changed, so as a security step we wait {{ details.hold_hours }} hours before sending money to the new details. Nothing is lost and you do not need to do anything. If you did not make this change, write to help@tradewave.ai right away.</div>
+  {% endif %}
   <table>
-    <tr><td class="soft" style="width:40%;">Method</td><td>{% if aff.payout_method %}{{ aff.payout_method|capitalize }}{% else %}<span class="pill warn">Not set</span>{% endif %}</td></tr>
-    <tr><td class="soft">Sent to</td><td>{% if aff.payout_email %}<span class="mono">{{ aff.payout_email }}</span>{% else %}-{% endif %}</td></tr>
+    <tr><td class="soft" style="width:40%;">Method</td><td>{% if details.has_details or aff.payout_method %}{{ details.method_label }}{% else %}<span class="pill warn">Not set</span>{% endif %}</td></tr>
+    <tr><td class="soft">Sent to</td><td>{% if aff.payout_email %}<span class="mono" style="overflow-wrap:anywhere;">{{ aff.payout_email }}</span>{% else %}-{% endif %}</td></tr>
+    {% if details.account_name %}<tr><td class="soft">Account holder</td><td>{{ details.account_name }}</td></tr>{% endif %}
     <tr><td class="soft">Tax form</td><td>{% if aff.tax_form_received_at %}<span class="pill ok">{{ {'w9':'W-9','w8ben':'W-8BEN','w8bene':'W-8BEN-E'}.get(aff.tax_form_type, aff.tax_form_type or 'Received') }}</span> on file{% else %}<span class="pill bad">Needed</span>{% endif %}</td></tr>
     <tr><td class="soft">Paid to date</td><td>{{ m.money_list(lifetime_paid) }}</td></tr>
   </table>
-  <p class="tiny muted" style="margin:12px 0 0;">To change payout details, contact help@tradewave.ai. Don't email bank details, card numbers or tax forms - we'll send you a secure link. We check every change by hand because it moves real money.</p>
+
+  {% if details.has_details %}<details class="more" style="margin-top:16px;"><summary>Change payout details</summary>{% else %}
+  <p class="soft small" style="margin:16px 0 0;">Tell us where to send your money. We pay by PayPal or Wise, to the email address of your account there.</p>{% endif %}
+  <form method="post" action="{{ url_for('affiliate_portal.payout_details_save') }}" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="grid2" style="margin-bottom:0;">
+      <div>
+        <label for="pd-method">Payout method</label>
+        <select id="pd-method" name="payout_method" required>
+          <option value="">Choose PayPal or Wise</option>
+          {% for key, label in details.methods %}<option value="{{ key }}"{% if details.method == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="pd-email">Email of your PayPal or Wise account</label>
+        <input type="text" id="pd-email" name="payout_email" inputmode="email" autocapitalize="off" spellcheck="false"
+               maxlength="254" required value="{{ details.email }}" placeholder="you@example.com">
+      </div>
+    </div>
+    <label for="pd-name">Account holder name <span class="muted">(needed for Wise, optional for PayPal)</span></label>
+    <input type="text" id="pd-name" name="payout_account_name" maxlength="{{ details.name_max }}"
+           value="{{ details.account_name }}" placeholder="Exactly as it is on the account">
+    <div class="row" style="margin-top:14px;">
+      <button class="btn-primary" type="submit">Save payout details</button>
+      <span class="tiny muted">{% if details.has_details %}Changing the method or email puts payouts on hold for {{ details.hold_hours }} hours, and we{% else %}We{% endif %} email a confirmation to {{ details.account_email }}.</span>
+    </div>
+  </form>
+  {% if details.has_details %}</details>{% endif %}
+  <p class="tiny muted" style="margin:12px 0 0;">We only need the email address of your PayPal or Wise account. Never send bank details or card numbers, here or by email. You are paid in the currency your customers paid in.</p>
 </div>
 
 {% if tax %}

@@ -428,6 +428,13 @@ class Affiliate(Base):
     email         = Column(Text, nullable=False)  # required - also the self-referral guard
     payout_method = Column(Text)  # 'paypal' | 'wise'
     payout_email  = Column(Text)
+    # Self-serve payout details (partner dashboard Payouts page, migration
+    # f3a4b5c6d7e8). payout_account_name: account holder name (Wise needs it).
+    # payout_details_changed_at: last PARTNER change to a method / payout email
+    # that was already on file; payouts are held 24h after it
+    # (affiliate_service.payout_details_hold_until). NULL = no hold.
+    payout_account_name       = Column(Text)
+    payout_details_changed_at = Column(TIMESTAMP(timezone=True))
     discount_pct  = Column(Numeric(5, 2), nullable=False)   # audience discount, 20.00 = 20% (DEFAULT/fallback)
     commission_pct = Column(Numeric(5, 2), nullable=False)  # affiliate keeps, 30.00 = 30% (DEFAULT/fallback)
     # --- interval-split: the form presents two pairs, Monthly + Annual. The flat

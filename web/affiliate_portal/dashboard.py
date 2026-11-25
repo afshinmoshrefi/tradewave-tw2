@@ -43,8 +43,8 @@ DISCOUNT_SAVE_FAILED = ("We couldn't update your discount. Nothing changed - "
 PAYOUT_SEND_RULE = "Sent by the 15th of the month after the statement"
 TAX_FORM_HELP = ("Don't email your tax form. Reply to your welcome email or contact %s "
                  "and we'll send you a secure upload link." % HELP_EMAIL)
-PAYOUT_METHOD_HELP = ("Contact %s to add your PayPal or Wise email. Don't email bank or card "
-                      "details - if we need more, we'll send you a secure link." % HELP_EMAIL)
+PAYOUT_METHOD_HELP = ("Add your PayPal or Wise details in the Payout details form on the "
+                      "Payouts page. It takes a minute and you can change them later.")
 SOURCE_LABELS = {"checkout": "Your link", "promo_code": "Typed code",
                  "signup": "Signup link", "return": "Returning customer"}
 STATUS_LABELS = {"trial": "Not paid yet", "paying": "Paying", "ended": "Ended"}
@@ -888,6 +888,31 @@ def next_payout_date(now=None):
     return (today.replace(day=1) + dt.timedelta(days=32)).replace(day=2)
 
 
+def fmt_utc_minute(value) -> str:
+    """'25 Nov 2026, 14:30 UTC'."""
+    return "%d %s UTC" % (value.day, value.strftime("%b %Y, %H:%M"))
+
+
+def payout_details(aff, now=None) -> dict:
+    """What the Payout details card shows: the details on file, the 24-hour
+    hold (if one is running) and the form's starting values."""
+    import affiliate_service as _asvc
+    hold = _asvc.payout_details_hold_until(aff, now)
+    method = (aff.payout_method or "").lower()
+    return {
+        "has_details": bool(aff.payout_method and aff.payout_email),
+        "method": method,
+        "method_label": _asvc.PAYOUT_METHOD_LABELS.get(method, (aff.payout_method or "").capitalize()),
+        "email": aff.payout_email or "",
+        "account_name": getattr(aff, "payout_account_name", None) or "",
+        "methods": list(_asvc.PAYOUT_METHOD_LABELS.items()),
+        "hold_until": fmt_utc_minute(hold) if hold else None,
+        "hold_hours": int(_asvc.PAYOUT_DETAILS_HOLD.total_seconds() // 3600),
+        "account_email": aff.email or "",
+        "name_max": _asvc.PAYOUT_NAME_MAX,
+    }
+
+
 def payout_checklist(aff, pending, held_cents=0, now=None):
     """Checklist + progress toward the $50 minimum (USD)."""
     usd = pending.get("usd", Decimal("0"))
@@ -895,6 +920,9 @@ def payout_checklist(aff, pending, held_cents=0, now=None):
     tax_ok = aff.tax_form_received_at is not None
     method_ok = bool(aff.payout_method and aff.payout_email)
     min_ok = cents >= PAYOUT_MINIMUM_CENTS
+    # 24-hour security hold after the partner changed payout details on file
+    import affiliate_service as _asvc
+    hold = _asvc.payout_details_hold_until(aff, now)
     return {
         "items": [
             {"key": "tax", "ok": tax_ok, "label": "Tax form on file",
@@ -908,7 +936,8 @@ def payout_checklist(aff, pending, held_cents=0, now=None):
              "%s to go. Smaller balances roll into your next payout."
              % fmt_cents(max(0, PAYOUT_MINIMUM_CENTS - cents))},
         ],
-        "ready": tax_ok and method_ok and min_ok and aff.status == "active",
+        "ready": tax_ok and method_ok and min_ok and aff.status == "active" and hold is None,
+        "hold_until": fmt_utc_minute(hold) if hold else None,
         "pending_cents": cents,
         "minimum_cents": PAYOUT_MINIMUM_CENTS,
         "progress_pct": max(0, min(100, int(round(100.0 * cents / PAYOUT_MINIMUM_CENTS)))),
