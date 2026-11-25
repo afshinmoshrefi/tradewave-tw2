@@ -225,8 +225,8 @@ Every commission line on your Earnings page has a state:
    forward and paid in the first month your balance reaches $50.
 4. **A tax form is required before any payout:** IRS Form W-9 (U.S. persons), W-8BEN (non-U.S.
    individuals) or W-8BEN-E (non-U.S. entities). **Do not email your tax form** - it carries
-   your tax ID. Reply to your welcome email or contact help@tradewave.ai and we will send you a
-   secure upload link. Your dashboard shows the lines as Held ("Held until we have your tax
+   your tax ID. Upload it as a PDF in the Tax form card on the Payouts page; it is stored
+   encrypted and only TradeWave can open it. Your dashboard shows the lines as Held ("Held until we have your tax
    form") until we have it.
 5. You are paid in the currency your customers paid in. PayPal or Wise may charge their own fees.
 6. You set and change your payout details yourself, in the **Payout details** form on the

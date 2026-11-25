@@ -954,7 +954,7 @@ def _partner_details_md(aff, terms=None):
         "- Payout method: %s" % ((aff.payout_method or "not set").capitalize()),
         "- Tax form on file: %s" % ("yes" if aff.tax_form_received_at else
                                    "NO - payouts are held until TradeWave has your W-9 / W-8BEN / W-8BEN-E. "
-                                   "Do not email the form: contact help@tradewave.ai for a secure upload link"),
+                                   "Do not email the form: upload it as a PDF in the Tax form card on the Payouts page"),
         "",
         "---",
         "",

@@ -41,8 +41,21 @@ HOLD_REASONS = {"paused": "Held while your account is paused - paid when it's re
 DISCOUNT_SAVE_FAILED = ("We couldn't update your discount. Nothing changed - "
                         "try again in a few minutes.")
 PAYOUT_SEND_RULE = "Sent by the 15th of the month after the statement"
-TAX_FORM_HELP = ("Don't email your tax form. Reply to your welcome email or contact %s "
-                 "and we'll send you a secure upload link." % HELP_EMAIL)
+TAX_FORM_HELP = ("Don't email your tax form. Upload it as a PDF in the Tax form card on "
+                 "this page - it is stored encrypted and only TradeWave can open it.")
+# Fallback while secure upload is switched off on this server (no TW2_TAX_FORM_KEY).
+TAX_FORM_HELP_NO_UPLOAD = ("Don't email your tax form. Reply to your welcome email or contact %s "
+                           "and we'll send you a secure upload link." % HELP_EMAIL)
+
+
+def _tax_form_help():
+    try:
+        import affiliate_ops
+        if affiliate_ops.tax_upload_enabled():
+            return TAX_FORM_HELP
+    except Exception:
+        pass
+    return TAX_FORM_HELP_NO_UPLOAD
 PAYOUT_METHOD_HELP = ("Add your PayPal or Wise details in the Payout details form on the "
                       "Payouts page. It takes a minute and you can change them later.")
 SOURCE_LABELS = {"checkout": "Your link", "promo_code": "Typed code",
@@ -927,7 +940,7 @@ def payout_checklist(aff, pending, held_cents=0, now=None):
         "items": [
             {"key": "tax", "ok": tax_ok, "label": "Tax form on file",
              "help": None if tax_ok else
-             "W-9 (U.S.) or W-8BEN / W-8BEN-E (non-U.S.). " + TAX_FORM_HELP},
+             "W-9 (U.S.) or W-8BEN / W-8BEN-E (non-U.S.). " + _tax_form_help()},
             {"key": "method", "ok": method_ok, "label": "Payout method set",
              "help": None if method_ok else PAYOUT_METHOD_HELP},
             {"key": "minimum", "ok": min_ok,
@@ -1067,8 +1080,8 @@ def action_items(aff, activity, urls):
         items.append({"key": "tax", "tone": "red", "title": "Send your tax form",
                       "text": "Payouts are held until we have a W-9 (U.S.) or "
                               "W-8BEN / W-8BEN-E (non-U.S.). Don't email it - "
-                              "we'll send you a secure upload link.",
-                      "href": urls.get("payouts"), "cta": "How to send it"})
+                              "upload it on the Payouts page.",
+                      "href": urls.get("payouts"), "cta": "Upload it"})
     if not (aff.payout_method and aff.payout_email):
         items.append({"key": "payout", "tone": "amber", "title": "Add a payout method",
                       "text": "Tell us where to send your money: PayPal or Wise.",
