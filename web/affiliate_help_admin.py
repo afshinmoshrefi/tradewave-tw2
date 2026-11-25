@@ -15,7 +15,12 @@ from flask import Blueprint, request
 
 import config
 import affiliate_help as ah
-from affiliate_admin import _FOOT, _HEAD
+from affiliate_admin import _FOOT, _HEAD as _SHARED_HEAD
+
+# The shared admin head has no viewport tag; the owner opens these from an email, often on a phone.
+_HEAD = _SHARED_HEAD.replace(
+    '<meta charset="utf-8">',
+    '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">', 1)
 
 log = logging.getLogger("tw2.affiliate_help")
 

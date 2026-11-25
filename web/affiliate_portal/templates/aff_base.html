@@ -166,9 +166,12 @@
       .legend { grid-template-columns:1fr 1fr; }
     }
     @media (max-width:640px) {
-      .nav { padding:12px 16px; }
-      .navhelp { min-height:44px; }
-      .nav a.btn { min-height:44px; display:inline-flex; align-items:center; }
+      .nav { padding:10px 14px; gap:8px; }
+      .nav .logo { font-size:20px; white-space:nowrap; }
+      .nav .logo small { display:none; }           /* the header must fit a 320px phone */
+      .nav .navright { gap:8px; }
+      .navhelp { min-height:44px; padding:0 12px; }
+      .nav a.btn { min-height:44px; display:inline-flex; align-items:center; padding:8px 14px; }
       .container { margin:18px auto 150px; padding:0 14px; }
       h1 { font-size:24px; }
       .tabs { display:none; }
@@ -208,11 +211,13 @@
       .moresheet a { display:flex; align-items:center; min-height:48px; padding:0 14px; color:var(--text);
                      text-decoration:none; font-weight:600; border-radius:10px; }
       .moresheet a.active { background:var(--brand-soft); color:var(--brand-text); }
-      .stickycopy { display:flex; position:fixed; right:12px; z-index:39;
-                    bottom:calc(70px + env(safe-area-inset-bottom)); min-height:46px; padding:0 18px;
-                    align-items:center; gap:8px; border-radius:999px; border:none; font-family:inherit;
+      /* a slim bar docked on the bottom navigation, not a pill floating over the page */
+      .stickycopy { display:flex; position:fixed; left:0; right:0; z-index:39;
+                    bottom:calc(61px + env(safe-area-inset-bottom)); min-height:44px; padding:0 16px;
+                    align-items:center; justify-content:center; gap:8px; border:none; border-radius:0;
+                    border-top:1px solid rgba(139,92,246,0.5); font-family:inherit;
                     font-weight:700; font-size:14px; color:#fff; cursor:pointer;
-                    background:linear-gradient(135deg,#6366f1,#8b5cf6); box-shadow:0 8px 24px rgba(99,102,241,0.45); }
+                    background:#2a2260; }
     }
   </style>
   {% block head %}{% endblock %}
@@ -274,7 +279,7 @@
 
   {% if is_aff %}
   {% if links is defined and links and aff.status == 'active' and not (link_block is defined and link_block) %}
-  <button class="stickycopy" type="button" onclick="twCopy(this, '{{ links.join }}')" aria-label="Copy your link">Copy link</button>
+  <button class="stickycopy" type="button" onclick="twCopy(this, '{{ links.join }}')" aria-label="Copy your link">Copy my link</button>
   {% endif %}
   <div class="moresheet" id="moresheet">
     <a href="{{ url_for('affiliate_portal.promote') }}" class="{{ 'active' if active_tab == 'promote' else '' }}">Promote</a>

@@ -489,6 +489,17 @@ def ask(session, aff, question, numbers=None):
         session.commit()
         return _views(session, [asked, reply])
 
+    # The partner may have pressed "Send this to the team instead" while the
+    # model was still working: the question is with the team already, so the
+    # late answer is dropped instead of adding a second reply under it.
+    from affiliate_help_models import AffiliateHelpMessage as M
+    session.expire_all()
+    handed_over = (session.query(M)
+                   .filter(M.affiliate_id == aff.id, M.id > asked.id, M.role == "assistant",
+                           M.outcome == "needs_team").order_by(M.id).first())
+    if handed_over is not None:
+        return _views(session, [asked, handed_over])
+
     if data.get("_refused"):
         outcome, answer, reason = "needs_team", "", "The assistant declined to answer this question."
     else:

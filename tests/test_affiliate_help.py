@@ -1066,6 +1066,28 @@ class TestAssistantFeel:
         assert [m.body for m in rows(env, M) if m.role == "partner"].count("And chargebacks?") == 1
         assert env.client.post(BASE + "/help/ask-team", json={"question": "  "}).status_code == 400
 
+    def test_a_late_model_answer_is_dropped_once_the_team_has_the_question(self, env):
+        M = models_help().AffiliateHelpMessage
+
+        class SlowClaude(FakeClaude):
+            def create(inner, **kw):
+                # while the model "thinks", the partner gives up and sends it to the team
+                s = env.factory()
+                try:
+                    live = s.get(type(env.aff), env.aff.id)
+                    ah.ask_team(s, live, question="Can I use TikTok?")
+                finally:
+                    s.close()
+                return FakeClaude.create(inner, **kw)
+
+        slow = SlowClaude(answered("Yes, with the disclosure."))
+        env.patch.setattr(ah, "_client", lambda: slow)
+        msgs = ask(env, "Can I use TikTok?")["messages"]
+        assert [m["role"] for m in msgs] == ["partner", "assistant"] and msgs[1]["outcome"] == "needs_team"
+        bubbles = rows(env, M)
+        assert [(m.role, m.outcome) for m in bubbles] == [("partner", None), ("assistant", "needs_team")]
+        assert len(rows(env, models_help().AffiliateHelpEscalation)) == 1
+
 
 class TestOneInbox:
     def test_answer_is_copied_to_messages_and_emailed_once(self, one_inbox, env):
