@@ -942,6 +942,54 @@ class TestUxReview:
 
 
 # ---------------------------------------------------------------------------
+# the narrated partner tour (video on Home, static files on the blueprint)
+# ---------------------------------------------------------------------------
+class TestPartnerTour:
+    def test_new_partner_sees_the_tour_card_in_get_started(self, portal):
+        _aff, user = h.seed_empty(portal.db)
+        login(portal, user)
+        _r, home = get(portal, "/")
+        assert home.count('id="tour"') == 1
+        assert '<div class="card tone-brand" id="tour">' in home
+        assert "Watch the 2-minute tour" in home
+        # right under "How you get paid", above the money tiles
+        assert home.index("How you get paid") < home.index('id="tour"') < home.index("Estimated this month")
+        assert '<video class="tourvid" controls preload="none"' in home
+        assert 'poster="/account/affiliate/static/partner-tour.jpg"' in home
+        assert '<source src="/account/affiliate/static/partner-tour.mp4" type="video/mp4">' in home
+        assert 'kind="captions"' in home and 'src="/account/affiliate/static/partner-tour.vtt"' in home
+        assert EM_DASH not in home
+
+    def test_everyone_else_gets_a_folded_card_and_a_help_link(self, portal):
+        _aff, user = h.seed_rich(portal.db, portal.world)
+        login(portal, user)
+        _r, home = get(portal, "/")
+        assert home.count('id="tour"') == 1
+        assert '<details class="card more tourfold" id="tour">' in home
+        assert "Watch the 2-minute tour" not in home and "partner-tour.mp4" in home
+        for path in ("/", "/earnings", "/payouts"):       # the Help panel is on every page
+            assert 'href="/account/affiliate/#tour">Partner tour (2-minute video)</a>' in get(portal, path)[1]
+
+    def test_static_files_are_served(self, portal):
+        static = h._REPO_ROOT / "web" / "affiliate_portal" / "static"
+        for name, ctype in (("partner-tour.mp4", "video/mp4"), ("partner-tour.jpg", "image/jpeg"),
+                            ("partner-tour.vtt", "text/vtt")):
+            r = portal.client.get(BASE + "/static/" + name)       # logged out: a plain static asset
+            assert r.status_code == 200, name
+            assert r.headers["Content-Type"].startswith(ctype), (name, r.headers["Content-Type"])
+            assert len(r.data) == (static / name).stat().st_size > 1000
+            r.close()
+        # seeking needs byte ranges
+        r = portal.client.get(BASE + "/static/partner-tour.mp4", headers={"Range": "bytes=0-99"})
+        assert r.status_code == 206 and len(r.data) == 100
+        r.close()
+        assert (static / "partner-tour.mp4").stat().st_size < 8 * 1024 * 1024
+        vtt = (static / "partner-tour.vtt").read_text(encoding="utf-8")
+        assert vtt.startswith("WEBVTT") and "Welcome to the TradeWave partner program." in vtt
+        assert EM_DASH not in vtt
+
+
+# ---------------------------------------------------------------------------
 # /join/<code>: real dollar prices
 # ---------------------------------------------------------------------------
 class TestJoinPage:

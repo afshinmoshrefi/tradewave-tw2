@@ -558,6 +558,7 @@ class TestDailyJob:
                 "with a 30-day grace") in welcome.text
         assert "earn $0 until your next new paying customer" in welcome.text
         assert "First-year commissions are never affected" in welcome.text
+        assert "Watch the 2-minute tour: https://tw.test/account/affiliate#tour\n" in welcome.text
         assert "required program notice" in welcome.text
         (click,) = mails(world, "Your link got its first click")
         assert "7-day trial" in click.text

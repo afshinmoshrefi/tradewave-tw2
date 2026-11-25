@@ -215,7 +215,11 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   integration checks, `tests/test_affiliate_portal_dev.py`). Pieces: blueprint
   `web/affiliate_portal/` at `/account/affiliate` (auto-links by email on first
   visit -> `affiliates.user_id`, migration e7a1b2c9d4f5; access = linkage, NO new
-  role); live current-month estimate via `affiliate_service.compute_for_affiliate`
+  role); narrated partner tour = `web/affiliate_portal/static/partner-tour.{mp4,jpg,vtt}`
+  (blueprint `static_folder`, served by Flask at `/account/affiliate/static/`, public; the
+  `.gitignore` `*.mp4` rule has one exception for it; Home card `id="tour"`, prominent for a
+  partner with no paying customer, folded for the rest; linked from the Help panel header and
+  the welcome email as `/account/affiliate#tour`); live current-month estimate via `affiliate_service.compute_for_affiliate`
   (cached ~1h, labeled estimate); self-serve join-page fields + headshot upload
   (PIL -> 512px webp into `/assets/affiliate-logos/`, operator notified);
   SMN expert module (operator invites via Flask-Admin "SMN Experts" ->

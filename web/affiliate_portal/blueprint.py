@@ -24,6 +24,9 @@ bp = Blueprint(
     "affiliate_portal",
     __name__,
     template_folder="templates",
+    # partner-tour.mp4 / .jpg / .vtt (the narrated dashboard tour); served at
+    # <url_prefix>/static/<file>, public like any other static asset.
+    static_folder="static",
 )
 
 _USER_LOADER = None

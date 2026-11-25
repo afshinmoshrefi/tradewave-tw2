@@ -257,6 +257,11 @@ was sent to**. (Signed up with a different email? Write to help@tradewave.ai and
 | Settings | Your customer discount (section 4), your landing-page name, note, sign-off and headshot, and your Email preferences (section 8.1). |
 | Messages | Everything we send you: program news from the TradeWave team and every automatic notice. A badge on the tab shows how many are unread. |
 
+New here? Watch the 2-minute partner tour on your Home page
+(https://tradewave.ai/account/affiliate#tour). It walks through your numbers, your offer, your
+links, the activity rule, payouts and Help. Later you can reopen it from the "Partner tour" link at
+the top of the Help panel, on any page.
+
 This guide, the "Copy for my AI" button and (if you were invited) the Expert Desk are also in the
 dashboard menu.
 
