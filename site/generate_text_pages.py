@@ -820,7 +820,7 @@ def build_affiliate() -> tuple[str, dict]:
 <ul>
   <li>Trading coaching, mentorship, or courses</li>
   <li>A YouTube channel, podcast, or newsletter about the markets</li>
-  <li>A trading community, Discord, or signals group</li>
+  <li>A trading community or Discord</li>
   <li>Educational content on seasonality, technical analysis, or stock research</li>
 </ul>
 
