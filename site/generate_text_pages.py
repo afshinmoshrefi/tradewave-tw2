@@ -766,6 +766,9 @@ def build_affiliate() -> tuple[str, dict]:
   .aff-cta-wrap .aff-cta:hover { transform:translateY(-1px); box-shadow:0 10px 28px rgba(139,92,246,0.3); }
   .aff-cta-note { font-size:13px; color:var(--text-muted); margin:16px 0 0; }
     .aff-uses .aff-card h3 { font-size:16px; }
+  .aff-more { margin:-8px 0 24px; }
+  .aff-more summary { cursor:pointer; color:#a78bfa; font-weight:600; font-size:15px; }
+  .aff-more[open] summary { margin-bottom:4px; }
   @media (max-width:720px) { .aff-cards, .aff-steps, .aff-terms { grid-template-columns:1fr; } }
 </style>
 """
@@ -785,10 +788,6 @@ def build_affiliate() -> tuple[str, dict]:
     <p>When a stock enters a high-probability seasonal window, TradeWave finds it for you, so you are not scanning charts by hand.</p>
   </div>
   <div class="aff-card">
-    <h3>"What starts today?"</h3>
-    <p>The Opportunity table lists every pattern that starts on the current day, so nothing slips past you.</p>
-  </div>
-  <div class="aff-card">
     <h3>"I only want to be in for a few weeks."</h3>
     <p>Search for opportunities by how long you want to hold, anywhere from 2 to 365 days.</p>
   </div>
@@ -797,46 +796,55 @@ def build_affiliate() -> tuple[str, dict]:
     <p>Run a buy-and-hold analysis on any stock and compare it with the S&amp;P 500, over however many years you want to look at.</p>
   </div>
   <div class="aff-card">
-    <h3>"Which of these stocks has done best?"</h3>
-    <p>Compare the performance of several stocks side by side, over as many years of history as exist.</p>
-  </div>
-  <div class="aff-card">
-    <h3>"What does a typical year look like?"</h3>
-    <p>See the average price path over the last 10, 20 or any number of years, drawn as a chart you can show.</p>
-  </div>
-  <div class="aff-card">
-    <h3>"Where could my stocks be in 3 months?"</h3>
-    <p>Project where a portfolio would land if the market followed its historical average from here.</p>
-  </div>
-  <div class="aff-card">
-    <h3>"When is the worst time to hold?"</h3>
-    <p>Find a stock's weakest stretches, like September for Apple, then exclude those dates to see how it performs without them.</p>
-  </div>
-  <div class="aff-card">
     <h3>"How does this pattern do in a pre-election year?"</h3>
     <p>Filter by the presidential election cycle, like midterm years or the year before an election such as 2027, and see how a pattern behaved in just those years.</p>
-  </div>
-  <div class="aff-card">
-    <h3>"Can I just ask it?"</h3>
-    <p>Yes. Tara, the built-in research assistant, answers questions in plain English: find opportunities, explain a pattern, or compare stocks.</p>
   </div>
   <div class="aff-card">
     <h3>"Can I use it inside ChatGPT?"</h3>
     <p>Yes. TradeWave connects to ChatGPT, Claude and other AI assistants through MCP, and has an API for people who build their own tools.</p>
   </div>
-  <div class="aff-card">
-    <h3>"Can I build a portfolio around this pattern?"</h3>
-    <p>Group stocks or other securities that share a pattern into a portfolio. TradeWave writes a report on it, and tracks each portfolio's performance on its own.</p>
-  </div>
-  <div class="aff-card">
-    <h3>"Remind me when it starts."</h3>
-    <p>Found a pattern that opens next month? Add it to Google Calendar, or put it in a portfolio and set a notification.</p>
-  </div>
-  <div class="aff-card">
-    <h3>"Did last month's ideas actually work?"</h3>
-    <p>Track how picks and patterns played out, so you can show your audience real results, not just predictions.</p>
-  </div>
 </div>
+<details class="aff-more">
+  <summary>See 9 more things TradeWave does</summary>
+  <div class="aff-cards aff-uses">
+    <div class="aff-card">
+      <h3>"What starts today?"</h3>
+      <p>The Opportunity table lists every pattern that starts on the current day, so nothing slips past you.</p>
+    </div>
+    <div class="aff-card">
+      <h3>"Which of these stocks has done best?"</h3>
+      <p>Compare the performance of several stocks side by side, over as many years of history as exist.</p>
+    </div>
+    <div class="aff-card">
+      <h3>"What does a typical year look like?"</h3>
+      <p>See the average price path over the last 10, 20 or any number of years, drawn as a chart you can show.</p>
+    </div>
+    <div class="aff-card">
+      <h3>"Where could my stocks be in 3 months?"</h3>
+      <p>Project where a portfolio would land if the market followed its historical average from here.</p>
+    </div>
+    <div class="aff-card">
+      <h3>"When is the worst time to hold?"</h3>
+      <p>Find a stock's weakest stretches, like September for Apple, then exclude those dates to see how it performs without them.</p>
+    </div>
+    <div class="aff-card">
+      <h3>"Can I just ask it?"</h3>
+      <p>Yes. Tara, the built-in research assistant, answers questions in plain English: find opportunities, explain a pattern, or compare stocks.</p>
+    </div>
+    <div class="aff-card">
+      <h3>"Can I build a portfolio around this pattern?"</h3>
+      <p>Group stocks or other securities that share a pattern into a portfolio. TradeWave writes a report on it, and tracks each portfolio's performance on its own.</p>
+    </div>
+    <div class="aff-card">
+      <h3>"Remind me when it starts."</h3>
+      <p>Found a pattern that opens next month? Add it to Google Calendar, or put it in a portfolio and set a notification.</p>
+    </div>
+    <div class="aff-card">
+      <h3>"Did last month's ideas actually work?"</h3>
+      <p>Track how picks and patterns played out, so you can show your audience real results, not just predictions.</p>
+    </div>
+  </div>
+</details>
 
 <h2>How creators use it</h2>
 <div class="aff-steps">
