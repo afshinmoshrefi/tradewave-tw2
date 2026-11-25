@@ -190,18 +190,17 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   discounted sale traces to exactly one partner by coupon id. Admin "Add
   affiliate" creates the Stripe coupon (`percent_off`, repeating 12mo = "X% off
   first year") + promo code automatically - no Stripe dashboard. Commission is
-  computed **downstream** from Stripe (`compute_month`): per paid invoice in a
-  month, basis = `amount_paid - tax`, commission = basis x `commission_pct`,
-  honoring `commission_model` (recurring [default, lifetime] / first_payment /
-  duration_12mo) and a self-referral guard. "Compute / What I owe" previews live
-  and commits into the `affiliate_payouts` ledger, **idempotent** on
+  computed **downstream** from Stripe (`compute_month`) by the PROGRAM V2 engine
+  (see the "Affiliate program v2" bullet below - it SUPERSEDES the old
+  `amount_paid - tax` x `commission_pct` / `commission_model` math, which is
+  gone; those two columns are legacy display-only). "Compute / What I owe"
+  previews live and commits into the `affiliate_payouts` ledger, **idempotent** on
   `(affiliate_id, period_start, currency)`; operator marks rows paid + adds the
-  PayPal/Wise txn id. Optional monthly cron: `web/affiliate_report.py`. This is
-  a **pure downstream reader of Stripe** - it touches NO webhook/billing path,
-  so it's safe to build/run during stabilization. Clean upgrade path: the codes
-  + Stripe history map straight into Rewardful/Tolt later (coupon attribution).
-  `code` + `discount_pct` are IMMUTABLE once the coupon exists (Stripe coupons
-  can't be edited). On dev, `STRIPE_SECRET_KEY` is a TEST key, so provisioning
+  PayPal/Wise txn id. Optional monthly cron: `web/affiliate_report.py`. Clean
+  upgrade path: the codes + Stripe history map straight into Rewardful/Tolt
+  later (coupon attribution). `code` is IMMUTABLE once the coupon exists; the
+  discount changes by re-pointing the same code at a NEW coupon
+  (`reissue_coupon`). On dev, `STRIPE_SECRET_KEY` is a TEST key, so provisioning
   creates disposable test coupons. BUILT OUT SINCE (verified in code 2026-07-07):
   durable per-subscription attribution (`AffiliateReferral`, written from webhook
   metadata `tw2_affiliate_id`; compute attributes referral-first, coupon fallback);
@@ -209,14 +208,18 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   signoff` on `Affiliate`); magic-link e-signature flow (`web/affiliate_agreement.py`,
   `/affiliate/sign/<token>`, immutable snapshot + audit fields, affiliates are
   created PAUSED and flip active only on signing); monthly/annual interval-split
-  coupons; anonymized monthly statement emails (`web/affiliate_report.py`, cron 2nd
-  03:30). Affiliates are NOT users yet (no `users` linkage; magic links only). The
+  coupons; monthly ledger sweep (`web/affiliate_report.py`, cron 2nd 03:30; it no
+  longer emails statements, see fix-0039 below). Affiliates are NOT users yet (no `users` linkage; magic links only). The
   affiliate-facing login dashboard + optional SMN expert module:
   `docs/AFFILIATE_DASHBOARD_SPEC.md` - BUILT + tested on dev 2026-07-07 (32/32
   integration checks, `tests/test_affiliate_portal_dev.py`). Pieces: blueprint
   `web/affiliate_portal/` at `/account/affiliate` (auto-links by email on first
   visit -> `affiliates.user_id`, migration e7a1b2c9d4f5; access = linkage, NO new
-  role); live current-month estimate via `affiliate_service.compute_for_affiliate`
+  role); narrated partner tour = `web/affiliate_portal/static/partner-tour.{mp4,jpg,vtt}`
+  (blueprint `static_folder`, served by Flask at `/account/affiliate/static/`, public; the
+  `.gitignore` `*.mp4` rule has one exception for it; Home card `id="tour"`, prominent for a
+  partner with no paying customer, folded for the rest; linked from the Help panel header and
+  the welcome email as `/account/affiliate#tour`); live current-month estimate via `affiliate_service.compute_for_affiliate`
   (cached ~1h, labeled estimate); self-serve join-page fields + headshot upload
   (PIL -> 512px webp into `/assets/affiliate-logos/`, operator notified);
   SMN expert module (operator invites via Flask-Admin "SMN Experts" ->
@@ -228,6 +231,30 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   (injects/removes TW-EXPERT-DESK sections in article HTML, heals wiped
   sections after article regeneration, builds `/experts/<slug>.html` hubs;
   web-tier base from `TW2_WEB_INTERNAL_URL`, default loopback :5500).
+  PARTNER HELP ASSISTANT (TW-TASK-0039 A, 2026-11-24, migration a9c1e5f7b3d2):
+  a chat panel on every portal page (`templates/aff_help_widget.html`, included
+  by `aff_base.html` only when the session has a linked non-terminated
+  affiliate; endpoints `/account/affiliate/help/{messages,ask,ask-team}` in
+  `web/affiliate_portal/help_routes.py`). Logic is `web/affiliate_help.py`: one
+  Anthropic Messages call per question (official `anthropic` SDK,
+  `config.anthropic_token`, model `config.AFFILIATE_HELP_MODEL` default
+  `claude-sonnet-5-5`, JSON-schema output) grounded ONLY in the partner guide,
+  the agreement body, that partner's Exhibit A, the knowledge base
+  (`affiliate_help_kb`: general entries + that partner's own) and that
+  partner's numbers (counts/totals from the dashboard functions; never a
+  customer identity, never another partner). Unknown -> escalation row
+  (`affiliate_help_escalations`) + email to `config.AFFILIATE_SUPPORT_EMAIL`
+  with a signed link to `/admin/affiliate_help/answer` (super_admin still
+  required; the token only selects the question). The answer goes to the
+  partner's chat (`affiliate_help_messages`) + email and becomes a
+  partner-specific KB entry; the model proposes a generalised version the
+  admin approves in one click on `/admin/affiliate_help_kb/` (also edit /
+  make general / retire). Optional reply-by-email:
+  `POST /webhooks/resend/affiliate-help` (Svix signature, token in the
+  reply-to address, quoted text stripped); 404 unless
+  `TW2_AFFILIATE_HELP_INBOUND_SECRET` and `TW2_AFFILIATE_HELP_INBOUND_ADDRESS`
+  are both set. Limits: 10 questions / 10 min, 60 / day, 5 escalations / day
+  per partner; chat rows purged after 365 days (all env-tunable).
   GAP FIXES (2026-11-16, migration a7f3c2e9b1d4): (1) DISCOVERABILITY -
   `affiliate_service.find_or_link_affiliate` runs on `/account` too (the card
   showed only after linking, and linking only happened inside the portal), and
@@ -268,6 +295,334 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   403, non-affiliates 404 `not_affiliate`; returns links, terms, anonymized
   funnel, ledger totals per currency, tax-form status, promo copy + rules.
   No customer identities; payout email exposed only as a boolean.
+- **Partner lifecycle + communication (TW-TASK-0039 package B, built
+  2026-11-24, branch `claude/affiliate-comms-0039b`; NOT yet on
+  dev/staging/prod).** Migration `c5e8f1a2b3d6_affiliate_lifecycle_comms`
+  (down_revision `b4d7e1f2a3c5`; needs a merge revision with the parallel 0039
+  migrations) adds `affiliate_applications`, `affiliate_messages`,
+  `affiliate_notifications`, `affiliate_email_prefs`. Service
+  `web/affiliate_comms.py` (no Flask); public blueprint
+  `web/affiliate_comms_views.py` = `/partners/apply` (honeypot field
+  `company_url` + 3 per salted-IP-hash per day), `/partners/email-preferences/<token>`
+  (GET never mutates), POST `/partners/unsubscribe/<token>/<pref>` (CSRF
+  exempt, RFC 8058 one-click); admin `web/affiliate_comms_admin.py` =
+  `/admin/affiliate_applications/` and `/admin/affiliate_messages/`; portal
+  `web/affiliate_portal/messages.py` = `/messages` inbox + `/settings/email`.
+  nginx needs `location /partners/` -> web tier. INVARIANT: ONE row in
+  `affiliate_notifications` is the inbox item, the email send log AND the
+  idempotency claim - UNIQUE (affiliate_id, event_key), committed as
+  `pending` before the send, so an event is emailed at most once per partner
+  (failed retried up to 3 attempts; events older than 7 days,
+  `TW2_AFFILIATE_COMMS_MAX_EVENT_AGE_DAYS`, are never emailed, so the first
+  run has no backlog). Daily job `python web/affiliate_comms.py [--dry-run]`,
+  cron via `ops/install_affiliate_comms_cron.sh` (14:10 UTC); only the welcome
+  email is sent inline (at signing). Preferences = JSON list of disabled pref
+  ids; required notices (payout sent, discount change, 7-day warning, renewals
+  lapsed, program notice) ignore preferences and carry no unsubscribe link.
+  ONE statement email: the daily job is the only sender, and only for a month that
+  has closed (`period_end < today`); `affiliate_report.py --email` is ignored (logs a
+  warning) and `ops/install_affiliate_comms_cron.sh` strips the flag from the cron line.
+- **Partner program review fixes + owner tools (TW-TASK-0039 fix-0039, 2026-11-24,
+  migration `e2f3a4b5c6d7` on `d1e2f3a4b5c6`).**
+  - **One owner address.** `affiliate_service.owner_email()` = `AFFILIATE_OWNER_EMAIL`, else
+    `AFFILIATE_SUPPORT_EMAIL`, else `SUPPORT_EMAIL_TO`. Every owner notice uses it (applications,
+    help escalations, tax-form alerts, monthly operations summary, 48-hour digest) and carries a
+    deep link built by `affiliate_service.admin_url()`. `TW2_AFFILIATE_OPS_EMAIL` is gone.
+    `AFFILIATE_SUPPORT_EMAIL` stays the address PARTNERS write to.
+  - **Background jobs** (`web/affiliate_jobs.py`, table `affiliate_jobs`, cron every 2 minutes
+    + the daily job). Group message sends and "suggest a general knowledge-base answer" model
+    calls are queued by the request and run by the cron: queued -> running -> done | failed,
+    5 attempts, a row stuck `running` for 15 minutes is queued again, handlers are idempotent.
+    Chosen over a thread because a web restart loses nothing. Job kinds are storage ids.
+    `python web/affiliate_jobs.py --list` shows the newest jobs.
+  - **Web capacity.** `ops/systemd/tradewave-web.service` runs gunicorn `gthread`, 2 workers x
+    8 threads. The help-assistant model call has a hard timeout
+    (`TW2_AFFILIATE_HELP_MODEL_TIMEOUT`, 25s, clamped 5..45) and `max_retries=0`.
+  - **Bulk payouts: export vs mark-paid.** An export stamps `affiliate_payouts.exported_at` +
+    `exported_amount`. A second export of the same row is refused unless the owner ticks
+    "Include rows I already exported". On import a row whose ledger amount no longer equals
+    the exported amount is REFUSED, unless the owner ticks "I paid the exported amounts": then
+    it is marked paid with `paid_amount` = the exported amount (the difference is settled by
+    hand). `apply_paid_batch` re-reads each row under a lock (`populate_existing` +
+    `with_for_update`) and re-runs `_block_reason`. The "Payout sent" email and the year-end
+    report use `paid_amount`. `unclaimed` is not a paid status. CSV cells starting with
+    `= + - @ tab CR` are prefixed with `'`.
+  - **Delivery.** A missing Resend key is a retryable `failed/email_not_configured` (no
+    attempt used), not a permanent skip; the daily job retries failed one-shot notices
+    (`retry_failed`). The welcome email key is the constant `welcome`.
+  - **Application form.** Cloudflare Turnstile on `/partners/apply` when BOTH
+    `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set (same keys as the contact form;
+    skipped otherwise); global cap `TW2_AFFILIATE_APPLY_MAX_PER_HOUR` (30); a name that
+    contains a link is refused and never used in a greeting.
+  - **Reply-by-email.** Auto-replies (Auto-Submitted, X-Autoreply, Precedence bulk/list,
+    List-Id, mailer-daemon, "Out of office" subjects) and bodies under 10 characters are
+    ignored, never sent to the partner as the answer.
+  - **Retention.** The help purge also clears the chat copy on old escalations
+    (`affiliate_help_escalations.context`); the daily job forces it.
+  - **Tax forms.** `affiliate_tax_forms.affiliate_id` is `ON DELETE CASCADE`; an admin
+    hard-delete of a partner first removes the encrypted files (`affiliate_ops.purge_tax_forms`).
+    Accept / reject send a REQUIRED notice (email + Messages inbox) through
+    `affiliate_comms.notify_tax_form`; the help assistant sees `partner_numbers.tax_form`
+    {status, form, reason}.
+  - **Owner tools** (`web/affiliate_owner.py` service, `web/affiliate_owner_admin.py` views):
+    admin home `/admin/affiliate_home/` (first item of the Affiliates menu, live counts);
+    one shared sub-nav `web/affiliate_nav.py` on every partner-program admin page (Jinja
+    global `affiliate_subnav`; Flask-Admin list pages via `templates/admin/affiliate_list.html`);
+    owner digest once per UTC day only when an application, question or tax form has waited
+    more than 48 hours (audit action `affiliate_owner_digest_sent`); signing reminders 3 and 10
+    days after approval + "Resend signing link"; auto-approve rules (table
+    `affiliate_program_settings`, key `auto_approve`: off | all | rules by country list and
+    minimum audience; never for an existing partner or repeat applicant; the partner is still
+    created PAUSED and must sign); fraud signals on Bulk payouts and the Payout ledger
+    (self-referral by email / domain / network, signup-to-click ratio, shared network; they
+    never block a payout; `users.referred_ip_hash` is stamped for NEW signups only);
+    year-end tax report `/admin/affiliate_tax_report/` + CSV (paid per partner per currency,
+    country, form type, "1099-NEC likely" = W-9 and >= $600 USD).
+  - **Attribution window.** `TW2_AFFILIATE_ATTRIBUTION_WINDOW_DAYS` (60) ->
+    `affiliate_service.attribution_window_days()` drives the `tw_ref` / `tw_ref_sub` cookie
+    max-age and is exposed to templates (`affiliate_attribution_days()`, portal context
+    `aff_attribution_days`). `sub_from_cookie` decodes a percent-encoded value
+    (`ANNE%3Ayoutube`); the static page JS now writes the cookie raw.
+  - **Migrations cannot be replayed from an empty database:** the baseline `c0d92cd5de83` is
+    stamp-only. To prove a new revision locally, build the previous-head schema
+    (`Base.metadata.create_all` from the previous commit's models, after
+    `CREATE SEQUENCE support_tickets_number_seq`), `alembic stamp <previous head>`, then
+    upgrade / downgrade / upgrade. Run alembic from `web/` (`-c alembic.ini`) with
+    `TW2_ALEMBIC_DSN_OVERRIDE` and `POSTGRES_DSN` set.
+- **Affiliate program v2 (TW-TASK-0038, backend built 2026-11-24, branch
+  `claude/affiliate-v2-20261124`; NOT yet on dev/staging/prod).** Rules of
+  record + the dollar acceptance table: `docs/tasks/TW-TASK-0038.md`. Tests:
+  `tests/test_affiliate_v2.py` (every acceptance row) + `tests/test_affiliate.py`.
+  Migration `b4d7e1f2a3c5` (single head).
+  - **Rules.** (1) REGULAR first year = POOL rule: partner earns
+    `(pool_pct - discount)%` of the LIST price (invoice pre-discount subtotal,
+    tax excluded), discount 0..25, TradeWave always keeps 50% of list ($100 at
+    20% off -> pays $80, partner $30). (2) PROMO first year (a campaign won the
+    price) = `promo_commission_pct` (50%) of what was paid pre-tax. (3) RENEWAL
+    = `renewal_pct` (25%) of what was paid, commission years 2..`renewal_years`
+    (5 default / 10 / NULL = lifetime), only while the partner is ACTIVE (>= 1
+    NEW paying customer in the trailing `activity_rule_months` = 12 PLUS a
+    30-day grace, `ACTIVITY_GRACE_DAYS`, before the renewal payment - 13 months
+    in effect, owner decision 2026-11-24, so a partner whose only customer
+    renews 12 months later is still paid; otherwise the line is recorded
+    `lapsed` at $0, forfeited). Past the window: $0, no line. Tax never earns.
+  - **Terms are versioned + prospective.** `affiliate_terms` rows are immutable
+    (seeded `v2-5y` default, `v2-10y`, `v2-lifetime`; `create_terms` only adds).
+    `affiliates.terms_id` applies to FUTURE referrals only. Every
+    `affiliate_referrals` row SNAPSHOTS the checkout: `terms_id`, `offer_type`
+    (regular|promo), `campaign_id`, `tier`, `billing_interval` (month|year),
+    `list_price_cents`, `discount_pct`. **Payouts read the referral, never the
+    partner's current row** - a changed discount/terms never re-prices a past
+    customer.
+  - **Commission clock.** Year 1 starts at `year_anchor_at` = the SERVICE period
+    start (`line.period.start`) of the first paid invoice with `amount_paid > 0`
+    (`first_paid_at`). Trial $0 invoices and failed payments never start it. A
+    payment is placed in a year by its service period, not `invoice.created`
+    (monthly: months 1-12 first year, 13-60 renewal, 61+ $0 on 5-year terms).
+    Stamped by the webhook (`invoice.payment_succeeded` ->
+    `record_first_payment`); the engine derives + persists it from Stripe if the
+    webhook missed it.
+  - **A Stripe lookup failure never becomes a ledger line.** `_first_paid_invoice`
+    and `_invoice_for_reversal` raise `StripeLookupError` (never "none found").
+    The engine SKIPS that invoice / reversal for the run: no line, nothing
+    persisted, a warning in the log, an entry in the `skipped=` list of
+    `compute_month` / `_compute` (shown on the admin compute page). The next
+    run prices it. A clock the engine had to GUESS from the invoice in hand
+    (Stripe answered, no earlier paid invoice) prices the line but is never
+    written to the referral, and an activity check that could not be resolved
+    never books `lapsed`.
+  - **Ledger.** `affiliate_commission_lines` = one INSERT-ONCE row per
+    (affiliate, Stripe source: invoice id, or refund/dispute id), UNIQUE
+    `(affiliate_id, source_id)`. Kinds first_year|promo|renewal|lapsed|refund|
+    dispute; states pending|paid|held|lapsed|void (`estimated` exists only in
+    un-persisted compute output). Amount/basis/rate are never updated after the
+    insert - only `state`, `payable_month`, `payout_id` move. `upsert_month`
+    inserts the month's new lines, releases held ones, then rebuilds each
+    PENDING `affiliate_payouts` row as the SUM of lines whose `payable_month` is
+    that month (`period_month` = month earned). Paid/void/locked payout rows stay
+    frozen; a line found after its month froze rolls into the next open month.
+    Negative months still carry forward (`_apply_carry`).
+  - **Paid date, not created date.** The month's invoices are selected by
+    `status_transitions.paid_at`; Stripe can only list by `created`, so the
+    listing reaches back `AFFILIATE_PAID_LOOKBACK_DAYS` (120) and filters. A
+    late-paid invoice is booked once, in the month it was paid.
+  - **Refunds / disputes** reverse at the ORIGINAL line's rate and formula,
+    pro-rated by the share of the payment reversed and capped at the original
+    commission ($40 refund of the $80 sale = -$15). The reversal pass also
+    follows STATUS CHANGES: it re-reads disputes and refunds created up to
+    `AFFILIATE_REVERSAL_LOOKBACK_DAYS` (180, env
+    `TW2_AFFILIATE_REVERSAL_LOOKBACK_DAYS`) before the month. A dispute that is
+    later `won`, or a `pending` refund that later is `failed` / `canceled`,
+    gets an offsetting POSITIVE line of the same kind (`refund` / `dispute` -
+    the kind CHECK is unchanged) with `source_id` `<id>:won` / `<id>:failed`
+    and `detail.outcome`; `stripe_reversal_id` keeps the real Stripe id. An
+    inquiry (`warning_*`) that later escalates is clawed back in the month it
+    is first seen as a real dispute. All insert-once on `(affiliate_id,
+    source_id)`. A give-back is only booked against a clawback that is in the
+    ledger.
+  - **Paused / terminated.** ALL partners are computed. Paused -> lines `held`
+    (reason `paused`), payable in the first `upsert_month` after they are active
+    again OR are terminated without cause. Termination WITHOUT cause forfeits
+    nothing (agreement 5.3 / 11.3): new lines are payable, and the payout
+    minimum does not block that partner's final balance
+    (`affiliate_service.final_balance_due`, `affiliate_admin.payout_block_reason`).
+    Forfeiture ONLY via `affiliate_service.terminate_for_cause` (records the
+    cause; in the same transaction `forfeit_unpaid` voids pending payout rows,
+    `external_ref` `FORFEIT_REF`, and every held / payable line, including lines
+    already on an unpaid payout row). A line held for any other reason is
+    released only by the operator: Change terms page -> "Release held lines"
+    (`release_held_lines`, audited).
+  - **Self-serve discount.** `set_partner_discount` (0..`max_discount_pct`, one
+    change per 24h via `affiliates.discount_changed_at`, history in
+    `affiliate_discount_changes`): mints a new coupon and re-points the SAME
+    code; NO pause, NO re-sign; 0% removes the coupon and deactivates the typed
+    code. Existing subscribers keep their coupon and their stamped terms. (The
+    older admin "Change terms" view still pauses + re-signs - Phase 2 replaces it.)
+    The partner dashboard sets ONE discount for monthly and annual plans; a
+    separate monthly discount can only be set by an admin.
+  - **Coupon must equal the stamp.** `_partner_spec` applies a partner coupon
+    only when its Stripe `percent_off` (`coupon_percent_off`, cached per
+    process) equals the discount being stamped on the referral. An out-of-step
+    monthly coupon falls back to the flat coupon when that one matches, else NO
+    coupon and a 0% stamp (customer pays list, partner earns the full pool).
+  - **Campaigns** (`promo_campaigns`, company-wide, not partner-specific): tiers,
+    billing intervals, claim window, new-customers-only, offer `price`
+    (`intro_prices` per `<tier>:<interval>`) or `percent`. One Stripe coupon per
+    (tier, interval) with `applies_to` the plan's product + `redeem_by` the
+    window end; annual = `once`, monthly = repeating `intro_months` (12).
+    `create_campaign` / `update_campaign` take `catalog=_campaign_catalog()`.
+  - **Checkout (`stripe_create_checkout` -> `resolve_checkout_offer`).** The
+    PARTNER is resolved separately from the OFFER: a customer returning within
+    12 months of their last subscription ending stays with the previous partner
+    and keeps the year count (`find_returning_referral`, anchor carried,
+    `source='return'`); else URL/form code, then `tw_ref` cookie, then
+    `users.referred_by_affiliate_id` (`source='signup'`). **Attribution
+    precedence: a partner code in the URL at checkout beats the first-touch
+    `tw_ref` cookie** (and both beat the signup stamp). Active partners only;
+    self-referral never attributed. `_is_new_customer` counts only web/EOD-line
+    subscriptions that are live (active / trialing / past_due) or ever had a
+    paid invoice above $0 (ended less than 12 months ago): an abandoned
+    checkout (`incomplete*`), a trial canceled before the first charge and a
+    Developer API subscription do not make someone an existing customer. The OFFER is the lower FIRST-PERIOD price of
+    the live campaign (new customers only: `_is_new_customer`) and the partner
+    discount; a tie goes to the partner. Exactly ONE discount is pre-applied
+    (never stacked; engine guard `extra_discount` falls back to the promo rule
+    if an extra coupon lands on a regular sale). Subscription metadata stamped:
+    `tw2_affiliate_id`, `tw2_affiliate_code`, `tw2_affiliate_source`,
+    `tw2_terms_id`, `tw2_offer_type`, `tw2_campaign_id`, `tw2_campaign_code`,
+    `tw2_list_price_cents`, `tw2_discount_pct`, (`tw2_year_anchor_at`,
+    `tw2_prior_referral_id` for a return), `period`.
+  - **Webhook.** `customer.subscription.created` ->
+    `record_referral_from_subscription`: the metadata snapshot, OR - when the
+    customer TYPED a partner code into Stripe's promo box (no metadata) - the
+    partner mapped from the subscription's discount coupon (current coupons or
+    `affiliate_discount_changes`), `source='promo_code'`, so renewals survive
+    the coupon falling off. `customer.subscription.deleted` -> `ended_at`. All
+    three writers run in a SAVEPOINT and never raise.
+  - **Founders** ($189 legacy price): `FOUNDER_PRICE_IDS` (env
+    `TW2_FOUNDER_PRICE_IDS`, comma-separated, default empty) OR price/product
+    metadata `tw2_founder=true`. Checkout returns 409 `founder_plan_locked`
+    (never the portal update-confirm flow; the check fails closed);
+    `/account/manage-subscription` gives a founder a cancel-only portal session
+    (`TW2_FOUNDER_BILLING_PORTAL_CONFIGURATION_ID` if set, else the
+    `subscription_cancel` flow). The dunning final-notice email
+    (`_fire_dunning_final_notice`) uses the same guard: a founder gets the
+    cancel-only configuration, or the plain `/account` link when it is not set
+    or the founder check fails - never a default (plan-switch) portal session.
+    **Setting `TW2_FOUNDER_BILLING_PORTAL_CONFIGURATION_ID` is a deploy
+    blocker** whenever `TW2_FOUNDER_PRICE_IDS` is set: the app logs a
+    `DEPLOY BLOCKER` error at startup (`warn_founder_portal_config`). The web/EOD Billing Portal configuration is
+    dashboard-managed (only the API portal is seeded in code), so the founder
+    portal configuration with plan switching OFF must be created in the Stripe
+    dashboard - see TW-TASK-0038.
+  - **Display.** `/join/<code>` context gains `offers`; `GET /api/offers`
+    (`?code=`/`?via=`/`tw_ref`) returns the effective offer per plan in cents
+    (`display_offers`), same price choice as checkout.
+  - **Legacy rows / deploy step.** The migration moves every partner to
+    `v2-5y`, clamps discounts to 25, PAUSES active partners and clears their
+    signature (archived to `audit_log` action `affiliate_v2_resign_required`)
+    so they re-sign agreement v2. A migration cannot call Stripe: run
+    `affiliate_service.reconcile_v2_stripe(session)` once afterwards
+    (deactivates paused codes, re-issues coupons that were above 25% - the
+    annual coupon AND the monthly override coupon, which is dropped when
+    monthly now equals annual).
+  - **Partner documents (v2).** `docs/AFFILIATE_AGREEMENT.md` is agreement
+    version 2; `web/affiliate_agreement.py:AGREEMENT_VERSION = "2026-11-24"`
+    must move with it. `exhibit(affiliate, session=None)` builds Exhibit A from
+    `terms_for` (pool, max discount, promo rate, renewal rate, renewal term
+    "Commission Years 2-N" or "Lifetime", activity rule incl.
+    `ACTIVITY_GRACE_DAYS`, $50 payout minimum, payout method) plus the partner's
+    CURRENT discount per interval and a worked $100 example; `ex["rows"]` is
+    the one ordered list `build_snapshot` freezes. `record_signature` always
+    stamps the current version (a migrated row still labelled `2026-06-11` must
+    not record v2 text under the v1 label). Old signed snapshots are stored
+    text and are never re-rendered. `docs/AFFILIATE_PARTNER_GUIDE.md` carries
+    the acceptance-table examples, the activity timeline, the statement states
+    and the FAQ; the portal renderer still splits it at the first `---` and
+    swaps the `ANNE` placeholders. OPEN: `web/templates/affiliate_sign.html`
+    still prints the v1 Exhibit A rows (it must loop `ex.rows`), and the
+    portal's `_partner_details_md` still prints v1 rate lines.
+- **Affiliate operations + growth tools (TW-TASK-0039 package C, built 2026-11-24, NOT yet
+  on any box).** Logic: `web/affiliate_ops.py`; tables: `web/affiliate_ops_models.py`
+  (shares `models.Base`); migration `c0a1b2d3e4f5_affiliate_ops_growth` (parent `b4d7e1f2a3c5`;
+  packages A and B branch from the same parent, so a merge revision follows). Partner routes:
+  `web/affiliate_portal/ops_routes.py` (page data reaches the templates through the `aff_ops`
+  template global, so `routes.py` is untouched). Admin: `web/affiliate_ops_admin.py` ->
+  `/admin/affiliate_bulk_payouts/`, `/admin/affiliate_tax_forms/`, `/admin/affiliate_creatives/`.
+  - **Tax forms.** Partner uploads a W-9 / W-8BEN / W-8BEN-E PDF on Payouts (`POST
+    /account/affiliate/tax-form`). Checks: `.pdf` name, PDF content type, `%PDF-` magic bytes and
+    `%%EOF` trailer, 5 MB (`TW2_TAX_FORM_MAX_BYTES`), 5 uploads a day. Stored Fernet-encrypted
+    as `<uuid>.bin` (mode 0600) in `config.TAX_FORM_DIR` (`TW2_TAX_FORM_DIR`, default
+    `/var/lib/tradewave/affiliate-tax-forms`); upload is REFUSED when `TW2_TAX_FORM_KEY` is
+    empty or malformed, or when the folder sits inside `web_root_dir`. The key may be a
+    comma-separated list (first encrypts, all decrypt) for rotation. Row
+    `affiliate_tax_forms.status`: received -> accepted | rejected (reason shown to the partner),
+    `replaced` when superseded. Accept writes `affiliates.tax_form_type` +
+    `tax_form_received_at`, which is the ONLY thing the payout gate reads
+    (`affiliate_admin.payout_block_reason`). Files of rejected / replaced forms are deleted.
+    Download is admin-only and writes `audit_log` action `affiliate_tax_form_downloaded` BEFORE
+    the bytes are sent. INVARIANT: losing the key makes stored forms unreadable - back it up
+    with secrets.env; `TAX_FORM_DIR` must be in the box backup and never under nginx.
+  - **Self-serve payout details.** The partner sets PayPal / Wise, the payout email and the
+    account holder name on the Payouts page (`POST /account/affiliate/payouts/details` ->
+    `affiliate_service.set_payout_details`; columns `payout_method`, `payout_email`,
+    `payout_account_name`, migration `f3a4b5c6d7e8`). Every save writes `audit_log` action
+    `affiliate_payout_details_changed` and sends the required notice `payout_details_changed`
+    to the ACCOUNT email, addresses masked (`affiliate_comms.notify_payout_details_changed`).
+    Changing a method / payout email that was already on file also stamps
+    `affiliates.payout_details_changed_at`; for 24 hours after it
+    `affiliate_admin.payout_block_reason` refuses mark-paid and the bulk export skips the row
+    ("Payout details changed, 24h hold"). Admin edits in Flask-Admin start no hold; clearing
+    `payout_details_changed_at` there releases one. The Wise export file uses
+    `payout_account_name` when set, else `name`.
+  - **Sub-links.** `?code=ANNE&sub=youtube` and `/join/ANNE?sub=youtube`; slug
+    `^[a-z0-9][a-z0-9_-]{0,39}$`. Cookie `tw_ref_sub` = `<CODE>:<sub>` set beside `tw_ref`
+    (server on `/join` and `/pricing`, home-page JS otherwise). Stored on
+    `affiliate_sublink_clicks` (registered links only, so a visitor cannot create rows),
+    `users.referred_sub` and `affiliate_referrals.sub_link` (via subscription metadata
+    `tw2_affiliate_sub`, stamped AFTER the partner is resolved and only when the tag belongs
+    to that partner). REPORTING ONLY: attribution and the commission engine never read it.
+    Links page: clicks / signups / paid / earned per sub-link, plus per promotion (clicks and
+    signups from sub-links the partner tied to the campaign; paid and earned from
+    `affiliate_referrals.campaign_id`).
+  - **Bulk payouts.** One export file per (method, currency) of PAYABLE pending ledger rows
+    (same gate as mark-paid, plus payout method + email). PayPal Payouts Web file: no header,
+    `email,amount,currency,reference,note,PAYPAL`. Wise batch file: header
+    `affiliate_ops.WISE_COLUMNS`. Reference = `TWP` + zero-padded `affiliate_payouts.id`.
+    Bulk mark-paid (paste or CSV, preview then confirm) re-runs the gate per row under a row
+    lock, sets status / paid_at / external_ref and calls `sync_paid_lines`. Nothing here
+    contacts PayPal or Wise or moves money.
+  - **Creative library.** `affiliate_creatives` (banner | logo | email | social; evergreen or
+    tied to a `promo_campaigns` row and then shown only while it is live). Images are verified
+    with Pillow and stored under `<web_root>/assets/affiliate-creatives/` (public, so partners
+    can embed them; `TW2_AFFILIATE_CREATIVE_DIR` overrides). Copy placeholders: `{link}`
+    `{join_link}` `{code}` `{discount}` `{name}`.
+  - **Monthly operations summary.** `web/affiliate_ops_summary.py --email`, cron `30 6 3 * *`
+    (installed by `ops/install_affiliate_crons.sh web`), one day after the ledger sweep. Reads
+    the ledger only (no Stripe call, no compute, never marks paid); plain rules, no LLM. One
+    email per month to the owner address (`AFFILIATE_OWNER_EMAIL`, see fix-0039), made idempotent
+    by `audit_log` action `affiliate_ops_summary_sent`. Thresholds:
+    `TW2_AFFILIATE_OPS_LARGE_REFUND_CENTS` (20000), `TW2_AFFILIATE_OPS_ACTIVITY_WARN_DAYS` (30).
 - **Standalone promo coupons (Coupons tab)** - plain marketing discount codes
   with NO affiliate / commission / payout. `web/promo_service.py` + `web/models.py`
   (`PromoCoupon`) + migration `b2c0fee1d3a5` + the top-level Flask-Admin **Coupons**
@@ -295,11 +650,14 @@ Generators live in `/home/flask/blog/` on TW1 (TW2 moved them to `site/` + `smn/
   (`site/templates/index-dark-blue.html`) (1) stamps the code onto this page's
   checkout forms and (2) stores a first-party `tw_ref` cookie (60-day, first-touch,
   SameSite=Lax) so attribution survives navigation + the WorkOS signup round-trip.
-  `web/app.py:stripe_create_checkout` resolves the code from the URL param, the form
-  field, OR the `tw_ref` cookie (`_resolve_affiliate_promo`, active affiliates only)
-  and PRE-APPLIES the affiliate's promotion code via `discounts=[...]` (falls back to
-  manual entry if Stripe rejects it). The Stripe coupon stays the attribution source
-  of truth. Disclosed in the Privacy Policy (`PRIVACY_COOKIE_NOTE` in
+  `web/app.py:stripe_create_checkout` resolves the PARTNER from the URL param, the
+  form field, the `tw_ref` cookie, then the signup stamp
+  (`affiliate_service.resolve_checkout_offer`, active partners only) and PRE-APPLIES
+  exactly one discount via `discounts=[...]` - the partner's code or a cheaper live
+  campaign coupon (falls back to manual entry if Stripe rejects it). The
+  `affiliate_referrals` row is the attribution source of truth; the coupon is the
+  fallback. (`_resolve_affiliate_promo` remains in app.py but checkout no longer
+  calls it.) Disclosed in the Privacy Policy (`PRIVACY_COOKIE_NOTE` in
   `site/generate_text_pages.py`); first-party only, no third-party/ad trackers.
   Logged-out signup->subscribe: `/api/stripe/create-checkout` accepts **GET as well
   as POST** and the pricing CTAs submit as **GET**, so tier/period/code ride in the

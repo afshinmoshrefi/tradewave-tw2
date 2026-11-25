@@ -94,6 +94,9 @@ server {
     location /affiliate/sign/ { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
     # /join/<code> = the affiliate co-branded landing page (dynamic, web tier).
     location /join/         { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
+    # /partners/apply (public partner application) + /partners/email-preferences/
+    # and /partners/unsubscribe/ (links in partner emails). Dynamic, web tier.
+    location /partners/     { proxy_pass http://tw2_web; include /etc/nginx/snippets/tw2-proxy-headers.conf; }
 
     # ============================================================
     # React SaaS at /app  — index.html via web tier (real auth);

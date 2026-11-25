@@ -1,25 +1,32 @@
 # TradeWave Affiliate Program Agreement
 
-> **DRAFT — NOT YET IN EFFECT. NOT LEGAL ADVICE.**
-> Authored to match TradeWave's actual program mechanics and reviewed for
-> code-consistency, internal contradictions, and legal gaps. Have a Massachusetts
-> attorney review it before any partner countersigns — especially Section 7
-> (Acceptable Promotion / securities acknowledgment) and Sections 13–14
+> **Version 2 (2026-11-24). DRAFT - NOT YET IN EFFECT. NOT LEGAL ADVICE.**
+> Authored to match TradeWave's affiliate program v2 mechanics (TW-TASK-0038).
+> Have a Massachusetts attorney review it before any partner signs - especially
+> Section 4 (Commission: pool, promotions, renewals, activity requirement),
+> Section 7 (Acceptable Promotion / securities acknowledgment), Section 11
+> (pause, forfeiture, trailing commissions) and Sections 13-14
 > (Liability / Indemnification), because TradeWave is a financial product.
 >
-> **Commercial decisions applied** (change any if you wish):
-> - **Governing law:** Commonwealth of Massachusetts (§15.1).
-> - **Recurring-commission promise:** *Hybrid* — each existing referral's rate is
->   locked until that customer's subscription ends, but the Program may be wound
->   down on 90 days' notice (§4.3, §11.3–11.4, §12).
-> - **Disputes:** Massachusetts courts + mandatory informal resolution + class-action
->   waiver (§15.6).
+> **Commercial decisions applied in version 2:**
+> - **First year:** 50% Commission Pool of the regular pre-tax list price; the
+>   partner chooses a Customer Discount of 0-25% out of that pool (Sections 4.1-4.2).
+> - **Promotions:** the customer gets the lower price, never both; a referred
+>   promotion sale pays 50% of the amount paid (Section 4.3).
+> - **Renewals:** 25% of amounts paid, for the Renewal Term in Exhibit A, only
+>   while the partner meets the Activity Requirement: 1 new paying customer in
+>   the trailing 12 months plus a 30-day grace period (Sections 4.4-4.5).
+> - **Paused accounts:** commissions are held, not forfeited; forfeiture only on
+>   termination for Cause (Sections 5.8, 11.3).
+> - **Payout minimum:** $50, smaller balances carried forward (Section 5.3).
+> - **Governing law / disputes:** Massachusetts; informal resolution first;
+>   class-action waiver (Sections 15.1, 15.6).
 > - **Affiliate name/likeness:** Company may list affiliates as participating
->   partners (§8.3).
-> - **Minimum payout hold:** small balances under **$50** may be held and rolled
->   into a later payout at Company's discretion (§5.3) — adjust the number if desired.
+>   partners (Section 8.3).
 >
-> **Still to fill in before signing:** Exhibit A per-affiliate values; signatures.
+> The version constant is `AGREEMENT_VERSION` in `web/affiliate_agreement.py`;
+> keep the two in step. Signed copies of earlier versions are stored as frozen
+> snapshots and are not affected by edits to this file.
 
 ---
 
@@ -27,26 +34,36 @@ This Affiliate Program Agreement ("**Agreement**") is entered into between **Tar
 Data Research LLC**, a Massachusetts limited liability company doing business as
 **TradeWave** ("**Company**," "**we**," "**us**"), and the individual or entity
 that accepts this Agreement (the "**Affiliate**," "**you**"). It is effective on
-the date you accept it as described in Section 2 (the "**Effective Date**").
+the date you accept it as described in Section 2 (the "**Effective Date**"). This
+is version 2 of the Agreement. From the Effective Date forward it replaces any
+earlier version you signed.
 
-The Affiliate-specific commercial terms — your referral code, your audience's
-discount, your commission rate, your commission model, and your payout details —
-are set out in **Exhibit A**, which is part of this Agreement.
+The Affiliate-specific commercial terms - your referral code, your Commission
+Pool, your Customer Discount, your Renewal Rate and Renewal Term, and your payout
+details - are set out in **Exhibit A**, which is part of this Agreement.
 
 ## 1. Definitions
 
-- **Referral Code** — the unique code assigned to you (e.g., `YOURNAME`), listed in Exhibit A.
-- **Referral Link** — a TradeWave URL containing your Referral Code (e.g., `https://tradewave.ai/?code=YOURNAME`) that pre-applies the Audience Discount.
-- **Audience Discount** — the discount your Referral Code or Link applies to a Referred Customer's subscription, in the amount and for the limited period stated in Exhibit A (by default, the customer's first 12 months).
-- **Cookie Window** — the **60-day** period following a visitor's first click on your Referral Link to a TradeWave landing page, during which (where the visitor's browser permits) that visitor is attributed to you on a first-touch basis, subject to Section 3.
-- **Referred Customer** — a new customer who starts a paid TradeWave subscription using your Referral Code, or within your Cookie Window, and who is validly attributed to you under Section 3.
-- **Qualifying Subscription** — a paid subscription by a Referred Customer for which Company actually receives and retains payment, and that has not been refunded, charged back, or otherwise reversed.
-- **Net Revenue** — the amount Company actually receives from a Qualifying Subscription payment, **after** the Audience Discount and **excluding** sales/VAT/other taxes. Net Revenue does **not** include any amount that is refunded, charged back, disputed, or uncollected.
-- **Commission Rate** — the percentage of Net Revenue payable to you, set out in Exhibit A.
-- **Commission Model** — the model selected in Exhibit A (Recurring, First-payment, or 12-month) that determines **which** Qualifying Subscription payments earn Commission, as described in Section 4.2.
-- **Commission** — the amount payable to you, calculated under Section 4.
-- **Invalid Referral** — any referral or subscription that is self-referred, circular, fraudulent, generated by means prohibited by Section 7, incentivized in violation of Section 7, or otherwise not a genuine, voluntary referral.
-- **Program** — the TradeWave affiliate program governed by this Agreement.
+- **Referral Code** - the unique code assigned to you (e.g., `YOURNAME`), listed in Exhibit A.
+- **Referral Link** - a TradeWave URL containing your Referral Code (e.g., `https://tradewave.ai/?code=YOURNAME`) that applies your Customer Discount at checkout.
+- **Cookie Window** - the **60-day** period following a visitor's first click on your Referral Link to a TradeWave landing page, during which (where the visitor's browser permits) that visitor is attributed to you on a first-touch basis, subject to Section 3.
+- **Referred Customer** - a new customer who starts a paid TradeWave subscription using your Referral Code, or within your Cookie Window, and who is validly attributed to you under Section 3.
+- **List Price** - Company's regular published price for the plan and billing interval (monthly or annual) the Referred Customer buys, before any discount and before sales tax, VAT or other taxes.
+- **Amount Paid** - the amount Company actually receives and keeps for a subscription payment, excluding sales tax, VAT and other taxes. It does not include any amount that is refunded, charged back, disputed or uncollected.
+- **Commission Pool** - the percentage of List Price stated in Exhibit A (by default **50%**) that is shared between your Customer Discount and your first-year Commission, as described in Section 4.1.
+- **Customer Discount** - the discount, from **0%** up to the maximum stated in Exhibit A (by default **25%**), that you choose to give your Referred Customers off the List Price for their First Year, as described in Section 4.2.
+- **First Year** - the first 12 months of paid service of a Referred Customer's subscription. It starts on the date of the subscription's first successful payment of more than zero. Free trials, $0 invoices and failed payments do not start it.
+- **Commission Year** - each successive 12-month period of paid service counted from the start of the First Year. The First Year is Commission Year 1. A payment belongs to the Commission Year in which the service period it pays for begins.
+- **Promotion** - a limited-time, company-wide sale price or discount that Company offers to new customers on stated plans, as described in Section 4.3.
+- **Promotion Rate** - the percentage stated in Exhibit A (by default **50%**) used to calculate your Commission on a Referred Customer who buys at a Promotion price.
+- **Renewal Rate** - the percentage stated in Exhibit A (by default **25%**) used to calculate your Commission on renewal payments, as described in Section 4.4.
+- **Renewal Term** - the Commission Years, after the First Year, in which renewal payments can earn Commission, as stated in Exhibit A: Commission Years 2 through 5, Commission Years 2 through 10, or lifetime.
+- **New Paying Customer** - a Referred Customer, counted on the date of the first successful payment of more than zero on their first subscription attributed to you. A customer in a free trial is not a New Paying Customer until that payment is made. A returning customer under Section 4.6 is not counted as a New Paying Customer again.
+- **Activity Requirement** - the requirement in Section 4.5 that you have brought in at least one New Paying Customer in the trailing 12 months plus a 30-day grace period.
+- **Qualifying Payment** - a subscription payment by a Referred Customer that Company actually receives and keeps, and that has not been refunded, charged back or otherwise reversed.
+- **Commission** - the amount payable to you, calculated under Section 4.
+- **Invalid Referral** - any referral or subscription that is self-referred, circular, fraudulent, generated by means prohibited by Section 7, incentivized in violation of Section 7, or otherwise not a genuine, voluntary referral.
+- **Program** - the TradeWave affiliate program governed by this Agreement.
 
 ## 2. Enrollment and Acceptance
 
@@ -58,11 +75,11 @@ are set out in **Exhibit A**, which is part of this Agreement.
 
 ## 3. Referrals and Attribution
 
-3.1 **How a referral is credited.** A visitor is attributed to you when they either (a) click your Referral Link to a TradeWave landing page, or (b) present your Referral Code at checkout. Clicking your Referral Link sets a first-party cookie (where the visitor's browser permits) that remembers the attribution for the Cookie Window, so a visitor who returns and subscribes later — within 60 days — can still be credited to you. Attribution may also be carried directly by the Referral Code on the checkout request.
+3.1 **How a referral is credited.** A visitor is attributed to you when they either (a) click your Referral Link to a TradeWave landing page, or (b) present your Referral Code at checkout. Clicking your Referral Link sets a first-party cookie (where the visitor's browser permits) that remembers the attribution for the Cookie Window, so a visitor who returns and subscribes later - within 60 days - can still be credited to you. Attribution may also be carried directly by the Referral Code on the checkout request.
 
-3.2 **Precedence.** A Referral Code or Link expressly used at checkout controls attribution for that subscription. If no code is expressly used at checkout, the first-party cookie (first-touch — an existing cookie is not overwritten by a later visit) controls for the remainder of the Cookie Window. Final attribution is determined by which affiliate's coupon is recorded on the resulting paid invoice (Section 3.5).
+3.2 **Precedence.** A Referral Code or Link expressly used at checkout controls attribution for that subscription. If no code is expressly used at checkout, the first-party cookie (first-touch - an existing cookie is not overwritten by a later visit) controls for the remainder of the Cookie Window. Final attribution is the referral that Company's systems record for the subscription at checkout (Section 3.5).
 
-3.3 **One code per Affiliate.** You are issued one Referral Code and one corresponding Audience Discount. You may not request, generate, or use additional codes without Company's written approval.
+3.3 **One code per Affiliate.** You are issued one Referral Code. You may not request, generate, or use additional codes without Company's written approval.
 
 3.4 **No self-referrals; Invalid Referrals excluded.** Subscriptions you purchase for yourself, or that are attributable to your own email or account, are Invalid Referrals and earn no Commission. Company excludes self-referrals automatically and may exclude any other Invalid Referral.
 
@@ -70,27 +87,38 @@ are set out in **Exhibit A**, which is part of this Agreement.
 
 ## 4. Commission
 
-4.1 **Calculation.** For each Qualifying Subscription payment attributed to you, your Commission equals your Commission Rate (Exhibit A) multiplied by the Net Revenue of that payment. Because Net Revenue is measured after the Audience Discount and excludes taxes, your Commission is a percentage of what the Referred Customer actually pays us for the subscription, not of list price.
+4.1 **First Year - the Commission Pool.** For each Referred Customer who buys at your Customer Discount, your Commission on each Qualifying Payment in the First Year equals the List Price for that payment multiplied by (the Commission Pool percentage minus the Customer Discount percentage that applied to that customer at checkout). The Customer Discount comes out of the Commission Pool; Company's share of the List Price does not change. Example with a 50% Commission Pool and a $100 List Price: at a 0% Customer Discount the customer pays $100 and you earn $50; at 5% the customer pays $95 and you earn $45; at 20% the customer pays $80 and you earn $30. On a monthly plan this applies to each monthly payment in the First Year. Taxes are never part of the calculation.
 
-4.2 **Commission Model.** Your Exhibit A specifies one of the following, which controls **which** payments earn Commission:
+4.2 **Your Customer Discount.** You choose your Customer Discount, anywhere from 0% up to the maximum in Exhibit A, and you may change it at any time from your partner dashboard without signing this Agreement again. The Customer Discount you set from your partner dashboard is one value: it applies to both monthly and annual plans. A different Customer Discount for monthly plans applies only where Company has set one for you, and Exhibit A shows the Customer Discount for each plan type. A change is **prospective only**: it applies to customers whose checkout starts after the change is saved. Customers who already subscribed keep the discount they received, and your Commission on them continues to be calculated with the Customer Discount that applied at their checkout. Company may limit how often the Customer Discount can be changed (currently once every 24 hours) and keeps a history of changes. The Customer Discount applies to the Referred Customer's First Year only (one billing period on an annual plan, the first 12 months on a monthly plan); after that the customer pays the regular price.
 
-  - **Recurring (default).** You earn Commission on **every** Qualifying Subscription payment for as long as the Referred Customer maintains an active paid subscription, subject to Sections 4.3–4.4 and 11.
-  - **First-payment.** You earn Commission only on the **first** Qualifying Subscription payment attributed to your Referral Code.
-  - **12-month.** You earn Commission on Qualifying Subscription payments made within **365 days** of the Referred Customer's first payment attributed to your Referral Code.
+4.3 **Promotions.** From time to time Company may run a Promotion. When a visitor attributed to you is eligible for a Promotion:
 
-4.3 **Duration and rate lock.** Commission under the Recurring model continues only while the Referred Customer's subscription remains active and paid. For your existing Referred Customers, your Commission Rate is **locked** for the life of each such subscription and will not be reduced (see Section 12), except if the Program is discontinued under Section 11.4.
+  - (a) **The customer gets the lower price, never both.** The customer receives whichever first-period price is lower: the Promotion price or the price at your Customer Discount. The two are never combined. If the two prices are equal, your Customer Discount applies.
+  - (b) **If the Promotion price applies,** you keep the referral credit, and your Commission in the First Year equals the Promotion Rate multiplied by the Amount Paid on each Qualifying Payment, in place of the Commission Pool calculation in Section 4.1. Example at a 50% Promotion Rate: a $99 Promotion sale earns $49.50; a $50 Promotion sale earns $25.
+  - (c) **If your Customer Discount price applies,** Section 4.1 applies as usual.
+  - (d) Company decides whether, when and on which plans to run a Promotion, and who is eligible. A Promotion sale that is not attributed to you earns no Commission.
 
-4.4 **No Commission is earned on:** (a) Invalid Referrals, including your own or self-referred subscriptions; (b) taxes or fees; (c) amounts that are refunded, charged back, disputed, or never collected; or (d) free trials, 100%-off redemptions, or other non-paying periods, unless and until they convert to a paid, retained payment.
+4.4 **Renewals.** After the First Year, your Commission on each Qualifying Payment that falls in a Commission Year within your Renewal Term equals the Renewal Rate multiplied by the Amount Paid, provided you meet the Activity Requirement in Section 4.5 on the date of that payment. Example at a 25% Renewal Rate: a $399 annual renewal earns $99.75. With a Renewal Term of Commission Years 2 through 5, an annual subscription has up to four renewal payments that can earn Commission, and a monthly subscription earns the Renewal Rate on the payments for months 13 through 60. Payments in a Commission Year after the Renewal Term earn no Commission. A lifetime Renewal Term has no last Commission Year, but remains subject to Sections 4.5, 11 and 12.
 
-4.5 **Adjustments and clawback.** Commission is provisional until paid. If a payment underlying a previously-credited Commission is later refunded or charged back, or if Company determines a referral was an Invalid Referral, Company may **reverse** the corresponding Commission and **offset** it against current or future amounts owed to you, or invoice you for it if no future amounts are sufficient. Reversals are applied as a manual adjustment or offset against your next payout; Company is not required to automatically reverse Commissions on payments that have already been paid out to you.
+4.5 **Activity Requirement.** Renewal Commission under Section 4.4 is earned on a renewal payment only if you brought in at least **one New Paying Customer in the 12 months plus 30 days ending on the date of that payment**. The extra 30 days are a grace period. Example: if your only New Paying Customer made their first payment on January 15, 2027, a renewal payment made on January 15, 2028 still earns Commission; if you have brought in no New Paying Customer by about February 14, 2028, renewal payments made after that date do not. Customers in a free trial do not count until they make a successful payment of more than zero. If you do not meet the Activity Requirement on the date of a renewal payment, no Commission is earned on that payment: it is **forfeited** and is not paid later, even if you become active again. Renewal Commission resumes with the next renewal payment made after you bring in a New Paying Customer. The Activity Requirement does not apply to First Year Commission under Sections 4.1 and 4.3.
+
+4.6 **Customers who cancel and return.** If a Referred Customer's subscription ends and the same customer starts a new paid subscription **within 12 months** after it ended, the customer remains attributed to you and the count of Commission Years continues from the original start of the First Year; no new First Year begins. If the same customer returns **more than 12 months** after the subscription ended, they are treated as a new customer: they are attributed under Section 3 to whichever affiliate refers them at that time, or to no one.
+
+4.7 **Terms are fixed for each Referred Customer at checkout.** The Commission Pool, Customer Discount, Promotion Rate, Renewal Rate, Renewal Term and List Price that apply to a Referred Customer are recorded when that customer checks out. Your Commission on that customer is calculated from those recorded terms for as long as it is payable under this Agreement, and is not recalculated if you later change your Customer Discount or if the Program terms later change (Section 12).
+
+4.8 **No Commission is earned on:** (a) Invalid Referrals, including your own or self-referred subscriptions; (b) taxes or fees; (c) amounts that are refunded, charged back, disputed, or never collected; (d) free trials, 100%-off redemptions, or other non-paying periods, unless and until they convert to a paid, retained payment; (e) payments in a Commission Year after your Renewal Term; or (f) renewal payments made while you do not meet the Activity Requirement.
+
+4.9 **Refunds, chargebacks and reversals.** Commission is provisional until paid. If a payment underlying a Commission is later refunded or charged back, in full or in part, the matching Commission is **reversed at the same rate and by the same calculation that was used for the original payment**, in proportion to the amount refunded or charged back. Example: a full refund of an $80 sale that earned $30 reverses $30; a $40 partial refund of that sale reverses $15. If Company determines a referral was an Invalid Referral, Company may reverse all Commission on it. A reversal is applied in the month it occurs and offset against current or future amounts owed to you, including where the original Commission was already paid; if no future amounts are sufficient, Company may invoice you for the difference.
+
+4.10 **Legacy pricing plans.** Promotions are offered to new customers only. A subscription on a legacy pricing plan that Company no longer offers to new customers is not eligible for Promotions and cannot be moved to a Promotion price. Where such a subscription is attributed to you, any Commission on it is calculated under this Section 4 on the Amount Paid.
 
 ## 5. Payment
 
-5.1 **Cadence.** Company calculates Commissions after each calendar month closes and once the underlying payments have settled, and pays earned Commissions on a **monthly** basis thereafter.
+5.1 **Cadence.** Company calculates Commissions after each calendar month closes and once the underlying payments have settled, and pays earned Commissions on a **monthly** basis thereafter, by the **15th day of the month following the statement month** (subject to Sections 5.3, 5.5 and 6).
 
-5.2 **Method.** Company pays by **PayPal or Wise** to the account you specify in Exhibit A. You are responsible for keeping your payout details current; Company is not liable for amounts misdirected due to inaccurate details you provide.
+5.2 **Method and payout details.** Company pays by **PayPal or Wise** to the payout account you set in your partner dashboard (shown in Exhibit A on the signing date). You may change your payout method, payout email and account holder name at any time from your partner dashboard. For your security, when you change a payout method or payout email that was already on file, Company sends a confirmation to your account email (not to the new payout address) and holds payouts to you for **24 hours** after the change; a payout that falls in that window is sent once the hold ends. You are responsible for keeping your payout details current; Company is not liable for amounts misdirected due to inaccurate details you provide or due to a change made through your account.
 
-5.3 **Small-balance hold.** Commissions are computed and ledgered per calendar month and per currency. If your payable balance in a currency for a period is less than **$50** (or the equivalent), Company may hold it and include it in a later payout once the balance reaches that amount. Company does not forfeit earned balances; it may simply defer de minimis payouts.
+5.3 **Payout minimum.** Commissions are computed and ledgered per calendar month and per currency. The payout minimum is **$50** (or the equivalent in another currency). If your payable balance in a currency is below the payout minimum, it is not paid that month; it is **carried forward** and paid in the first month in which your balance reaches the minimum. A carried-forward balance is never forfeited because it is small. When this Agreement ends other than for Cause, Company will pay any remaining earned balance regardless of the minimum.
 
 5.4 **Currency and fees.** Commissions are calculated and paid in the currency in which the underlying subscriptions were paid; each currency is paid to your single payout account. You bear any third-party transfer, currency-conversion, or account fees charged on your end by PayPal or Wise.
 
@@ -100,11 +128,13 @@ are set out in **Exhibit A**, which is part of this Agreement.
 
 5.7 **Set-off.** Company may set off against any Commissions or other amounts owed to you any amount you owe Company under this Agreement, including indemnification obligations, reversed Commissions, and amounts arising from your breach or fraud.
 
+5.8 **Paused accounts.** Company may pause your account, for example while a compliance question is reviewed or while a required signature or document is outstanding. While your account is paused your Referral Code and Link may be inactive, but Commissions on your existing Referred Customers **continue to accrue and are held**. Held Commissions become payable when your account is reinstated. Held Commissions are forfeited only if this Agreement is terminated for Cause under Section 11.
+
 ## 6. Taxes
 
 6.1 You are solely responsible for all taxes on Commissions you receive.
 
-6.2 As a condition of payment, you must provide a completed **IRS Form W-9** (U.S. persons), **Form W-8BEN** (non-U.S. individuals), or **Form W-8BEN-E** (non-U.S. entities), or other documentation Company reasonably requires. Company may withhold payment until it receives valid documentation and may issue a Form 1099 or other information return as required by law.
+6.2 As a condition of payment, you must provide a completed **IRS Form W-9** (U.S. persons), **Form W-8BEN** (non-U.S. individuals), or **Form W-8BEN-E** (non-U.S. entities), or other documentation Company reasonably requires. You upload it from your partner dashboard, and a valid tax form must be on file before any payout is made. Company may withhold payment until it receives valid documentation and may issue a Form 1099 or other information return as required by law.
 
 ## 7. Acceptable Promotion and Compliance
 
@@ -156,7 +186,7 @@ You and Company are **independent contractors**. Nothing in this Agreement creat
 
 11.1 **Term.** This Agreement begins on the Effective Date and continues until terminated.
 
-11.2 **Termination.** Either party may terminate this Agreement at any time, with or without cause, on written notice (email is sufficient). Company may suspend or terminate this Agreement **immediately** for Cause. "**Cause**" means any of the following, and Company will identify the specific Cause relied upon in its termination or suspension notice:
+11.2 **Termination.** Either party may terminate this Agreement at any time, with or without cause, on written notice (email is sufficient). Company may pause your account (Section 5.8) or terminate this Agreement **immediately** for Cause. "**Cause**" means any of the following, and Company will identify the specific Cause relied upon in its termination notice:
 
   - (a) **Misrepresentation.** You make a false, misleading, or deceptive statement about TradeWave - its features, pricing, data, or results - or any prohibited performance or income claim (Sections 7.1-7.2), or you present TradeWave as investment advice or remove or contradict its disclaimers (Sections 7.4, 7.9).
   - (b) **Fraud or Invalid Referrals.** You commit fraud or generate Invalid Referrals, including self-referrals, fake or incentivized signups, or cookie-stuffing (Sections 3.4, 7.7).
@@ -169,15 +199,15 @@ You and Company are **independent contractors**. Nothing in this Agreement creat
 
 11.3 **Effect of termination.**
 
-  - **For Cause.** Any termination or suspension by Company for a Cause defined in Section 11.2 is For Cause: all unpaid and future Commissions are **forfeited**, and Company may reverse affected paid Commissions under Section 4.5.
-  - **For Convenience.** Any other termination (including by you, or by Company without cause) is For Convenience: no new referrals are credited after the termination date, but Commissions on your **existing, active Referred Customers continue** to accrue and be paid at your locked Commission Rate under the applicable Commission Model, as if this Agreement remained in effect for those subscriptions, until each such subscription ends — subject only to Section 11.4.
-  - **Survival.** Sections 4.3–4.5, 5.6–5.7, 6, 8.2, 9, 10, 11.3–11.4, and 12–15 survive termination.
+  - **For Cause.** A termination by Company for a Cause defined in Section 11.2 is For Cause: all unpaid Commissions (including Commissions held under Section 5.8) and all future Commissions are **forfeited**, and Company may reverse affected paid Commissions under Section 4.9. A pause alone is not a termination and forfeits nothing.
+  - **For Convenience.** Any other termination (including by you, or by Company without cause) is For Convenience: no new referrals are credited after the termination date. Commissions earned up to the termination date remain payable. Commissions on your **existing Referred Customers continue** to accrue after termination on the terms recorded for each customer under Section 4.7, for the remainder of the First Year and the Renewal Term, and remain subject to the Activity Requirement in Section 4.5 and to Section 11.4. Because no new referrals are credited after termination, the Activity Requirement will stop Renewal Commission once 12 months plus 30 days have passed since your last New Paying Customer. Company may review the account before releasing payments after termination.
+  - **Survival.** Sections 4.4-4.9, 5.6-5.8, 6, 8.2, 9, 10, 11.3-11.4, and 12-15 survive termination.
 
 11.4 **Program discontinuation.** Company may modify or discontinue the Program in its entirety on **ninety (90) days'** written notice, after which no further Commissions accrue (including trailing Commissions under Section 11.3). Company will pay Commissions earned through the discontinuation date. Company will not use discontinuation in bad faith to target an individual affiliate's trailing Commissions.
 
 ## 12. Changes to Terms
 
-Company may change the Program terms, including Commission Rates and Audience Discounts, **prospectively** by giving written notice or posting updated terms. A change to the Commission Rate applies only to referrals first attributed **after** the change's effective date; the rate for your existing Referred Customers remains locked under Section 4.3, except where the Program is discontinued under Section 11.4. Changes never reduce Commissions you have already earned. Your continued participation after a change takes effect constitutes acceptance.
+Company may change the Program terms, including the Commission Pool, the maximum Customer Discount, the Promotion Rate, the Renewal Rate, the Renewal Term and the Activity Requirement, **prospectively** by giving written notice or posting updated terms. A change applies only to Referred Customers whose checkout starts **after** the change's effective date; the terms recorded for your existing Referred Customers under Section 4.7 stay as they are, except where the Program is discontinued under Section 11.4. Changes **never reduce Commissions you have already earned**. Your continued participation after a change takes effect constitutes acceptance. Changing your own Customer Discount under Section 4.2 is not a change to the Program terms and needs no notice or new signature.
 
 ## 13. Disclaimers and Limitation of Liability
 
@@ -195,7 +225,7 @@ You will defend, indemnify, and hold harmless Company, Tara Data Research LLC, a
 
 15.1 **Governing law.** This Agreement is governed by the laws of the **Commonwealth of Massachusetts**, without regard to conflict-of-laws rules.
 
-15.2 **Entire agreement.** This Agreement and Exhibit A are the entire agreement between the parties on this subject and supersede all prior discussions, including any statements on the public `/affiliate` marketing page. The recurring-commission commitment in Sections 4.3 and 11.3 is contractual and stated in this Agreement, not derived from that page.
+15.2 **Entire agreement.** This Agreement and Exhibit A are the entire agreement between the parties on this subject and supersede all prior discussions, including any statements on the public `/affiliate` marketing page. The commission commitments in Sections 4 and 11.3 are contractual and stated in this Agreement, not derived from that page. This Agreement also supersedes any earlier version of the affiliate agreement between the parties for referrals made on or after the Effective Date.
 
 15.3 **Assignment.** You may not assign this Agreement without Company's written consent. Company may assign it to an affiliate or successor.
 
@@ -224,7 +254,7 @@ By signing or clicking "I agree," each party accepts this Agreement and Exhibit 
 
 ---
 
-## Exhibit A — Affiliate-Specific Terms
+## Exhibit A - Affiliate-Specific Terms
 
 | Field | Value |
 |---|---|
@@ -232,17 +262,24 @@ By signing or clicking "I agree," each party accepts this Agreement and Exhibit 
 | Contact email | _______________________ |
 | **Referral Code** | _______________________ |
 | **Referral Link** | `https://tradewave.ai/?code=__________` |
-| **Audience Discount** | ______% off for the customer's first 12 months |
-| **Commission Rate** | ______% of Net Revenue |
-| **Commission Model** | ☐ Recurring (`recurring`) ☐ First-payment (`first_payment`) ☐ 12-month (`duration_12mo`) |
-| **Payout method** | ☐ PayPal ☐ Wise |
+| **Commission Pool** | 50% of the List Price (first year) |
+| **Maximum Customer Discount** | 25% |
+| **Your Customer Discount - annual plans** | ______% off the List Price (first year); you earn ______% of the List Price |
+| **Your Customer Discount - monthly plans** | ______% off the List Price (first 12 months); you earn ______% of the List Price |
+| **Promotion Rate** | 50% of the Amount Paid when a Promotion price applies |
+| **Renewal Rate** | 25% of the Amount Paid |
+| **Renewal Term** | [ ] Commission Years 2-5 [ ] Commission Years 2-10 [ ] Lifetime |
+| **Activity Requirement** | At least 1 New Paying Customer in the trailing 12 months plus a 30-day grace period |
+| **Payout minimum** | $50 (smaller balances carried forward) |
+| **Payout method** | [ ] PayPal [ ] Wise |
 | Payout account / email | _______________________ |
 | Payout currency(ies) | _______________________ |
-| Tax form on file | ☐ W-9 ☐ W-8BEN ☐ W-8BEN-E (entities) |
+| Tax form on file | [ ] W-9 [ ] W-8BEN [ ] W-8BEN-E (entities) |
 | Effective Date | _______________________ |
 
-*The Commission Model checkbox labels map to the values stored in the system
-(`recurring` / `first_payment` / `duration_12mo`). Default public terms, for
-reference: 20% Audience Discount for the customer's first 12 months, 30% recurring
-Commission Rate, monthly payouts by PayPal or Wise. Per-affiliate terms above
-control where they differ.*
+*The signing page renders this exhibit for each affiliate from their stored terms
+(`web/affiliate_agreement.py`, `exhibit()`), with a worked dollar example at the
+affiliate's current Customer Discount. The Customer Discount rows show the value
+on the signing date (the same value on both rows unless Company set a separate
+monthly discount); the affiliate may change it later under Section 4.2. The
+Renewal Term maps to `affiliate_terms.renewal_years` (5, 10, or empty for lifetime).*

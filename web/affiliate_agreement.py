@@ -14,7 +14,10 @@ Design (matches the locked decisions in docs/AFFILIATE_AGREEMENT.md):
     30-day expiry. Bumping agreement_token_version invalidates an issued link.
   - The agreement BODY is single-sourced from docs/AFFILIATE_AGREEMENT.md (the
     internal DRAFT banner blockquote and the static Acceptance/Exhibit A tables
-    are stripped); Exhibit A is rendered per-affiliate from their own fields.
+    are stripped); Exhibit A is rendered per-affiliate from their own fields
+    and their program terms (affiliate_service.terms_for -> AffiliateTerms):
+    exhibit() builds one ordered row list that BOTH the signing page and the
+    frozen snapshot print, so what is shown is what is stored.
   - Signing records name + timestamp + IP + user-agent + version + an immutable
     snapshot of the exact terms (the E-SIGN/UETA audit trail), and flips a
     'paused' affiliate to 'active' so the referral code goes live.
@@ -36,7 +39,23 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired 
 
 # Bump when the terms change materially so signatures record which version was
 # shown. Keep in step with docs/AFFILIATE_AGREEMENT.md.
-AGREEMENT_VERSION = "2026-06-11"
+#   2026-06-11  version 1: commission = rate x net revenue, three commission models
+#   2026-11-24  version 2 (TW-TASK-0038): 50% pool, partner-chosen 0-25% discount,
+#               promotions, renewals for a Renewal Term, activity requirement
+# Snapshots signed under an earlier version are immutable stored text
+# (affiliates.agreement_snapshot / the migration's archive) and are never
+# re-rendered from this module.
+AGREEMENT_VERSION = "2026-11-24"
+
+# Payout minimum stated in Section 5.3 and Exhibit A (whole US dollars).
+PAYOUT_MINIMUM_USD = 50
+
+# Grace period added to the activity window (Section 4.5) when
+# affiliate_service does not define ACTIVITY_GRACE_DAYS itself.
+ACTIVITY_GRACE_DAYS_DEFAULT = 30
+
+# List price used for the worked dollar example in Exhibit A (cents).
+EXAMPLE_LIST_PRICE_CENTS = 10000
 
 # itsdangerous salt namespaces this use of the app secret away from Flask's own
 # session cookie signing (which uses the same WORKOS_COOKIE_PASSWORD).
@@ -44,13 +63,6 @@ _SIGN_SALT = "affiliate-agreement-sign"
 
 # Link lifetime (seconds). 30 days is plenty for a hand-picked partner to sign.
 SIGN_TOKEN_MAX_AGE = 60 * 60 * 24 * 30
-
-# Human labels for the stored commission_model ids (mirror AffiliateAdmin.form_choices).
-COMMISSION_MODEL_LABELS = {
-    "recurring": "Recurring (lifetime)",
-    "duration_12mo": "First 12 months",
-    "first_payment": "First payment only",
-}
 
 _MD_PATH = Path(__file__).resolve().parent.parent / "docs" / "AFFILIATE_AGREEMENT.md"
 _BODY_HTML_CACHE = None
@@ -103,6 +115,12 @@ def referral_link(affiliate) -> str:
 def join_link(affiliate) -> str:
     """The co-branded landing page the affiliate can send their audience to."""
     return f"{_base()}/join/{affiliate.code}"
+
+
+def _partner_reply_to() -> str:
+    """Reply-To on every partner email: the support inbox, so a partner who
+    answers the email reaches a person (the From address does not)."""
+    return (getattr(config, "AFFILIATE_SUPPORT_EMAIL", "") or "help@tradewave.ai").strip()
 
 
 def dashboard_link() -> str:
@@ -169,81 +187,185 @@ def addendum_html(affiliate) -> str:
         raw, extensions=["tables", "sane_lists", "fenced_code"]))
 
 
-def exhibit(affiliate) -> dict:
-    """Per-affiliate Exhibit A values for the signing template / snapshot.
+def _fmt_money(cents) -> str:
+    """8000 -> '$80.00', 9975 -> '$99.75'."""
+    return "$%s" % format(Decimal(int(cents)) / Decimal(100), ",.2f")
 
-    For an interval-split affiliate (different discount/commission for monthly vs
-    annual plans) `is_split` is True and `monthly`/`annual` carry the effective
-    per-interval terms; flat affiliates use the single discount_pct/commission_pct."""
+
+def _terms(affiliate, session=None):
+    """The program terms behind this affiliate's Exhibit A (an AffiliateTerms
+    row, or the service default). Uses the given session, else the session the
+    ORM object is attached to, else the already-loaded `terms` attribute."""
     import affiliate_service as afs
-    from decimal import Decimal
-
-    def _ne(a, b):
+    if session is None:
         try:
-            return Decimal(str(a)) != Decimal(str(b))
+            from sqlalchemy.orm import object_session
+            session = object_session(affiliate)
         except Exception:
-            return a != b
+            session = None
+    if session is not None:
+        return afs.terms_for(session, affiliate)
+    return getattr(affiliate, "terms", None) or afs.DEFAULT_TERMS
 
-    # Only present the two-tier (monthly vs annual) breakdown when monthly ACTUALLY
-    # differs from annual on discount or commission. If a Monthly value was entered
-    # but equals Annual, the agreement / email stay single-rate (as if flat).
-    split = (_ne(afs.effective_discount_pct(affiliate, "month"), affiliate.discount_pct)
-             or _ne(afs.effective_commission_pct(affiliate, "month"), affiliate.commission_pct))
+
+def renewal_term_label(terms) -> str:
+    """'Commission Years 2-5' / '... 2-10' / 'Lifetime' for a terms version.
+    renewal_years is the LAST commission year; None = lifetime."""
+    last = getattr(terms, "renewal_years", None)
+    if last is None:
+        return "Lifetime"
+    last = int(last)
+    if last < 2:
+        return "None (first year only)"
+    return "Commission Years 2-%d" % last
+
+
+def exhibit(affiliate, session=None) -> dict:
+    """Per-affiliate Exhibit A (agreement version 2) for the signing page and
+    the snapshot.
+
+    Terms come from the backend (affiliate_service.terms_for): Commission Pool,
+    maximum Customer Discount, Promotion Rate, Renewal Rate, Renewal Term and
+    the Activity Requirement. The partner's CURRENT Customer Discount is shown
+    per billing interval (annual / monthly), each with the first-year rate it
+    leaves (pool - discount). `example` is a worked dollar example on a $100
+    plan at the annual discount. `rows` is the ordered (label, value) list
+    that both renderers print."""
+    import affiliate_service as afs
+
+    t = _terms(affiliate, session)
+    pool = Decimal(str(t.pool_pct))
+    sched = afs.renewal_schedule(t)
+    months = int(sched["activity_rule_months"])
+
+    def _interval(iv):
+        d = afs.clamp_discount(afs.effective_discount_pct(affiliate, iv), t)
+        return {"discount": d, "discount_pct": _fmt_pct(d),
+                "commission_pct": _fmt_pct(max(Decimal("0"), pool - d))}
+
+    annual, monthly = _interval("year"), _interval("month")
+    offer = afs.preview_offer(EXAMPLE_LIST_PRICE_CENTS, annual["discount"], t)
+    renewal = afs.preview_renewal(EXAMPLE_LIST_PRICE_CENTS, t)
+    promo = afs.preview_promo(EXAMPLE_LIST_PRICE_CENTS, None, t)
+    term_label = renewal_term_label(t)
+    has_renewals = sched["lifetime"] or int(sched["last_year"]) >= 2
+    example = {
+        "list_price": _fmt_money(EXAMPLE_LIST_PRICE_CENTS),
+        "discount_pct": annual["discount_pct"],
+        "customer_pays": _fmt_money(offer["customer_pays_cents"]),
+        "partner_earns": _fmt_money(offer["partner_earns_cents"]),
+        "retained": _fmt_money(offer["retained_cents"]),
+        "renewal_paid": _fmt_money(renewal["customer_pays_cents"]),
+        "renewal_earns": _fmt_money(renewal["partner_earns_cents"]),
+    }
+    example["first_year_text"] = (
+        "On a %(list_price)s plan at your current %(discount_pct)s%% Customer "
+        "Discount, the customer pays %(customer_pays)s, you earn %(partner_earns)s "
+        "and TradeWave keeps %(retained)s." % example)
+    if has_renewals:
+        example["renewal_text"] = (
+            "When that customer renews at %s (%s) and you meet the Activity "
+            "Requirement, you earn %s."
+            % (example["renewal_paid"],
+               "any later year" if sched["lifetime"]
+               else "years 2-%d" % int(sched["last_year"]),
+               example["renewal_earns"]))
+    else:
+        example["renewal_text"] = "Renewal payments earn no Commission."
+    example["text"] = example["first_year_text"] + " " + example["renewal_text"]
+
+    # Owner decision 2026-11-24: the trailing window carries a grace period
+    # (affiliate_service.ACTIVITY_GRACE_DAYS; 30 if this build predates it).
+    grace = int(getattr(afs, "ACTIVITY_GRACE_DAYS", ACTIVITY_GRACE_DAYS_DEFAULT) or 0)
+    if months > 0:
+        window = "%d months" % months
+        if grace > 0:
+            window += " plus a %d-day grace period" % grace
+        activity = ("At least 1 New Paying Customer in the trailing %s, "
+                    "measured at each renewal payment. Free trials do not count. "
+                    "Renewal Commission on a payment made while this is not met "
+                    "is forfeited." % window)
+    else:
+        activity = "None"
+    payout = (affiliate.payout_method or "").upper()
+    payout_email = affiliate.payout_email or ""
     ex = {
+        "version": AGREEMENT_VERSION,
         "name": affiliate.name or "",
         "email": affiliate.email or "",
         "code": affiliate.code,
         "referral_link": referral_link(affiliate),
-        "discount_pct": _fmt_pct(affiliate.discount_pct),
-        "commission_pct": _fmt_pct(affiliate.commission_pct),
-        "model_label": COMMISSION_MODEL_LABELS.get(
-            affiliate.commission_model, affiliate.commission_model or ""),
-        "payout_method": (affiliate.payout_method or "").upper(),
-        "payout_email": affiliate.payout_email or "",
-        "is_split": split,
+        "terms_version": getattr(t, "version", "") or "",
+        "pool_pct": _fmt_pct(pool),
+        "max_discount_pct": _fmt_pct(t.max_discount_pct),
+        # annual / default discount and the first-year rate it leaves
+        "discount_pct": annual["discount_pct"],
+        "commission_pct": annual["commission_pct"],
+        "annual": {k: annual[k] for k in ("discount_pct", "commission_pct")},
+        "monthly": {k: monthly[k] for k in ("discount_pct", "commission_pct")},
+        "is_split": annual["discount"] != monthly["discount"],
+        "promo_pct": _fmt_pct(t.promo_commission_pct),
+        "renewal_pct": _fmt_pct(t.renewal_pct),
+        "renewal_term": term_label,
+        "renewal_lifetime": bool(sched["lifetime"]),
+        "renewal_last_year": sched["last_year"],
+        "activity_rule_months": months,
+        "activity_grace_days": grace if months > 0 else 0,
+        "activity_rule": activity,
+        "payout_minimum": "$%d" % PAYOUT_MINIMUM_USD,
+        "payout_method": payout,
+        "payout_email": payout_email,
+        "example": example,
     }
-    if split:
-        ex["monthly"] = {
-            "discount_pct": _fmt_pct(afs.effective_discount_pct(affiliate, "month")),
-            "commission_pct": _fmt_pct(afs.effective_commission_pct(affiliate, "month")),
-        }
-        ex["annual"] = {
-            "discount_pct": _fmt_pct(afs.effective_discount_pct(affiliate, "year")),
-            "commission_pct": _fmt_pct(afs.effective_commission_pct(affiliate, "year")),
-        }
+    # Compatibility for web/templates/affiliate_sign.html, which still prints a
+    # "Commission Model" row from this key until it is switched to `rows`.
+    ex["model_label"] = (
+        "Program v2: %s%% Commission Pool in the first year, then %s%% of the "
+        "Amount Paid on renewals (Renewal Term: %s). %s"
+        % (ex["pool_pct"], ex["renewal_pct"], term_label, example["text"]))
+    ex["rows"] = [
+        ("Affiliate", ex["name"]),
+        ("Contact email", ex["email"]),
+        ("Referral Code", ex["code"]),
+        ("Referral Link", ex["referral_link"]),
+        ("Commission Pool", "%s%% of the List Price (first year)" % ex["pool_pct"]),
+        ("Maximum Customer Discount", "%s%%" % ex["max_discount_pct"]),
+        ("Your Customer Discount - annual plans",
+         "%s%% off the List Price (first year). You earn %s%% of the List Price."
+         % (annual["discount_pct"], annual["commission_pct"])),
+        ("Your Customer Discount - monthly plans",
+         "%s%% off the List Price (first 12 months). You earn %s%% of the List Price."
+         % (monthly["discount_pct"], monthly["commission_pct"])),
+        ("Changing your discount",
+         "Any time from your partner dashboard, 0%% to %s%%. One Customer Discount "
+         "applies to monthly and annual plans. Applies to new checkouts only "
+         "(Section 4.2)." % ex["max_discount_pct"]),
+        ("Promotion Rate",
+         "%s%% of the Amount Paid when a Promotion price applies (for example %s "
+         "on a %s sale)" % (ex["promo_pct"], _fmt_money(promo["partner_earns_cents"]),
+                            _fmt_money(promo["customer_pays_cents"]))),
+        ("Renewal Rate", "%s%% of the Amount Paid" % ex["renewal_pct"]),
+        ("Renewal Term", term_label),
+        ("Activity Requirement", activity),
+        ("Payout minimum", "%s (smaller balances are carried forward)" % ex["payout_minimum"]),
+        ("Payout method", "%s - %s" % (payout, payout_email) if payout_email else payout),
+        ("Worked example", example["text"]),
+    ]
     return ex
 
 
-def build_snapshot(affiliate) -> str:
+def build_snapshot(affiliate, session=None) -> str:
     """An immutable, self-contained HTML record of the EXACT terms signed -
     body + this affiliate's Exhibit A + the signature line. Stored verbatim so a
-    later edit to the source .md can't change what a partner is shown to have
-    agreed to."""
-    ex = exhibit(affiliate)
+    later edit to the source .md (or to the partner's discount, or to the terms
+    row) can't change what a partner is shown to have agreed to."""
+    ex = exhibit(affiliate, session)
     signed_at = affiliate.agreement_signed_at
     e = lambda x: html.escape(str(x if x is not None else ""))  # escape all interpolated values
-    if ex.get("is_split"):
-        term_rows = [
-            ("Monthly plans - Audience Discount", f"{ex['monthly']['discount_pct']}% off (first 12 months)"),
-            ("Monthly plans - Commission Rate", f"{ex['monthly']['commission_pct']}% of Net Revenue"),
-            ("Annual plans - Audience Discount", f"{ex['annual']['discount_pct']}% off (first year)"),
-            ("Annual plans - Commission Rate", f"{ex['annual']['commission_pct']}% of Net Revenue"),
-        ]
-    else:
-        term_rows = [
-            ("Audience Discount", f"{ex['discount_pct']}% off for the first 12 months"),
-            ("Commission Rate", f"{ex['commission_pct']}% of Net Revenue"),
-        ]
     rows = "".join(
-        f"<tr><th style='text-align:left;padding:4px 12px 4px 0'>{e(k)}</th>"
+        f"<tr><th style='text-align:left;padding:4px 12px 4px 0;vertical-align:top'>{e(k)}</th>"
         f"<td style='padding:4px 0'>{e(v)}</td></tr>"
-        for k, v in [
-            ("Affiliate", ex["name"]), ("Contact email", ex["email"]),
-            ("Referral Code", ex["code"]), ("Referral Link", ex["referral_link"]),
-        ] + term_rows + [
-            ("Commission Model", ex["model_label"]),
-            ("Payout", f"{ex['payout_method']} - {ex['payout_email']}"),
-        ])
+        for k, v in ex["rows"])
     # Per-affiliate rider, frozen alongside the rest of the terms. Empty for the
     # vast majority of affiliates (no addendum), in which case Exhibit B is omitted.
     add_html = addendum_html(affiliate)
@@ -280,8 +402,11 @@ def record_signature(affiliate, signed_name, ip, user_agent):
     affiliate.agreement_signed_at = datetime.now(timezone.utc)
     affiliate.agreement_signed_ip = (ip or "")[:100]
     affiliate.agreement_signed_user_agent = (user_agent or "")[:500]
-    if not affiliate.agreement_version:
-        affiliate.agreement_version = AGREEMENT_VERSION
+    # Always stamp the version of the text that was actually shown and is
+    # frozen below (the body is always rendered from the current .md). A row
+    # that still carries an older label - e.g. a partner paused by the v2
+    # migration for re-signature - must not record v2 text under a v1 label.
+    affiliate.agreement_version = AGREEMENT_VERSION
     affiliate.agreement_snapshot = build_snapshot(affiliate)
     if affiliate.status == "paused":
         affiliate.status = "active"
@@ -326,7 +451,8 @@ def email_signed_copy(affiliate) -> bool:
             sent = bool(resend_send_email(
                 to=affiliate.email,
                 subject="Your signed TradeWave Affiliate Agreement",
-                body_text=body, html=html))
+                body_text=body, html=html,
+                reply_to=_partner_reply_to()))
         except Exception:
             pass
     # 2) support inbox: a notification (the full doc lives in Flask-Admin).
@@ -408,6 +534,7 @@ def email_signing_link(affiliate, note=None) -> bool:
         return bool(resend_send_email(
             to=affiliate.email,
             subject="Sign your TradeWave Affiliate Agreement",
-            body_text=body_text, html=html_body))
+            body_text=body_text, html=html_body,
+            reply_to=_partner_reply_to()))
     except Exception:
         return False

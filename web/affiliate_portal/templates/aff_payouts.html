@@ -1,39 +1,159 @@
 {% extends "aff_base.html" %}
+{% import "aff_macros.html" as m %}
+{% block heading %}Payouts{% endblock %}
+{% block subtitle %}What you need to get paid, when the next payout is, and what has been sent.{% endblock %}
 {% block content %}
-<div class="card">
-  <h3>Payout Method</h3>
-  {% if aff.payout_method %}
-    <p>{{ aff.payout_method|capitalize }} - <span class="mono">{{ aff.payout_email }}</span></p>
-  {% else %}
-    <p class="muted">No payout method on file yet.</p>
-  {% endif %}
-  {% if aff.tax_form_received_at %}
-    <p>Tax form on file: <span class="pill ok">{{ {'w9':'W-9','w8ben':'W-8BEN','w8bene':'W-8BEN-E'}.get(aff.tax_form_type, aff.tax_form_type or 'received') }}</span></p>
-  {% else %}
-    <p><span class="pill bad">Tax form needed</span> We can't send payouts until we have your tax form:
-      a W-9 (U.S. persons), W-8BEN (non-U.S. individuals) or W-8BEN-E (non-U.S. entities).
-      Email it to help@tradewave.ai.</p>
-  {% endif %}
-  <p class="muted" style="font-size:13px;">To change payout details, reply to any of our emails or write to help@tradewave.ai - changes are verified manually (they gate real money).</p>
+{% set tax = aff_ops.tax() %}
+
+<div class="grid2">
+  <div class="card">
+    <h3>Payout checklist {% if checklist.ready %}<span class="right"><span class="pill ok">Ready to be paid</span></span>{% endif %}</h3>
+    {% for it in checklist['items'] %}
+    <div class="check {{ 'ok' if it.ok else 'todo' }}">
+      <span class="dot" aria-hidden="true">{{ '✓' if it.ok else '!' }}</span>
+      <div><b>{{ it.label }}</b>{% if not it.ok %} <span class="pill warn">To do</span>{% endif %}
+        {% if it.key == 'tax' and not it.ok and tax and tax.enabled %}<div class="small soft" style="margin-top:3px;">{% if tax.latest and tax.latest.status == 'received' %}We have your form and are reviewing it.{% else %}W-9 (U.S.) or W-8BEN / W-8BEN-E (non-U.S.). <a href="#tax-form">Upload it below</a> - don't email it.{% endif %}</div>
+        {% elif it.help %}<div class="small soft" style="margin-top:3px;">{{ it.help }}</div>{% endif %}</div>
+    </div>
+    {% endfor %}
+    {% if aff.status == 'paused' %}
+    <p class="small" style="color:var(--warn); margin:12px 0 0;">Your account is paused. Commissions keep adding up and are paid when it is reactivated.</p>
+    {% endif %}
+    {% if checklist.hold_until %}
+    <p class="small" style="color:var(--warn); margin:12px 0 0;">Payouts are on a security hold until {{ checklist.hold_until }} because your payout details changed. <a href="#payout-details">Details</a></p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>Next payout</h3>
+    <div class="big">{{ checklist.pending_cents|aff_cents }}</div>
+    <p class="soft small" style="margin:4px 0 12px;">Pending balance. Next statement on <b style="color:var(--text);">{{ checklist.next_date }}</b>.
+      {{ checklist.send_rule }}, so that one by <b style="color:var(--text);">{{ checklist.send_by }}</b>.</p>
+    <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ checklist.progress_pct }}"
+         aria-label="Progress toward the payout minimum"><i style="width:{{ checklist.progress_pct }}%;"></i></div>
+    <p class="tiny muted" style="margin:8px 0 0;">{{ checklist.progress_pct }}% of the {{ checklist.minimum_cents|aff_price }} minimum.
+      Balances under {{ checklist.minimum_cents|aff_price }} are not lost: they roll into your next payout.</p>
+    {% for ccy, amt in pending if ccy != 'usd' %}
+    <p class="small soft" style="margin:8px 0 0;">Also pending: {{ amt|aff_money(ccy) }}</p>
+    {% endfor %}
+    {% if checklist.held_cents %}
+    <p class="small soft" style="margin:8px 0 0;">Held this month: {{ checklist.held_cents|aff_cents }}. Not in the pending balance. <a href="{{ url_for('affiliate_portal.earnings', state='held') }}">See why</a></p>
+    {% endif %}
+  </div>
 </div>
 
-<div class="card">
-  <h3>Payout Ledger</h3>
-  {% if ledger %}
+<div class="card" id="payout-details">
+  <h3>Payout details
+    <span class="right">{% if details.hold_until %}<span class="pill warn">On hold for {{ details.hold_hours }} hours</span>
+      {% elif details.has_details %}<span class="pill ok">Set</span>
+      {% else %}<span class="pill warn">To do</span>{% endif %}</span></h3>
+  {% if details.hold_until %}
+  <div class="flash error" role="status" style="margin-bottom:14px;"><b>Payouts are on hold until {{ details.hold_until }}.</b>
+    Your payout details were changed, so as a security step we wait {{ details.hold_hours }} hours before sending money to the new details. Nothing is lost and you do not need to do anything. If you did not make this change, write to help@tradewave.ai right away.</div>
+  {% endif %}
   <table>
-    <tr><th>Period</th><th>Amount</th><th>Status</th><th>Paid</th><th>Reference</th></tr>
+    <tr><td class="soft" style="width:40%;">Method</td><td>{% if details.has_details or aff.payout_method %}{{ details.method_label }}{% else %}<span class="pill warn">Not set</span>{% endif %}</td></tr>
+    <tr><td class="soft">Sent to</td><td>{% if aff.payout_email %}<span class="mono" style="overflow-wrap:anywhere;">{{ aff.payout_email }}</span>{% else %}-{% endif %}</td></tr>
+    {% if details.account_name %}<tr><td class="soft">Account holder</td><td>{{ details.account_name }}</td></tr>{% endif %}
+    <tr><td class="soft">Tax form</td><td>{% if aff.tax_form_received_at %}<span class="pill ok">{{ {'w9':'W-9','w8ben':'W-8BEN','w8bene':'W-8BEN-E'}.get(aff.tax_form_type, aff.tax_form_type or 'Received') }}</span> on file{% else %}<span class="pill bad">Needed</span>{% endif %}</td></tr>
+    <tr><td class="soft">Paid to date</td><td>{{ m.money_list(lifetime_paid) }}</td></tr>
+  </table>
+
+  {% if details.has_details %}<details class="more" style="margin-top:16px;"><summary>Change payout details</summary>{% else %}
+  <p class="soft small" style="margin:16px 0 0;">Tell us where to send your money. We pay by PayPal or Wise, to the email address of your account there.</p>{% endif %}
+  <form method="post" action="{{ url_for('affiliate_portal.payout_details_save') }}" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="grid2" style="margin-bottom:0;">
+      <div>
+        <label for="pd-method">Payout method</label>
+        <select id="pd-method" name="payout_method" required>
+          <option value="">Choose PayPal or Wise</option>
+          {% for key, label in details.methods %}<option value="{{ key }}"{% if details.method == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="pd-email">Email of your PayPal or Wise account</label>
+        <input type="text" id="pd-email" name="payout_email" inputmode="email" autocapitalize="off" spellcheck="false"
+               maxlength="254" required value="{{ details.email }}" placeholder="you@example.com">
+      </div>
+    </div>
+    <label for="pd-name">Account holder name <span class="muted">(needed for Wise, optional for PayPal)</span></label>
+    <input type="text" id="pd-name" name="payout_account_name" maxlength="{{ details.name_max }}"
+           value="{{ details.account_name }}" placeholder="Exactly as it is on the account">
+    <div class="row" style="margin-top:14px;">
+      <button class="btn-primary" type="submit">Save payout details</button>
+      <span class="tiny muted">{% if details.has_details %}Changing the method or email puts payouts on hold for {{ details.hold_hours }} hours, and we{% else %}We{% endif %} email a confirmation to {{ details.account_email }}.</span>
+    </div>
+  </form>
+  {% if details.has_details %}</details>{% endif %}
+  <p class="tiny muted" style="margin:12px 0 0;">We only need the email address of your PayPal or Wise account. Never send bank details or card numbers, here or by email. You are paid in the currency your customers paid in.</p>
+</div>
+
+{% if tax %}
+<div class="card" id="tax-form">
+  <h3>Tax form
+    <span class="right">{% if tax.on_file %}<span class="pill ok">{{ tax.on_file_label }} on file</span>
+      {% elif tax.latest and tax.latest.status == 'received' %}<span class="pill warn">Being reviewed</span>
+      {% elif tax.latest and tax.latest.status == 'rejected' %}<span class="pill bad">Needs a new upload</span>
+      {% else %}<span class="pill bad">Needed</span>{% endif %}</span></h3>
+  {% if tax.latest %}
+  <table>
+    <tr><td class="soft" style="width:40%;">Latest upload</td><td>{{ tax.latest.form_label }}, {{ tax.latest.uploaded }}</td></tr>
+    <tr><td class="soft">Status</td><td>{{ tax.latest.status_label }}{% if tax.latest.reviewed %} <span class="soft">({{ tax.latest.reviewed }})</span>{% endif %}</td></tr>
+    {% if tax.latest.status == 'rejected' and tax.latest.reason %}
+    <tr><td class="soft">What to fix</td><td style="color:var(--warn);">{{ tax.latest.reason }}</td></tr>
+    {% endif %}
+  </table>
+  {% endif %}
+  {% if tax.enabled %}
+  <p class="soft small" style="margin:{{ '14px' if tax.latest else '0' }} 0 0;">{% if tax.on_file %}Your form is on file. Upload a new one only if your details changed.{% else %}We need one form before we can pay you: W-9 if you are a U.S. person or business, W-8BEN if you are an individual outside the U.S., W-8BEN-E if you are a company outside the U.S.{% endif %}</p>
+  <form method="post" action="{{ url_for('affiliate_portal.tax_form_upload') }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="grid2" style="margin-bottom:0;">
+      <div>
+        <label for="tf-type">Which form</label>
+        <select id="tf-type" name="form_type" required>
+          <option value="">Choose a form</option>
+          {% for key, label in tax.choices %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="tf-file">Completed and signed PDF ({{ tax.max_mb }} MB max)</label>
+        <input type="file" id="tf-file" name="tax_form" accept="application/pdf,.pdf" required>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px;">
+      <button class="btn-primary" type="submit">Upload securely</button>
+      <span class="tiny muted">Encrypted when stored. Only the TradeWave payouts team can open it, and every time it is opened is logged.</span>
+    </div>
+  </form>
+  {% else %}
+  <p class="soft small" style="margin:{{ '14px' if tax.latest else '0' }} 0 0;">Secure upload is not available right now. Contact help@tradewave.ai and we will send you a secure way to get your form to us. Do not email the form itself.</p>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="card">
+  <h3>Payout history</h3>
+  {% if ledger %}
+  <table class="stack">
+    <thead><tr><th>Statement</th><th class="num">Amount</th><th>Status</th><th>Sent</th><th>Reference</th></tr></thead>
+    <tbody>
     {% for p in ledger %}
     <tr>
-      <td>{{ p.period }}</td>
-      <td>{{ '%.2f'|format(p.commission) }} {{ p.currency|upper }}</td>
-      <td>{% if p.carried_to %}<span class="pill warn">netted into {{ p.carried_to }}</span>{% else %}<span class="pill {{ 'ok' if p.status == 'paid' else ('warn' if p.status == 'pending' else 'bad') }}">{{ p.status }}</span>{% endif %}</td>
-      <td>{{ p.paid_at or '-' }}</td>
-      <td class="mono">{{ '-' if p.carried_to else (p.external_ref or '-') }}</td>
+      <td data-label="Statement" class="title"><span>{{ p.statement }}{% if p.includes %}<span class="tiny soft" style="font-weight:400; display:block;">{{ p.includes }}</span>{% endif %}</span></td>
+      <td data-label="Amount" class="num {{ 'neg' if p.commission < 0 else '' }}"><b>{{ p.commission|aff_money(p.currency) }}</b></td>
+      <td data-label="Status">{% if p.carried_to %}<span class="pill warn">Moved into the {{ p.carried_to }} statement</span>{% else %}<span class="pill {{ 'ok' if p.status == 'paid' else ('' if p.status == 'pending' else 'dim') }}">{{ p.status|capitalize }}</span>{% endif %}</td>
+      <td data-label="Sent">{% if p.paid_at %}{{ p.paid_at }}{% elif p.expected %}<span class="soft">Expected by {{ p.expected }}</span>{% elif p.status == 'pending' and not p.carried_to %}<span class="soft">Being sent</span>{% else %}-{% endif %}</td>
+      <td data-label="Reference" class="mono">{{ '-' if p.carried_to else (p.external_ref or '-') }}</td>
     </tr>
     {% endfor %}
+    </tbody>
   </table>
+  <p class="tiny muted" style="margin:12px 0 0;">{{ checklist.send_rule }}. A month under {{ checklist.minimum_cents|aff_price }}, or a negative month (refunds outweigh sales), moves into your next statement, so one statement can include lines from several months.</p>
   {% else %}
-  <p class="muted">Nothing here yet - commissions appear after your first attributed month settles.</p>
+  <div class="empty"><b>No payouts yet</b>
+    Your first monthly statement appears here on the 2nd of the month after your first sale.</div>
   {% endif %}
 </div>
 {% endblock %}

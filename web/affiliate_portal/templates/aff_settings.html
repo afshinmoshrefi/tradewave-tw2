@@ -1,0 +1,272 @@
+{% extends "aff_base.html" %}
+{% block heading %}Settings{% endblock %}
+{% block subtitle %}Your offer, your profile and your account.{% endblock %}
+{% block content %}
+
+<div class="card" id="offer">
+  <h3>Your offer</h3>
+  <p class="lead">You have {{ offer.pool_pct }}% of the list price to split.</p>
+  <p class="soft" style="margin:0 0 16px;">Give your audience up to {{ offer.max_discount_pct }}% off. You earn the rest.
+    Example: $100 plan at <span id="ex-pct">{{ offer.discount_year }}</span>% off - they pay <span id="ex-pay">{{ grid.example[offer.discount_year][0]|aff_price if offer.discount_year in grid.example else '-' }}</span>, you earn <span id="ex-earn">{{ grid.example[offer.discount_year][1]|aff_price if offer.discount_year in grid.example else '-' }}</span>.</p>
+
+  {% set shown = confirm.new if confirm else offer.discount_year %}
+  <form method="post" action="{{ url_for('affiliate_portal.settings_discount') }}" id="offer-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label for="disc-num" style="margin-top:0;">Discount for your audience</label>
+    <div class="chooser">
+      <div class="seg" role="group" aria-label="Quick picks">
+        {% for step in range(0, offer.max_discount_int + 1, 5) %}
+        <button type="button" data-pct="{{ step }}" class="{{ 'on' if shown == step|string else '' }}">{{ step }}%</button>
+        {% endfor %}
+      </div>
+      <div class="numwrap">
+        <input type="number" id="disc-num" name="discount_pct" min="0" max="{{ offer.max_discount_int }}" step="1"
+               value="{{ shown }}" inputmode="numeric" aria-describedby="disc-help" required>
+        <span>% off</span>
+      </div>
+    </div>
+    <input type="range" id="disc-range" min="0" max="{{ offer.max_discount_int }}" step="1" value="{{ shown }}"
+           aria-label="Discount percent" tabindex="-1">
+    <p class="tiny muted" id="disc-help" style="margin:6px 0 0;">0% to {{ offer.max_discount_pct }}%. You earn <b id="keep-pct" style="color:var(--text);">{{ offer.rate_year }}</b>% of the list price on first-year payments.</p>
+
+    {% if plans %}
+    <div class="scroll-x" style="margin-top:16px;">
+    <table class="stack" id="offer-table">
+      <thead><tr><th>Plan</th><th class="num">List price</th><th class="num">Customer pays</th><th class="num">You earn (year 1)</th><th class="num">Per renewal</th></tr></thead>
+      <tbody>
+      {% set ns = namespace(sale=none) %}
+      {% for p in plans %}
+      {% if p.sale %}{% set ns.sale = p %}{% endif %}
+      <tr data-key="{{ p.key }}"{% if p.sale %} data-sale-pay="{{ p.sale_customer_cents }}" data-sale-earn="{{ p.sale_first_cents }}"{% endif %}>
+        <td data-label="Plan" class="title">{{ p.plan }}</td>
+        <td data-label="List price" class="num"><span>{{ p.list_cents|aff_price }}<span class="muted tiny"> /{{ p.per }}</span></span></td>
+        <td data-label="Customer pays" class="num"><span><span data-cell="pay">{{ (p.sale_customer_cents if p.sale else p.customer_cents)|aff_price }}</span>{% if p.sale %} <span class="pill warn" data-cell="salepill">Sale</span>{% endif %}</span></td>
+        <td data-label="You earn (year 1)" class="num"><b data-cell="earn">{{ (p.sale_first_cents if p.sale else p.first_cents)|aff_cents }}</b></td>
+        <td data-label="Per renewal" class="num">{{ p.renewal_cents|aff_cents }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% if ns.sale %}
+    <p class="small soft" style="margin:10px 0 0;"><span class="pill warn">Sale</span> {{ ns.sale.sale_name }} is on until {{ ns.sale.sale_ends }}: new {{ ns.sale.plan }} customers pay the sale price, because it is lower than your discount, and you earn {{ offer.promo_pct }}% of what they pay. After the sale your discount applies again.</p>
+    {% endif %}
+    <p class="tiny muted" style="margin:10px 0 0;">Monthly plans: the discount and your first-year rate apply to each of the first 12 monthly payments.
+      Renewals pay {{ offer.renewal_pct }}% of what the customer pays, {% if offer.lifetime %}for as long as they stay{% else %}in years 2 to {{ offer.last_year }}{% endif %}, at today's price.
+      {% if offer.activity_rule_months %}Renewal commissions need at least 1 new paying customer every {{ offer.activity_rule_months }} months, with a 30-day grace.{% endif %}</p>
+    {% else %}
+    <p class="small soft" style="margin-top:14px;">Plan prices are not available right now, so the dollar table is hidden. You can still change your discount.</p>
+    {% endif %}
+
+    <div class="note">New discount applies to customers who sign up after you save. Nothing changes for customers you already have.</div>
+    <p class="small soft" id="zero-note" style="margin:10px 0 0;{{ '' if offer.discount_year == '0' else ' display:none;' }}">Choosing 0% removes your checkout code, because there is no discount to apply. Your links still track every customer.</p>
+
+    {% if offer.split %}
+    <p class="small soft">Your monthly plans currently have a different discount ({{ offer.discount_month }}%). Saving sets one discount for every plan.</p>
+    {% endif %}
+
+    {# save result and the confirm step live HERE, beside the button #}
+    <div id="offer-status" aria-live="polite">
+      {% with msgs = get_flashed_messages(with_categories=true, category_filter=['offer-success', 'offer-error']) %}
+      {% for category, message in msgs %}
+      <div class="inline-msg {{ category[6:] }}" role="status">{{ message }}</div>
+      {% endfor %}
+      {% endwith %}
+      {% if confirm %}
+      <div class="confirm" role="alertdialog" aria-labelledby="confirm-title">
+        <b id="confirm-title">Change your discount from {{ confirm.old }}% to {{ confirm.new }}%?</b>
+        <p>{{ confirm.text }}</p>
+        <input type="hidden" name="confirm_for" value="{{ confirm.new }}">
+        <div class="row">
+          <button class="btn-primary" type="submit" name="confirm" value="yes">Yes, change to {{ confirm.new }}%</button>
+          <a class="btn-secondary" href="{{ url_for('affiliate_portal.settings') }}#offer">Keep {{ confirm.old }}%</a>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if not confirm %}
+    <div class="row" style="margin-top:14px;">
+      {% if not is_owner %}
+        <button class="btn-primary" type="submit" disabled>Save discount</button>
+        <span class="small soft">Only the account owner can change the discount.</span>
+      {% elif next_change %}
+        <button class="btn-primary" type="submit" disabled>Save discount</button>
+        <span class="small" style="color:var(--warn);">You can change your discount once every 24 hours. Next change available {{ next_change }}.</span>
+      {% else %}
+        <button class="btn-primary" type="submit" id="disc-save">Save discount</button>
+        <span class="small soft">You can change it once every 24 hours. No need to sign anything again.</span>
+      {% endif %}
+    </div>
+    {% endif %}
+  </form>
+
+  <details class="more" style="margin-top:18px;" {{ 'open' if history else '' }}>
+    <summary>Discount history</summary>
+    {% if history %}
+    <table class="stack" style="margin-top:8px;">
+      <thead><tr><th>Date</th><th>Plans</th><th>Change</th><th>Changed by</th></tr></thead>
+      <tbody>
+      {% for h in history %}
+      <tr><td data-label="Date">{{ h.date }}</td><td data-label="Plans">{{ h.plans }}</td>
+          <td data-label="Change"><span>{% if h.old is not none %}{{ h.old }}% to {% endif %}<b>{{ h.new }}%</b></span></td><td data-label="Changed by">{{ h.by }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="small soft">No changes yet. Your discount has been {{ offer.discount_year }}% since you joined.</p>
+    {% endif %}
+  </details>
+</div>
+
+<div class="card" id="profile">
+  <h3>Photo</h3>
+  <div class="row">
+    {% if aff.page_photo %}
+      <img src="{{ logo_urlpath }}/{{ aff.page_photo }}" alt="Your photo"
+           style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:1px solid #1f2937;">
+    {% else %}
+      <span class="muted">No photo yet.</span>
+    {% endif %}
+    <form method="post" action="{{ url_for('affiliate_portal.profile_photo') }}"
+          enctype="multipart/form-data" class="row">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" style="color:#9ca3af; max-width:230px;">
+      <button class="btn-secondary" type="submit">Upload</button>
+    </form>
+  </div>
+  <p class="tiny muted" style="margin:10px 0 0;">jpg, png or webp, up to 2 MB. Shown on your join page{% if smn %} and your Seasonal Market News expert page{% endif %}. Brand logos are set by the TradeWave team - just email us one.</p>
+</div>
+
+<form method="post" action="{{ url_for('affiliate_portal.profile') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="next" value="settings">
+  <div class="card">
+    <h3>Join page <span class="right"><a href="{{ links.join }}" target="_blank" rel="noopener">Preview</a></span></h3>
+    <label for="st-name" style="margin-top:0;">Display name</label>
+    <input type="text" id="st-name" name="page_display_name" value="{{ aff.page_display_name or '' }}" maxlength="80">
+    <label for="st-note">Note to your audience (plain text, 280 max)</label>
+    <textarea id="st-note" name="page_note" maxlength="280" style="min-height:80px;">{{ aff.page_note or '' }}</textarea>
+    <label for="st-sign">Sign-off (60 max)</label>
+    <input type="text" id="st-sign" name="page_signoff" value="{{ aff.page_signoff or '' }}" maxlength="60">
+    <p class="tiny muted">Changes go live right away. The TradeWave team is told about every change.</p>
+    {% if not (smn and smn.status in ('invited', 'active')) %}<button class="btn-primary" type="submit">Save profile</button>{% endif %}
+  </div>
+
+  {% if smn and smn.status in ('invited', 'active') %}
+  <div class="card">
+    <h3>Seasonal Market News expert profile</h3>
+    <label style="margin-top:0;">Expert URL slug {% if smn.published_at %}<span class="pill warn">Locked (published)</span>{% endif %}</label>
+    <input type="text" name="slug" value="{{ smn.slug or '' }}" maxlength="64"
+           {% if smn.published_at %}disabled{% endif %} placeholder="e.g. anne-marie">
+    <label>Bio (markdown, 4000 max - shown on your expert page)</label>
+    <textarea name="bio_md" maxlength="4000">{{ smn.bio_md or '' }}</textarea>
+    <label>Credentials line (plain text, 200 max)</label>
+    <input type="text" name="credentials" value="{{ smn.credentials or '' }}" maxlength="200"
+           placeholder="e.g. Author, The Trading Book; 20 years trading experience">
+    <label>Standing disclosure (markdown, 500 max - shown under every take)</label>
+    <textarea name="disclosure_md" maxlength="500" style="min-height:70px;">{{ smn.disclosure_md or '' }}</textarea>
+    <label>Links (https only, up to 3)</label>
+    {% for i in range(1, 4) %}
+    {% set l = (smn.links or [])[i-1] if (smn.links or [])|length >= i else None %}
+    <div class="grid2" style="margin-bottom:8px;">
+      <input type="text" name="link_label_{{ i }}" maxlength="40" placeholder="Label"
+             value="{{ l.label if l else '' }}">
+      <input type="text" name="link_url_{{ i }}" maxlength="300" placeholder="https://..."
+             value="{{ l.url if l else '' }}">
+    </div>
+    {% endfor %}
+    <button class="btn-primary" type="submit" style="margin-top:8px;">Save profile</button>
+  </div>
+  {% endif %}
+</form>
+
+{% include "aff_email_prefs.html" %}
+
+<div class="card" id="account">
+  <h3>Account</h3>
+  <table>
+    <tr><td class="soft" style="width:40%;">Partner code</td><td class="mono">{{ aff.code }}</td></tr>
+    <tr><td class="soft">Status</td><td><span class="pill {{ 'ok' if aff.status == 'active' else 'warn' }}">{{ aff.status|capitalize }}</span></td></tr>
+    <tr><td class="soft">Agreement</td><td>{% if aff.agreement_signed_at %}Signed {{ aff.agreement_signed_at.strftime('%d %b %Y').lstrip('0') }}{% else %}<span class="pill bad">Not signed yet</span>{% endif %}</td></tr>
+    <tr><td class="soft">Your terms</td><td>{{ offer.pool_pct }}% pool, up to {{ offer.max_discount_pct }}% discount, {{ offer.renewal_pct }}% on renewals{% if offer.lifetime %} for life{% else %} in years 2 to {{ offer.last_year }}{% endif %}{% if offer.terms_version %} <span class="muted tiny">({{ offer.terms_version }})</span>{% endif %}</td></tr>
+    <tr><td class="soft">Contact email</td><td class="mono">{{ aff.email }}</td></tr>
+  </table>
+  <p class="tiny muted" style="margin:12px 0 0;">You set and change your payout details on the <a href="{{ url_for('affiliate_portal.payouts') }}#payout-details">Payouts</a> page. Questions: help@tradewave.ai.</p>
+</div>
+
+<style>
+  .chooser { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .numwrap { display:flex; align-items:center; gap:8px; }
+  .numwrap input { width:92px; font-size:18px; font-weight:700; text-align:center; }
+  .numwrap span { color:var(--muted); font-size:14px; }
+  input[type=range] { width:100%; margin:14px 0 0; accent-color:#8b5cf6; height:28px; }
+  .note { margin-top:16px; padding:12px 14px; border-radius:10px; background:var(--brand-soft);
+          border:1px solid rgba(99,102,241,0.3); color:var(--brand-text); font-size:14px; }
+  .changed { color:var(--ok); }
+  #offer-status { scroll-margin-top:38vh; }
+  .confirm { margin-top:14px; padding:14px; border-radius:12px; background:var(--warn-bg); border:1px solid var(--warn-line); }
+  .confirm b { font-size:15.5px; }
+  .confirm p { margin:6px 0 12px; font-size:14px; }
+  #offer-table td.num { white-space:nowrap; }
+  @media (max-width:640px) {
+    #offer-table td::before { white-space:nowrap; }
+    #offer-table td > span, #offer-table td > b { white-space:nowrap; }
+  }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  // Dollar figures come from the server (affiliate_service previews), one row
+  // per whole-percent discount. The browser only looks them up.
+  var GRID = {{ grid|tojson }}, CURRENT = {{ offer.discount_year|tojson }};
+  var num = document.getElementById("disc-num"), range = document.getElementById("disc-range");
+  if (!num) return;
+  var max = parseInt(num.max, 10);
+  function price(c) { var s = (c / 100).toFixed(2); return "$" + (s.slice(-3) === ".00" ? s.slice(0, -3) : s).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+  function cents(c) { return "$" + (c / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+  function show(v) {
+    var n = Math.round(Number(v));
+    if (isNaN(n)) return;
+    n = Math.max(0, Math.min(max, n));
+    var key = String(n), plans = GRID.plans[key], ex = GRID.example[key];
+    if (ex) {
+      document.getElementById("ex-pct").textContent = key;
+      document.getElementById("ex-pay").textContent = price(ex[0]);
+      document.getElementById("ex-earn").textContent = price(ex[1]);
+    }
+    if (ex) document.getElementById("keep-pct").textContent = String(ex[1] / 100);
+    Array.prototype.forEach.call(document.querySelectorAll("#offer-table tr[data-key]"), function (tr) {
+      var row = plans && plans[tr.getAttribute("data-key")];
+      if (!row) return;
+      var pay = tr.querySelector('[data-cell="pay"]'), earn = tr.querySelector('[data-cell="earn"]');
+      var pill = tr.querySelector('[data-cell="salepill"]'), salePay = tr.getAttribute("data-sale-pay");
+      // A live sale wins a plan while it is lower than the partner price
+      // (same rule as checkout; a tie goes to the partner discount).
+      var sale = salePay !== null && Number(salePay) < row[0];
+      if (pill) pill.style.display = sale ? "" : "none";
+      pay.textContent = price(sale ? Number(salePay) : row[0]);
+      earn.textContent = cents(sale ? Number(tr.getAttribute("data-sale-earn")) : row[1]);
+      pay.classList.toggle("changed", !sale && key !== CURRENT); earn.classList.toggle("changed", !sale && key !== CURRENT);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".chooser .seg button"), function (b) {
+      b.classList.toggle("on", b.getAttribute("data-pct") === key);
+    });
+    var zn = document.getElementById("zero-note");
+    if (zn) zn.style.display = n === 0 ? "block" : "none";
+    var save = document.getElementById("disc-save");
+    if (save) save.textContent = key === CURRENT ? "Save discount" : "Save " + key + "% discount";
+    return n;
+  }
+  num.addEventListener("input", function () { var n = show(num.value); if (n !== undefined) range.value = n; });
+  num.addEventListener("change", function () { var n = show(num.value); if (n !== undefined) { num.value = n; range.value = n; } });
+  range.addEventListener("input", function () { num.value = range.value; show(range.value); });
+  Array.prototype.forEach.call(document.querySelectorAll(".chooser .seg button"), function (b) {
+    b.addEventListener("click", function () { num.value = b.getAttribute("data-pct"); range.value = num.value; show(num.value); });
+  });
+  if (String(num.value) !== CURRENT) show(num.value);   // confirm step: preview the new numbers
+})();
+</script>
+{% endblock %}

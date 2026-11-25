@@ -49,6 +49,10 @@ def fake_db(monkeypatch):
         {"period_start": dt.date(2026, 8, 1), "currency": "usd", "commission_amount": Decimal("60.00"),
          "status": "paid", "external_ref": "PP-1", "paid_at": dt.datetime(2026, 9, 3, tzinfo=dt.timezone.utc)},
     ])
+    # Program v2 sections: no terms row / campaigns / web price table by default.
+    monkeypatch.setattr(db, "affiliate_program_v2", lambda a: calls.get("v2"))
+    monkeypatch.setattr(db, "active_promotions", lambda: calls.get("promotions", []))
+    monkeypatch.setattr(affiliate_view, "_fetch_offers", lambda base, code: calls.get("offers"))
     return calls
 
 

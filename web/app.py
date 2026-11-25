@@ -147,6 +147,7 @@ from flask_admin.actions import action
 from flask_admin.model.template import (BaseListRowAction, DeleteRowAction,
                                          EndpointLinkRowAction)
 from flask_admin.form import FileUploadField
+from flask_admin.form import rules as _fa_rules
 
 # Co-branded affiliate landing-page logo uploads (admin-only). Served as a static
 # file from /assets/affiliate-logos/ under the marketing web root.
@@ -723,7 +724,8 @@ def auth_callback():
         if getattr(db_user, "_tw_new_signup", False) and request.cookies.get("tw_ref"):
             try:
                 import affiliate_service as _afs
-                _afs.record_signup_referral(s, db_user_obj, request.cookies.get("tw_ref"))
+                _afs.record_signup_referral(s, db_user_obj, request.cookies.get("tw_ref"),
+                                            request.cookies.get(_afs.SUB_COOKIE), ip=_client_ip())
             except Exception:
                 s.rollback()
                 log.warning("auth_callback: affiliate signup stamp failed (non-fatal)")
@@ -2194,9 +2196,10 @@ def _count_affiliate_click(s, aff):
     tw_ref code (a refresh / second page view is not a new click). Never
     raises - a counter must not break a landing page."""
     try:
+        import affiliate_service as _afs
+        _affiliate_sub_click(s, aff)
         if (request.cookies.get("tw_ref") or "").upper() == aff.code:
             return
-        import affiliate_service as _afs
         _afs.record_click(s, aff.id)
     except Exception:
         try:
@@ -2204,6 +2207,40 @@ def _count_affiliate_click(s, aff):
         except Exception:
             pass
         log.warning("affiliate click count failed for %s (non-fatal)", getattr(aff, "code", "?"))
+
+
+def _request_sub():
+    """The sub-link slug on this request (?sub= / form / JSON beacon), or None."""
+    import affiliate_service as _afs
+    raw = request.values.get("sub") or (request.get_json(silent=True) or {}).get("sub")
+    return _afs.normalize_sub(raw)
+
+
+def _affiliate_sub_click(s, aff):
+    """+1 the partner's named sub-link (?sub=) when this browser is not
+    already tagged with it. Reporting only; never raises."""
+    try:
+        sub = _request_sub()
+        if sub:
+            import affiliate_ops as _ops
+            _ops.record_sub_click(s, aff, sub, request.cookies.get(_ops.SUB_COOKIE))
+    except Exception:
+        try:
+            s.rollback()
+        except Exception:
+            pass
+        log.warning("affiliate sub-link click count failed (non-fatal)")
+
+
+def _set_sub_cookie(resp, code):
+    """Remember the sub-link tag beside tw_ref (same 60 days). The value is
+    bound to the partner code, so it can never tag another partner's sale."""
+    sub = _request_sub()
+    if sub:
+        import affiliate_service as _afs
+        resp.set_cookie(_afs.SUB_COOKIE, "%s:%s" % (code, sub), max_age=_afs.attribution_cookie_max_age(),
+                        samesite="Lax", secure=request.is_secure, path="/")
+    return sub
 
 
 @app.route("/api/aff/click", methods=["POST"])
@@ -2228,6 +2265,40 @@ def api_affiliate_click():
     return ("", 204)
 
 
+def _display_offers(s, aff):
+    """affiliate_service.display_offers over this app's price catalog; {} on
+    any failure (a price card must never break a landing page)."""
+    try:
+        import affiliate_service as _afs
+        return _afs.display_offers(s, aff, _campaign_catalog())
+    except Exception:
+        log.warning("display offers unavailable (non-fatal)", exc_info=True)
+        return {}
+
+
+@app.route("/api/offers")
+def api_offers():
+    """The effective customer offer per plan, for the pricing section (static
+    home page JS) and the partner landing page: list price, the price a NEW
+    customer pays for the first period, and which offer produced it - the live
+    company campaign or the partner's discount (?code= / ?via= / tw_ref
+    cookie), whichever is lower. Read-only; unknown or inactive codes simply
+    return the no-partner offers."""
+    raw = (request.args.get("code") or request.args.get("via")
+           or request.cookies.get("tw_ref") or "")
+    s = DBSession()
+    try:
+        import affiliate_service as _afs
+        aff = _afs.active_affiliate_by_code(s, raw) if raw else None
+        offers = _display_offers(s, aff)
+        resp = jsonify({"code": aff.code if aff is not None else None,
+                        "offers": offers})
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+    finally:
+        s.close()
+
+
 @app.route("/pricing")
 def pricing():
     # Send users to the rich pricing section on the home page (single source
@@ -2248,11 +2319,14 @@ def pricing():
                        .first())
                 if aff:
                     _count_affiliate_click(s, aff)
-                    resp = make_response(redirect("/?code=%s#pricing" % aff.code, code=302))
+                    _sub = _request_sub()
+                    resp = make_response(redirect(
+                        "/?code=%s%s#pricing" % (aff.code, "&sub=%s" % _sub if _sub else ""), code=302))
                     # First-touch attribution cookie (60 days), same key the
                     # /join/<code> landing page + checkout use.
-                    resp.set_cookie("tw_ref", aff.code, max_age=60 * 60 * 24 * 60,
+                    resp.set_cookie("tw_ref", aff.code, max_age=afs.attribution_cookie_max_age(),
                                     samesite="Lax", secure=request.is_secure, path="/")
+                    _set_sub_cookie(resp, aff.code)
                     return resp
             finally:
                 s.close()
@@ -2692,33 +2766,131 @@ def _resolve_affiliate_promo(raw, period=None):
         s.close()
 
 
-def _record_affiliate_referral(session, sub_id, customer_id, metadata):
-    """Persist the customer/subscription -> affiliate link from subscription
-    metadata (stamped onto subscription_data at checkout). Idempotent (ON CONFLICT
-    DO NOTHING on the subscription id). No-op unless metadata carries a valid
-    tw2_affiliate_id. Never raises - a referral-write failure must not break the
-    webhook (the discount/commission still works off the coupon as a fallback)."""
-    aff_id = (metadata or {}).get("tw2_affiliate_id")
-    if not (sub_id and aff_id):
-        return
-    import uuid as _uuid
-    try:
-        _uuid.UUID(str(aff_id))
-    except (ValueError, TypeError):
+def _record_affiliate_referral(session, sub_id, customer_id, metadata, subscription=None):
+    """Persist the customer/subscription -> affiliate link when a subscription
+    is created. Delegates to affiliate_service.record_referral_from_subscription:
+    the checkout snapshot stamped in the subscription metadata (tw2_affiliate_id
+    + terms / offer / campaign / list price / discount), or - when the customer
+    TYPED a partner's promotion code into Stripe's box, so no metadata exists -
+    the partner mapped from the subscription's discount coupon (source
+    'promo_code'). Idempotent; never raises (a referral-write failure must not
+    break the webhook)."""
+    if not sub_id:
         return
     try:
-        from models import AffiliateReferral
-        from sqlalchemy.dialects.postgresql import insert as _pg_insert
-        stmt = _pg_insert(AffiliateReferral.__table__).values(
-            affiliate_id=aff_id,
-            stripe_customer_id=customer_id,
-            stripe_subscription_id=sub_id,
-            referral_code=(metadata or {}).get("tw2_affiliate_code"),
-            source="checkout",
-        ).on_conflict_do_nothing(index_elements=["stripe_subscription_id"])
-        session.execute(stmt)
+        import affiliate_service as afs
+        sub = dict(subscription or {})
+        sub.setdefault("id", sub_id)
+        sub.setdefault("metadata", metadata or {})
+        afs.record_referral_from_subscription(session, sub, customer_id)
     except Exception:
         log.exception("failed to record affiliate referral for subscription %s", sub_id)
+
+
+def _affiliate_lifecycle_hook(session, event_type, event_object):
+    """Keep a referral's commission clock current from the Stripe webhook: the
+    first successful payment > $0 stamps first_paid_at / year_anchor_at, and a
+    deleted subscription stamps ended_at (the 12-month return window). No-op
+    for subscriptions without a referral. Never raises."""
+    try:
+        import affiliate_service as afs
+        if event_type == "invoice.payment_succeeded":
+            afs.record_first_payment(session, event_object or {})
+        elif event_type == "customer.subscription.deleted":
+            afs.record_subscription_ended(session, event_object or {})
+    except Exception:
+        log.exception("affiliate lifecycle hook failed for %s", event_type)
+
+
+def _campaign_catalog():
+    """{(tier, 'month'|'year'): {"price_id", "product_id", "list_price_cents"}}
+    for the six EOD plans, from the Stripe price cache. This is the `catalog`
+    argument of affiliate_service.create_campaign / update_campaign /
+    display_offers. Raises StripePriceCatalogError like _price_for."""
+    if not _price_cache:
+        _refresh_price_cache()
+    out = {}
+    for (tier, period), price in _price_cache.items():
+        product = getattr(price, "product", None)
+        product_id = (product.get("id") if isinstance(product, dict)
+                      else getattr(product, "id", product))
+        out[(tier, "month" if period == "monthly" else "year")] = {
+            "price_id": price.id,
+            "product_id": product_id,
+            "list_price_cents": int(price.unit_amount),
+        }
+    return out
+
+
+def _founder_subscription(subscription_id):
+    """True when the subscription sits on a legacy FOUNDER price (config
+    FOUNDER_PRICE_IDS, or price / product metadata tw2_founder=true). Founders
+    may only cancel in self-serve billing. Stripe failures propagate so the
+    caller can fail closed."""
+    import affiliate_service as afs
+    sub = stripe.Subscription.retrieve(
+        subscription_id, expand=["items.data.price.product"])
+    sub_d = sub if isinstance(sub, dict) else sub.to_dict()
+    for item in ((sub_d.get("items") or {}).get("data") or []):
+        if afs.is_founder_price((item or {}).get("price")):
+            return True
+    return False
+
+
+FOUNDER_LOCKED_MESSAGE = (
+    "You are on a TradeWave founder plan. Founder plans keep their original "
+    "price and cannot be switched to another plan, billing interval or price. "
+    "You can cancel at any time from your account."
+)
+
+
+def _founder_portal_session(customer_id, subscription_id, return_url):
+    """Billing Portal session for a founder: cancel only. Uses the dedicated
+    no-plan-switch portal configuration when one is set, otherwise deep-links
+    into the portal's cancel flow for this subscription."""
+    founder_config = getattr(config, "FOUNDER_BILLING_PORTAL_CONFIGURATION_ID", "")
+    if founder_config:
+        return stripe.billing_portal.Session.create(
+            customer=customer_id, return_url=return_url,
+            configuration=founder_config)
+    return stripe.billing_portal.Session.create(
+        customer=customer_id, return_url=return_url,
+        flow_data={
+            "type": "subscription_cancel",
+            "subscription_cancel": {"subscription": subscription_id},
+            "after_completion": {"type": "redirect",
+                                 "redirect": {"return_url": return_url}},
+        })
+
+
+def founder_portal_config_problem():
+    """Deploy check (TW-TASK-0038 rule 10): founder prices are configured but
+    the cancel-only Billing Portal configuration is not. Returns the warning
+    text, or None when the setup is complete. Without the configuration a
+    founder has no Stripe-hosted way to update a card (the dunning email falls
+    back to the /account page) and the cancel flow is only a deep link."""
+    if getattr(config, "FOUNDER_PRICE_IDS", ()) and not getattr(
+            config, "FOUNDER_BILLING_PORTAL_CONFIGURATION_ID", ""):
+        return ("DEPLOY BLOCKER: TW2_FOUNDER_PRICE_IDS is set but "
+                "TW2_FOUNDER_BILLING_PORTAL_CONFIGURATION_ID is EMPTY. Founders have no "
+                "cancel-only Billing Portal. In the Stripe dashboard open Settings > Billing > "
+                "Customer portal, add a configuration with subscription update OFF and cancel "
+                "ON, and put its bpc_ id in secrets.env as "
+                "TW2_FOUNDER_BILLING_PORTAL_CONFIGURATION_ID (docs/tasks/TW-TASK-0038.md).")
+    return None
+
+
+def warn_founder_portal_config():
+    """Log founder_portal_config_problem() loudly. Called once at startup."""
+    problem = founder_portal_config_problem()
+    if problem:
+        log.error("=" * 78)
+        log.error(problem)
+        log.error("=" * 78)
+    return problem
+
+
+warn_founder_portal_config()
 
 
 def _existing_eod_subscription(customer_id, stored_web_subscription_id=None):
@@ -2778,19 +2950,40 @@ def _fire_dunning_final_notice(db_user, event_id):
     contract): never raises past the caller's try/except, and a billing-portal
     session failure degrades to a plain /account link rather than skipping the
     email entirely.
+
+    Founder guard (TW-TASK-0038 rule 10): the default Billing Portal lets a
+    customer switch plans, so a FOUNDER never gets a default session from this
+    email. A founder gets the dedicated cancel-only portal configuration (it
+    still allows a card update); when that configuration is not set, or the
+    founder check itself fails, the email links to /account instead (fail
+    closed - the same guard as manage_subscription).
     """
     if not db_user.email:
         return
     public_host = os.environ.get("TW2_PUBLIC_HOST", "tw2.trxstat.com")
-    portal_url = f"https://{public_host}/account"
+    account_url = f"https://{public_host}/account"
+    portal_url = account_url
     try:
         if db_user.stripe_customer_id:
-            session_obj = stripe.billing_portal.Session.create(
-                customer=db_user.stripe_customer_id,
-                return_url=f"https://{public_host}/account",
-            )
-            portal_url = session_obj.url
+            web_sub_id = getattr(db_user, "stripe_subscription_id", None)
+            if web_sub_id and _founder_subscription(web_sub_id):
+                founder_config = getattr(config, "FOUNDER_BILLING_PORTAL_CONFIGURATION_ID", "")
+                if founder_config:
+                    portal_url = stripe.billing_portal.Session.create(
+                        customer=db_user.stripe_customer_id, return_url=account_url,
+                        configuration=founder_config).url
+                else:
+                    log.error("dunning: founder user %s gets the /account link, not a Billing "
+                              "Portal link: TW2_FOUNDER_BILLING_PORTAL_CONFIGURATION_ID is not "
+                              "set (event %s)", db_user.id, event_id)
+            else:
+                session_obj = stripe.billing_portal.Session.create(
+                    customer=db_user.stripe_customer_id,
+                    return_url=account_url,
+                )
+                portal_url = session_obj.url
     except Exception:
+        portal_url = account_url
         log.warning("dunning: billing-portal session create failed for user %s (event %s); "
                     "falling back to /account link", db_user.id, event_id)
 
@@ -2805,6 +2998,96 @@ def _fire_dunning_final_notice(db_user, event_id):
     sent = resend_send_email(db_user.email, subject, body)
     # No PII in logs: identify by user id, not email address.
     log.info("dunning final-notice email user=%s sent=%s event=%s", db_user.id, sent, event_id)
+
+
+_LIVE_SUBSCRIPTION_STATUSES = ("active", "trialing", "past_due")
+
+
+def _subscription_is_api_line(sub_d):
+    """True when EVERY item of the subscription is a Developer API price
+    (product_line == api). Anything else - EOD prices, legacy web prices,
+    founder prices, prices we cannot classify - counts as the web/EOD line."""
+    items = ((sub_d.get("items") or {}).get("data") or [])
+    if not items:
+        return str((sub_d.get("metadata") or {}).get("product_line") or "").strip().lower() == "api"
+    for item in items:
+        item_d = item if isinstance(item, dict) else (
+            item.to_dict() if hasattr(item, "to_dict") else dict(item))
+        price_d = item_d.get("price") or {}
+        price_id = price_d.get("id") if isinstance(price_d, dict) else None
+        if not price_id or not _api_tier_for_price(price_id):
+            return False
+    return True
+
+
+def _subscription_ever_paid(subscription_id):
+    """True when the subscription has at least one PAID invoice with
+    amount_paid > 0. Stripe failures propagate (the caller fails closed)."""
+    listing = stripe.Invoice.list(subscription=subscription_id, status="paid", limit=100)
+    for inv in listing.auto_paging_iter():
+        inv_d = inv if isinstance(inv, dict) else inv.to_dict()
+        if int(inv_d.get("amount_paid") or 0) > 0:
+            return True
+    return False
+
+
+def _is_new_customer(customer_id):
+    """A NEW customer for campaign eligibility: no Stripe customer yet, or one
+    with no web/EOD subscription that counts. A subscription counts when it is
+    on the web/EOD line (a Developer API subscription never does) AND it is
+    live (active / trialing / past_due) or it ever had a successful payment
+    above $0. So an abandoned checkout (incomplete / incomplete_expired) and
+    a trial that was canceled before the first charge do NOT make someone an
+    existing customer. A paid subscription that ended more than 12 months ago
+    no longer counts either (rule 8: after 12 months they are brand new).
+    A lookup failure means NOT new (fail closed: no campaign price)."""
+    if not customer_id:
+        return True
+    try:
+        import affiliate_service as afs
+        now = datetime.now(timezone.utc)
+        subs = stripe.Subscription.list(customer=customer_id, status="all", limit=100)
+        for sub in subs.auto_paging_iter():
+            sub_d = sub if isinstance(sub, dict) else sub.to_dict()
+            if _subscription_is_api_line(sub_d):
+                continue
+            status = str(sub_d.get("status") or "")
+            if status in _LIVE_SUBSCRIPTION_STATUSES:
+                return False
+            if not _subscription_ever_paid(sub_d.get("id")):
+                continue                              # abandoned checkout / unpaid trial
+            if status not in ("canceled", "incomplete_expired"):
+                return False                          # paid before, not ended (unpaid / paused)
+            ended = afs._utc(sub_d.get("ended_at") or sub_d.get("canceled_at"))
+            if ended is None or now < afs._add_months(ended, afs.RETURN_WINDOW_MONTHS):
+                return False
+        return True
+    except Exception:
+        log.warning("new-customer check failed for %s; treating as existing",
+                    customer_id, exc_info=True)
+        return False
+
+
+def _resolve_checkout_offer(user, raw_code, tier, period, customer_id):
+    """affiliate_service.resolve_checkout_offer with this app's price catalog
+    and DB session. Never raises: on any failure checkout proceeds as a plain
+    direct sale (no partner, no discount, manual promo entry)."""
+    empty = {"discount_spec": None, "metadata": {}, "offer_type": None,
+             "affiliate_id": None, "affiliate_code": None}
+    s = DBSession()
+    try:
+        import affiliate_service as afs
+        price = _price_for(tier, period)
+        return afs.resolve_checkout_offer(
+            s, user=user, raw_code=raw_code, tier=tier, period=period,
+            list_price_cents=int(getattr(price, "unit_amount", 0) or 0),
+            customer_id=customer_id,
+            is_new_customer=_is_new_customer(customer_id))
+    except Exception:
+        log.exception("checkout offer resolution failed; continuing as a direct sale")
+        return empty
+    finally:
+        s.close()
 
 
 # State-changing endpoint: POST only. The pricing template uses
@@ -2933,6 +3216,26 @@ def stripe_create_checkout():
                            "Please retry in a moment.",
             }), 503
         if existing_sub_id:
+            # Founder guard (TW-TASK-0038 rule 10): a founder may only CANCEL
+            # in self-serve billing. Never open the plan-switch flow for one.
+            try:
+                is_founder = _founder_subscription(existing_sub_id)
+            except Exception:
+                log.exception(
+                    "create-checkout: founder check failed for user %s", u.id)
+                return jsonify({
+                    "error": "subscription_lookup_failed",
+                    "message": "We could not verify your current subscription. "
+                               "Please retry in a moment.",
+                }), 503
+            if is_founder:
+                log.info("create-checkout: founder subscription %s for user %s; "
+                         "plan change refused", existing_sub_id, u.id)
+                return jsonify({
+                    "error": "founder_plan_locked",
+                    "message": FOUNDER_LOCKED_MESSAGE,
+                    "cancel_url": "/account/manage-subscription",
+                }), 409
             log.info(
                 "create-checkout: user %s already has %s eod subscription %s; "
                 "redirecting to billing portal instead of a second checkout",
@@ -2961,16 +3264,19 @@ def stripe_create_checkout():
                             "user %s; falling back to plain portal", u.id, exc_info=True)
                 return manage_subscription()
 
-    # Affiliate referral code: from a direct link (?code=ANNE / ?via=ANNE), a
-    # hidden checkout-form field, or the first-party `tw_ref` cookie set on the
-    # affiliate's landing page (so attribution survives navigation + the signup
-    # round-trip). If it resolves to an active affiliate we PRE-APPLY their
-    # Stripe promotion code, so the discount shows already applied AND the sale
-    # is attributed. Pre-applying via `discounts` is mutually exclusive with
+    # Partner + offer (program v2, TW-TASK-0038). The PARTNER is resolved
+    # separately from the OFFER: a direct link (?code=ANNE / ?via=ANNE) or
+    # hidden form field, then the first-party `tw_ref` cookie, then the signup
+    # stamp users.referred_by_affiliate_id - and a customer returning within
+    # 12 months stays with their previous partner. The offer is the lower
+    # FIRST-PERIOD price of the live campaign (new customers only) and the
+    # partner's discount; exactly ONE discount is pre-applied (never stacked).
+    # Pre-applying via `discounts` is mutually exclusive with
     # allow_promotion_codes.
-    discount_spec, affiliate_id, affiliate_code = _resolve_affiliate_promo(
-        request.values.get("code") or request.values.get("via")
-        or request.cookies.get("tw_ref"), period)
+    offer = _resolve_checkout_offer(
+        u, request.values.get("code") or request.values.get("via")
+        or request.cookies.get("tw_ref"), tier, period, valid_customer_id)
+    discount_spec = offer["discount_spec"]
 
     # Stamp the affiliate onto the subscription metadata: this is the DURABLE
     # attribution carrier - it rides on the Stripe subscription for its whole
@@ -2985,9 +3291,18 @@ def stripe_create_checkout():
     }
     if u.stripe_subscription_id:
         sub_metadata["replaces_subscription_id"] = u.stripe_subscription_id
-    if affiliate_id:
-        sub_metadata["tw2_affiliate_id"] = affiliate_id
-        sub_metadata["tw2_affiliate_code"] = affiliate_code
+    # tw2_affiliate_id / _code / _source, tw2_terms_id, tw2_offer_type,
+    # tw2_campaign_id, tw2_list_price_cents, tw2_discount_pct: the checkout
+    # snapshot the webhook copies onto the affiliate_referrals row. Payouts
+    # read it from there, never from the partner's current settings.
+    sub_metadata.update({k: v for k, v in offer["metadata"].items() if v is not None})
+    # Sub-link tag (?sub= / tw_ref_sub cookie / signup stamp): reporting only,
+    # stamped AFTER the partner is resolved and only for that same partner.
+    import affiliate_ops as _aff_ops
+    _aff_sub = _aff_ops.checkout_sub(offer, u, request.values.get("sub"),
+                                     request.cookies.get(_aff_ops.SUB_COOKIE))
+    if _aff_sub:
+        sub_metadata["tw2_affiliate_sub"] = _aff_sub
     # GA4: also on the SUBSCRIPTION metadata (not just the session's) so a
     # future invoice.paid handler can attribute real post-trial revenue to the
     # originating GA4 client - checkout completes at $0 under the 7-day trial,
@@ -3076,11 +3391,25 @@ def stripe_create_checkout():
             # min-amount / already-redeemed) must NOT break checkout: retry
             # once, letting the customer enter a code manually instead.
             if discount_spec and "discounts" in reservation.payload:
-                log.warning("checkout: pre-applied affiliate discount %r rejected; "
+                log.warning("checkout: pre-applied discount %r rejected; "
                             "retrying with manual entry", discount_spec)
                 kwargs = dict(reservation.payload)
                 kwargs.pop("discounts", None)
                 kwargs["allow_promotion_codes"] = True
+                # The pre-applied discount is gone, so the stamped offer no
+                # longer describes this sale: drop the campaign and the stamped
+                # discount. A referred customer keeps the partner and falls
+                # back to the pool rule at whatever discount ends up on the
+                # invoice (the engine reads it from the invoice when unstamped).
+                fallback_md = dict(kwargs["subscription_data"]["metadata"])
+                for key in ("tw2_campaign_id", "tw2_campaign_code", "tw2_discount_pct"):
+                    fallback_md.pop(key, None)
+                if fallback_md.get("tw2_affiliate_id"):
+                    fallback_md["tw2_offer_type"] = "regular"
+                else:
+                    fallback_md.pop("tw2_offer_type", None)
+                kwargs["subscription_data"] = dict(
+                    kwargs["subscription_data"], metadata=fallback_md)
                 reservation = replace_checkout_payload(
                     reservation, kwargs, session_factory=DBSession,
                 )
@@ -3468,14 +3797,20 @@ def affiliate_join(code):
             monthly_discount=agr._fmt_pct(m_disc),
             annual_discount=agr._fmt_pct(a_disc),
             discount=agr._fmt_pct(a_disc),   # single-offer case: monthly == annual
-            cta_url="/pricing?code=%s" % aff.code,
+            cta_url="/pricing?code=%s%s" % (
+                aff.code, "&sub=%s" % _request_sub() if _request_sub() else ""),
+            # Program v2: the effective customer offer per plan in DOLLARS
+            # (campaign vs partner discount, the lower first-period price),
+            # keyed "<tier>:<month|year>". Empty if the catalog is unavailable.
+            offers=_display_offers(s, aff),
         )
     finally:
         s.close()
     resp = make_response(render_template("affiliate_landing.html", **ctx))
     # First-touch attribution cookie (60 days), same key the homepage + checkout use.
-    resp.set_cookie("tw_ref", ctx["code"], max_age=60 * 60 * 24 * 60,
+    resp.set_cookie("tw_ref", ctx["code"], max_age=afs.attribution_cookie_max_age(),
                     samesite="Lax", secure=request.is_secure, path="/")
+    _set_sub_cookie(resp, ctx["code"])
     resp.headers["X-Robots-Tag"] = "noindex, nofollow"
     return resp
 
@@ -3538,6 +3873,8 @@ def affiliate_sign(token):
                     except Exception:
                         log.warning("could not reactivate promo for %s after signing", aff.code)
                     agr.email_signed_copy(aff)
+                    import affiliate_comms as _comms   # welcome email + inbox (TW-TASK-0039 B)
+                    _comms.notify_signed(aff.id)
                 except agr.AlreadySigned:
                     s.rollback()
                     already = True
@@ -3602,6 +3939,14 @@ def manage_subscription():
 
     try:
         public_host = os.environ.get("TW2_PUBLIC_HOST", "tw2.trxstat.com")
+        # Founder guard (TW-TASK-0038 rule 10): a founder gets a cancel-only
+        # portal session. The check fails CLOSED (generic 500 below) so a
+        # Stripe hiccup can never open the plan-switch screen to a founder.
+        web_sub_id = getattr(u, "stripe_subscription_id", None)
+        if web_sub_id and _founder_subscription(web_sub_id):
+            session_obj = _founder_portal_session(
+                u.stripe_customer_id, web_sub_id, f"https://{public_host}/account")
+            return redirect(session_obj.url, code=303)
         session_obj = stripe.billing_portal.Session.create(
             customer=u.stripe_customer_id,
             return_url=f"https://{public_host}/account",
@@ -3891,7 +4236,10 @@ def webhook_stripe():
                 # rather than from a possibly stale event snapshot.
                 _record_affiliate_referral(
                     s, sub_id, customer_id, sub_metadata,
+                    subscription=data_obj,
                 )
+        # Program v2 commission clock: first paid invoice / subscription end.
+        _affiliate_lifecycle_hook(s, event_type, data_obj)
 
         # Resolve the product line positively. TW2's web/EOD and developer API
         # subscriptions share one Stripe customer. An event that is not proven
@@ -4641,18 +4989,38 @@ class _AffiliateJoinPageRowAction(BaseListRowAction):
             % (row.code, row.code, self.icon_class))
 
 
+def _affiliate_discount_cell(view, context, model, name):
+    """List cell for a customer discount: '20% off - partner earns 30% of
+    list' (pool rule of the partner's terms; the math is affiliate_service's)."""
+    import affiliate_service as afs
+    import affiliate_admin as afa
+    value = getattr(model, name, None)
+    if value is None:
+        return "Same as annual" if name == "discount_pct_monthly" else "-"
+    try:
+        rate = afs.preview_offer(10000, value, model.terms)["commission_rate_pct"]
+    except afs.AffiliateError:
+        return "%s%% off - ABOVE the terms maximum, fix on Change terms" % afa.pct(value)
+    return "%s%% off - partner earns %s%% of list" % (afa.pct(value), afa.pct(rate))
+
+
 class AffiliateAdmin(_AdminAuth, ModelView):
-    column_list = ("name", "code", "discount_pct", "commission_pct",
-                   "commission_model", "status", "agreement_signed_at",
-                   "tax_form_type", "user", "stripe_coupon_id", "created_at")
+    create_template = "admin/affiliate_create.html"
+    list_template = "admin/affiliate_list.html"      # + the shared partner-program sub-nav
+    column_list = ("name", "code", "discount_pct", "discount_pct_monthly", "terms",
+                   "status", "agreement_signed_at",
+                   "tax_form_type", "user", "created_at")
     column_searchable_list = ("code", "name", "email", "payout_email")
-    column_filters = ("status", "commission_model")
+    column_filters = ("status", "terms.version")
     column_labels = {
         "agreement_signed_at": "Agreement",
-        "discount_pct": "Annual discount %",
-        "commission_pct": "Annual commission %",
-        "discount_pct_monthly": "Monthly discount %",
-        "commission_pct_monthly": "Monthly commission %",
+        "discount_pct": "Customer discount (annual)",
+        "discount_pct_monthly": "Customer discount (monthly)",
+        "terms": "Terms version",
+        "terms.version": "Terms version",
+        "commission_pct": "Legacy commission % (not used by v2)",
+        "commission_pct_monthly": "Legacy monthly commission % (not used by v2)",
+        "commission_model": "Legacy commission model (not used by v2)",
         "stripe_coupon_id_monthly": "Monthly coupon",
         "page_display_name": "Page name",
         "page_logo": "Page logo",
@@ -4663,6 +5031,10 @@ class AffiliateAdmin(_AdminAuth, ModelView):
         "user": "Portal login",
         "tax_form_type": "Tax form",
         "tax_form_received_at": "Tax form received",
+        "discount_changed_at": "Discount last changed",
+        "terminated_for_cause": "Terminated for cause",
+        "terminated_at": "Terminated on",
+        "termination_cause": "Termination reason",
     }
     # Manual-link fallback for the affiliate dashboard (spec 4.1): the portal
     # auto-links by e-mail on first visit; this field covers mismatches. Ajax
@@ -4670,6 +5042,10 @@ class AffiliateAdmin(_AdminAuth, ModelView):
     form_ajax_refs = {"user": {"fields": ["email"], "page_size": 10}}
     column_formatters = {
         "user": lambda v, c, m, n: (m.user.email if m.user is not None else "-"),
+        "discount_pct": _affiliate_discount_cell,
+        "discount_pct_monthly": _affiliate_discount_cell,
+        "terms": lambda v, c, m, n: (m.terms.version if m.terms is not None
+                                     else "v2-5y (default)"),
         "agreement_signed_at": lambda v, c, m, n: (
             Markup('<a href="%s">✓ Signed %s</a>' % (
                 url_for("affiliate_signed.index", id=str(m.id)),
@@ -4688,17 +5064,17 @@ class AffiliateAdmin(_AdminAuth, ModelView):
         EndpointLinkRowAction(
             "fa fa-exchange glyphicon glyphicon-refresh",
             "affiliate_change_terms.index",
-            title="Change terms (new coupon + re-sign)",
+            title="Change terms (discount, terms version, terminate)",
             id_arg="id",
         ),
         _AffiliateJoinPageRowAction(),
     ]
     can_view_details = True
     column_details_list = ("code", "name", "email", "status",
-                           "discount_pct", "commission_pct",
-                           "discount_pct_monthly", "commission_pct_monthly",
-                           "commission_model",
-                           "payout_method", "payout_email", "stripe_coupon_id",
+                           "discount_pct", "discount_pct_monthly", "terms",
+                           "discount_changed_at",
+                           "payout_method", "payout_email", "payout_account_name",
+                           "payout_details_changed_at", "stripe_coupon_id",
                            "stripe_coupon_id_monthly",
                            "page_display_name", "page_logo", "page_photo",
                            "page_note", "page_signoff",
@@ -4706,19 +5082,43 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                            "agreement_version", "agreement_signed_name",
                            "agreement_signed_at", "agreement_signed_ip",
                            "tax_form_type", "tax_form_received_at",
+                           "terminated_for_cause", "terminated_at", "termination_cause",
+                           "commission_pct", "commission_pct_monthly", "commission_model",
                            "notes", "created_at")
-    # Two pairs: Annual (discount_pct/commission_pct = the default + promo backing)
-    # and the optional Monthly override. Leave Monthly blank for one flat rate.
+    # Program v2 (TW-TASK-0038): there is no commission % to type. The partner
+    # has a POOL of the list price (terms.pool_pct, 50); the customer discount
+    # comes out of it and the partner earns the rest. So the form asks only for
+    # the customer discount (annual, plus an optional monthly override) and the
+    # terms version; the create page shows the result in dollars.
     form_columns = ("name", "email", "code",
-                    "discount_pct", "commission_pct",
-                    "discount_pct_monthly", "commission_pct_monthly",
-                    "commission_model", "payout_method", "payout_email",
+                    "terms", "discount_pct", "discount_pct_monthly",
+                    "payout_method", "payout_email", "payout_account_name",
+                    "payout_details_changed_at",
                     "tax_form_type", "tax_form_received_at",
                     "agreement_addendum",
                     "page_display_name", "page_logo", "page_photo",
                     "page_note", "page_signoff",
                     "user",
                     "status", "notes")
+    form_create_rules = tuple(c for c in form_columns if c != "payout_details_changed_at")
+    # Code, customer discount and terms version are NOT on the edit form: the
+    # code is permanent, and the other two change on the Change terms page
+    # (discount: no pause, no re-sign; terms version: future customers only).
+    form_edit_rules = (
+        "name", "email",
+        _fa_rules.HTML(
+            '<div class="alert alert-info" style="font-size:13px">The code, the customer '
+            'discount and the terms version are not edited here. Use the <b>Change terms</b> '
+            'icon on the affiliate row: a discount change there takes effect at once, with no '
+            'pause and no new signature.</div>'),
+        "payout_method", "payout_email", "payout_account_name",
+        "payout_details_changed_at",
+        "tax_form_type", "tax_form_received_at",
+        "agreement_addendum",
+        "page_display_name", "page_logo", "page_photo",
+        "page_note", "page_signoff",
+        "user",
+        "status", "notes")
     form_extra_fields = {
         "page_logo": FileUploadField(
             "Page logo (optional)",
@@ -4740,11 +5140,6 @@ class AffiliateAdmin(_AdminAuth, ModelView):
     column_default_sort = ("created_at", True)
     page_size = 50
     form_choices = {
-        "commission_model": [
-            ("recurring", "Recurring (lifetime)"),
-            ("duration_12mo", "First 12 months"),
-            ("first_payment", "First payment only"),
-        ],
         "payout_method": [("paypal", "PayPal"), ("wise", "Wise")],
         "tax_form_type": [("w9", "W-9 (U.S. person)"),
                           ("w8ben", "W-8BEN (non-U.S. individual)"),
@@ -4755,15 +5150,35 @@ class AffiliateAdmin(_AdminAuth, ModelView):
     form_args = {
         "code": {"description": "The promo code the affiliate shares (A-Z, 0-9, _ or -). "
                                 "Becomes the Stripe promotion code. IMMUTABLE after creation."},
-        "discount_pct": {"description": "Annual-plan audience discount, e.g. 20 = 20% off. Also applies to "
-                                        "monthly plans unless you set a Monthly discount below, and backs the "
-                                        "manually-typed promo code. IMMUTABLE after creation."},
-        "commission_pct": {"description": "Annual-plan commission the affiliate keeps, e.g. 30 = 30%. Also applies "
-                                          "to monthly plans unless overridden below. Editable later."},
-        "discount_pct_monthly": {"description": "OPTIONAL - monthly-plan discount, only if it differs from annual "
-                                                "(e.g. 15). Leave blank to match the annual rate. IMMUTABLE after creation."},
-        "commission_pct_monthly": {"description": "OPTIONAL - monthly-plan commission, only if it differs from annual "
-                                                  "(e.g. 35). Leave blank to match the annual rate. Editable later."},
+        "terms": {"description": "The commission rules of this partner's agreement (pool, maximum "
+                                 "customer discount, renewal commission and how many years renewals are "
+                                 "paid). Leave blank for the standard terms (v2-5y). Applies to customers "
+                                 "who check out after it is set - change it later on the Change terms page."},
+        "discount_pct": {"description": "Customer discount on ANNUAL plans, 0 to 25 (the maximum of the terms "
+                                        "version). 20 = the customer pays 20% less for the first 12 months. "
+                                        "The partner earns the rest of their 50% pool: at 20 off they earn 30% "
+                                        "of the list price. Also used for monthly plans unless you set a monthly "
+                                        "discount below, and it is the discount behind the typed code. 0 = no "
+                                        "discount, the partner earns the whole pool."},
+        "payout_account_name": {"description": "Account holder name for the payout (Wise needs it; the Wise "
+                                               "export file uses it, else the affiliate name). Partners "
+                                               "set payout details themselves on their Payouts page; "
+                                               "you can still edit them here."},
+        "payout_details_changed_at": {"description": "Set when the PARTNER changes a payout method or payout "
+                                                     "email that was already on file. Payouts to them are "
+                                                     "blocked for 24 hours after this time. Clear it to "
+                                                     "release the hold early (only after you confirmed the "
+                                                     "change with the partner). Editing the details here "
+                                                     "does not start a hold."},
+        "discount_pct_monthly": {"description": "OPTIONAL - customer discount on MONTHLY plans, 0 to 25, only if "
+                                                "it differs from annual. Leave blank to use the annual discount."},
+        "status": {"description": "New affiliates always start Paused until they sign. Paused: their link and "
+                                  "code stop applying to new customers and commission that accrues is HELD, "
+                                  "not lost - it becomes payable when they are active again. Terminated: ends "
+                                  "the partnership without forfeiting anything: commission on payments "
+                                  "already made stays payable and the final balance is paid even below "
+                                  "the payout minimum. To forfeit "
+                                  "commission for a breach, use 'Terminate for cause' on the Change terms page."},
         "page_display_name": {"description": "OPTIONAL - the name shown on their co-branded landing page "
                                              "(tradewave.ai/join/<code>): their personal OR business name. "
                                              "Leave blank to use the affiliate's name."},
@@ -4786,10 +5201,6 @@ class AffiliateAdmin(_AdminAuth, ModelView):
         form = super().create_form(obj)
         if form.discount_pct.data is None:
             form.discount_pct.data = config.AFFILIATE_DEFAULT_DISCOUNT_PCT
-        if form.commission_pct.data is None:
-            form.commission_pct.data = config.AFFILIATE_DEFAULT_COMMISSION_PCT
-        if not form.commission_model.data:
-            form.commission_model.data = "recurring"
         return form
 
     def on_model_change(self, form, model, is_created):
@@ -4806,9 +5217,34 @@ class AffiliateAdmin(_AdminAuth, ModelView):
             raise ValidationError(str(e))
 
         if not model.commission_model:
-            model.commission_model = "recurring"
+            model.commission_model = "recurring"   # legacy column, unused by v2
         if not model.status:
             model.status = "paused"
+
+        # Program v2: the customer discount must sit inside the terms' range
+        # (0 .. terms.max_discount_pct, 25 on the standard terms). There is no
+        # commission % input - the partner earns pool minus discount.
+        if is_created:
+            import affiliate_admin as afa
+            # no_autoflush: a query here must not flush the half-built row (the
+            # duplicate-code guard below relies on its own flush).
+            with self.session.no_autoflush:
+                if model.terms is None:
+                    model.terms = afs.get_terms(self.session)
+                terms = model.terms or afs.DEFAULT_TERMS
+            try:
+                model.discount_pct = afa.parse_discount(
+                    model.discount_pct, terms, "Customer discount (annual)")
+                if model.discount_pct_monthly is not None:
+                    model.discount_pct_monthly = afa.parse_discount(
+                        model.discount_pct_monthly, terms, "Customer discount (monthly)")
+                    if model.discount_pct_monthly == model.discount_pct:
+                        model.discount_pct_monthly = None      # same as annual: no override
+            except afs.AffiliateError as e:
+                raise ValidationError(str(e))
+            # Legacy NOT NULL column: store the pool-rule share for old displays.
+            model.commission_pct = afs.preview_offer(
+                10000, model.discount_pct, terms)["commission_rate_pct"]
 
         # Landing-page note / sign-off: public, affiliate-authored PLAIN TEXT.
         # Strip; treat blank/whitespace as NULL; reject markup + links (defense in
@@ -4897,20 +5333,27 @@ class AffiliateAdmin(_AdminAuth, ModelView):
             except IntegrityError:
                 self.session.rollback()
                 raise ValidationError(f"An affiliate with code {model.code} already exists.")
-            # create the Stripe coupon + promo code; abort the insert on failure
-            try:
-                coupon_id, promo_id = afs.provision_stripe_objects(model)
-            except afs.AffiliateError as e:
-                raise ValidationError(str(e))
+            # create the Stripe coupon + promo code; abort the insert on failure.
+            # A 0% discount needs neither (the partner earns the whole pool and
+            # the link still attributes); raising the discount later on Change
+            # terms mints them.
+            coupon_id = promo_id = None
+            if model.discount_pct > 0:
+                try:
+                    coupon_id, promo_id = afs.provision_stripe_objects(model)
+                except afs.AffiliateError as e:
+                    raise ValidationError(str(e))
             model.stripe_coupon_id = coupon_id
             model.stripe_promotion_code_id = promo_id
-            # Interval-split: mint an override coupon for any interval whose
-            # discount differs from the default (applied by id at checkout; the
-            # flat promo above still backs manual entry at the default rate).
-            try:
-                afs.provision_interval_overrides(model)
-            except afs.AffiliateError as e:
-                raise ValidationError(str(e))
+            # Interval-split: mint an override coupon when the monthly discount
+            # differs from the annual one (applied by id at checkout; the flat
+            # promo above still backs manual entry at the annual rate). A 0%
+            # monthly override needs no coupon.
+            if model.discount_pct_monthly is not None and model.discount_pct_monthly > 0:
+                try:
+                    afs.provision_interval_overrides(model)
+                except afs.AffiliateError as e:
+                    raise ValidationError(str(e))
             # Gate: created paused (awaiting signature). The code stays inert
             # (_resolve_affiliate_promo requires status=='active') until the
             # affiliate signs the agreement, which flips them to 'active'.
@@ -4920,18 +5363,20 @@ class AffiliateAdmin(_AdminAuth, ModelView):
             write_audit(actor_label="admin", action="affiliate_created",
                         details={"code": model.code, "coupon": coupon_id,
                                  "discount_pct": str(model.discount_pct),
-                                 "commission_pct": str(model.commission_pct)})
+                                 "discount_pct_monthly": (str(model.discount_pct_monthly)
+                                                          if model.discount_pct_monthly is not None else None),
+                                 "terms": getattr(model.terms, "version", None)})
         else:
-            # code + every discount % are immutable once their Stripe coupon
-            # exists (Stripe coupons can't be edited). Commission %s stay editable.
+            # The code is permanent. The discount and the terms version are not
+            # on the edit form; they change only on the Change terms page
+            # (set_partner_discount mints the new coupon and keeps history).
             st = sa_inspect(model)
-            for field in ("code", "discount_pct", "discount_pct_monthly"):
+            for field in ("code", "discount_pct", "discount_pct_monthly", "terms_id"):
                 hist = getattr(st.attrs, field).history
                 if hist.has_changes() and hist.deleted:
                     raise ValidationError(
-                        f"{field} can't be changed after the Stripe coupon is created. "
-                        f"Use 'Change terms' (new coupon + re-sign), or terminate and "
-                        f"create a new affiliate.")
+                        f"{field} can't be changed on this form. Use the 'Change terms' "
+                        f"page for the discount and the terms version. The code is permanent.")
 
     def after_model_change(self, form, model, is_created):
         # Keep the Stripe promotion code's redeemability in lockstep with status:
@@ -5019,6 +5464,18 @@ class AffiliateAdmin(_AdminAuth, ModelView):
                 "%s has referred customers / payout history - delete is blocked to "
                 "preserve records. Set status to 'Terminated' instead (it disables "
                 "their code and keeps the record)." % model.code)
+        # An uploaded tax form does not block the delete (its rows go with the
+        # partner, ON DELETE CASCADE), but the encrypted files must not be left
+        # behind on disk.
+        try:
+            import affiliate_ops as _aff_ops
+            _aff_ops.purge_tax_forms(self.session, model)
+        except Exception:
+            log.exception("affiliate delete: tax form file cleanup failed for %s", model.code)
+            raise Exception(
+                "%s has an uploaded tax form whose file could not be removed, so the "
+                "delete was stopped. Check TW2_TAX_FORM_DIR on this box, or set the "
+                "status to 'Terminated' instead." % model.code)
         # No customers: deactivate the promo + delete the coupon so we never leave
         # a live, unattributable discount code behind in Stripe.
         import affiliate_service as afs
@@ -5032,40 +5489,93 @@ class AffiliateAdmin(_AdminAuth, ModelView):
 class AffiliatePayoutAdmin(_AdminAuth, ModelView):
     # Rows are created by the compute step, not by hand. You edit only the
     # amount (e.g. to net a refund), the status, the paid date, and the txn id.
+    # Each row is the sum of the commission-ledger lines payable that month
+    # (Affiliates -> Commission lines); "Ledger lines" shows that total.
     can_create = False
     can_delete = False
     can_edit = True
+    list_template = "admin/affiliate_list.html"      # + the shared partner-program sub-nav
     column_list = ("affiliate", "period_start", "period_end", "currency",
-                   "gross_revenue", "commission_amount", "status", "locked",
-                   "paid_at", "external_ref")
+                   "gross_revenue", "commission_amount", "ledger_lines", "status",
+                   "payout_note", "fraud_flags", "locked", "paid_at", "external_ref")
+    column_labels = {
+        "fraud_flags": "Fraud signals",
+        "gross_revenue": "Customer payments (before tax)",
+        "commission_amount": "Commission to pay",
+        "ledger_lines": "Ledger lines",
+        "payout_note": "Note",
+        "locked": "Hand-adjusted",
+        "external_ref": "Payment reference",
+    }
     column_default_sort = ("period_start", True)
-    column_filters = ("status", "currency", "period_start", "locked")
+    column_filters = ("affiliate.code", "status", "currency", "period_start", "locked")
     form_columns = ("commission_amount", "status", "paid_at", "external_ref")
     form_choices = {"status": [("pending", "Pending"), ("paid", "Paid"),
                                ("void", "Void")]}
+    form_args = {
+        "status": {"description": "Set to Paid after you have sent the money. Refused while the "
+                                  "affiliate has no tax form on file, while the row is negative, "
+                                  "and while it is below the payout minimum (those rows stay "
+                                  "pending and are carried into the next month automatically). "
+                                  "Marking a row paid also marks its ledger lines paid."},
+    }
     can_view_details = True
     column_details_list = ("affiliate", "period_start", "period_end", "currency",
-                           "gross_revenue", "commission_amount", "status", "locked",
+                           "gross_revenue", "commission_amount", "ledger_lines", "status",
+                           "payout_note", "locked",
                            "computed_at", "paid_at", "external_ref", "detail")
     page_size = 100
+
+    def _line_totals(self, model):
+        """Ledger totals of one payout row, cached per request for the list."""
+        import affiliate_admin as afa
+        cache = getattr(g, "_tw_payout_line_totals", None)
+        if cache is None or model.id not in cache:
+            fresh = afa.payout_line_totals(self.session, [model.id])
+            cache = dict(cache or {})
+            cache[model.id] = fresh.get(model.id)
+            g._tw_payout_line_totals = cache
+        return cache[model.id]
+
+    def get_list(self, *args, **kwargs):
+        import affiliate_admin as afa
+        count, data = super().get_list(*args, **kwargs)
+        ids = [m.id for m in (data or [])]
+        totals = afa.payout_line_totals(self.session, ids)
+        g._tw_payout_line_totals = {i: totals.get(i) for i in ids}
+        return count, data
+
+    def _fmt_lines(self, context, model, name):
+        import affiliate_admin as afa
+        return afa.payout_lines_text(self._line_totals(model))
+
+    def _fmt_note(self, context, model, name):
+        import affiliate_admin as afa
+        return afa.payout_note(model)
+
+    def _fmt_flags(self, context, model, name):
+        # Information only (hover for the reason): never blocks a payout.
+        import affiliate_owner_admin as aoa
+        return aoa.payout_flags_html(self.session, model)
+
+    column_formatters = {"ledger_lines": _fmt_lines, "payout_note": _fmt_note,
+                         "fraud_flags": _fmt_flags}
+    column_formatters_detail = column_formatters
 
     def on_model_change(self, form, model, is_created):
         from sqlalchemy import inspect as sa_inspect
         from wtforms.validators import ValidationError
-        # Agreement s.6.2: a valid tax form is a CONDITION OF PAYMENT. Refuse
-        # to record a payout as paid until the affiliate has one on file.
+        import affiliate_admin as afa
+        # Conditions of payment, checked when a row is flipped to paid:
+        #   - agreement s.6.2: a valid tax form on file;
+        #   - not negative (a clawback month is carried forward instead);
+        #   - at or above the payout minimum (config AFFILIATE_PAYOUT_MINIMUM_CENTS,
+        #     $50): a smaller month stays pending and is carried into the next.
+        #     Not applied to a partner terminated without cause (final balance).
         if model.status == "paid" and sa_inspect(model).attrs.status.history.has_changes():
-            aff = model.affiliate
-            if aff is not None and not aff.tax_form_received_at:
-                raise ValidationError(
-                    "Can't mark paid: %s has no tax form on file (W-9 / W-8BEN / "
-                    "W-8BEN-E). Record it on the affiliate first (Affiliates -> edit -> "
-                    "Tax form + Tax form received)." % aff.code)
-            if model.commission_amount is not None and model.commission_amount < 0:
-                raise ValidationError(
-                    "This row is negative (refunds/disputes exceeded sales). It is "
-                    "carried into the affiliate's next payable month automatically - "
-                    "leave it pending.")
+            reason = afa.payout_block_reason(model)
+            if reason:
+                raise ValidationError(reason)
         # auto-stamp paid_at when flipped to paid without an explicit date
         if model.status == "paid" and not model.paid_at:
             from datetime import datetime, timezone
@@ -5076,6 +5586,22 @@ class AffiliatePayoutAdmin(_AdminAuth, ModelView):
         if sa_inspect(model).attrs.commission_amount.history.has_changes() \
                 and sa_inspect(model).attrs.commission_amount.history.deleted:
             model.locked = True
+
+    def after_model_change(self, form, model, is_created):
+        # Paid payout -> its ledger lines (and the lines of earlier months that
+        # were carried into it) become 'paid'. Idempotent.
+        if model.status != "paid":
+            return
+        import affiliate_admin as afa
+        try:
+            moved = afa.sync_paid_lines(self.session)
+            if moved:
+                flash("%d ledger line(s) marked paid." % moved, "info")
+        except Exception as e:
+            self.session.rollback()
+            log.exception("payout %s: ledger line sync failed", getattr(model, "id", "?"))
+            flash("Saved as paid, but the ledger lines were not updated (%s). They are "
+                  "updated the next time a month is committed." % e, "warning")
 
 
 _AFFILIATE_COMPUTE_TMPL = """
@@ -5091,29 +5617,33 @@ _AFFILIATE_COMPUTE_TMPL = """
  .btn{background:#6366f1;color:#fff;border:0;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:600}
  .muted{color:#666;font-size:13px} a{color:#5b4bdb}
 </style></head><body>
-<p><a href="/admin">&larr; Admin</a> &middot; <a href="/admin/affiliatepayout/">Payout ledger</a></p>
+{{ affiliate_subnav|safe }}
 <h1>Affiliate commission - what I owe</h1>
 {% if committed %}<div class="bar ok">Committed {{ '%04d-%02d'|format(y, m) }} to the payout ledger (idempotent - existing rows untouched).</div>{% endif %}
 {% if error %}<div class="bar err">Error: {{ error }}</div>{% endif %}
+{% if skipped %}<div class="bar err"><b>{{ skipped|length }} item(s) left out of this run.</b> Stripe did not answer a lookup that is needed to price them, so nothing was recorded for them (no wrong line is ever written). Wait a minute, then preview and commit this month again: {% for x in skipped[:20] %}{{ x.source }} {{ x.id }}{% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}
 <form method="get">
   <label>Year <input type="number" name="year" value="{{ y }}"></label>
   <label>Month <input type="number" name="month" value="{{ m }}" min="1" max="12"></label>
   <button class="btn" type="submit">Preview</button>
 </form>
-<p class="muted">Reads Stripe live for the month and attributes each discounted sale to its affiliate by the coupon used. Commission = (amount paid &minus; tax) &times; the affiliate's rate. Refunds and lost/open disputes are deducted automatically in the month they happen (a month can go negative; it carries into the next payable month). A tax form must be on file before a row can be marked paid.</p>
+<p class="muted">Reads Stripe live for the month. Each payment is credited to the partner who referred the customer and priced by the terms stamped on that customer: first year = pool minus the customer discount, of the list price; promotion sale = a share of what the customer paid; renewal = the renewal rate of what the customer paid. Tax is never part of the basis. Refunds and lost or open chargebacks are deducted in the month they happen, at the original rate. If a chargeback is later won, or a refund fails, the commission is restored in the month that is committed next.</p>
+<p class="muted"><b>Payout minimum {{ minimum }}.</b> A month below the minimum (or negative) is not paid: it stays pending and is carried into the partner's next month with activity. Commission earned while a partner is paused is <b>held</b> and becomes payable when they are active again. A partner terminated without cause keeps the commission on payments already made, and that final balance is paid even below the minimum. A tax form must be on file before a row can be marked paid.</p>
 {% if preview %}
 <table>
- <tr><th>Code</th><th>Affiliate</th><th>Cur</th><th class="num">Revenue</th><th class="num">Commission owed</th><th>Via</th><th>Pay to</th><th>Tax form</th></tr>
+ <tr><th>Code</th><th>Affiliate</th><th>Cur</th><th class="num">Customer payments</th><th class="num">Commission this month</th><th class="num">Held</th><th>Note</th><th>Via</th><th>Pay to</th><th>Tax form</th></tr>
  {% for r in preview %}
  <tr><td><b>{{ r.code }}</b></td><td>{{ r.name }}</td><td>{{ r.currency|upper }}</td>
      <td class="num">{{ '%.2f'|format(r.gross_revenue) }}</td>
      <td class="num"><b>{{ '%.2f'|format(r.commission_amount) }}</b></td>
+     <td class="num">{{ '%.2f'|format(r.held_amount or 0) }}</td>
+     <td>{% if r.commission_amount < 0 %}Negative, carried{% elif r.status == 'terminated' and r.commission_amount > 0 and r.commission_amount < minimum_amount %}Final balance, payable below the minimum{% elif r.commission_amount < minimum_amount %}Below minimum, carried{% endif %}{% if r.lapsed_count %} {{ r.lapsed_count }} renewal(s) not earned (partner inactive){% endif %}</td>
      <td>{{ (r.payout_method or '?')|upper }}</td>
      <td>{{ r.payout_email or '(no payout email set)' }}{% if r.notes %} <span style="color:#888;font-size:12px">- {{ r.notes }}</span>{% endif %}</td>
      <td>{% if tax.get(r.affiliate_id) %}{{ tax[r.affiliate_id]|upper }}{% else %}<b style="color:#b00020">MISSING - can't pay</b>{% endif %}</td></tr>
  {% endfor %}
  {% for ccy, amt in totals %}
- <tr><th colspan="4" class="num">Total ({{ ccy|upper }})</th><th class="num">{{ '%.2f'|format(amt) }}</th><th></th><th></th><th></th></tr>
+ <tr><th colspan="4" class="num">Total ({{ ccy|upper }})</th><th class="num">{{ '%.2f'|format(amt) }}</th><th></th><th></th><th></th><th></th><th></th></tr>
  {% endfor %}
 </table>
 <form method="post" style="margin-top:16px">
@@ -5124,6 +5654,18 @@ _AFFILIATE_COMPUTE_TMPL = """
 </form>
 {% else %}
 <p class="muted">No affiliate sales found for {{ '%04d-%02d'|format(y, m) }}.</p>
+{% endif %}
+<p class="muted">"Commission this month" is this month's lines only. Amounts carried in from earlier months are added when you commit, and shown on the payout ledger row.</p>
+{% if held %}
+<h2 style="font-size:17px;margin-top:28px">Held commission (all months)</h2>
+<table>
+ <tr><th>Code</th><th>Affiliate</th><th>Status</th><th>Cur</th><th class="num">Lines</th><th class="num">Held</th><th>Reason</th></tr>
+ {% for h in held %}
+ <tr><td><b>{{ h.code }}</b></td><td>{{ h.name }}</td><td>{{ h.status }}</td><td>{{ h.currency|upper }}</td>
+     <td class="num">{{ h.count }}</td><td class="num">{{ '%.2f'|format(h.amount) }}</td><td>{{ h.reason }}</td></tr>
+ {% endfor %}
+</table>
+<p class="muted">Held lines are released the next time a month is committed after the partner is active again (or is terminated without cause). To release them by hand, open the partner's Change terms page and use "Release held lines". See <a href="/admin/affiliatecommissionline/?flt1_state_equals=held">Commission lines</a> for each line.</p>
 {% endif %}
 </body></html>
 """
@@ -5154,15 +5696,19 @@ class AffiliatePayoutComputeView(_AdminAuth, BaseView):
         error = None
         preview = []
         tax = {}
+        held = []
+        skipped = []
+        import affiliate_admin as afa
         s = _S()
         try:
             if _rq.method == "POST" and _rq.form.get("action") == "commit":
                 afs.upsert_month(s, y, m)
                 committed = True
-            preview = afs.compute_month(s, y, m)
+            preview = afs.compute_month(s, y, m, skipped=skipped)
             from models import Affiliate as _Aff
             tax = {str(a.id): a.tax_form_type for a in s.query(_Aff).filter(
                 _Aff.tax_form_received_at.isnot(None)).all()}
+            held = afa.held_summary(s)
         except Exception as e:
             error = str(e)
             log.exception("affiliate compute failed for %04d-%02d", y, m)
@@ -5175,7 +5721,9 @@ class AffiliatePayoutComputeView(_AdminAuth, BaseView):
             totals[r["currency"]] = totals.get(r["currency"], _D("0")) + r["commission_amount"]
         return render_template_string(
             _AFFILIATE_COMPUTE_TMPL, y=y, m=m, preview=preview,
-            committed=committed, error=error, totals=sorted(totals.items()), tax=tax)
+            committed=committed, error=error, totals=sorted(totals.items()), tax=tax,
+            held=held, skipped=skipped, minimum=afa.money(afa.payout_minimum_cents()),
+            minimum_amount=afs.payout_minimum())
 
 
 _AFFILIATE_GUIDE_TMPL = """
@@ -5191,79 +5739,123 @@ _AFFILIATE_GUIDE_TMPL = """
  .note{font-size:13px;color:#555;background:#fffbe6;border:1px solid #f0e6b0;border-radius:8px;padding:10px 14px;margin:14px 0}
  nav a{margin-right:14px}
 </style></head><body>
-<nav><a href="/admin">&larr; Admin</a><a href="/admin/affiliate/">Affiliates</a><a href="/admin/affiliatepayout/">Payout ledger</a><a href="/admin/affiliate_compute/">Compute / what I owe</a></nav>
+{{ affiliate_subnav|safe }}
 <h1>Affiliate program - how it works</h1>
-<p>An in-house affiliate program built on Stripe's own coupons. <b>Each affiliate gets one Stripe coupon + one promo code, created automatically</b> when you add them here - no Stripe dashboard, no Rewardful. Every new affiliate starts <b>paused</b>, and their code stays inert until they <b>e-sign the affiliate agreement</b> (step 2).</p>
+<p>An in-house partner program built on Stripe coupons. Every new affiliate starts <b>paused</b>, and their link and code stay off until they <b>e-sign the affiliate agreement</b> (step 2).</p>
 <p>Current mode: {% if livemode %}<span class="pill mode-live">LIVE - real money</span>{% else %}<span class="pill mode-test">TEST / sandbox - safe to experiment</span>{% endif %}</p>
+
+<h2>The money rules in one place</h2>
+<div class="step">
+  <ul>
+    <li><b>First year - the pool.</b> Each partner has a pool of <b>50% of the list price</b>. The partner picks a customer discount from <b>0% to 25%</b>; the partner earns the rest of the pool. $100 plan: 0% off - customer pays $100, partner earns $50. 20% off - customer pays $80, partner earns $30. TradeWave always retains $50.</li>
+    <li><b>Promotion campaigns.</b> A company-wide intro offer for new customers (<a href="/admin/promo_campaigns/">Campaigns</a>). A direct sale pays no commission. A referred sale pays the partner <b>50% of what the customer paid</b>: $99 sale - partner earns $49.50.</li>
+    <li><b>One offer per purchase.</b> With both a partner and a campaign, the customer gets whichever first-period price is lower. They never stack. A tie goes to the partner discount.</li>
+    <li><b>Renewals.</b> From year 2 the partner earns <b>25% of what the customer pays</b> at each renewal, for the renewal length of their terms (5 years, 10 years or lifetime), and only while the partner is <b>active</b>: at least one new paying customer in the last 12 months. A renewal while inactive earns $0 and is not paid later.</li>
+    <li><b>Tax is never part of the commission.</b> Refunds and chargebacks take back commission at the rate of the original sale.</li>
+  </ul>
+  The numbers above are the standard terms (v2-5y). Other versions are on the <a href="/admin/affiliate_terms/">Terms</a> page.
+</div>
 
 <h2>1. Add the affiliate</h2>
 <div class="step"><b>Affiliates &rarr; Create.</b> Fill in:
   <ul>
     <li><b>name</b> and <b>email</b> - email is required; the signed agreement copy is emailed there.</li>
-    <li><b>code</b> - the promo code they share (A-Z, 0-9, _ or -). <b>Immutable</b> after creation.</li>
-    <li><b>Annual discount %</b> (default 20) &amp; <b>Annual commission %</b> (default 30) - the standard rate: what an annual-plan customer saves and what the affiliate keeps. This rate also applies to <b>monthly</b> plans unless you set a Monthly override below. Discount is <b>immutable</b> after creation; commission is editable.</li>
-    <li><b>Monthly discount %</b> &amp; <b>Monthly commission %</b> (optional) - <b>only</b> fill these if monthly plans get <b>different</b> terms than annual; leave blank to match the annual rate. See <b>section 1a</b> below.</li>
-    <li><b>commission model</b> - Recurring (lifetime), First 12 months, or First payment only (how long they earn).</li>
+    <li><b>code</b> - the code they share (A-Z, 0-9, _ or -). <b>Permanent</b> after creation.</li>
+    <li><b>Terms version</b> - leave blank for the standard terms.</li>
+    <li><b>Customer discount (annual)</b>, 0 to 25, and an optional <b>Customer discount (monthly)</b> if monthly plans get a different discount. There is no commission field: the table under the fields shows, for every plan, what the customer pays, what the partner earns and what TradeWave retains.</li>
     <li><b>payout method</b> (PayPal / Wise) + <b>payout email</b>, and optional <b>notes</b>.</li>
   </ul>
-  On <b>Save</b> we create their Stripe coupon (annual % off) and a promotion code equal to <code>code</code> - plus a separate <b>monthly coupon</b> if you set a different Monthly discount. The affiliate is created <b>PAUSED and the promo code is inactive</b>. A green banner shows their <b>signing link</b>; copy it for step 2. (The <code>status</code> field is ignored on create - everyone starts paused until signed.)
-</div>
-
-<h2>1a. Optional: different terms for monthly vs annual <span style="font-weight:normal">(interval-split)</span></h2>
-<div class="step">
-  <b>What it is.</b> Normally an affiliate has one discount and one commission. You can instead give them <b>different terms depending on whether the customer buys a MONTHLY or an ANNUAL plan</b> - for example a bigger commission on monthly and a bigger discount on annual. It is per-affiliate and optional.
-  <ul>
-    <li><b>How to set it.</b> The <b>Annual discount %</b>/<b>Annual commission %</b> are the standard rate. To make monthly different, also fill <b>Monthly discount %</b>/<b>Monthly commission %</b>. Leave the Monthly fields <b>blank</b> for one flat rate (monthly then matches annual).</li>
-    <li><b>Worked example - Anne-Marie.</b> Annual <b>20% off / 30% commission</b> + Monthly <b>15% off / 35% commission</b>. Result: a <b>monthly</b> subscriber gets 15% off and Anne-Marie earns 35%; an <b>annual</b> subscriber gets 20% off and she earns 30%.</li>
-    <li><b>How it behaves.</b> The right discount is applied automatically when the customer arrives through the affiliate's <b>referral link</b> (<code>/?code=THEIRCODE</code>); a manually typed code gives the annual rate. Each month, commission is computed per invoice at that plan's rate.</li>
-    <li><b>What's editable.</b> The <b>commissions</b> (annual + monthly) are editable later; the <b>discounts</b> are <b>immutable</b> (each is tied to a Stripe coupon). To change a split affiliate's monthly discount, <b>terminate &amp; recreate</b> (Change terms only updates the annual coupon for now).</li>
-  </ul>
+  On <b>Save</b> we create their Stripe coupon and promotion code (none are needed at 0% discount). The affiliate is created <b>PAUSED</b>. A green banner shows their <b>signing link</b>; copy it for step 2.
 </div>
 
 <h2>2. Get them to sign the agreement</h2>
-<div class="step">The code does <b>not</b> work until the affiliate signs. To send the link:
+<div class="step">The link and code do <b>not</b> work until the affiliate signs. To send the link:
   <ol>
-    <li>Click the <b>signing icon</b> on the affiliate's row (the document icon; hover shows "Signing link / signed agreement"). For an unsigned affiliate it opens their link with a <b>Copy link</b> button and a one-click <b>Email link to &lt;their address&gt;</b> button that sends it straight to them. (The green banner right after Save shows the same link, and <b>With selected &rarr; Show signing link</b> / <b>Email signing link to affiliate</b> handle several at once.)</li>
-    <li>The affiliate opens it - a <b>magic link</b>, no login required. It shows the agreement plus an <b>Exhibit A</b> with their exact terms (code, referral link, discount, commission, payout).</li>
+    <li>Click the <b>signing icon</b> on the affiliate's row (the document icon). For an unsigned affiliate it opens their link with a <b>Copy link</b> button and a one-click <b>Email link</b> button.</li>
+    <li>The affiliate opens it - a <b>magic link</b>, no login required. It shows the agreement plus an <b>Exhibit A</b> with their exact terms.</li>
     <li>They type their full legal name, tick the agree box, and click <b>Sign &amp; Accept</b>.</li>
   </ol>
-  On signing, the affiliate flips to <b>active</b>, their promo code is <b>activated</b>, and two emails go out: the signed copy to the affiliate, and a notification to <code>help@tradewave.ai</code>. To read the signed contract any time, click the <b>&check; Signed</b> link in the <b>Agreement</b> column (or the same signing icon on the row, which shows the signed agreement once signed).
+  On signing, the affiliate flips to <b>active</b> and their code is switched on. To read the signed contract any time, click the <b>&check; Signed</b> link in the <b>Agreement</b> column.
 </div>
-<div class="note"><b>About the link:</b> it <b>expires after 30 days</b>. Need a fresh one? <b>With selected &rarr; Regenerate signing link</b> - but that <b>invalidates</b> any link you already sent. You can't flip an affiliate to <b>active</b> by hand before they've signed; send the link and it happens automatically. To change an already-signed affiliate's terms and have them re-sign, use <b>Change terms</b> (step 4) - not terminate.</div>
+<div class="note"><b>About the link:</b> it <b>expires after 30 days</b>. Need a fresh one? <b>With selected &rarr; Regenerate signing link</b> - but that <b>invalidates</b> any link you already sent. You can't flip an affiliate to <b>active</b> by hand before they've signed.</div>
 
 <h2>3. What the affiliate shares (both ways credit them)</h2>
 <div class="step">
-  <b>Their code</b> - the audience types <code>THEIRCODE</code> at checkout to get the discount, and
-  <b>a direct link</b> - <code>https://{{ public_host }}/?code=THEIRCODE</code>. Clicking it pre-applies the discount at checkout (no typing needed), so it works even when the code is just spoken on a podcast. (<code>?via=THEIRCODE</code> also works.) Both only apply once the affiliate is <b>active</b> (signed).
+  <b>Their code</b> - the audience types <code>THEIRCODE</code> at checkout, and
+  <b>a direct link</b> - <code>https://{{ public_host }}/?code=THEIRCODE</code>. Clicking it pre-applies the offer at checkout. (<code>?via=THEIRCODE</code> also works.) Both only apply once the affiliate is <b>active</b> (signed).
 </div>
 
-<h2>4. What you can and can't change later</h2>
-<div class="step">
-  <b>Editable</b> anytime via <b>Edit</b>: the <b>Annual</b> and <b>Monthly commission %</b>, payout method/email, and notes. <b>Status</b>: you can pause or terminate at will, but you <b>can't set active by hand</b> without a signature - it flips automatically on signing.<br>
-  <b>The discount %s are immutable</b> (each is tied to a Stripe coupon) - neither the <b>Annual</b> nor the <b>Monthly discount %</b> can be edited after creation.<br>
-  <b>The <code>code</code> is immutable</b> (it is the Stripe promotion code) - to change the code, terminate and create a new affiliate.<br>
-  <b>To change the discount % or renegotiate (e.g. 20/30 &rarr; 15/35):</b> use the <b>Change terms</b> icon on the row - <b>do not terminate</b> (that would cut off their commission on existing customers). It mints a <b>new coupon</b> at the new discount for <b>new</b> referrals, updates commission, and sends the affiliate back to <b>paused</b> to <b>re-sign</b> the new terms (send them the fresh signing link; their code and commission resume on re-signature). <b>Existing customers keep the discount they signed up with</b> - it lives on their Stripe subscription and is never touched. A commission-only change skips the re-sign. <i>(Note: for an <b>interval-split</b> affiliate, Change terms currently reissues only the annual coupon, not the monthly override coupon - to change a split affiliate's monthly discount, terminate and recreate for now.)</i>
+<h2>4. Changing things later - the Change terms page</h2>
+<div class="step">Click the <b>Change terms</b> icon on the affiliate's row. Everything there applies to <b>future customers only</b>: a customer keeps the discount and the terms in force when their checkout started.
+  <ul>
+    <li><b>Customer discount</b> (0 to 25): takes effect at once for new checkouts. <b>No pause and no new signature.</b> The partner can also change it on their own dashboard, once every 24 hours.</li>
+    <li><b>Terms version</b>: assign another version (for example 10-year renewals). You can require a new signature at the same time.</li>
+    <li><b>Require a new signature</b>: for a change to the agreement or the partner's addendum. The partner is paused until they sign.</li>
+    <li><b>Terminate for cause</b>: needs a written reason and forfeits unpaid commission.</li>
+  </ul>
+  The <b>code</b> is permanent - to change a code, create a new affiliate.
 </div>
 
 <h2>5. Statuses</h2>
 <ol>
-  <li><b>paused</b> - the starting state for every new affiliate (<i>awaiting signature</i>), and also what you set to wind someone down. Their code does not apply for new visitors; you still get paid on their existing referrals.</li>
-  <li><b>active</b> - signed; earns commission and their link/code pre-applies the discount. Reached only by signing.</li>
-  <li><b>terminated</b> - excluded from future payouts, code no longer applies, and their signing link is invalidated. Use this to wind down or end an affiliate with history (the record is kept).</li>
+  <li><b>paused</b> - the starting state for every new affiliate (<i>awaiting signature</i>), and what you set to put someone on hold. Their link and code do not apply for new visitors. Commission on their existing customers keeps accruing and is <b>held</b>; it becomes payable when they are active again.</li>
+  <li><b>active</b> - signed; earns commission and their link/code applies. Reached only by signing.</li>
+  <li><b>terminated</b> - the partnership has ended and the code is off. Unpaid commission is held for your review. Only <b>Terminate for cause</b> (Change terms page) forfeits it.</li>
 </ol>
-<div class="note"><b>Deleting:</b> the trash icon hard-deletes an affiliate <b>only when they have no customers</b> (no referrals or payouts) - handy for clearing a test row or a mistaken entry, and it also removes their Stripe coupon/code. Once they have customers, delete is blocked - <b>terminate</b> instead, which keeps the record.</div>
+<div class="note"><b>Deleting:</b> the trash icon hard-deletes an affiliate <b>only when they have no customers</b> (no referrals or payouts) - handy for clearing a test row. Once they have customers, delete is blocked - <b>terminate</b> instead, which keeps the record.</div>
 
 <h2>6. Paying affiliates each month</h2>
 <ol>
-  <li><b>Affiliates &rarr; Compute / what I owe.</b> Pick the month and hit <b>Preview</b> - it reads Stripe live and shows revenue + commission owed per affiliate.</li>
-  <li>Hit <b>Commit to ledger</b> to save those numbers.</li>
-  <li><b>Affiliates &rarr; Payout Ledger.</b> For each row: pay the person by PayPal/Wise, then set <b>status = Paid</b> and paste the transaction id into <b>external_ref</b>.</li>
+  <li><b>Affiliates &rarr; Compute / what I owe.</b> Pick the month and hit <b>Preview</b> - it reads Stripe live and shows commission per affiliate, plus anything held.</li>
+  <li>Hit <b>Commit to ledger</b>. This writes one line per payment, refund or chargeback into <b>Commission lines</b> and builds the month's rows in the <b>Payout Ledger</b>.</li>
+  <li><b>Affiliates &rarr; Payout Ledger.</b> For each row: pay the person by PayPal/Wise, then set <b>status = Paid</b> and paste the transaction id into <b>Payment reference</b>. The row's ledger lines are marked paid with it.</li>
 </ol>
-<div class="step"><b>How the payout itself works:</b> TradeWave does not move money - it tells you <i>who</i> to pay and <i>how much</i>. The affiliate gives you their PayPal or Wise email when they apply, and you set <b>payout method</b> + <b>payout email</b> on their record. Each month you send the owed amount yourself in PayPal or Wise, then mark the row paid. The "What I owe" table shows the method + email per affiliate so you know which app to open. Use <b>PayPal</b> for US / simple payees and <b>Wise</b> for international ones (better exchange rates); an email works for both - to pay a Wise recipient straight to their bank, put the bank details in that affiliate's <b>Notes</b>.</div>
-<div class="note"><b>Good to know:</b> commission is computed on revenue <i>after</i> the discount and <i>after</i> tax. Re-running a month <b>refreshes still-pending rows</b> with the latest numbers (good for late-settling payments); rows you've marked <b>Paid</b> or <b>Void</b> are frozen. <b>Refunds are not auto-deducted</b> - if a referral refunds, edit that pending row's commission amount down before you mark it paid.</div>
+<div class="step"><b>What can't be paid yet:</b>
+  <ul>
+    <li><b>Below the $50 payout minimum</b> - the row stays pending and is carried into the partner's next month with activity ("Below minimum, carried").</li>
+    <li><b>Negative</b> (refunds were more than sales) - carried forward the same way.</li>
+    <li><b>No tax form on file</b> - record the W-9 / W-8BEN on the affiliate first.</li>
+    <li><b>Held</b> lines of a paused partner - released the next time you commit a month after they are active again.</li>
+  </ul>
+  TradeWave does not move money - it tells you <i>who</i> to pay and <i>how much</i>. Use <b>PayPal</b> for US payees and <b>Wise</b> for international ones.
+</div>
+<div class="note"><b>Good to know:</b> a ledger line is written once and never re-priced, so re-running a month only adds what is new (late payments, new refunds). Rows you've marked <b>Paid</b> or <b>Void</b> are frozen; anything that turns up later for that month goes into the next open month.</div>
 
-<h2>7. Test vs live</h2>
-<div class="step">On the dev box this is Stripe <b>test mode</b> - create affiliates, generate codes, and run payouts freely; nothing is real. On production the same actions create <b>real</b> coupons and apply <b>real</b> discounts.</div>
+<h2>7. Applications - people who ask to join</h2>
+<div class="step">Anyone can apply at <a href="/partners/apply" target="_blank" rel="noopener">/partners/apply</a> (linked from the Affiliates page, the site footer and every partner landing page). The applicant gets a confirmation email and you get a notification with a link.
+  <ol>
+    <li>Open <a href="/admin/affiliate_applications/"><b>Applications</b></a>. New ones are listed first. A yellow label warns you when the email <b>is already a partner</b> or <b>applied before</b>.</li>
+    <li><b>Approve</b>: check the suggested <b>code</b> (permanent) and the <b>customer discount</b>, add an optional personal note, and click <b>Approve and send signing link</b>. That one click creates the partner on the standard terms (paused), creates their Stripe coupon and emails them the agreement signing link. From there it is step 2 above.</li>
+    <li><b>Reject</b>: optionally type a reason. The applicant gets a polite decline that includes it. <b>Mark as spam</b> closes it with no email.</li>
+  </ol>
+  Spam protection: a hidden field that only bots fill in, and a limit of 3 applications per network per day.
+</div>
+
+<h2>8. Send a message to partners</h2>
+<div class="step"><a href="/admin/affiliate_messages/"><b>Messages</b></a> sends one message to <b>one partner</b> or to a <b>group</b>: all, active, paused, not signed yet, one terms version, no new paying customer in the last N days, with paying customers, or with none.
+  <ol>
+    <li>Pick the group. The page shows how many partners match as you choose.</li>
+    <li>Write the subject and the message in plain text. <code>{first_name}</code>, <code>{code}</code>, <code>{link}</code> and <code>{dashboard}</code> are filled in for each partner.</li>
+    <li>Click <b>Preview recipients</b>: you see the count, the first names on the list and the message exactly as the first partner will see it. Nothing is sent yet.</li>
+    <li>Click <b>Send</b>. Each partner gets it in their dashboard <b>Messages</b> inbox (with an unread badge) and by email.</li>
+  </ol>
+  A partner who turned off "News from the TradeWave team" gets it in the inbox only. Tick <b>Program notice</b> to email everyone regardless - use it only for agreement or payment changes. The <a href="/admin/affiliate_messages/log"><b>Send log</b></a> lists every send per partner: emailed, inbox only (and why), failed, read.
+</div>
+
+<h2>9. Automatic emails</h2>
+<div class="step">A daily job (<code>web/affiliate_comms.py</code>, cron 14:10 UTC, installed by <code>ops/install_affiliate_comms_cron.sh</code>) sends each of these <b>once per partner per event</b> and records it in the Send log and the partner's inbox:
+  <ul>
+    <li><b>Welcome</b> when they sign (sent right away), <b>first click</b>, <b>new paying customer</b> (never who), <b>monthly statement ready</b>, <b>payout sent</b> (when you mark a ledger row Paid).</li>
+    <li><b>Activity warnings</b> 60, 30 and 7 days before renewal commissions would stop, then <b>renewals stopped</b> and <b>renewals resumed</b>.</li>
+    <li><b>New company sale</b> when a campaign goes live, with the partner's tracked link, and <b>discount change confirmed</b>.</li>
+  </ul>
+  Partners choose their emails in the dashboard under Settings, and every optional email has an unsubscribe link. Payout sent, discount change, the 7-day warning and renewals stopped are always sent. Events older than 7 days are never emailed, so nothing old goes out when the job is first switched on. To see what would go out without sending: <code>python web/affiliate_comms.py --dry-run</code>.
+</div>
+<div class="note"><b>One statement email, not two:</b> the daily job is the only sender of the monthly statement email, and only for a month that has closed. The monthly <code>affiliate_report.py</code> sweep now only writes the ledger: its old <code>--email</code> flag is ignored, and <code>ops/install_affiliate_comms_cron.sh</code> removes the flag from the cron line.</div>
+<div class="note"><b>Where to start each day:</b> <a href="/admin/affiliate_home/"><b>Partner program</b></a> shows what is waiting for you (applications, partner questions, tax forms, payable rows, unsigned partners, the activity deadline, fraud signals). You also get one email a day, only when something has waited more than 48 hours. All owner notices go to one address: <code>AFFILIATE_OWNER_EMAIL</code> in secrets.env.</div>
+
+<h2>10. Test vs live</h2>
+<div class="step">On the dev box this is Stripe <b>test mode</b> - create affiliates, campaigns and payouts freely; nothing is real. On production the same actions create <b>real</b> coupons and apply <b>real</b> discounts.</div>
 </body></html>
 """
 
@@ -5448,217 +6040,9 @@ class AffiliateSignedView(_AdminAuth, BaseView):
             s.close()
 
 
-_CHANGE_TERMS_TMPL = """
-<!doctype html><html><head><meta charset="utf-8"><meta name="robots" content="noindex">
-<title>Change terms{% if aff %} - {{ aff.code }}{% endif %}</title>
-<style>
- body{font:14px/1.6 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1f2a44;background:#f4f5f9;margin:0;}
- .wrap{max-width:640px;margin:0 auto;padding:24px 20px 60px;}
- .doc{background:#fff;border:1px solid #e3e6ee;border-radius:12px;padding:28px 32px;}
- .doc h2{margin-top:0;}
- .none{background:#fff;border:1px solid #e3e6ee;border-radius:12px;padding:32px;color:#555;}
- .flash{border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;border:1px solid #e3e6ee;}
- .flash-success{background:#e7f6ec;color:#0a7d28;border-color:#bfe6cb;}
- .flash-warning{background:#fffbe6;color:#8a6d00;border-color:#f0e6b0;}
- .flash-error,.flash-danger{background:#fdeaea;color:#b00020;border-color:#f3c6c6;}
- .flash-info{background:#eef2ff;color:#3a32a8;border-color:#cfd6f5;}
- label{display:block;margin:14px 0 0;font-size:13px;font-weight:600;color:#3a3a55;}
- input[type=number]{width:140px;margin-top:4px;padding:8px 10px;border:1px solid #cfd3e0;border-radius:7px;font-size:14px;}
- .note{font-size:13px;color:#555;background:#f7f7fb;border:1px solid #e6e6ef;border-radius:8px;padding:12px 14px;margin:14px 0;}
- button{margin-top:20px;font-size:14px;font-weight:600;border:1px solid #4338ca;background:#4f46e5;color:#fff;border-radius:7px;padding:10px 18px;cursor:pointer;box-shadow:0 1px 2px rgba(31,42,68,.15);}
- button:hover{background:#4338ca;}
- a{color:#5b4bdb;}
-</style></head><body><div class="wrap">
-{% with msgs = get_flashed_messages(with_categories=true) %}
-  {% if msgs %}{% for cat, m in msgs %}<div class="flash flash-{{ cat }}">{{ m }}</div>{% endfor %}{% endif %}
-{% endwith %}
-{% if not found %}
-  <div class="none">Affiliate not found.</div>
-{% elif not eligible %}
-  <div class="none"><strong>{{ aff.code }}</strong> ({{ aff.status }}) - changing terms applies to a
-  signed, <strong>active</strong> affiliate.{% if not aff.agreement_signed_at %} This affiliate hasn't signed yet,
-  so just edit them directly, or delete + recreate with the right terms.{% else %} Reactivate them first if you want to change terms.{% endif %}
-  <p><a href="{{ url_for('affiliate.index_view') }}">&larr; Back to affiliates</a></p></div>
-{% else %}
-  <div class="doc">
-    <h2>Change terms - {{ aff.code }}</h2>
-    <p>Current: <strong>{{ cur_discount }}% discount</strong> / <strong>{{ cur_commission }}% commission</strong>
-       &middot; {{ ref_count }} existing referred customer(s).</p>
-    <div class="note">This mints a <strong>new coupon</strong> for <strong>new</strong> referrals at the new
-      discount and re-points their code to it. <strong>Existing customers keep their current discount</strong>
-      (it lives on their Stripe subscription) and you keep owing the affiliate commission on them. The
-      affiliate must <strong>re-sign</strong> the new terms, so they go to <em>paused</em> until they do
-      (their code and commission resume on re-signature). The new commission rate applies to all of their
-      referrals going forward.</div>
-    <form method="post" action="{{ url_for('affiliate_change_terms.apply') }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="id" value="{{ aff.id }}">
-      <label>New discount % (audience)
-        <input type="number" step="0.01" min="1" max="100" name="discount_pct" value="{{ cur_discount }}" required></label>
-      <label>New commission % (affiliate keeps)
-        <input type="number" step="0.01" min="0" max="100" name="commission_pct" value="{{ cur_commission }}" required></label>
-      <button type="submit">Apply new terms &amp; require re-sign</button>
-    </form>
-  </div>
-{% endif %}
-</div></body></html>
-"""
-
-
-class AffiliateChangeTermsView(_AdminAuth, BaseView):
-    """Change an established (signed) affiliate's terms without breaking their
-    existing customers: mint a new coupon for new referrals at the new discount,
-    update commission, and require the affiliate to re-sign the new Exhibit A.
-    Reached via the per-row 'change terms' icon, not the nav."""
-
-    def is_visible(self):
-        return False
-
-    @expose("/")
-    def index(self):
-        from flask import render_template_string, request as _rq
-        import uuid as _uuid
-        from models import Session as _S, Affiliate as _Aff, AffiliateReferral as _Ref
-        import affiliate_agreement as _agr
-        aid = _rq.args.get("id", "")
-        try:
-            _uuid.UUID(aid)
-        except (ValueError, TypeError, AttributeError):
-            return render_template_string(_CHANGE_TERMS_TMPL, found=False, aff=None, eligible=False)
-        s = _S()
-        try:
-            aff = s.query(_Aff).filter(_Aff.id == aid).first()
-            if aff is None:
-                return render_template_string(_CHANGE_TERMS_TMPL, found=False, aff=None, eligible=False)
-            eligible = aff.agreement_signed_at is not None and aff.status == "active"
-            ref_count = s.query(_Ref).filter(_Ref.affiliate_id == aff.id).count()
-            return render_template_string(
-                _CHANGE_TERMS_TMPL, found=True, aff=aff, eligible=eligible,
-                cur_discount=_agr._fmt_pct(aff.discount_pct),
-                cur_commission=_agr._fmt_pct(aff.commission_pct), ref_count=ref_count)
-        finally:
-            s.close()
-
-    @expose("/apply", methods=["POST"])
-    def apply(self):
-        from flask import request as _rq, redirect, url_for as _url_for, flash
-        import uuid as _uuid
-        from decimal import Decimal, InvalidOperation
-        from models import Session as _S, Affiliate as _Aff
-        import affiliate_service as _afs
-        import affiliate_agreement as _agr
-        import promo_service as _ps
-        aid = _rq.form.get("id", "")
-        try:
-            _uuid.UUID(aid)
-        except (ValueError, TypeError, AttributeError):
-            flash("Invalid affiliate id.", "error")
-            return redirect(_url_for("affiliate.index_view"))
-        try:
-            new_d = Decimal((_rq.form.get("discount_pct") or "").strip())
-            new_c = Decimal((_rq.form.get("commission_pct") or "").strip())
-        except (InvalidOperation, ValueError):
-            flash("Enter valid numbers for discount and commission.", "error")
-            return redirect(_url_for("affiliate_change_terms.index", id=aid))
-        if not (0 < new_d <= 100) or not (0 <= new_c <= 100):
-            flash("Discount must be 1-100 and commission 0-100.", "error")
-            return redirect(_url_for("affiliate_change_terms.index", id=aid))
-        s = _S()
-        # Stripe state captured so a DB failure AFTER the swap can be compensated.
-        new_coupon = new_promo = old_pid = None
-        reissued = False
-        try:
-            # Row lock serialises concurrent / double submits (idempotency).
-            aff = s.query(_Aff).filter(_Aff.id == aid).with_for_update().first()
-            if aff is None:
-                flash("Affiliate not found.", "error")
-                return redirect(_url_for("affiliate.index_view"))
-            # Only START a change from a live, signed, ACTIVE affiliate. A paused
-            # (incl. mid-re-sign) one is ineligible -> blocks re-processing.
-            if aff.agreement_signed_at is None or aff.status != "active":
-                flash("Terms can only be changed for a signed, ACTIVE affiliate "
-                      "(this one is %s). Reactivate them first if needed." % aff.status, "error")
-                return redirect(_url_for("affiliate_change_terms.index", id=aid))
-
-            code = aff.code
-            discount_changed = Decimal(str(aff.discount_pct)) != new_d
-            commission_changed = Decimal(str(aff.commission_pct)) != new_c
-
-            # ---- Commission-only change: light path, no coupon swap / re-sign ----
-            # (mirrors the Edit form, which lets commission_pct change in place.)
-            if not discount_changed:
-                if not commission_changed:
-                    flash("No change - discount and commission are unchanged.", "info")
-                    return redirect(_url_for("affiliate_change_terms.index", id=aid))
-                aff.commission_pct = new_c
-                s.commit()
-                write_audit(actor_label="admin", action="affiliate_commission_changed",
-                            details={"code": code, "commission_pct": str(new_c)})
-                flash("Commission for %s updated to %s%% (no re-signature needed; "
-                      "applies to the next month you compute)."
-                      % (code, _agr._fmt_pct(new_c)), "success")
-                return redirect(_url_for("affiliate_change_terms.index", id=aid))
-
-            # ---- Discount change: new coupon + re-sign ----
-            old_pid = aff.stripe_promotion_code_id
-            # reissue_coupon is the irreversible coupon/promo swap; it rolls back
-            # its OWN partial failures (AffiliateError below). After it succeeds,
-            # any later failure - the set_promo_active Stripe call OR the DB
-            # commit - triggers revert_reissue in the except path to restore the
-            # old code, so the affiliate is never left holding a dead one.
-            new_coupon, new_promo = _afs.reissue_coupon(aff, new_d)
-            reissued = True
-            aff.discount_pct = new_d
-            aff.stripe_coupon_id = new_coupon
-            aff.stripe_promotion_code_id = new_promo
-            aff.commission_pct = new_c
-            # Require re-signature of the new Exhibit A.
-            aff.agreement_signed_name = None
-            aff.agreement_signed_at = None
-            aff.agreement_signed_ip = None
-            aff.agreement_signed_user_agent = None
-            aff.agreement_snapshot = None
-            aff.agreement_version = _agr.AGREEMENT_VERSION
-            aff.agreement_token_version = (aff.agreement_token_version or 0) + 1
-            aff.status = "paused"
-            # Paused pending re-sign -> the NEW promo must be inert. A failure here
-            # raises PromoError -> caught below -> full DB + Stripe rollback (so we
-            # never commit a paused row whose code is still redeemable).
-            _ps.set_promo_active(aff, False)
-            s.commit()
-            # Audit AFTER commit (write_audit uses the same scoped_session and
-            # closes it; calling it earlier would tear down the live transaction).
-            write_audit(actor_label="admin", action="affiliate_terms_changed",
-                        details={"code": code, "discount_pct": str(new_d),
-                                 "commission_pct": str(new_c)})
-            flash('Terms updated for %s to %s%% / %s%%. The affiliate is now PAUSED '
-                  "pending re-signature - send them the new signing link below."
-                  % (code, _agr._fmt_pct(new_d), _agr._fmt_pct(new_c)), "success")
-            return redirect(_url_for("affiliate_signed.index", id=aid))
-        except _afs.AffiliateError as e:
-            # reissue_coupon failed atomically (its own rollback already ran).
-            s.rollback()
-            flash("Could not re-issue the discount coupon: %s" % e, "error")
-            return redirect(_url_for("affiliate_change_terms.index", id=aid))
-        except Exception as e:
-            s.rollback()
-            if reissued:
-                # DB step failed AFTER Stripe was swapped: restore the old code so
-                # the affiliate isn't left with a dead one, and remove the new objects.
-                try:
-                    _afs.revert_reissue(old_pid, new_coupon, new_promo)
-                    flash("Failed to change terms (%s); restored the previous "
-                          "coupon/code." % e, "error")
-                except Exception as e2:
-                    flash("Failed to change terms (%s) AND the Stripe rollback hit an "
-                          "issue (%s). Reconcile in Stripe: promo %s should be ACTIVE; "
-                          "coupon %s / promo %s should be removed."
-                          % (e, e2, old_pid, new_coupon, new_promo), "error")
-            else:
-                flash("Failed to change terms: %s" % e, "error")
-            return redirect(_url_for("affiliate_change_terms.index", id=aid))
-        finally:
-            s.close()
+# The per-partner "Change terms" page (customer discount, terms version, new
+# signature, terminate for cause), the Terms page and the Campaigns page live
+# in web/affiliate_admin.py and are registered below with the other views.
 
 
 # ============================================================
@@ -5918,13 +6302,131 @@ admin.add_view(StripeEventAdmin(StripeEvent, ModelsSession, name="Stripe Events"
 admin.add_view(SupportTicketAdmin(SupportTicket, ModelsSession, name="Support Tickets", category=None))
 
 # --- Affiliate program (manual promo-code model) ---
-from models import Affiliate, AffiliatePayout
+from models import Affiliate, AffiliatePayout, AffiliateCommissionLine
+import affiliate_admin as _affiliate_admin
+from flask_admin.contrib.sqla.filters import FilterEqual as _FilterEqual
+
+
+class AffiliateCommissionLineAdmin(_AdminAuth, ModelView):
+    """Read-only commission ledger: one line per paid invoice, refund or
+    chargeback. Lines are written once by the monthly compute and never
+    re-priced; only their state moves (payable -> paid, held -> payable)."""
+    can_create = False
+    can_edit = False
+    can_delete = False
+    list_template = "admin/affiliate_list.html"      # + the shared partner-program sub-nav
+    can_view_details = True
+    column_list = ("affiliate", "period_month", "kind", "state", "hold_reason",
+                   "billing_interval", "year_number", "net_paid_cents", "basis_cents",
+                   "rate_pct", "amount", "currency", "payable_month", "payout_id",
+                   "event_at", "stripe_invoice_id")
+    column_details_list = column_list + (
+        "source_id", "stripe_reversal_id", "stripe_customer_id", "stripe_subscription_id",
+        "service_period_start", "referral_id", "detail", "created_at", "updated_at")
+    column_labels = {
+        "period_month": "Month earned",
+        "payable_month": "Payout month",
+        "kind": "Type",
+        "state": "State",
+        "hold_reason": "Hold reason",
+        "billing_interval": "Billing",
+        "year_number": "Commission year",
+        "net_paid_cents": "Customer paid (before tax)",
+        "basis_cents": "Commission basis",
+        "rate_pct": "Rate %",
+        "amount": "Commission",
+        "payout_id": "Payout row",
+        "event_at": "Paid / reversed at (UTC)",
+        "stripe_invoice_id": "Stripe invoice",
+        "source_id": "Stripe source",
+        "affiliate.code": "Affiliate code",
+    }
+    column_filters = (
+        "affiliate.code", "period_month", "payable_month",
+        _FilterEqual(AffiliateCommissionLine.kind, "Type", options=tuple(
+            (k, _affiliate_admin.LINE_KIND_LABELS[k]) for k in
+            ("first_year", "promo", "renewal", "lapsed", "refund", "dispute"))),
+        _FilterEqual(AffiliateCommissionLine.state, "State", options=tuple(
+            (k, _affiliate_admin.LINE_STATE_LABELS[k]) for k in
+            ("pending", "paid", "held", "lapsed", "void"))),
+        "currency", "stripe_invoice_id",
+    )
+    column_searchable_list = ("source_id", "stripe_invoice_id", "stripe_customer_id",
+                              "stripe_subscription_id")
+    column_default_sort = ("event_at", True)
+    page_size = 100
+    column_formatters = {
+        "kind": lambda v, c, m, n: _affiliate_admin.line_kind_label(m),
+        "state": lambda v, c, m, n: _affiliate_admin.LINE_STATE_LABELS.get(m.state, m.state),
+        "hold_reason": lambda v, c, m, n: (
+            _affiliate_admin.HOLD_REASON_LABELS.get(m.hold_reason, m.hold_reason or "")),
+        "billing_interval": lambda v, c, m, n: (
+            {"month": "Monthly", "year": "Annual"}.get(m.billing_interval, m.billing_interval or "")),
+        "net_paid_cents": lambda v, c, m, n: _affiliate_admin.money(m.net_paid_cents),
+        "basis_cents": lambda v, c, m, n: _affiliate_admin.money(m.basis_cents),
+        "rate_pct": lambda v, c, m, n: _affiliate_admin.pct(m.rate_pct),
+        "amount": lambda v, c, m, n: _affiliate_admin.money_amount(m.amount),
+        "period_month": lambda v, c, m, n: (m.period_month.strftime("%Y-%m") if m.period_month else ""),
+        "payable_month": lambda v, c, m, n: (
+            m.payable_month.strftime("%Y-%m") if m.payable_month else "Not scheduled"),
+    }
+    column_formatters_detail = column_formatters
+
+
+_affiliate_views = _affiliate_admin.make_views(
+    _AdminAuth, catalog_fn=lambda: _campaign_catalog(),
+    audit_fn=lambda **kw: write_audit(**kw), current_user_fn=lambda: get_current_user())
+# --- Owner home + year-end tax report (fix-0039; web/affiliate_owner_admin.py).
+# "Partner program" is the FIRST item of the Affiliates menu. The shared
+# sub-nav (web/affiliate_nav.py) is a Jinja global so every affiliate admin
+# page, including the Flask-Admin list pages, shows the same links.
+import affiliate_nav as _affiliate_nav
+import affiliate_owner_admin as _affiliate_owner_admin
+app.jinja_env.globals["affiliate_subnav"] = _affiliate_nav.NAV_HTML
+app.jinja_env.globals["affiliate_attribution_days"] = (
+    lambda: __import__("affiliate_service").attribution_window_days())
+_affiliate_owner_views = _affiliate_owner_admin.make_views(
+    _AdminAuth, audit_fn=lambda **kw: write_audit(**kw), current_user_fn=lambda: get_current_user())
+admin.add_view(_affiliate_owner_views["home"](
+    name="Partner program", endpoint="affiliate_home", category="Affiliates"))
 admin.add_view(AffiliateGuideView(name="How it works", endpoint="affiliate_guide", category="Affiliates"))
 admin.add_view(AffiliateAdmin(Affiliate, ModelsSession, name="Affiliates", category="Affiliates"))
+admin.add_view(_affiliate_views["terms"](name="Terms", endpoint="affiliate_terms", category="Affiliates"))
 admin.add_view(AffiliatePayoutAdmin(AffiliatePayout, ModelsSession, name="Payout Ledger", category="Affiliates"))
+admin.add_view(AffiliateCommissionLineAdmin(
+    AffiliateCommissionLine, ModelsSession, name="Commission lines", category="Affiliates"))
 admin.add_view(AffiliatePayoutComputeView(name="Compute / What I owe", endpoint="affiliate_compute", category="Affiliates"))
 admin.add_view(AffiliateSignedView(name="Signed agreement", endpoint="affiliate_signed", category="Affiliates"))
-admin.add_view(AffiliateChangeTermsView(name="Change terms", endpoint="affiliate_change_terms", category="Affiliates"))
+admin.add_view(_affiliate_views["change_terms"](name="Change terms", endpoint="affiliate_change_terms", category="Affiliates"))
+# --- Partner help assistant (TW-TASK-0039 A; web/affiliate_help_admin.py) ---
+import affiliate_help_admin as _affiliate_help_admin
+_affiliate_help_views = _affiliate_help_admin.make_views(
+    _AdminAuth, audit_fn=lambda **kw: write_audit(**kw), current_user_fn=lambda: get_current_user())
+admin.add_view(_affiliate_help_views["questions"](
+    name="Partner questions", endpoint="affiliate_help", category="Affiliates"))
+admin.add_view(_affiliate_help_views["kb"](
+    name="Help knowledge base", endpoint="affiliate_help_kb", category="Affiliates"))
+# Optional reply-by-email (Resend inbound): external webhook, authenticated by
+# its Svix signature; 404 while the inbound secret/address are unset.
+csrf.exempt(_affiliate_help_admin.webhook_bp)
+app.register_blueprint(_affiliate_help_admin.webhook_bp)
+# --- Operations + growth tools (TW-TASK-0039 C; web/affiliate_ops_admin.py) ---
+import affiliate_ops_admin as _affiliate_ops_admin
+_affiliate_ops_views = _affiliate_ops_admin.make_views(
+    _AdminAuth, audit_fn=lambda **kw: write_audit(**kw), current_user_fn=lambda: get_current_user())
+admin.add_view(_affiliate_ops_views["bulk_payouts"](name="Bulk payouts", endpoint="affiliate_bulk_payouts", category="Affiliates"))
+admin.add_view(_affiliate_ops_views["tax_forms"](name="Tax forms", endpoint="affiliate_tax_forms", category="Affiliates"))
+admin.add_view(_affiliate_ops_views["creatives"](name="Creative library", endpoint="affiliate_creatives", category="Affiliates"))
+admin.add_view(_affiliate_owner_views["tax_report"](
+    name="Year-end tax report", endpoint="affiliate_tax_report", category="Affiliates"))
+# --- Partner applications + messaging (TW-TASK-0039 B; web/affiliate_comms_admin.py) ---
+import affiliate_comms_admin as _affiliate_comms_admin
+_affiliate_comms_views = _affiliate_comms_admin.make_views(
+    _AdminAuth, audit_fn=lambda **kw: write_audit(**kw), current_user_fn=lambda: get_current_user())
+admin.add_view(_affiliate_comms_views["applications"](
+    name="Applications", endpoint="affiliate_applications", category="Affiliates"))
+admin.add_view(_affiliate_comms_views["messages"](
+    name="Messages", endpoint="affiliate_messages", category="Affiliates"))
 
 # --- SMN expert module: participation (invites) + take review queue ---
 from models import AffiliateSmnProfile, ExpertTake
@@ -6028,6 +6530,8 @@ admin.add_view(ExpertTakeAdmin(
 # --- Standalone promo coupons (no affiliate / commission) ---
 from models import PromoCoupon
 admin.add_view(PromoCouponAdmin(PromoCoupon, ModelsSession, name="Coupons", category=None))
+# --- Company-wide promotion campaigns (program v2; web/affiliate_admin.py) ---
+admin.add_view(_affiliate_views["campaigns"](name="Campaigns", endpoint="promo_campaigns", category=None))
 
 # --- API customer console: self-serve keys / usage / billing / MCP connect (additive) ---
 # Gated so the API/MCP product ships DARK on prod: the console registers only when
@@ -6051,6 +6555,14 @@ from affiliate_portal.blueprint import set_user_loader as _aff_set_user_loader
 _aff_set_user_loader(get_current_user)  # share the web app's WorkOS session resolver
 app.register_blueprint(affiliate_portal.bp, url_prefix="/account/affiliate")
 log.info("Affiliate dashboard enabled at /account/affiliate")
+
+# --- Public partner pages: /partners/apply + email preferences / unsubscribe
+# (TW-TASK-0039 B; web/affiliate_comms_views.py). The one-click unsubscribe
+# POST comes from mail clients, so its signed token is the auth, not CSRF. ---
+import affiliate_comms_views as _partner_public
+_partner_public.set_client_ip(lambda: _client_ip())
+app.register_blueprint(_partner_public.bp)
+csrf.exempt(_partner_public.one_click_unsubscribe)
 
 
 # --- SMN expert-content pull feed (X-Service-Key, same auth as

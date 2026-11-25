@@ -1,0 +1,36 @@
+{# Email preferences card, included by aff_settings.html. Data comes from the
+   blueprint context processor in affiliate_portal/messages.py. #}
+{% set ep = aff_email_prefs() if aff_email_prefs is defined else none %}
+{% if ep %}
+<div class="card" id="email">
+  <h3>Email preferences</h3>
+  <p class="small soft" style="margin:0 0 6px;">Tick the emails you want. Everything also appears in <a href="{{ url_for('affiliate_portal.messages') }}">Messages</a>, whether you get the email or not.</p>
+  <form method="post" action="{{ url_for('affiliate_portal.settings_email') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for p in ep.rows %}
+    <label class="eprow" for="ep-{{ p.id }}">
+      <input type="checkbox" id="ep-{{ p.id }}" name="on" value="{{ p.id }}" {{ 'checked' if p.on else '' }}>
+      <span><b>{{ p.label }}</b><span class="small soft">{{ p.help }}</span></span>
+    </label>
+    {% endfor %}
+    <div class="row" style="margin-top:14px;">
+      <button class="btn-primary" type="submit">Save email preferences</button>
+      <button class="btn-secondary" type="button" onclick="var b=this.form.querySelectorAll('input[name=on]');for(var i=0;i<b.length;i++)b[i].checked=false;">Untick all</button>
+    </div>
+  </form>
+  <details class="more" style="margin-top:16px;">
+    <summary>Emails every partner gets</summary>
+    <p class="small soft" style="margin:8px 0 4px;">These are about your money, your account or your agreement, so they cannot be turned off.</p>
+    <ul class="small soft" style="margin:0;padding-left:18px;">
+      {% for label, why in ep.required %}<li><b style="color:var(--text);">{{ label }}.</b> {{ why }}</li>{% endfor %}
+    </ul>
+  </details>
+</div>
+<style>
+  .eprow { display:flex; gap:12px; align-items:flex-start; margin:0; padding:12px 0; border-bottom:1px solid var(--line);
+           color:var(--text); font-size:15px; cursor:pointer; min-height:44px; }
+  .eprow input { width:20px; height:20px; flex:none; margin-top:2px; accent-color:#8b5cf6; }
+  .eprow b { display:block; font-weight:600; }
+  .eprow span span { display:block; }
+</style>
+{% endif %}

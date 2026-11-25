@@ -1,0 +1,67 @@
+{% extends "partner_public_base.html" %}
+{% block title %}Partner email preferences{% endblock %}
+{% block meta %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block topright %}<a class="back" href="/account/affiliate">Partner dashboard</a>{% endblock %}
+{% block content %}
+{% if invalid %}
+  <h1>This link is not valid</h1>
+  <p class="sub">It may have been copied incompletely. You can change your partner emails any time in your
+    <a href="/account/affiliate/settings#email">partner dashboard Settings</a>, or write to
+    <a href="mailto:help@tradewave.ai">help@tradewave.ai</a>.</p>
+{% else %}
+  <h1>Partner <span class="grad">email preferences</span></h1>
+  <p class="sub">For partner code {{ code }}. Tick the emails you want. Everything also appears in your dashboard Messages.</p>
+
+  {% if saved %}<div class="ok" role="status">{{ saved }}</div>{% endif %}
+
+  {% if stop %}
+  <div class="panel stopbox" role="status">
+    {% if stop.state == 'ask' %}
+    <h2>Stop "{{ stop.label }}" emails?</h2>
+    <p class="hint" style="margin:0;">You will still see them in your dashboard Messages. Nothing else changes.</p>
+    <form method="post" action="{{ action }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="stop" value="{{ stop.id }}">
+      <div class="btnrow"><button class="btn" type="submit">Stop these emails</button></div>
+    </form>
+    {% elif stop.state == 'undone' %}
+    <h2>Undone.</h2>
+    <p class="hint" style="margin:0;">"{{ stop.label }}" emails are back on.</p>
+    {% else %}
+    <h2>Done.</h2>
+    <p class="hint" style="margin:0;">{% if stop.state == 'already' %}"{{ stop.label }}" emails are already off.{% else %}You will not get "{{ stop.label }}" emails any more.{% endif %}</p>
+    <form method="post" action="{{ action }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="undo" value="{{ stop.id }}">
+      <div class="btnrow"><button class="btn ghost" type="submit">Undo</button></div>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <form method="post" action="{{ action }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="panel">
+      <h2>{{ 'All your optional emails' if stop else 'Emails you can turn off' }}</h2>
+      {% for p in prefs %}
+      <label class="toggle" for="pref-{{ p.id }}" style="margin:0;font-weight:400;">
+        <input type="checkbox" id="pref-{{ p.id }}" name="on" value="{{ p.id }}" {{ 'checked' if p.on else '' }}>
+        <div><b>{{ p.label }}</b><span>{{ p.help }}</span></div>
+      </label>
+      {% endfor %}
+      <div class="btnrow">
+        <button class="btn" type="submit">Save preferences</button>
+        <button class="btn ghost" type="submit" name="all_off" value="yes">Turn all of these off</button>
+      </div>
+    </div>
+  </form>
+
+  <div class="panel">
+    <h2>Always sent</h2>
+    <p class="hint" style="margin:0 0 6px;">These are about your money, your account or your agreement, so every partner gets them.</p>
+    {% for label, why in required %}
+    <div class="toggle"><span class="lock" aria-hidden="true">&#128274;</span><div><b>{{ label }}</b><span>{{ why }}</span></div></div>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

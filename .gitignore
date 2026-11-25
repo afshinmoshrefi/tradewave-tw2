@@ -103,6 +103,7 @@ pip-delete-this-directory.txt
 
 # Large media (host on CDN/object storage; reference by URL)
 *.mp4
+!web/affiliate_portal/static/partner-tour.mp4
 *.mov
 *.webm
 *.avi

@@ -75,18 +75,22 @@ CONTACT_EMAIL = "help@tradewave.ai"
 AFFILIATE_FILENAME = "affiliate.html"
 AFFILIATE_TITLE = "Affiliate Program"
 AFFILIATE_SUBTITLE = (
-    "Earn recurring commission introducing your audience to seasonal-pattern "
-    "trading - and give them a deal worth sharing."
+    "Earn up to 50% of every first year and 25% of renewals introducing your "
+    "audience to seasonal-pattern trading - and give them a deal worth sharing."
 )
 # Public-facing program terms. Once this page is live these are a commitment;
 # change them here (single source of truth) and re-run the generator.
-AFF_COMMISSION = "30%"                       # recurring commission to the partner
-AFF_COMMISSION_TERM = "for as long as your referral stays subscribed"
-AFF_AUDIENCE_DISCOUNT = "20%"                # discount the partner's audience gets
-AFF_AUDIENCE_DISCOUNT_TERM = "for their first year"
-AFF_PAYOUT_CADENCE = "monthly"
+# Program v2 (owner decisions 2026-11-24, docs/tasks/TW-TASK-0038.md).
+AFF_POOL = "50%"                             # first-year pool of the list price
+AFF_MAX_DISCOUNT = "25%"                     # most a partner can give their audience
+AFF_RENEWAL = "25%"                          # of each renewal payment
+AFF_RENEWAL_YEARS = "years 2 to 5"           # default agreement term
+AFF_MIN_PAYOUT = "$50"
+AFF_PAYOUT_DAY = "the 15th"
+AFF_COOKIE_DAYS = 60
 PARTNER_EMAIL = "help@tradewave.ai"
 PARTNER_SUBJECT = "Affiliate Partner Application"
+PARTNER_APPLY_URL = "/partners/apply"          # web tier form (web/affiliate_comms_views.py)
 
 # Year for the footer copyright + page-modified hint.
 YEAR = datetime.now().year
@@ -342,7 +346,7 @@ def render_page(title: str, subtitle: str, body_html: str, last_updated: str | N
     <a href="/app/">Wave Viewer</a>
     <a href="/learn/">Learn</a>
     <a href="/contact.html">Contact</a>
-    <a href="/affiliate">Affiliates</a>
+    <a href="/affiliate">Affiliate Program</a>
     <a href="/privacy.html">Privacy</a>
     <a href="/terms.html">Terms</a>
     <a href="/disclaimer.html">Disclaimer</a>
@@ -761,26 +765,167 @@ def build_affiliate() -> tuple[str, dict]:
   .aff-cta-wrap .aff-cta { display:inline-block; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; text-decoration:none; font-weight:700; font-size:16px; padding:14px 32px; border-radius:10px; transition:transform 140ms ease, box-shadow 140ms ease; }
   .aff-cta-wrap .aff-cta:hover { transform:translateY(-1px); box-shadow:0 10px 28px rgba(139,92,246,0.3); }
   .aff-cta-note { font-size:13px; color:var(--text-muted); margin:16px 0 0; }
-  @media (max-width:720px) { .aff-cards, .aff-steps, .aff-terms { grid-template-columns:1fr; } }
+    .aff-uses .aff-card h3 { font-size:16px; }
+  .aff-tablist { display:none; gap:8px; flex-wrap:wrap; margin:20px 0 4px; }
+  .aff-tabs.js .aff-tablist { display:flex; }
+  .aff-tablist button { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.12); color:var(--text-dim); font:inherit; font-size:14px; font-weight:600; padding:9px 16px; border-radius:999px; cursor:pointer; }
+  .aff-tablist button:hover { color:#fff; border-color:rgba(139,92,246,0.5); }
+  .aff-tablist button[aria-selected="true"] { background:linear-gradient(135deg,#6366f1,#8b5cf6); border-color:transparent; color:#fff; }
+  .aff-tablist button:focus-visible { outline:2px solid #a78bfa; outline-offset:2px; }
+  .aff-tabs.js .aff-panel-h { display:none; }
+  .aff-panel-h { margin:24px 0 0; font-size:17px; color:#fff; }
+  .aff-tabs .aff-uses { grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); margin-top:16px; }
+  #panel-research .aff-uses, .aff-fits { grid-template-columns:repeat(2,1fr); }
+  @media (max-width:720px) { .aff-cards, .aff-steps, .aff-terms, #panel-research .aff-uses, .aff-fits { grid-template-columns:1fr; } }
 </style>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  var root=document.querySelector('[data-tabs]'); if(!root) return;
+  root.classList.add('js');
+  var tabs=[].slice.call(root.querySelectorAll('[role=tab]'));
+  function show(t){ tabs.forEach(function(x){ var on=x===t; x.setAttribute('aria-selected',on); x.tabIndex=on?0:-1;
+    document.getElementById(x.getAttribute('aria-controls')).hidden=!on; }); }
+  tabs.forEach(function(t,i){ t.addEventListener('click',function(){show(t);});
+    t.addEventListener('keydown',function(e){ var d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;
+      if(d){ var n=tabs[(i+d+tabs.length)%tabs.length]; n.focus(); show(n); e.preventDefault(); } }); });
+  show(tabs[0]);
+});
+</script>
 """
     mailto = f"mailto:{PARTNER_EMAIL}?subject={quote(PARTNER_SUBJECT)}"
     body = css + f"""
-<p class="aff-lead">TradeWave helps traders find stocks that repeat the same seasonal patterns year after year, then scores each setup with a 62-feature AI model. If you teach, write about, or build a community around trading, our affiliate program lets you earn recurring income introducing your audience to a tool they will actually use - while handing them a real discount.</p>
+<p class="aff-lead">You already have an audience that trusts your take on the market. TradeWave gives you a research engine to back it up: it finds stocks that tend to move the same way at the same time each year, shows you the evidence, and scores each setup with a 62-feature AI model. Keep your own strategy. Use TradeWave to discover ideas, check them, and track how they play out, then share it with your audience for a cut of every sale.</p>
 
-<h2>Why partners promote TradeWave</h2>
+<h2>What you can do with TradeWave</h2>
+<p>Each card is a question your audience asks, and one you can answer on camera in a couple of minutes.</p>
+<div class="aff-tabs" data-tabs>
+  <div class="aff-tablist" role="tablist">
+    <button type="button" role="tab" id="tab-find" aria-controls="panel-find" aria-selected="true">Find ideas</button>
+    <button type="button" role="tab" id="tab-research" aria-controls="panel-research" aria-selected="false">Research a stock</button>
+    <button type="button" role="tab" id="tab-compare" aria-controls="panel-compare" aria-selected="false">Compare</button>
+    <button type="button" role="tab" id="tab-track" aria-controls="panel-track" aria-selected="false">Track and alerts</button>
+    <button type="button" role="tab" id="tab-ai" aria-controls="panel-ai" aria-selected="false">Ask AI</button>
+  </div>
+  <div class="aff-panel" role="tabpanel" id="panel-find" aria-labelledby="tab-find">
+    <h3 class="aff-panel-h">Find ideas</h3>
+    <div class="aff-cards aff-uses">
+      <div class="aff-card">
+      <h3>"What is starting a strong pattern right now?"</h3>
+      <p>When a stock enters a high-probability seasonal window, TradeWave finds it for you, so you are not scanning charts by hand.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"What starts today?"</h3>
+      <p>The Opportunity table lists every pattern that starts on the current day, so nothing slips past you.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"I only want to be in for a few weeks."</h3>
+      <p>Search for opportunities by how long you want to hold, anywhere from 2 to 365 days.</p>
+      </div>
+    </div>
+  </div>
+  <div class="aff-panel" role="tabpanel" id="panel-research" aria-labelledby="tab-research">
+    <h3 class="aff-panel-h">Research a stock</h3>
+    <div class="aff-cards aff-uses">
+      <div class="aff-card">
+      <h3>"Is MSFT usually up or down this time of year?"</h3>
+      <p>Look up any stock and see how it has behaved over the same dates, year after year.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"What does a typical year look like?"</h3>
+      <p>See the average price path over the last 10, 20 or any number of years, drawn as a chart you can show.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"When is the worst time to hold?"</h3>
+      <p>Find a stock's weakest stretches, like September for Apple, then exclude those dates to see how it performs without them.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"How does this pattern do in a pre-election year?"</h3>
+      <p>Filter by the presidential election cycle, like midterm years or the year before an election such as 2027, and see how a pattern behaved in just those years.</p>
+      </div>
+    </div>
+  </div>
+  <div class="aff-panel" role="tabpanel" id="panel-compare" aria-labelledby="tab-compare">
+    <h3 class="aff-panel-h">Compare</h3>
+    <div class="aff-cards aff-uses">
+      <div class="aff-card">
+      <h3>"Has this stock beaten the S&amp;P 500?"</h3>
+      <p>Run a buy-and-hold analysis on any stock and compare it with the S&amp;P 500, over however many years you want to look at.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"Which of these stocks has done best?"</h3>
+      <p>Compare the performance of several stocks side by side, over as many years of history as exist.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"Where could my stocks be in 3 months?"</h3>
+      <p>Project where a portfolio would land if the market followed its historical average from here.</p>
+      </div>
+    </div>
+  </div>
+  <div class="aff-panel" role="tabpanel" id="panel-track" aria-labelledby="tab-track">
+    <h3 class="aff-panel-h">Track and alerts</h3>
+    <div class="aff-cards aff-uses">
+      <div class="aff-card">
+      <h3>"Can I build a portfolio around this pattern?"</h3>
+      <p>Group stocks or other securities that share a pattern into a portfolio. TradeWave writes a report on it, and tracks each portfolio's performance on its own.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"Remind me when it starts."</h3>
+      <p>Found a pattern that opens next month? Add it to Google Calendar, or put it in a portfolio and set a notification.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"Did last month's ideas actually work?"</h3>
+      <p>Track how picks and patterns played out, so you can show your audience real results, not just predictions.</p>
+      </div>
+    </div>
+  </div>
+  <div class="aff-panel" role="tabpanel" id="panel-ai" aria-labelledby="tab-ai">
+    <h3 class="aff-panel-h">Ask AI</h3>
+    <div class="aff-cards aff-uses">
+      <div class="aff-card">
+      <h3>"Can I just ask it?"</h3>
+      <p>Yes. Tara, the built-in research assistant, answers questions in plain English: find opportunities, explain a pattern, or compare stocks.</p>
+      </div>
+      <div class="aff-card">
+      <h3>"Can I use it inside ChatGPT?"</h3>
+      <p>Yes. TradeWave connects to ChatGPT, Claude and other AI assistants through MCP, and has an API for people who build their own tools.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2>How it fits what you already make</h2>
+<div class="aff-cards aff-fits">
+  <div class="aff-card">
+    <h3>YouTube</h3>
+    <p>A weekly "what's entering its season" episode with TradeWave charts on screen, then a follow-up on how it played out.</p>
+  </div>
+  <div class="aff-card">
+    <h3>Newsletter</h3>
+    <p>A "pattern of the week" section, plus a short calendar of what opens next month.</p>
+  </div>
+  <div class="aff-card">
+    <h3>Coaching or courses</h3>
+    <p>Teach with real examples, like September for Apple or pre-election years. Students repeat the research themselves as homework.</p>
+  </div>
+  <div class="aff-card">
+    <h3>Community or Discord</h3>
+    <p>Post what is starting today from the Opportunity table, and track a shared portfolio in public.</p>
+  </div>
+</div>
+
+<h2>Why partners like the program</h2>
 <div class="aff-cards">
   <div class="aff-card">
-    <h3>A product your audience keeps</h3>
-    <p>Seasonal patterns, AI scoring, and a daily pick that earn a place in a trader's routine. Referrals stick around - and your recurring commission with them.</p>
+    <h3>A big first-year share</h3>
+    <p>You get a {AFF_POOL} share of each new customer's first-year price. You decide how much of it goes to your audience as a discount, and you keep the rest.</p>
   </div>
   <div class="aff-card">
-    <h3>A real deal to offer</h3>
-    <p>Your code gives your audience {AFF_AUDIENCE_DISCOUNT} off {AFF_AUDIENCE_DISCOUNT_TERM}. You are not just selling them something - you are saving them money.</p>
+    <h3>Renewals keep paying</h3>
+    <p>After the first year you earn {AFF_RENEWAL} of every renewal payment, in {AFF_RENEWAL_YEARS} of each customer, as long as you keep bringing in at least one new paying customer a year.</p>
   </div>
   <div class="aff-card">
-    <h3>Recurring, not one and done</h3>
-    <p>Earn {AFF_COMMISSION} commission {AFF_COMMISSION_TERM}. Build a base of referrals and your {AFF_PAYOUT_CADENCE} payout compounds.</p>
+    <h3>A dashboard that shows its work</h3>
+    <p>Live earnings, every commission line explained, a 12-month forecast, tagged links for each channel, ready-made banners and posts, and a help assistant that knows your numbers.</p>
   </div>
 </div>
 
@@ -789,33 +934,34 @@ def build_affiliate() -> tuple[str, dict]:
   <div class="aff-step">
     <span class="n">1</span>
     <h3>Apply</h3>
-    <p>Tell us about your audience, and let us know the PayPal or Wise email where you would like to be paid. We partner with a small, hand-picked group, so every partner gets personal attention. Approved partners sign a short affiliate agreement (we send a private link) before going live.</p>
+    <p>Tell us about your audience. It takes about 3 minutes and we review every application personally. Approved partners sign a short affiliate agreement online and go live right away.</p>
   </div>
   <div class="aff-step">
     <span class="n">2</span>
     <h3>Share your link or code</h3>
-    <p>You get a unique referral link and a matching code. Share the link and the discount applies itself the moment your audience arrives - or they can type your code at checkout. Both work anywhere: a video, newsletter, course, or community, even spoken aloud.</p>
+    <p>You get a unique referral link and a matching code. The link applies your discount automatically, or your audience can type the code at checkout. Use it in videos, newsletters, courses or communities, even spoken aloud.</p>
   </div>
   <div class="aff-step">
     <span class="n">3</span>
-    <h3>Earn {AFF_PAYOUT_CADENCE}</h3>
-    <p>When someone subscribes through your link or code, they save and you earn - {AFF_COMMISSION} commission {AFF_COMMISSION_TERM}. We pay out {AFF_PAYOUT_CADENCE}.</p>
+    <h3>Get paid monthly</h3>
+    <p>Each month closes, we total what your customers actually paid, and we send your commission by {AFF_PAYOUT_DAY} of the next month by PayPal or Wise.</p>
   </div>
 </div>
 
 <h2>What you earn</h2>
 <div class="aff-terms">
-  <div class="t"><span class="big">{AFF_COMMISSION}</span><span class="lbl">recurring commission<br>{AFF_COMMISSION_TERM}</span></div>
-  <div class="t"><span class="big">{AFF_AUDIENCE_DISCOUNT} off</span><span class="lbl">for your audience<br>{AFF_AUDIENCE_DISCOUNT_TERM}</span></div>
-  <div class="t"><span class="big">{AFF_PAYOUT_CADENCE}</span><span class="lbl">payouts<br>by PayPal or Wise</span></div>
+  <div class="t"><span class="big">Up to {AFF_POOL}</span><span class="lbl">of the first year<br>minus the discount you choose</span></div>
+  <div class="t"><span class="big">{AFF_RENEWAL}</span><span class="lbl">of renewals<br>in {AFF_RENEWAL_YEARS}</span></div>
+  <div class="t"><span class="big">0 to {AFF_MAX_DISCOUNT} off</span><span class="lbl">for your audience<br>you choose, and can change it</span></div>
 </div>
+<p>Example on a $400 plan: give 0% off and the customer pays $400, you earn $200. Give 20% off and they pay $320, you earn $120. Every renewal at $400 pays you $100.</p>
 
 <h2>Who we partner with</h2>
-<p>The program is invite and application based. It is a strong fit if you reach traders through:</p>
+<p>The program is application based. It is a strong fit if you reach traders through:</p>
 <ul>
   <li>Trading coaching, mentorship, or courses</li>
   <li>A YouTube channel, podcast, or newsletter about the markets</li>
-  <li>A trading community, Discord, or signals group</li>
+  <li>A trading community or Discord</li>
   <li>Educational content on seasonality, technical analysis, or stock research</li>
 </ul>
 
@@ -823,11 +969,19 @@ def build_affiliate() -> tuple[str, dict]:
 <div class="aff-faq">
   <div class="q">
     <strong>How and when do I get paid?</strong>
-    <p>After each month closes and payments clear, we total what your active referrals actually paid and send your {AFF_COMMISSION} commission {AFF_PAYOUT_CADENCE} by PayPal or Wise. Commission is {AFF_COMMISSION} of the subscription revenue your referrals pay us - after their discount, excluding sales tax, and net of any refunds - and it keeps coming {AFF_COMMISSION_TERM}. You will need a PayPal or Wise account to receive payouts. Just share the email tied to it when you apply or during onboarding, and we set it up for you.</p>
+    <p>After each month closes and payments clear, we total what your customers actually paid (after their discount, excluding sales tax, net of refunds) and send your commission by {AFF_PAYOUT_DAY} of the next month by PayPal or Wise. The minimum payout is {AFF_MIN_PAYOUT}; smaller amounts carry forward and are never lost. We need a tax form (W-9 or W-8) on file first, which you upload in your dashboard.</p>
+  </div>
+  <div class="q">
+    <strong>What happens during a TradeWave sale?</strong>
+    <p>Your customer gets whichever price is lower, the sale or your discount, and the referral is always yours. If the sale price wins, you earn 50% of what they paid.</p>
+  </div>
+  <div class="q">
+    <strong>How do renewal commissions keep going?</strong>
+    <p>Renewals pay while you have brought in at least one new paying customer in the last 12 months (with a 30-day grace). If that window ends, renewals pause until your next new paying customer. Your dashboard shows the date, and we email you 60, 30 and 7 days before. First-year commissions are never affected.</p>
   </div>
   <div class="q">
     <strong>How is a referral tracked?</strong>
-    <p>Two ways, whichever is easier for your audience. When someone clicks your referral link, the discount is applied automatically and they stay credited to you for 60 days - so even if they come back later to subscribe, the referral still counts. Or they can simply enter your code at checkout. Either way the discount ties their subscription to you for as long as they stay subscribed.</p>
+    <p>When someone clicks your link they stay credited to you for {AFF_COOKIE_DAYS} days, so a visitor who comes back later still counts. Or they can enter your code at checkout. A customer who cancels and returns within 12 months stays yours.</p>
   </div>
   <div class="q">
     <strong>Is there any cost to join?</strong>
@@ -835,7 +989,7 @@ def build_affiliate() -> tuple[str, dict]:
   </div>
   <div class="q">
     <strong>Can I use my own code?</strong>
-    <p>Your link and code are for your audience - your own subscription is not eligible for commission. Beyond that, share them however works for you.</p>
+    <p>Your link and code are for your audience - your own subscription is not eligible for commission. Beyond that, share them however works for you, and always say that you earn a commission.</p>
   </div>
   <div class="q">
     <strong>Do I need a huge audience?</strong>
@@ -845,8 +999,8 @@ def build_affiliate() -> tuple[str, dict]:
 
 <div class="aff-cta-wrap">
   <h2>Apply to partner with us</h2>
-  <p>Send us a note about you and your audience. We review every application personally.</p>
-  <a class="aff-cta" href="{mailto}">Apply now →</a>
+  <p>Tell us about you and your audience. It takes about 3 minutes, and we review every application personally.</p>
+  <a class="aff-cta" href="{PARTNER_APPLY_URL}">Apply now →</a>
   <p class="aff-cta-note">Or email <a href="{mailto}">{PARTNER_EMAIL}</a> with the subject "{PARTNER_SUBJECT}".</p>
 </div>
 """

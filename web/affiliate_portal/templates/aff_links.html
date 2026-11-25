@@ -1,31 +1,250 @@
 {% extends "aff_base.html" %}
+{% block heading %}Links{% endblock %}
+{% block subtitle %}Everything you need to send people to TradeWave with your name on it.{% endblock %}
+{% import "aff_macros.html" as m %}
 {% block content %}
+{% set ls = aff_ops.links() %}
+
+{% if link_block %}
+<div class="strip amber"><div class="txt"><b>{{ link_block }}</b>
+  <span>{% if not aff.agreement_signed_at %}Copy is switched off so you don't share a link that can't credit you yet. The signing link is in your email.{% else %}Copy is switched off so you don't share a link that can't credit you. Questions: help@tradewave.ai{% endif %}</span></div></div>
+{% endif %}
+
+<div class="grid2">
+  <div class="card">
+    <h3>Your join page</h3>
+    <p class="soft small" style="margin-top:0;">A ready-made page with your name, your note and your prices. Best link to share.</p>
+    <div class="linkbox"><code>{{ links.join }}</code>
+      {{ m.copy(links.join, 'Copy', link_block) }}</div>
+    {{ m.copy_note(link_block) }}
+    <div class="row" style="margin-top:12px;">
+      <a class="btn-secondary btn-sm" href="{{ links.join }}" target="_blank" rel="noopener">Preview</a>
+      <a class="btn-secondary btn-sm" href="{{ url_for('affiliate_portal.promote') }}#join-page">Edit page</a>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Your referral link</h3>
+    <p class="soft small" style="margin-top:0;">Goes to the TradeWave home page with your code already applied.</p>
+    <div class="linkbox"><code>{{ links.referral }}</code>
+      {{ m.copy(links.referral, 'Copy', link_block) }}</div>
+    {{ m.copy_note(link_block) }}
+    <p class="tiny muted" style="margin:12px 0 0;">A click is remembered for 60 days, so you get credit even if they subscribe later.</p>
+  </div>
+</div>
+
 <div class="card">
-  <h3>Your Links</h3>
-  <label>Referral link (home page, code pre-applied)</label>
-  <div class="row"><code>{{ links.referral }}</code>
-    <button class="copybtn" onclick="twCopy(this, '{{ links.referral }}')">Copy</button></div>
-  <label>Co-branded join page</label>
-  <div class="row"><code>{{ links.join }}</code>
-    <button class="copybtn" onclick="twCopy(this, '{{ links.join }}')">Copy</button></div>
-  <p class="muted" style="font-size:13px; margin-top:14px;">
-    Any TradeWave URL works with <code>?code={{ aff.code }}</code> appended - attribution
-    holds for 60 days from first click.
-  </p>
+  <h3>Your code</h3>
+  {% if has_code %}
+  <div class="row">
+    <span class="big mono">{{ aff.code }}</span>
+    {{ m.copy(aff.code, 'Copy code', link_block) }}
+  </div>
+  {{ m.copy_note(link_block) }}
+  <p class="soft small" style="margin:10px 0 0;">Customers can also type {{ aff.code }} at checkout. Handy for podcasts, videos and print, where people cannot click.</p>
+  {% else %}
+  <p class="lead">Share your link - at 0% off there is no checkout code.</p>
+  <p class="soft small" style="margin:0;">Your links still track every customer. To get a code people can type, set a discount above 0% in
+    <a href="{{ url_for('affiliate_portal.settings') }}#offer">Settings</a>.</p>
+  {% endif %}
+</div>
+
+{% if ls %}
+<div class="card" id="sublinks">
+  <h3>Tracked links</h3>
+  <p class="soft small" style="margin-top:0;">Make one link per place you post - a video, a newsletter, your bio - and see which one brings clicks, signups and paying customers. Every link credits you the same way; the name is only for your own numbers.</p>
+  <form method="post" action="{{ url_for('affiliate_portal.sublink_create') }}" class="row" style="align-items:flex-end; gap:12px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div style="flex:2; min-width:180px;">
+      <label for="sl-name" style="margin-top:0;">Name</label>
+      <input type="text" id="sl-name" name="name" maxlength="40" placeholder="e.g. youtube or march-newsletter" required autocomplete="off">
+    </div>
+    {% if ls.live_campaigns %}
+    <div style="flex:1; min-width:160px;">
+      <label for="sl-camp" style="margin-top:0;">For a promotion (optional)</label>
+      <select id="sl-camp" name="campaign_id">
+        <option value="">No promotion</option>
+        {% for c in ls.live_campaigns %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <button class="btn-primary" type="submit">Create link</button>
+  </form>
+
+  {% if ls.sublinks %}
+  <table class="stack" style="margin-top:16px;">
+    <thead><tr><th>Link</th><th class="num">Clicks</th><th class="num">Signups</th><th class="num">Paid</th><th class="num">Earned</th><th></th></tr></thead>
+    <tbody>
+    {% for r in ls.sublinks %}
+    <tr{% if r.archived %} style="opacity:.6;"{% endif %}>
+      <td data-label="Link" class="title"><span><b>{{ r.label }}</b>{% if r.campaign %} <span class="pill">{{ r.campaign }}</span>{% endif %}{% if r.archived %} <span class="pill dim">Archived</span>{% endif %}
+        <span class="tiny soft mono" style="font-weight:400; display:block; word-break:break-all;">{{ r.urls.join }}</span></span></td>
+      <td data-label="Clicks" class="num">{{ r.clicks }}</td>
+      <td data-label="Signups" class="num">{{ r.signups }}</td>
+      <td data-label="Paid" class="num">{{ r.paid }}</td>
+      <td data-label="Earned" class="num"><b>{{ r.earned_cents|aff_cents }}</b></td>
+      <td data-label="" style="text-align:right; white-space:nowrap;">
+        {% if not r.archived %}{{ m.copy(r.urls.join, 'Copy', link_block) }}{% endif %}
+        <form method="post" action="{{ url_for('affiliate_portal.sublink_archive', sublink_id=r.id) }}" style="display:inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          {% if r.archived %}<input type="hidden" name="restore" value="1">{% endif %}
+          <button class="copybtn" type="submit">{{ 'Restore' if r.archived else 'Archive' }}</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    <tr>
+      <td data-label="Link" class="title"><span class="soft">Your main link or typed code</span></td>
+      <td data-label="Clicks" class="num">{{ ls.untagged.clicks }}</td>
+      <td data-label="Signups" class="num">{{ ls.untagged.signups }}</td>
+      <td data-label="Paid" class="num">{{ ls.untagged.paid }}</td>
+      <td data-label="Earned" class="num">{{ ls.untagged.earned_cents|aff_cents }}</td><td></td>
+    </tr>
+    <tr>
+      <td data-label="Link" class="title"><b>All links</b></td>
+      <td data-label="Clicks" class="num"><b>{{ ls.totals.clicks }}</b></td>
+      <td data-label="Signups" class="num"><b>{{ ls.totals.signups }}</b></td>
+      <td data-label="Paid" class="num"><b>{{ ls.totals.paid }}</b></td>
+      <td data-label="Earned" class="num"><b>{{ ls.totals.earned_cents|aff_cents }}</b></td><td></td>
+    </tr>
+    </tbody>
+  </table>
+  <p class="tiny muted" style="margin:12px 0 0;">All time. Paid counts customers whose first payment went through. Earned is commission to date after refunds, in U.S. dollars. The home-page version of a link is the same address with <span class="mono">?code={{ aff.code }}&amp;sub=name</span>.</p>
+  {{ m.copy_note(link_block) }}
+  {% else %}
+  <div class="empty" style="margin-top:14px;"><b>No tracked links yet</b>
+    Create one above for each place you share TradeWave.</div>
+  {% endif %}
+</div>
+
+{% if ls.campaigns %}
+<div class="card" id="campaign-stats">
+  <h3>Promotions</h3>
+  <table class="stack">
+    <thead><tr><th>Promotion</th><th class="num">Clicks</th><th class="num">Signups</th><th class="num">Paid</th><th class="num">Earned</th></tr></thead>
+    <tbody>
+    {% for c in ls.campaigns %}
+    <tr>
+      <td data-label="Promotion" class="title"><span><b>{{ c.name }}</b>{% if c.live %} <span class="pill ok">Live</span>{% endif %}</span></td>
+      <td data-label="Clicks" class="num">{{ c.clicks }}</td>
+      <td data-label="Signups" class="num">{{ c.signups }}</td>
+      <td data-label="Paid" class="num">{{ c.paid }}</td>
+      <td data-label="Earned" class="num"><b>{{ c.earned_cents|aff_cents }}</b></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="tiny muted" style="margin:12px 0 0;">Paid and Earned count every customer of yours who bought at the promotion price. Clicks and Signups count the tracked links you made for that promotion.</p>
+</div>
+{% endif %}
+{% endif %}
+
+<div class="card" id="builder">
+  <h3>Link builder</h3>
+  <p class="soft small" style="margin-top:0;">Send people to a specific page and label where the link is used. Your code is added for you.</p>
+  <div class="grid2" style="margin-bottom:0;">
+    <div>
+      <label for="lb-dest" style="margin-top:0;">Destination</label>
+      <select id="lb-dest">
+        {% for key, label, path in destinations %}<option value="{{ key }}" data-path="{{ path }}">{{ label }}</option>{% endfor %}
+      </select>
+      <div id="lb-custom-wrap" style="display:none;">
+        <label for="lb-custom">Page on tradewave.ai</label>
+        <input type="text" id="lb-custom" placeholder="/pricing" maxlength="120" autocomplete="off">
+      </div>
+      {% if ls and ls.sublinks %}
+      <label for="lb-sub">Tracked link (optional)</label>
+      <select id="lb-sub">
+        <option value="">None</option>
+        {% for r in ls.sublinks if not r.archived %}<option value="{{ r.sub }}">{{ r.label }}</option>{% endfor %}
+      </select>
+      {% endif %}
+      <label for="lb-label">Campaign label (optional)</label>
+      <input type="text" id="lb-label" placeholder="e.g. march-newsletter" maxlength="40" autocomplete="off">
+      <details class="more" style="margin-top:14px;">
+        <summary>UTM fields (optional)</summary>
+        <label for="lb-source">utm_source</label>
+        <input type="text" id="lb-source" placeholder="e.g. youtube" maxlength="40" autocomplete="off">
+        <label for="lb-medium">utm_medium</label>
+        <input type="text" id="lb-medium" placeholder="e.g. video" maxlength="40" autocomplete="off">
+        <label for="lb-campaign">utm_campaign</label>
+        <input type="text" id="lb-campaign" placeholder="e.g. spring-launch" maxlength="40" autocomplete="off">
+      </details>
+    </div>
+    <div>
+      <label style="margin-top:0;">Your link</label>
+      <div class="linkbox"><code id="lb-out">{{ links.join }}</code>
+        <button class="copybtn" type="button" id="lb-copy"{% if link_block %} disabled aria-disabled="true" title="{{ link_block }}"{% endif %}>Copy</button></div>
+      {{ m.copy_note(link_block) }}
+      <p class="tiny" id="lb-err" style="color:var(--bad); display:none; margin:8px 0 0;"></p>
+      <div class="row" style="margin-top:14px; align-items:flex-start;">
+        <span style="background:#fff; border-radius:10px; padding:6px; line-height:0;">
+          <img id="lb-qr" src="{{ url_for('affiliate_portal.qr_svg', u=links.join) }}" alt="QR code for your link" width="140" height="140">
+        </span>
+        <div style="flex:1; min-width:140px;">
+          <p class="small soft" style="margin:0 0 10px;">QR code for this exact link. Use it on slides, flyers or video.</p>
+          <a class="btn-secondary btn-sm" id="lb-qr-dl" href="{{ url_for('affiliate_portal.qr_svg', u=links.join, download=1) }}">Download QR (SVG)</a>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 {% if take_links %}
 <div class="card">
-  <h3>Your Published Takes (share these)</h3>
+  <h3>Your published takes</h3>
   <table>
     {% for t in take_links %}
     <tr>
       <td>{{ t.title }}</td>
-      <td style="text-align:right;"><button class="copybtn" onclick="twCopy(this, '{{ t.url }}')">Copy link</button></td>
+      <td style="text-align:right;">{{ m.copy(t.url, 'Copy link', link_block) }}</td>
     </tr>
     {% endfor %}
   </table>
-  <p class="muted" style="font-size:13px;">Each link lands readers on your commentary with your code attached.</p>
+  <p class="tiny muted">Each link lands readers on your commentary with your code attached.</p>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var BASE = {{ site_base|tojson }}, CODE = {{ aff.code|tojson }}, QR = {{ url_for('affiliate_portal.qr_svg')|tojson }};
+  var $ = function (id) { return document.getElementById(id); };
+  var dest = $("lb-dest"), custom = $("lb-custom"), out = $("lb-out"), err = $("lb-err"), timer = null, current = out.textContent;
+  function clean(v) { return (v || "").trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40); }
+  function build() {
+    var opt = dest.options[dest.selectedIndex], key = opt.value, path = opt.getAttribute("data-path");
+    $("lb-custom-wrap").style.display = key === "custom" ? "block" : "none";
+    err.style.display = "none";
+    if (key === "custom") {
+      path = (custom.value || "").trim() || "/";
+      if (/^https?:\/\//i.test(path)) {
+        if (path.indexOf(BASE) !== 0) { err.textContent = "Use a page on " + BASE.replace(/^https?:\/\//, "") + "."; err.style.display = "block"; return; }
+        path = path.slice(BASE.length) || "/";
+      }
+      if (path.charAt(0) !== "/") path = "/" + path;
+      path = path.split("#")[0].replace(/[<>"'\s]/g, "");
+    }
+    var parts = path.split("?"), qs = parts[1] ? parts[1].split("&").filter(function (p) { return p && !/^(code|sub|label|utm_)/.test(p); }) : [];
+    if (key !== "join") qs.push("code=" + encodeURIComponent(CODE));
+    var subSel = $("lb-sub"); if (subSel && subSel.value) qs.push("sub=" + encodeURIComponent(subSel.value));
+    var label = clean($("lb-label").value); if (label) qs.push("label=" + encodeURIComponent(label));
+    [["lb-source", "utm_source"], ["lb-medium", "utm_medium"], ["lb-campaign", "utm_campaign"]].forEach(function (f) {
+      var v = clean($(f[0]).value); if (v) qs.push(f[1] + "=" + encodeURIComponent(v));
+    });
+    current = BASE + parts[0] + (qs.length ? "?" + qs.join("&") : "");
+    out.textContent = current;
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      var u = QR + "?u=" + encodeURIComponent(current);
+      $("lb-qr").src = u; $("lb-qr-dl").href = u + "&download=1";
+    }, 350);
+  }
+  ["lb-dest", "lb-custom", "lb-sub", "lb-label", "lb-source", "lb-medium", "lb-campaign"].forEach(function (id) {
+    if (!$(id)) return;
+    $(id).addEventListener("input", build); $(id).addEventListener("change", build);
+  });
+  $("lb-copy").addEventListener("click", function () { twCopy(this, current); });
+})();
+</script>
 {% endblock %}

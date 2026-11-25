@@ -61,6 +61,91 @@ API_CONSOLE_ENABLED = os.environ.get('TW2_API_CONSOLE_ENABLED', '').strip().lowe
 AFFILIATE_DEFAULT_DISCOUNT_PCT = 20
 AFFILIATE_DEFAULT_COMMISSION_PCT = 30
 
+# ONE owner address for every partner-program notice to the owner: help
+# escalations, new applications, tax-form alerts, the monthly operations
+# summary and the daily "waiting more than 48 hours" digest. Empty falls back
+# to AFFILIATE_SUPPORT_EMAIL, then SUPPORT_EMAIL_TO
+# (affiliate_service.owner_email()).
+AFFILIATE_OWNER_EMAIL = os.environ.get('AFFILIATE_OWNER_EMAIL', '').strip()
+# First-touch attribution window: how long the tw_ref / tw_ref_sub cookies
+# live (days). Shown to partners via affiliate_service.attribution_window_days().
+# The static home page JS (site/templates/index-dark-blue.html) carries the
+# same 60 as a literal: change both together and regenerate the site.
+AFFILIATE_ATTRIBUTION_WINDOW_DAYS = int(os.environ.get('TW2_AFFILIATE_ATTRIBUTION_WINDOW_DAYS', '60'))
+# Public application form: at most this many applications per hour from ALL
+# networks together (on top of the per-network daily cap and Turnstile).
+AFFILIATE_APPLY_MAX_PER_HOUR = int(os.environ.get('TW2_AFFILIATE_APPLY_MAX_PER_HOUR', '30'))
+
+# --- Partner help assistant (TW-TASK-0039 A; web/affiliate_help.py) ---
+# Uses anthropic_token (below). AFFILIATE_SUPPORT_EMAIL is the address
+# PARTNERS are told to write to; owner notices go to AFFILIATE_OWNER_EMAIL.
+AFFILIATE_SUPPORT_EMAIL = os.environ.get('AFFILIATE_SUPPORT_EMAIL', 'help@tradewave.ai')
+# One model call is capped at this many seconds and is never retried, so a
+# slow model cannot hold a web worker thread (gunicorn --timeout is 60).
+AFFILIATE_HELP_MODEL_TIMEOUT = float(os.environ.get('TW2_AFFILIATE_HELP_MODEL_TIMEOUT', '25'))
+AFFILIATE_HELP_MODEL = os.environ.get('TW2_AFFILIATE_HELP_MODEL', 'claude-sonnet-5-5')
+# Optional reply-by-email (Resend inbound). OFF unless BOTH are set:
+#   secret  = the Resend webhook signing secret (whsec_...)
+#   address = an address on the Resend inbound domain, e.g. reply@inbound.tradewave.ai
+AFFILIATE_HELP_INBOUND_SECRET = os.environ.get('TW2_AFFILIATE_HELP_INBOUND_SECRET', '')
+AFFILIATE_HELP_INBOUND_ADDRESS = os.environ.get('TW2_AFFILIATE_HELP_INBOUND_ADDRESS', '')
+AFFILIATE_HELP_CLOSE_TEXT = os.environ.get('TW2_AFFILIATE_HELP_CLOSE_TEXT', '')  # default note when a question is closed without an answer; empty = built-in text
+AFFILIATE_HELP_REPLY_FROM = os.environ.get('AFFILIATE_HELP_REPLY_FROM', '')  # extra comma-separated owner addresses allowed to answer by email
+# Per-partner limits and conversation-log retention.
+AFFILIATE_HELP_MAX_PER_10MIN = int(os.environ.get('TW2_AFFILIATE_HELP_MAX_PER_10MIN', '10'))
+AFFILIATE_HELP_MAX_PER_DAY = int(os.environ.get('TW2_AFFILIATE_HELP_MAX_PER_DAY', '60'))
+AFFILIATE_HELP_MAX_ESCALATIONS_PER_DAY = int(os.environ.get('TW2_AFFILIATE_HELP_MAX_ESCALATIONS_PER_DAY', '5'))
+AFFILIATE_HELP_RETENTION_DAYS = int(os.environ.get('TW2_AFFILIATE_HELP_RETENTION_DAYS', '365'))
+
+# Program v2 (TW-TASK-0038). All env-agnostic defaults; per-env values come
+# from /etc/tradewave/secrets.env.
+# FOUNDER_PRICE_IDS: comma-separated Stripe price ids of the legacy founder
+# plans ($189). A subscription on one of these (or on a price/product carrying
+# metadata tw2_founder=true) may only be CANCELLED in self-serve billing - no
+# plan, interval or price change via checkout or the Billing Portal.
+FOUNDER_PRICE_IDS = tuple(
+    p.strip() for p in os.environ.get('TW2_FOUNDER_PRICE_IDS', '').split(',') if p.strip()
+)
+# Optional dedicated Billing Portal configuration for founders with
+# "customers can switch plans" turned OFF. When empty, founders are sent
+# straight into the portal's cancel flow instead of the portal home.
+FOUNDER_BILLING_PORTAL_CONFIGURATION_ID = os.environ.get(
+    'TW2_FOUNDER_BILLING_PORTAL_CONFIGURATION_ID', ''
+).strip()
+# Commission is booked by the date an invoice was PAID. Stripe can only list
+# invoices by `created`, so the monthly compute lists this many days before
+# the month and filters on paid_at (covers late-paid / dunning-recovered ones).
+AFFILIATE_PAID_LOOKBACK_DAYS = int(os.environ.get('TW2_AFFILIATE_PAID_LOOKBACK_DAYS', '120'))
+# The monthly reversal pass re-reads disputes and refunds created this many
+# days before the month, to follow a status that changed later: a dispute
+# that was won, an inquiry that escalated, a pending refund that failed.
+AFFILIATE_REVERSAL_LOOKBACK_DAYS = int(os.environ.get('TW2_AFFILIATE_REVERSAL_LOOKBACK_DAYS', '180'))
+# Payout minimum (small-balance hold), in cents of the payout currency. A
+# month whose payable total is below it stays pending and is carried into the
+# partner's next month with activity; "mark paid" is refused below it.
+AFFILIATE_PAYOUT_MINIMUM_CENTS = int(os.environ.get('TW2_AFFILIATE_PAYOUT_MINIMUM_CENTS', '5000'))
+# --- Operations + growth tools (TW-TASK-0039 package C) ---
+# Tax-form uploads are Fernet-encrypted at rest. TW2_TAX_FORM_KEY is one or
+# more comma-separated Fernet keys (first encrypts, all decrypt - rotation).
+# EMPTY = the portal refuses uploads. Generate one on the box:
+#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+TAX_FORM_KEY = os.environ.get('TW2_TAX_FORM_KEY', '').strip()
+# Where the encrypted files live. Must be OUTSIDE the web root (never served).
+TAX_FORM_DIR = os.environ.get('TW2_TAX_FORM_DIR', '/var/lib/tradewave/affiliate-tax-forms')
+TAX_FORM_MAX_BYTES = int(os.environ.get('TW2_TAX_FORM_MAX_BYTES', str(5 * 1024 * 1024)))
+# Creative library images (banners / logos): a PUBLIC asset folder so a
+# partner can embed them. Empty = <web_root_dir>/assets/affiliate-creatives.
+AFFILIATE_CREATIVE_DIR = os.environ.get('TW2_AFFILIATE_CREATIVE_DIR', '').strip()
+# Monthly operations summary (sent to AFFILIATE_OWNER_EMAIL): what counts as
+# a large refund, and how close to the activity deadline is worth a line.
+AFFILIATE_OPS_LARGE_REFUND_CENTS = int(os.environ.get('TW2_AFFILIATE_OPS_LARGE_REFUND_CENTS', '20000'))
+AFFILIATE_OPS_ACTIVITY_WARN_DAYS = int(os.environ.get('TW2_AFFILIATE_OPS_ACTIVITY_WARN_DAYS', '30'))
+# Wise batch CSV: the currency the TradeWave Wise balance pays from.
+AFFILIATE_WISE_SOURCE_CURRENCY = os.environ.get('TW2_AFFILIATE_WISE_SOURCE_CURRENCY', 'USD').strip().upper()
+# Timezone the admin screens show and accept campaign claim windows in (IANA
+# name). Storage is always UTC.
+ADMIN_DISPLAY_TIMEZONE = os.environ.get('TW2_ADMIN_DISPLAY_TIMEZONE', 'America/New_York').strip() or 'UTC'
+
 # === STRIPE (TW2) ===
 # Get test keys from Stripe dashboard → Developers → API keys (toggle test mode)
 # Get from Stripe dashboard → Webhooks → Add endpoint (won't work until cloudflared tunnel is set up)

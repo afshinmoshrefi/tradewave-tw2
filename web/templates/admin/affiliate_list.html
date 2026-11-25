@@ -1,0 +1,8 @@
+{# Flask-Admin list page of a partner-program table (Affiliates, Payout
+   Ledger, Commission lines) with the ONE shared sub-nav on top
+   (web/affiliate_nav.py, Jinja global `affiliate_subnav`). #}
+{% extends 'admin/model/list.html' %}
+{% block body %}
+{{ affiliate_subnav|safe }}
+{{ super() }}
+{% endblock %}

@@ -169,6 +169,45 @@ def affiliate_funnel(affiliate_id, days=30):
         return out
 
 
+def affiliate_program_v2(affiliate_id):
+    """Program v2 facts for ONE affiliate: the terms version that applies to their next
+    referral (their assigned row, else the seeded default v2-5y), the last self-serve
+    discount change, and the first-payment date of their most recent NEW paying customer
+    (the activity rule's input; returning customers do not count). None if unknown."""
+    with cursor() as cur:
+        cur.execute(
+            """
+            SELECT t.version AS terms_version, t.pool_pct, t.max_discount_pct,
+                   t.promo_commission_pct, t.renewal_pct, t.renewal_years,
+                   t.activity_rule_months, a.discount_changed_at,
+                   (SELECT max(r.first_paid_at) FROM affiliate_referrals r
+                     WHERE r.affiliate_id = a.id AND r.first_paid_at IS NOT NULL
+                       AND r.source <> 'return') AS last_new_customer_at
+            FROM affiliates a
+            LEFT JOIN affiliate_terms t ON t.id = coalesce(
+                a.terms_id, (SELECT id FROM affiliate_terms WHERE version = 'v2-5y'))
+            WHERE a.id = %s
+            """,
+            (affiliate_id,),
+        )
+        return cur.fetchone()
+
+
+def active_promotions():
+    """Company-wide campaigns that are live right now (not partner-specific)."""
+    with cursor() as cur:
+        cur.execute(
+            """
+            SELECT code, name, tiers, billing_intervals, offer_type, intro_prices, percent_off,
+                   intro_months, stripe_coupon_ids, starts_at, ends_at
+            FROM promo_campaigns
+            WHERE status = 'active' AND starts_at <= now() AND ends_at > now()
+            ORDER BY ends_at
+            """
+        )
+        return cur.fetchall()
+
+
 def affiliate_payout_rows(affiliate_id, limit=36):
     """Statement rows, newest first (totals only - the per-invoice detail is not selected)."""
     with cursor() as cur:

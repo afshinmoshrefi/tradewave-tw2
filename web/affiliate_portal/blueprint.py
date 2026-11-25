@@ -24,6 +24,9 @@ bp = Blueprint(
     "affiliate_portal",
     __name__,
     template_folder="templates",
+    # partner-tour.mp4 / .jpg / .vtt (the narrated dashboard tour); served at
+    # <url_prefix>/static/<file>, public like any other static asset.
+    static_folder="static",
 )
 
 _USER_LOADER = None
@@ -33,6 +36,22 @@ def set_user_loader(fn):
     """Parent injects web/app.py:get_current_user (zero-arg -> User|None)."""
     global _USER_LOADER
     _USER_LOADER = fn
+
+
+_CATALOG_LOADER = None
+
+
+def set_catalog_loader(fn):
+    """Optional: parent injects its Stripe price catalog (zero-arg ->
+    {(tier, 'month'|'year'): {"list_price_cents": ...}}; web/app.py:
+    _campaign_catalog). Without it the routes look the function up on the
+    module that created the Flask app."""
+    global _CATALOG_LOADER
+    _CATALOG_LOADER = fn
+
+
+def get_catalog_loader():
+    return _CATALOG_LOADER
 
 
 def get_current_user():
@@ -88,3 +107,6 @@ def require_affiliate(view):
 
 
 from . import routes  # noqa: E402,F401  (attach @bp.route handlers)
+from . import help_routes  # noqa: E402,F401  (partner help assistant endpoints)
+from . import ops_routes  # noqa: E402,F401  (tax form, sub-links, creatives - TW-TASK-0039 C)
+from . import messages  # noqa: E402,F401  (Messages inbox + email preferences)
