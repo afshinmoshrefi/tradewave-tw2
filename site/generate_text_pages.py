@@ -343,8 +343,7 @@ def render_page(title: str, subtitle: str, body_html: str, last_updated: str | N
     <a href="/app/">Wave Viewer</a>
     <a href="/learn/">Learn</a>
     <a href="/contact.html">Contact</a>
-    <a href="/affiliate">Affiliates</a>
-    <a href="/partners/apply">Become a partner</a>
+    <a href="/affiliate">Affiliate Program</a>
     <a href="/privacy.html">Privacy</a>
     <a href="/terms.html">Terms</a>
     <a href="/disclaimer.html">Disclaimer</a>

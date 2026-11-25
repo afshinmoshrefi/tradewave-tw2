@@ -991,7 +991,7 @@ class TestApplyPage:
     def test_linked_from_join_page_footer_and_site_footer(self):
         assert 'href="/partners/apply"' in (REPO / "web/templates/affiliate_landing.html").read_text()
         gen = (REPO / "site/generate_text_pages.py").read_text()
-        assert '<a href="/partners/apply">Become a partner</a>' in gen
+        assert '<a href="/affiliate">Affiliate Program</a>' in gen   # footer -> program page, which links to apply
         assert 'href="{PARTNER_APPLY_URL}">Apply now' in gen
         assert "location /partners/" in (REPO / "ops/nginx/sites-available/tradewave").read_text()
 
