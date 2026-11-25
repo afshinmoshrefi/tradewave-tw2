@@ -765,14 +765,72 @@ def build_affiliate() -> tuple[str, dict]:
   .aff-cta-wrap .aff-cta { display:inline-block; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; text-decoration:none; font-weight:700; font-size:16px; padding:14px 32px; border-radius:10px; transition:transform 140ms ease, box-shadow 140ms ease; }
   .aff-cta-wrap .aff-cta:hover { transform:translateY(-1px); box-shadow:0 10px 28px rgba(139,92,246,0.3); }
   .aff-cta-note { font-size:13px; color:var(--text-muted); margin:16px 0 0; }
+    .aff-uses .aff-card h3 { font-size:16px; }
   @media (max-width:720px) { .aff-cards, .aff-steps, .aff-terms { grid-template-columns:1fr; } }
 </style>
 """
     mailto = f"mailto:{PARTNER_EMAIL}?subject={quote(PARTNER_SUBJECT)}"
     body = css + f"""
-<p class="aff-lead">TradeWave helps traders find stocks that repeat the same seasonal patterns year after year, then scores each setup with a 62-feature AI model. If you teach, write about, or build a community around trading, our affiliate program pays you well for introducing your audience to a tool they will actually use - and lets you hand them a real discount.</p>
+<p class="aff-lead">You already have an audience that trusts your take on the market. TradeWave gives you a research engine to back it up: it finds stocks that tend to move the same way at the same time each year, shows you the evidence, and scores each setup with a 62-feature AI model. Keep your own strategy. Use TradeWave to discover ideas, check them, and track how they play out, then share it with your audience for a cut of every sale.</p>
 
-<h2>Why partners promote TradeWave</h2>
+<h2>What you can do with TradeWave</h2>
+<p>Each of these is a question your audience asks, and one you can answer on camera in a couple of minutes.</p>
+<div class="aff-cards aff-uses">
+  <div class="aff-card">
+    <h3>"Is MSFT usually up or down this time of year?"</h3>
+    <p>Look up any stock and see how it has behaved over the same dates, year after year.</p>
+  </div>
+  <div class="aff-card">
+    <h3>"What is starting a strong pattern right now?"</h3>
+    <p>When a stock enters a high-probability seasonal window, TradeWave finds it for you, so you are not scanning charts by hand.</p>
+  </div>
+  <div class="aff-card">
+    <h3>"I only want to be in for a few weeks."</h3>
+    <p>Search for opportunities by how long you want to hold, anywhere from 2 to 365 days.</p>
+  </div>
+  <div class="aff-card">
+    <h3>"Would buy and hold have done better?"</h3>
+    <p>Run a buy-and-hold analysis on any stock, and compare it with trading only the strong seasonal windows.</p>
+  </div>
+  <div class="aff-card">
+    <h3>"Which of these stocks has done best?"</h3>
+    <p>Compare the performance of several stocks side by side, over as many years of history as exist.</p>
+  </div>
+  <div class="aff-card">
+    <h3>"What does a typical year look like?"</h3>
+    <p>See the average price path over the last 10, 20 or any number of years, drawn as a chart you can show.</p>
+  </div>
+  <div class="aff-card">
+    <h3>"Where could my stocks be in 3 months?"</h3>
+    <p>Project where a portfolio would land if the market followed its historical average from here.</p>
+  </div>
+  <div class="aff-card">
+    <h3>"When is the worst time to hold?"</h3>
+    <p>Find a stock's weakest stretches, like September for Apple, then exclude those dates to see how it performs without them.</p>
+  </div>
+  <div class="aff-card">
+    <h3>"Did last month's ideas actually work?"</h3>
+    <p>Track how picks and patterns played out, so you can show your audience real results, not just predictions.</p>
+  </div>
+</div>
+
+<h2>How creators use it</h2>
+<div class="aff-steps">
+  <div class="aff-step">
+    <h3>Discover</h3>
+    <p>Start each week with what is entering its seasonal window, and turn the best of it into a video, post or lesson.</p>
+  </div>
+  <div class="aff-step">
+    <h3>Check</h3>
+    <p>Before you call a trade, see whether history and the AI score agree with you. TradeWave sits beside your own strategy, it does not replace it.</p>
+  </div>
+  <div class="aff-step">
+    <h3>Follow up</h3>
+    <p>Come back to the same stocks later and show how they did. Honest follow-ups build trust, and trust is what makes people use your link.</p>
+  </div>
+</div>
+
+<h2>Why partners like the program</h2>
 <div class="aff-cards">
   <div class="aff-card">
     <h3>A big first-year share</h3>
