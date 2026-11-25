@@ -785,6 +785,10 @@ def build_affiliate() -> tuple[str, dict]:
     <p>When a stock enters a high-probability seasonal window, TradeWave finds it for you, so you are not scanning charts by hand.</p>
   </div>
   <div class="aff-card">
+    <h3>"What starts today?"</h3>
+    <p>The Opportunity table lists every pattern that starts on the current day, so nothing slips past you.</p>
+  </div>
+  <div class="aff-card">
     <h3>"I only want to be in for a few weeks."</h3>
     <p>Search for opportunities by how long you want to hold, anywhere from 2 to 365 days.</p>
   </div>
@@ -819,6 +823,14 @@ def build_affiliate() -> tuple[str, dict]:
   <div class="aff-card">
     <h3>"Can I use it inside ChatGPT?"</h3>
     <p>Yes. TradeWave connects to ChatGPT, Claude and other AI assistants through MCP, and has an API for people who build their own tools.</p>
+  </div>
+  <div class="aff-card">
+    <h3>"Can I build a portfolio around this pattern?"</h3>
+    <p>Group stocks or other securities that share a pattern into a portfolio. TradeWave writes a report on it, and tracks each portfolio's performance on its own.</p>
+  </div>
+  <div class="aff-card">
+    <h3>"Remind me when it starts."</h3>
+    <p>Found a pattern that opens next month? Add it to Google Calendar, or put it in a portfolio and set a notification.</p>
   </div>
   <div class="aff-card">
     <h3>"Did last month's ideas actually work?"</h3>
